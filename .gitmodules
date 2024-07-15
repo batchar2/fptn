@@ -1,0 +1,9 @@
+[submodule "libs/libtuntap"]
+	path = libs/libtuntap
+	url = https://github.com/LaKabane/libtuntap.git
+[submodule "depends/libs/libtuntap"]
+	path = depends/libs/libtuntap
+	url = https://github.com/LaKabane/libtuntap.git
+[submodule "depends/libs/libhv"]
+	path = depends/libs/libhv
+	url = https://github.com/ithewei/libhv.git
