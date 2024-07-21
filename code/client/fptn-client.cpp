@@ -84,7 +84,7 @@ int main(int argc, char* argv[])
                 const pcpp::IPv4Layer* ip_layer = parsed_packet.getLayerOfType<pcpp::IPv4Layer>();
                 if (ip_layer) {
                     websocket_client->send(raw_ip_packet_data);
-                    // std::cerr << "send to websocket>" << std::endl;
+                    std::cerr << "send to websocket>" << std::endl;
                 }
             }   
         }
@@ -104,7 +104,7 @@ int main(int argc, char* argv[])
                 const pcpp::IPv4Layer* ip_layer = parsed_packet.getLayerOfType<pcpp::IPv4Layer>();
                 if (ip_layer) {
                     net_interface->send(raw_ip_packet_data);
-                    // std::cerr << "send to network>" << std::endl;
+                    std::cerr << "send to network>" << std::endl;
                 }
             }
         }

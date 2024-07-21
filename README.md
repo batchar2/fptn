@@ -167,7 +167,7 @@ Open a new terminal and run the configuration script. Keep the client running in
 and after that need to run configuration script, in diferent terminal and do not stop client
 
 ```
-sudo code/client/scipts/client-network-setup.sh <external_interface>  <gateway_ip>  <vpn_server_ip>
+sudo code/client/scipts/linux-client-network-setup.sh <external_interface>  <gateway_ip>  <vpn_server_ip>
 ```
 - <external_interface>: The network interface used to route traffic to the VPN server (e.g., enp0s5).
 - <gateway_ip>: The IP address of the gateway for the external interface (e.g., 10.211.55.1).
@@ -187,4 +187,67 @@ After opening the project, the "Open Project Wizard" will appear automatically. 
 
 ```
 -DCONAN_HOST_PROFILE="auto-cmake;default" -DCMAKE_PROJECT_TOP_LEVEL_INCLUDES=./conan_provider.cmake
+```
+
+
+#### MacOS 
+
+Solution: https://github.com/ntop/n2n/issues/773
+
+- Download https://github.com/Tunnelblick/Tunnelblick/tree/master/third_party/tap-notarized.kext
+- Download https://github.com/Tunnelblick/Tunnelblick/tree/master/third_party/tun-notarized.kext
+- Change the name to tap.kext and tap.kext,
+- Copy to /Library/Extensions
+- add net.tunnelblick.tap.plist and net.tunnelblick.tun.plist to /Library/LaunchDaemons/
+
+``` 
+#net.tunnelblick.tap.plist
+<?xml version="1.0" encoding="UTF-8"?>
+  <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+  <plist version="1.0">
+  <dict>
+      <key>Label</key>
+      <string>net.tunnelblick.tap</string>
+      <key>ProgramArguments</key>
+      <array>
+          <string>/sbin/kextload</string>
+          <string>/Library/Extensions/tap.kext</string>
+      </array>
+      <key>KeepAlive</key>
+      <false/>
+      <key>RunAtLoad</key>
+      <true/>
+      <key>UserName</key>
+      <string>root</string>
+  </dict>
+  </plist>
+   #net.tunnelblick.tun.plist
+  <?xml version="1.0" encoding="UTF-8"?>
+  <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+  <plist version="1.0">
+  <dict>
+      <key>Label</key>
+      <string>net.tunnelblick.tun</string>
+      <key>ProgramArguments</key>
+      <array>
+          <string>/sbin/kextload</string>
+          <string>/Library/Extensions/tun.kext</string>
+      </array>
+      <key>KeepAlive</key>
+      <false/>
+      <key>RunAtLoad</key>
+      <true/>
+      <key>UserName</key>
+      <string>root</string>
+  </dict>
+</plist>
+````
+
+Run sudo kextload /Library/Extensions/tap.kext in the terminal
+restart Mac after allowing the security check.
+
+
+
+```
+sudo code/client/scipts/macos-client-network-setup.sh en0 192.168.4.1 170.64.148.141
 ```

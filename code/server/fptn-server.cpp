@@ -107,9 +107,9 @@ int main(int argc, char* argv[])
                 (int)raw_ip_packet_data.size(),
                 timeval { 0, 0 },
                 false,
-                pcpp::LINKTYPE_IPV4);
+                pcpp::LINKTYPE_IPV4
+            );
             pcpp::Packet parsed_packet(&raw_packet, false);
-            // std::cerr << "+ >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> interface " << std::endl;
             if (parsed_packet.isPacketOfType(pcpp::IPv4) || parsed_packet.isPacketOfType(pcpp::IP)) {
                 const pcpp::IPv4Layer* ip_layer = parsed_packet.getLayerOfType<pcpp::IPv4Layer>();
                 if (ip_layer) {
@@ -120,7 +120,8 @@ int main(int argc, char* argv[])
                     }
                 }
             }
-        });
+        }
+    );
 
     websocket_server->start(
         [net_interface, nat_table](const std::string& raw_ip_packet_data, const std::uint32_t client_id) -> void
@@ -130,9 +131,9 @@ int main(int argc, char* argv[])
                 (int)raw_ip_packet_data.size(),
                 timeval { 0, 0 },
                 false,
-                pcpp::LINKTYPE_IPV4);
+                pcpp::LINKTYPE_IPV4
+            );
             pcpp::Packet parsed_packet(&raw_packet, false);
-            // std::cerr << "+ <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< websocket "  << std::endl;
             if (parsed_packet.isPacketOfType(pcpp::IPv4) || parsed_packet.isPacketOfType(pcpp::IP)) {
                 const pcpp::IPv4Layer* ip_layer = parsed_packet.getLayerOfType<pcpp::IPv4Layer>();
                 if (ip_layer && nat_table->from_client(parsed_packet, client_id)) {
@@ -140,7 +141,8 @@ int main(int argc, char* argv[])
                     net_interface->send((void*)raw_repl_packet->getRawData(), raw_repl_packet->getRawDataLen());
                 }
             }
-        });
+        }
+    );
 
     {
         wait_for_signal();

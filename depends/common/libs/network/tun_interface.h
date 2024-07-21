@@ -35,7 +35,6 @@ namespace fptn::network
                 tun_->name(name_);
                 tun_->ip(addr_, netmask_);
                 tun_->up();
-
                 running_ = true;
                 th_ = std::thread(&tun_interface::run, this);
                 return th_.joinable();
