@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-#!/usr/bin/env bash
-
 if [ $# -ne 3 ]; then
     echo "Usage: $0 <external_interface> <gateway_ip> <vpn_server_ip>"
     exit 1
@@ -35,15 +33,3 @@ route add $VPN_SERVER_IP $GATEWAY_IP
 
 echo "Routing and firewall rules applied successfully."
 
-
-# INTERFACE_TUN=tun0
-
-
-# sysctl -w net.inet.ip.forwarding=1
-
-# # route add -host 54.81.143.201 -interface en0
-
-# route add -net 8.8.8.0/24 -interface "${INTERFACE_TUN}"
-
-
-# # route add -host 54.81.143.201 -interface en0
