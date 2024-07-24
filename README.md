@@ -132,7 +132,7 @@ cd ..
     
 To start the server, use:
 ```
-sudo build/build/Release/code/server/fptn-server --server-port=8080 --interface-address=1.1.1.1 --interface-name=tun0 --server-crt=./keys/server.crt --server-key=./keys/server.key
+sudo build/build/Release/code/server/fptn-server --server-crt=keys/server.crt --server-key=keys/server.key --out-network-interface=eth0 --tun-interface-address=2.2.0.1
  ``` 
  -  --server-port: The port where the server will listen (e.g.,  8080).
  -  --interface-address: The IP address of the interface (e.g.,  1.1.1.1).
@@ -158,7 +158,7 @@ sudo code/server/scripts/server-network-setup.sh eth0
 
 When your URI contains your address, run:
 ```
-sudo build-linux/build/Release/code/client/fptn-client --server-uri="wss://YOUR_VPN_SERVER_ADDRESS:8080/fptn" --interface-name=tun0
+sudo cmake-build-debug/build/Release/code/client/fptn-client --vpn-server-uri="wss://170.64.148.141:8080/fptn" --out-network-interface=en0 --tun-interface-name=tun0 --gateway-ip=192.168.4.1
 ```
 
 ##### Set up the configuration:

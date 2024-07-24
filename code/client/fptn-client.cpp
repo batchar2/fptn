@@ -1,49 +1,66 @@
+#include <regex>
 #include <iostream>
 
 #include <boost/asio.hpp>
 #include <argparse/argparse.hpp>
 
-#include <pcapplusplus/Packet.h>
-#include <pcapplusplus/EthLayer.h>
-#include <pcapplusplus/IPv4Layer.h>
+#include <common/data/channel.h>
+#include <common/network/ip_packet.h>
+#include <common/network/tun_interface.h>
 
-#include <network/tun_interface.h>
+#include "vpn/vpn_client.h"
+#include "system/iptables.h"
+#include "http/websocket_client.h"
 
-#include "websocket/client.h"
 
-
-inline void wait_for_signal()
+inline void waitForSignal() 
 {
     boost::asio::io_context io_context;
     boost::asio::signal_set signals(io_context, SIGINT, SIGTERM);
     signals.async_wait(
         [&](auto, auto) {
-            std::clog << "Signal received" << std::endl;
+            LOG(INFO) << "Signal received";
             io_context.stop();
-        }
-    );
+        });
     io_context.run();
 }
+
+std::string extractIpOrHost(const std::string& url) {
+    std::regex rgx(R"(^(wss://)([a-zA-Z0-9.-]+)(:\d+)?/.*$)");
+    std::smatch match;
+
+    if (std::regex_search(url, match, rgx)) {
+        return match[2];
+    }
+    return ""; 
+}
+
 
 
 int main(int argc, char* argv[])
 {
     google::InitGoogleLogging(argv[0]);
+    google::SetStderrLogging(google::INFO);
+    google::SetLogDestination(google::INFO, "");
 
     argparse::ArgumentParser program_args("fptn-client");
-    program_args.add_argument("--interface-name")
-        .required()
-        .help("Network interface name");
-    program_args.add_argument("--server-uri")
+    // Required arguments
+    program_args.add_argument("--vpn-server-uri")
         .required()
         .help("Host address");
-    program_args.add_argument("--interface-address")
+    program_args.add_argument("--out-network-interface")
+        .required()
+        .help("Network out interface");
+    // Optional arguments
+    program_args.add_argument("--gateway-ip")
+        .default_value("")
+        .help("Your default gateway ip");
+    program_args.add_argument("--tun-interface-name")
+        .default_value("tun0")
+        .help("Network interface name");
+    program_args.add_argument("--tun-interface-address")
         .default_value("10.10.10.1")
-        .help("Network interface address");
-    program_args.add_argument("--interface-network-mask")
-        .default_value(24)
-        .help("Network mask")
-        .scan<'i', int>();
+        .help("Network interface address");    
     try {
         program_args.parse_args(argc, argv);
     } catch (const std::exception& err) {
@@ -52,72 +69,52 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
 
-    const std::string server_uri = program_args.get<std::string>("--server-uri");
+    const auto vpnServerURL = program_args.get<std::string>("--vpn-server-uri");
+    const auto outNetworkInterfaceName = program_args.get<std::string>("--out-network-interface");
 
-    const int interface_network_mask = program_args.get<int>("--interface-network-mask");
-    const std::string interface_name = program_args.get<std::string>("--interface-name");
-    const std::string interface_address = program_args.get<std::string>("--interface-address"); 
+    const auto gatewayIP = program_args.get<std::string>("--gateway-ip");    
+    const auto tunInterfaceName = program_args.get<std::string>("--tun-interface-name");
+    const auto tunInterfaceAddress = program_args.get<std::string>("--tun-interface-address"); 
+   
+    const std::string vpnServerIP = extractIpOrHost(vpnServerURL);
 
-    auto websocket_client = std::make_shared<fptn::websocket::client>(
-        server_uri,
+
+    auto iptables = std::make_unique<fptn::system::IPTables>(
+        outNetworkInterfaceName,
+        tunInterfaceName,
+        vpnServerIP,
+        gatewayIP
+    );
+
+    auto webSocketClient = std::make_unique<fptn::http::WebSocketClient>(
+        vpnServerURL,
         "token",
-        interface_address,
+        tunInterfaceAddress,
         true
     );
-    auto net_interface = std::make_shared<fptn::network::tun_interface>(
-        interface_name,    
-        interface_address,
-        interface_network_mask
+
+    auto virtualNetworkInterface = std::make_unique<fptn::common::network::TunInterface>(
+        tunInterfaceName, tunInterfaceAddress, 30, nullptr
     );
-    net_interface->start(
-        [websocket_client](const std::string& raw_ip_packet_data) -> void
-        {
-            pcpp::RawPacket raw_packet(
-                (const std::uint8_t*)raw_ip_packet_data.c_str(),
-                (int)raw_ip_packet_data.size(),
-                timeval{0, 0}, 
-                false, 
-                pcpp::LINKTYPE_IPV4
-            );
-            pcpp::Packet parsed_packet(&raw_packet, false);
-            if (parsed_packet.isPacketOfType(pcpp::IPv4) || parsed_packet.isPacketOfType(pcpp::IP)) {
-                const pcpp::IPv4Layer* ip_layer = parsed_packet.getLayerOfType<pcpp::IPv4Layer>();
-                if (ip_layer) {
-                    websocket_client->send(raw_ip_packet_data);
-                    std::cerr << "send to websocket>" << std::endl;
-                }
-            }   
-        }
+
+    fptn::vpn::VpnClient vpnClient(
+        std::move(webSocketClient),
+        std::move(virtualNetworkInterface)
     );
-    websocket_client->start(
-        [net_interface](const std::string& raw_ip_packet_data) -> void
-        {
-            pcpp::RawPacket raw_packet(
-                (const std::uint8_t*)raw_ip_packet_data.c_str(),
-                (int)raw_ip_packet_data.size(),
-                timeval{0, 0}, 
-                false, 
-                pcpp::LINKTYPE_IPV4
-            );
-            pcpp::Packet parsed_packet(&raw_packet, false);
-            if (parsed_packet.isPacketOfType(pcpp::IPv4) || parsed_packet.isPacketOfType(pcpp::IP)) {
-                const pcpp::IPv4Layer* ip_layer = parsed_packet.getLayerOfType<pcpp::IPv4Layer>();
-                if (ip_layer) {
-                    net_interface->send(raw_ip_packet_data);
-                    std::cerr << "send to network>" << std::endl;
-                }
-            }
-        }
-    );
+
+
+    vpnClient.start();
+
+    std::this_thread::sleep_for(std::chrono::seconds(1)); // FIX IT!
+
+    iptables->apply();
+
+    waitForSignal();
     
-    // main loop
-    wait_for_signal();
-    
-    
-    net_interface->stop();
-    websocket_client->stop();
+    vpnClient.stop();
 
     google::ShutdownGoogleLogging();
+
 
     return EXIT_SUCCESS;
 }

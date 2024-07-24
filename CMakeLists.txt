@@ -23,7 +23,10 @@ add_subdirectory(depends/libs/libhv)
 
 # include
 include_directories(code/)
-include_directories(depends/common/libs)
+include_directories(depends/)
 
-add_subdirectory(code/server)
+if(APPLE OR UNIX)
+    add_subdirectory(code/server)
+endif()
+
 add_subdirectory(code/client)

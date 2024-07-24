@@ -1,35 +1,55 @@
 #pragma once
 
-#include "http/http.h"
-#include "websocket/websocket.h"
+#include "nat/table.h"
+#include "http/http_server.h"
+#include "websocket/websocket_server.h"
+
+#include <common/data/channel.h>
+#include <common/network/ip_packet.h>
 
 
 namespace fptn::web
 {
-    class server final
+    class Server final
     {
     public:
-        server(
-                std::uint16_t port,
-                const bool use_https,
-                const std::string& cert_file,
-                const std::string& key_file,
-                const websocket::new_connection_callback& new_connection = nullptr,
-                const websocket::close_connection_callback& close_connection = nullptr,
-                const int thread_number = 4
+        Server(
+            const fptn::nat::TableSPtr& natTable,
+            std::uint16_t port,
+            const bool use_https,
+            const std::string& cert_file,
+            const std::string& key_file,
+            const int thread_number = 4
         );
-        ~server();
-        bool start(const websocket::recv_packet_callback &recv_packet = nullptr) noexcept;
+        ~Server();
+        bool check() noexcept;
+        bool start() noexcept;
         bool stop() noexcept;
+    public:
+        void send(fptn::common::network::IPPacketPtr packet) noexcept;
+        fptn::common::network::IPPacketPtr waitForPacket(const std::chrono::milliseconds& duration) noexcept;
     private:
-        void run() noexcept;
+        void newVpnConnection(std::uint32_t clientId, const pcpp::IPv4Address& clientVpnIP) noexcept;
+        void closeVpnConnection(std::uint32_t clientId) noexcept;
+        void newIPPacketFromVPN(fptn::common::network::IPPacketPtr packet) noexcept;
     private:
-        std::thread th_;
-        std::mutex mtx_;
+        void runServerthread() noexcept;
+        void runSenderThread() noexcept;
+    private:
+        std::atomic<bool> running_; 
+        fptn::nat::TableSPtr natTable_;
+        fptn::common::data::Channel toClient_;
+        fptn::common::data::Channel fromClient_;
 
-        http http_;
-        websocket ws_;
+        std::thread thread_;
+        HttpServer http_;
+        WebsocketServer ws_;
+        hv::WebSocketServer mainServer_;
 
-        hv::WebSocketServer main_server_;
+        std::thread serverThread_;
+        std::thread senderThread_;
     };
+
+    using ServerSPtr = std::unique_ptr<Server>;
+    
 }

@@ -1,63 +1,115 @@
 #include "server.h"
 
+#include <functional>
+
 
 using namespace fptn::web;
 
 
-server::server(
-        std::uint16_t port,
-        const bool use_https,
-        const std::string& cert_file,
-        const std::string& key_file,
-        const websocket::new_connection_callback& new_connection,
-        const websocket::close_connection_callback& close_connection,
-        const int thread_number
+Server::Server(
+    const fptn::nat::TableSPtr& natTable,
+    std::uint16_t port,
+    const bool use_https,
+    const std::string& cert_file,
+    const std::string& key_file,
+    const int thread_number
 )
-    : ws_(new_connection, close_connection, nullptr)
+    : 
+        running_(false), 
+        natTable_(natTable), 
+        ws_(
+            std::bind(&Server::newVpnConnection, this, std::placeholders::_1, std::placeholders::_2), 
+            std::bind(&Server::closeVpnConnection, this, std::placeholders::_1),
+            std::bind(&Server::newIPPacketFromVPN, this, std::placeholders::_1)
+        )
 {
     if (use_https) {
-        main_server_.https_port = port;
+        mainServer_.https_port = port;
         hssl_ctx_opt_t param;
         std::memset(&param, 0x00, sizeof(param));
         param.crt_file = cert_file.c_str();
         param.key_file = key_file.c_str();
         param.endpoint = HSSL_SERVER;
-        if (main_server_.newSslCtx(&param) != 0) {
+        if (mainServer_.newSslCtx(&param) != 0) {
             LOG(ERROR) << "new SSL_CTX failed!";
         }
     } else {
-        main_server_.port = port;
+        mainServer_.port = port;
     }
-    main_server_.setThreadNum(thread_number);
-    main_server_.registerHttpService(http_.get_service());
-    main_server_.registerWebSocketService(ws_.get_service());
+    mainServer_.setThreadNum(thread_number);
+    mainServer_.registerHttpService(http_.getService());
+    mainServer_.registerWebSocketService(ws_.getService());
 }
 
-server::~server()
+Server::~Server()
 {
     stop();
 }
 
-bool server::start(const websocket::recv_packet_callback &recv_packet) noexcept
+
+bool Server::check() noexcept
 {
-    std::lock_guard<std::mutex> lock(mtx_);
-    ws_.set_recv_packet_callback(recv_packet);
-    th_ = std::thread(&server::run, this);
-    return th_.joinable();
+    return true;
 }
 
-bool server::stop() noexcept
+bool Server::start() noexcept
 {
-    std::lock_guard<std::mutex> lock(mtx_);
-    if (th_.joinable()) {
-        main_server_.stop();
-        th_.join();
-        return true;
+    running_ = true;
+    serverThread_ = std::thread(&Server::runServerthread, this);
+    senderThread_ = std::thread(&Server::runSenderThread, this);
+    return serverThread_.joinable() && senderThread_.joinable();
+}
+
+bool Server::stop() noexcept
+{
+    running_ = false;
+    if (serverThread_.joinable()) {
+        mainServer_.stop();
+        serverThread_.join();
     }
-    return false;
+    if (senderThread_.joinable()) {
+        senderThread_.join();
+    }
+    return true;
 }
 
-void server::run() noexcept
+void Server::runServerthread() noexcept
 {
-    main_server_.run();
+    mainServer_.run();
+}
+
+void Server::runSenderThread() noexcept
+{
+    const std::chrono::milliseconds timeout{300};
+    while (running_) {
+        auto packet = toClient_.waitForPacket(timeout);
+        if (packet != nullptr) {
+            ws_.send(std::move(packet));
+        }
+    }
+}
+
+void Server::newVpnConnection(std::uint32_t clientId, const pcpp::IPv4Address& clientVpnIP) noexcept
+{
+    natTable_->createClientSession(clientId, clientVpnIP, nullptr);
+}
+
+void Server::closeVpnConnection(std::uint32_t clientId) noexcept
+{
+    natTable_->delClientSession(clientId);
+}
+
+void Server::newIPPacketFromVPN(fptn::common::network::IPPacketPtr packet) noexcept
+{
+    fromClient_.push(std::move(packet));
+}
+
+void Server::send(fptn::common::network::IPPacketPtr packet) noexcept
+{
+    toClient_.push(std::move(packet));
+}
+
+fptn::common::network::IPPacketPtr Server::waitForPacket(const std::chrono::milliseconds& duration) noexcept
+{
+    return fromClient_.waitForPacket(duration);
 }

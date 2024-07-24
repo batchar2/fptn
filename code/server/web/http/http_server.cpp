@@ -1,4 +1,4 @@
-#include "http.h"
+#include "http_server.h"
 
 using namespace fptn::web;
 
@@ -77,21 +77,15 @@ static const std::string html_home_page = R"HTML(<!DOCTYPE html>
 )HTML";
 
 
-http::http()
+HttpServer::HttpServer()
 {
     using namespace std::placeholders;
-    http_.GET(home_uri_.c_str(), std::bind(&http::on_home_handle, this, _1, _2));
-    http_.POST(login_uri_.c_str(), std::bind(&http::on_login_handle, this, _1, _2));
+    http_.GET(urlHome_.c_str(), std::bind(&HttpServer::onHomeHandle, this, _1, _2));
+    http_.POST(urlLogin_.c_str(), std::bind(&HttpServer::onLoginHandle, this, _1, _2));
 }
 
 
-hv::HttpService* http::get_service()
-{
-    return &http_;
-}
-
-
-int http::on_home_handle(HttpRequest* req, HttpResponse* resp) noexcept
+int HttpServer::onHomeHandle(HttpRequest* req, HttpResponse* resp) noexcept
 {
     (void)req;
     resp->SetHeader("Server", "nginx/1.24.0");
@@ -105,7 +99,7 @@ int http::on_home_handle(HttpRequest* req, HttpResponse* resp) noexcept
 }
 
 
-int http::on_login_handle(HttpRequest* req, HttpResponse* resp) noexcept
+int HttpServer::onLoginHandle(HttpRequest* req, HttpResponse* resp) noexcept
 {
     (void)req;
     return resp->Json(http_.Paths());

@@ -10,9 +10,11 @@ find_package(websocketpp REQUIRED)
 find_package(fmt REQUIRED)
 find_package(PcapPlusPlus REQUIRED)
 
-add_executable("${PROJECT_NAME}"
-        fptn-client.cpp
-        websocket/client.h websocket/client.cpp
+add_executable(
+    "${PROJECT_NAME}"
+    fptn-client.cpp
+    http/websocket_client.h http/websocket_client.cpp
+    system/iptables.h system/iptables.cpp
 )
 
 target_link_libraries(
