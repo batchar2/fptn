@@ -142,8 +142,8 @@ To add a new user to the VPN server with a specified bandwidth limit, use the fo
 sudo build/build/Release/code/fptn-passwd/fptn-passwd --add-user user10 --bandwidth 30
 ```
 Options:
--`--add-user`: The username for the new user. Example: user10.
--`--bandwidth`: The bandwidth limit for the user in megabits per second (Mbps). Example: 30.
+- `--add-user`: The username for the new user. Example: user10.
+- `--bandwidth`: The bandwidth limit for the user in megabits per second (Mbps). Example: 30.
 
 ##### Start the Server:
     
