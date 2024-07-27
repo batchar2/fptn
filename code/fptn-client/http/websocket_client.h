@@ -17,12 +17,14 @@ namespace fptn::http
     public:
         using NewIPPacketCallback = std::function<void(fptn::common::network::IPPacketPtr packet)>;
     public:
-        WebSocketClient(const std::string& url,
+        WebSocketClient(
+            const std::string& vpnServerIP, 
+            int vpnServerPort,
             const std::string& tunInterfaceAddress,
             bool useSsl = true,
             const NewIPPacketCallback& newIPPktCallback = nullptr
         );
-        bool login(const std::string& vpnServerIP, int vpnServerPort, const std::string& username, const std::string& password) noexcept;
+        bool login(const std::string& username, const std::string& password) noexcept;
         bool start() noexcept;
         bool stop() noexcept;
         bool send(fptn::common::network::IPPacketPtr packet) noexcept;
@@ -35,10 +37,11 @@ namespace fptn::http
         void onCloseHandle() noexcept;
     private:
         std::thread th_;
-        std::mutex mtx_;
         hv::WebSocketClient ws_;
 
-        std::string url_;
+        const std::string vpnServerIP_; 
+        int vpnServerPort_;
+
         std::string token_;
         std::string tunInterfaceAddress_;
         NewIPPacketCallback newIPPktCallback_;

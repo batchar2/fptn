@@ -8,13 +8,15 @@ using namespace fptn::http;
 
 
 WebSocketClient::WebSocketClient(
-    const std::string& url,
+    const std::string& vpnServerIP, 
+    int vpnServerPort,
     const std::string& tunInterfaceAddress,
     bool useSsl,
     const NewIPPacketCallback& newIPPktCallback 
 )
     :
-        url_(url),
+        vpnServerIP_(vpnServerIP), 
+        vpnServerPort_(vpnServerPort),
         token_(""),
         tunInterfaceAddress_(tunInterfaceAddress),
         newIPPktCallback_(newIPPktCallback)
@@ -31,10 +33,13 @@ WebSocketClient::WebSocketClient(
     ws_.onclose = std::bind(&WebSocketClient::onCloseHandle, this);
 }
 
-bool WebSocketClient::login(const std::string& vpnServerIP, int vpnServerPort, const std::string& username, const std::string& password) noexcept
+bool WebSocketClient::login(const std::string& username, const std::string& password) noexcept
 {
-    const std::string url = fmt::format("https://{}:{}/api/v1/login", vpnServerIP, vpnServerPort);
+    const std::string url = fmt::format("https://{}:{}/api/v1/login", vpnServerIP_, vpnServerPort_);
     const std::string request = fmt::format(R"({{ "username": "{}", "password": "{}" }})", username, password);
+
+    std::cerr << "URL>" << url << std::endl;
+    std::cerr << request << std::endl;
 
     auto resp = requests::post(url.c_str(), request);
     if (resp != nullptr) {
@@ -58,15 +63,14 @@ bool WebSocketClient::login(const std::string& vpnServerIP, int vpnServerPort, c
 
 bool WebSocketClient::start() noexcept
 {
-    std::lock_guard<std::mutex> lock(mtx_);
+    const std::string url = fmt::format("wss://{}:{}/fptn", vpnServerIP_, vpnServerPort_);
 
     http_headers headers = {
         {"Authorization", token_},
         {"ClientIP", tunInterfaceAddress_}
     };
-    if (ws_.open(url_.c_str(), headers) != 0) {
+    if (ws_.open(url.c_str(), headers) != 0) {
         std::cerr << "Failed to open WebSocket connection" << std::endl;
-//        throw std::runtime_error("Failed to open WebSocket connection");
     }
 
     th_ = std::thread(&WebSocketClient::run, this);
@@ -75,7 +79,6 @@ bool WebSocketClient::start() noexcept
 
 bool WebSocketClient::stop() noexcept
 {
-    std::lock_guard<std::mutex> lock(mtx_);
     if (th_.joinable()) {
         ws_.stop();
         th_.join();

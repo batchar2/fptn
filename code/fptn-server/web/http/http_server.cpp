@@ -138,6 +138,9 @@ int HttpServer::onLoginHandle(HttpRequest* req, HttpResponse* resp) noexcept
             );
             return 200;
         }
+        LOG(WARNING) << "Wrong password for user: \"" << username << "\"";
+        resp->String(R"({"status": "error", "message": "Invalid login or password."})");
+        return 401;
     } catch (const nlohmann::json::exception& e) {
         LOG(ERROR) << "HTTP JSON AUTH ERROR: " << e.what();
         resp->String(R"({"status": "error", "message": "Invalid JSON format."})");
@@ -147,7 +150,6 @@ int HttpServer::onLoginHandle(HttpRequest* req, HttpResponse* resp) noexcept
         resp->String(R"({"status": "error", "message": "An unexpected error occurred."})");
         return 500;
     }
-    resp->String(R"({"status": "error", "message": "Invalid login or password."})");
     return 401;
 }
 

@@ -2,6 +2,7 @@
 #include <iostream>
 
 #include <boost/asio.hpp>
+#include <boost/process.hpp>
 #include <argparse/argparse.hpp>
 
 #include <common/data/channel.h>
@@ -25,30 +26,6 @@ inline void waitForSignal()
     io_context.run();
 }
 
-inline std::string extractIpOrHost(const std::string& url) 
-{
-    std::regex rgx(R"(^(wss://)([a-zA-Z0-9.-]+)(:\d+)?/.*$)");
-    std::smatch match;
-
-    if (std::regex_search(url, match, rgx)) {
-        return match[2];
-    }
-    return ""; 
-}
-
-int extractPort(const std::string& url) 
-{
-    std::regex rgx(R"(^(wss://)([a-zA-Z0-9.-]+)(:(\d+))?/.*$)");
-    std::smatch match;
-    if (std::regex_search(url, match, rgx)) {
-        if (match[4].length() > 0) {
-            return std::stoi(match[4].str());
-        }
-    }
-    return 443;
-}
-
-
 
 int main(int argc, char* argv[])
 {
@@ -58,9 +35,13 @@ int main(int argc, char* argv[])
 
     argparse::ArgumentParser program_args("fptn-client");
     // Required arguments
-    program_args.add_argument("--vpn-server-uri")
+    program_args.add_argument("--vpn-server-ip")
         .required()
         .help("Host address");
+    program_args.add_argument("--vpn-server-port")
+        .default_value(8080)
+        .help("Port number")
+        .scan<'i', int>();
     program_args.add_argument("--out-network-interface")
         .required()
         .help("Network out interface");
@@ -89,7 +70,8 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
 
-    const auto vpnServerURL = program_args.get<std::string>("--vpn-server-uri");
+    const auto vpnServerIP = program_args.get<std::string>("--vpn-server-ip");
+    const auto vpnServerPort = program_args.get<int>("--vpn-server-port");
     const auto outNetworkInterfaceName = program_args.get<std::string>("--out-network-interface");
 
     const auto username = program_args.get<std::string>("--username");
@@ -98,18 +80,26 @@ int main(int argc, char* argv[])
     const auto gatewayIP = program_args.get<std::string>("--gateway-ip");    
     const auto tunInterfaceName = program_args.get<std::string>("--tun-interface-name");
     const auto tunInterfaceAddress = program_args.get<std::string>("--tun-interface-address"); 
-   
-    const int vpnServerPort = extractPort(vpnServerURL);
-    const std::string vpnServerIP = extractIpOrHost(vpnServerURL);
+
+    const std::string usingGatewayIP = (!gatewayIP.empty() ? gatewayIP : fptn::system::getDefaultGatewayIPAddress());
+    if (usingGatewayIP.empty()) {
+        std::cerr << "Error: Unable to find the default gateway IP address. Please specify it using the \"--gateway-ip\" option." << std::endl;
+        return EXIT_FAILURE;
+    }
+    std::cerr << "GATEWAY IP:        " << usingGatewayIP << std::endl;
+    std::cerr << "NETWORK INTERFACE: " << outNetworkInterfaceName << std::endl;
+    std::cerr << "VPN SERVER IP:     " << vpnServerIP << std::endl;
+    std::cerr << "VPN SERVER PORT:   " << vpnServerPort << std::endl;
 
 
     auto webSocketClient = std::make_unique<fptn::http::WebSocketClient>(
-        vpnServerURL,
+        vpnServerIP, 
+        vpnServerPort,
         tunInterfaceAddress,
         true
     );
 
-    bool status = webSocketClient->login(vpnServerIP, vpnServerPort, username, password);
+    bool status = webSocketClient->login(username, password);
     if (!status) {
         std::cerr << "The username or password you entered is incorrect" << std::endl;
         return EXIT_FAILURE;
@@ -119,7 +109,7 @@ int main(int argc, char* argv[])
         outNetworkInterfaceName,
         tunInterfaceName,
         vpnServerIP,
-        gatewayIP
+        usingGatewayIP
     );
 
     auto virtualNetworkInterface = std::make_unique<fptn::common::network::TunInterface>(

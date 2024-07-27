@@ -4,8 +4,18 @@
 FPTN (FuckOffPutin-VPN) is a VPN service designed to bypass censorship and access blocked content, particularly in ***heavily censored environments*** like Russia and other countries.
 
   
+<details>
+  <summary>Features</summary>
+  
+-  Bypasses government censorship and blocks.
+-  Encrypts internet traffic to ensure privacy.
+-  Easy to use and setup?
+</details>
 
-##  Description
+
+<details>
+  <summary>Description</summary>
+  
 
 FPTN operates by securely routing network traffic from your device through a VPN server to bypass censorship and access restricted content. The process involves encapsulating your traffic within a secure WebSocket tunnel, which is then processed by the VPN server. Here's a high-level overview of the workflow:
 
@@ -60,11 +70,9 @@ FPTN can be seamlessly integrated with **NGINX**, allowing you to disguise the V
 
 **This method makes it significantly harder for censorship systems to identify and block your VPN traffic.** Since the VPN traffic is disguised as standard web traffic, filtering mechanisms that focus on identifying specific VPN protocols or patterns will struggle to detect and block this traffic. Consequently, the VPN becomes more resilient against censorship and filtering attempts, improving access to restricted content in heavily censored environments.
 
-##  Features
 
--  Bypasses government censorship and blocks.
--  Encrypts internet traffic to ensure privacy.
--  Easy to use and setup?
+</details>
+
   
 ##  Build Instructions
 
@@ -84,7 +92,7 @@ FPTN can be seamlessly integrated with **NGINX**, allowing you to disguise the V
   
   
 
-###  Installation
+###  Build
 
   
 
@@ -126,72 +134,59 @@ openssl rsa -in server.key -pubout -out server.pub
 cd ..
 ```
 
-### Running the Server
+### Running
+
+##### Create users
+To add a new user to the VPN server with a specified bandwidth limit, use the following command:
+```
+sudo build/build/Release/code/fptn-passwd/fptn-passwd --add-user user10 --bandwidth 30
+```
+Options:
+-`--add-user`: The username for the new user. Example: user10.
+-`--bandwidth`: The bandwidth limit for the user in megabits per second (Mbps). Example: 30.
 
 ##### Start the Server:
     
 To start the server, use:
 ```
-sudo build/build/Release/code/server/fptn-server --server-crt=keys/server.crt --server-key=keys/server.key --out-network-interface=eth0 --tun-interface-address=2.2.0.1
+sudo fptn-server --server-crt=keys/server.crt --server-key=keys/server.key --out-network-interface=eth0 --server-pub=keys/server.pub
  ``` 
- -  --server-port: The port where the server will listen (e.g.,  8080).
- -  --interface-address: The IP address of the interface (e.g.,  1.1.1.1).
- -  --interface-name: The name of the network interface (e.g.,  tun0).
- -  --server-crt: Path to the server's certificate file (e.g.,  ./keys/server.crt).
- -  --server-key: Path to the server's key file (e.g.,  ./keys/server.key).
-##### Set Up the Server Configuration:
-Open a new terminal and run the setup script while keeping the server running. Here’s what each argument means:
+Options:
+- `--server-crt`: Path to the server certificate file. Example: keys/server.crt.
+- `--server-key`: Path to the server private key file. Example: keys/server.key.
+- `--out-network-interface`: The network interface to use for outbound traffic. Example: eth0.
+- `--server-pub`: Path to the server public key file. Example: keys/server.pub.
 
-``` 
-sudo code/server/scripts/server-network-setup.sh <network_interface>
-``` 
--   <network_interface>: The network interface you want to use (e.g.,  eth0).
-    
-Example:
-```
-sudo code/server/scripts/server-network-setup.sh eth0
-```
-
-### Running client
 
 ##### Start the client:
 
-When your URI contains your address, run:
+To start the client, use the following command:
 ```
-sudo cmake-build-debug/build/Release/code/client/fptn-client --vpn-server-uri="wss://170.64.148.141:8080/fptn" --out-network-interface=en0 --tun-interface-name=tun0 --gateway-ip=192.168.4.1
+fpptn-client --out-network-interface=en0  --vpn-server-ip="170.64.148.142" --username=user10 --password=user10
 ```
+Options:
+- `--vpn-server-ip`: The IP address of the VPN server you want to connect to. Example: "170.64.148.142".
+- `--out-network-interface`: The network interface to use for outbound traffic. Example: en0 (typically used for Ethernet or Wi-Fi on macOS).
+- `--username`: The username for VPN authentication. Example: user10.
+- `--password`: The password for VPN authentication. Example: user10.
 
-##### Set up the configuration:
 
-Open a new terminal and run the configuration script. Keep the client running in the other terminal:
-and after that need to run configuration script, in diferent terminal and do not stop client
 
-```
-sudo code/client/scipts/linux-client-network-setup.sh <external_interface>  <gateway_ip>  <vpn_server_ip>
-```
-- <external_interface>: The network interface used to route traffic to the VPN server (e.g., enp0s5).
-- <gateway_ip>: The IP address of the gateway for the external interface (e.g., 10.211.55.1).
-- <vpn_server_ip>: The IP address of the VPN server (e.g., 170.64.148.141).
-
+<details>
+  <summary>Using CLion IDE</summary>
   
-
-My example:
-```
-sudo code/client/scipts/client-network-setup.sh enp0s5 10.211.55.1 170.64.148.141
-```
-
-
-#### Using CLion IDE
-
 After opening the project, the "Open Project Wizard" will appear automatically. You need to add the following CMake options:
 
 ```
 -DCONAN_HOST_PROFILE="auto-cmake;default" -DCMAKE_PROJECT_TOP_LEVEL_INCLUDES=./conan_provider.cmake
 ```
+</details>
 
 
-#### MacOS 
 
+<details>
+  <summary>MacOS</summary>
+  
 Solution: https://github.com/ntop/n2n/issues/773
 
 - Download https://github.com/Tunnelblick/Tunnelblick/tree/master/third_party/tap-notarized.kext
@@ -247,7 +242,5 @@ Run sudo kextload /Library/Extensions/tap.kext in the terminal
 restart Mac after allowing the security check.
 
 
+</details>
 
-```
-sudo code/client/scipts/macos-client-network-setup.sh en0 192.168.4.1 170.64.148.141
-```

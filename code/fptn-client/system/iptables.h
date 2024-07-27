@@ -7,6 +7,8 @@
 
 namespace fptn::system
 {
+    std::string getDefaultGatewayIPAddress();
+
     class IPTables final
     {
     public:

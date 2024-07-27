@@ -127,27 +127,35 @@ static bool runCommand(const std::string& command)
     return false;
 }
 
-static std::string getDefaultGatewayIPAddress()
+std::string fptn::system::getDefaultGatewayIPAddress() 
 {
-
     std::string result;
     try {
+#ifdef __linux__ 
+        const std::string command = "ip route | grep default | awk '{print $3}'";
+#elif __APPLE__
+        const std::string command = "netstat -rn | grep default | awk '{print $2}'";
+#else
+    #error "Unsupported system!"
+#endif
         boost::process::ipstream pipe_stream;
         boost::process::child child(
-            "netstat -nr | grep default | awk '{print $2}' | grep -E '^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$'", 
-            boost::process::std_out > pipe_stream, 
-            boost::process::std_err > stderr
+            "/bin/sh", 
+            boost::process::args={"-c", command}, 
+            boost::process::std_out > pipe_stream
         );
+        std::getline(pipe_stream, result);
+        child.wait();
 
-        std::string line;
-        if (std::getline(pipe_stream, line)) {
-            result = line;
+        if (result.empty()) {
+            std::cerr << "Warning: Default gateway IP address not found." << std::endl;
+            return "";
         }
-        child.wait(); // Wait for the command to complete
-    } catch (const std::exception &e)
-    {
-        std::cerr << "Error: " << e.what() << std::endl;
+
+        // Убираем пробелы по краям строки
+        result.erase(result.find_last_not_of(" \n\r\t") + 1); 
+    } catch (const std::exception& ex) {
+        std::cerr << "Error: Failed to retrieve the default gateway IP address. " << ex.what() << std::endl;
     }
-    std::cerr << "RESULT: " << result << std::endl;
     return result;
 }
