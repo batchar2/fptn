@@ -3,3 +3,11 @@ build/
 README.md
 LICENSE
 CMakeUserPresets.json
+CI/
+tmp/
+keys/
+README.md
+libhv.*
+cmake-build-debug
+build/
+build-*/
