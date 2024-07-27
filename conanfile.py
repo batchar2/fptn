@@ -89,35 +89,19 @@ class FPTN(ConanFile):
         cmake.build()
 
         if self.options.setup:
+            base_path = pathlib.Path(self.package_folder) / "build" / "Release" / "code" 
             programs = [
-                pathlib.Path(self.package_folder)
-                / "build"
-                / "Release"
-                / "code"
-                / "fptn-client"
-                / "fptn-client",
+                base_path / "fptn-client" / "fptn-client",
             ]
             if (
                 sys.platform == "linux"
                 or sys.platform == "linux2"
                 or sys.platform == "darwin"
             ):
-                programs.extend(
-                    [
-                        pathlib.Path(self.package_folder)
-                        / "build"
-                        / "Release"
-                        / "code"
-                        / "fptn-passwd"
-                        / "fptn-passwd",
-                        pathlib.Path(self.package_folder)
-                        / "build"
-                        / "Release"
-                        / "code"
-                        / "fptn-server"
-                        / "fptn-server",
-                    ]
-                )
+                programs.extend([
+                    base_path / "fptn-passwd" / "fptn-passwd",
+                    base_path / "fptn-server" / "fptn-server",
+                ])
             cp_commands = " ;".join(
                 f"cp -v '{program}' /usr/local/bin/" for program in programs
             )
