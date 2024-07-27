@@ -1,6 +1,6 @@
 FROM ubuntu:24.04 AS build
 
-# ARG PLATFORM_ARCH=linux/amd64
+ARG PLATFORM_ARCH=linux/amd64
 # FROM --platform=${PLATFORM_ARCH} node:${NODE_TAG} as devBuild
 
 # install build depends

@@ -30,7 +30,7 @@ FPTN operates by securely routing network traffic from your device through a VPN
 +--------------------+                      +--------------------+
 ```
 
-FPTN can be seamlessly integrated with **NGINX**, allowing you to disguise the VPN server behind any regular web server. This can be particularly useful in evading detection and bypassing restrictive network filters. By using NGINX to proxy WebSocket connections, you can effectively hide the VPN server behind the façade of a regular website.
+FPTN can be seamlessly integrated with **NGINX**, allowing you to disguise the VPN server behind any regular web server. This can be particularly useful in evading detection and bypassing restrictive network filters. By using NGINX to proxy WebSocket connections, you can effectively hide the VPN server behind the facade of a regular website.
 
 
 ```
@@ -107,7 +107,7 @@ cd ..
 
 To add a new user to the VPN server with a specified bandwidth limit, use the following command:
 ```
-sudo build/build/Release/code/fptn-passwd/fptn-passwd --add-user user10 --bandwidth 30
+sudo fptn-passwd --add-user user10 --bandwidth 30
 ```
 Options:
 - `--add-user`: The username for the new user. Example: user10.
@@ -132,7 +132,7 @@ Options:
 
 To start the client, use the following command:
 ```
-fpptn-client --out-network-interface=en0  --vpn-server-ip="170.64.148.142" --username=user10 --password=user10
+fptn-client --out-network-interface=en0  --vpn-server-ip="170.64.148.142" --username=user10 --password=user10
 ```
 Options:
 -  `--vpn-server-ip`: The IP address of the VPN server you want to connect to. Example: "170.64.148.142".
