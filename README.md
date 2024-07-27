@@ -112,13 +112,14 @@ conan profile detect --force
 ```
 
   
-3. Install dependencies and build:
+3. Install dependencies, build and install:
 
 ```
 git submodule update --init --recursive 
-
 conan install . --output-folder=build --build=missing
 conan build . --output-folder=build
+conan build . --output-folder=build --setup=True
+conan build . --output-folder=cmake-build-debug  -o setup=True
 ```
 
   

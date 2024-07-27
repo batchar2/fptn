@@ -1,3 +1,6 @@
+import sys
+import pathlib
+import subprocess
 from conan import ConanFile
 from conan.tools.cmake import CMakeToolchain, CMake, CMakeDeps, cmake_layout
 
@@ -67,6 +70,12 @@ class FPTN(ConanFile):
         "boost/*:without_type_erasure": True,
         "boost/*:without_wave": True,
     }
+    options = {
+        "setup": [True, False],
+    }
+    default_options = {
+        "setup": False,
+    }
 
     def layout(self):
         cmake_layout(self)
@@ -79,5 +88,41 @@ class FPTN(ConanFile):
         cmake.configure()
         cmake.build()
 
-    def configure(self):
-        self.settings.compiler.cppstd = "17"
+        if self.options.setup:
+            programs = [
+                pathlib.Path(self.package_folder)
+                / "build"
+                / "Release"
+                / "code"
+                / "fptn-client"
+                / "fptn-client",
+            ]
+            if (
+                sys.platform == "linux"
+                or sys.platform == "linux2"
+                or sys.platform == "darwin"
+            ):
+                programs.extend(
+                    [
+                        pathlib.Path(self.package_folder)
+                        / "build"
+                        / "Release"
+                        / "code"
+                        / "fptn-passwd"
+                        / "fptn-passwd",
+                        pathlib.Path(self.package_folder)
+                        / "build"
+                        / "Release"
+                        / "code"
+                        / "fptn-server"
+                        / "fptn-server",
+                    ]
+                )
+            cp_commands = " ;".join(
+                f"cp -v '{program}' /usr/local/bin/" for program in programs
+            )
+            cmd = f'sudo sh -c "{cp_commands}"'
+            try:
+                subprocess.run(f"sudo sh -c '{cmd}'", shell=True, check=True)
+            except subprocess.CalledProcessError as e:
+                print(f"Error occurred while installing binaries: {e}")

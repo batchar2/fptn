@@ -31,3 +31,4 @@ if(APPLE OR UNIX)
 endif()
 
 add_subdirectory(code/fptn-client)
+install(TARGETS fptn-client RUNTIME DESTINATION bin)

@@ -33,3 +33,5 @@ target_link_libraries(
     tuntap++
     hv_static
 )
+
+install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION bin)
