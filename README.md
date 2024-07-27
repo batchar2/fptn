@@ -3,19 +3,6 @@
   
 FPTN (FuckOffPutin-VPN) is a VPN service designed to bypass censorship and access blocked content, particularly in ***heavily censored environments*** like Russia and other countries.
 
-  
-<details>
-  <summary>Features</summary>
-  
--  Bypasses government censorship and blocks.
--  Encrypts internet traffic to ensure privacy.
--  Easy to use and setup?
-</details>
-
-
-<details>
-  <summary>Description</summary>
-  
 
 FPTN operates by securely routing network traffic from your device through a VPN server to bypass censorship and access restricted content. The process involves encapsulating your traffic within a secure WebSocket tunnel, which is then processed by the VPN server. Here's a high-level overview of the workflow:
 
@@ -71,31 +58,9 @@ FPTN can be seamlessly integrated with **NGINX**, allowing you to disguise the V
 **This method makes it significantly harder for censorship systems to identify and block your VPN traffic.** Since the VPN traffic is disguised as standard web traffic, filtering mechanisms that focus on identifying specific VPN protocols or patterns will struggle to detect and block this traffic. Consequently, the VPN becomes more resilient against censorship and filtering attempts, improving access to restricted content in heavily censored environments.
 
 
-</details>
-
   
-##  Build Instructions
-
-  
-
-###  Prerequisites
-
-  
-
--  Python 3.x
-
--  Conan package manager
-- g++
-- gcc
-- cmake
-
-  
-  
-
-###  Build
-
-  
-
+<details>
+  <summary>Build</summary>
 1. Install Conan (version 2.3.2):
 
 ```
@@ -121,10 +86,12 @@ conan build . --output-folder=build
 conan build . --output-folder=build --setup=True
 conan build . --output-folder=cmake-build-debug  -o setup=True
 ```
+</details>
 
-  
 
-###  Generate sertificate
+<details>
+  <summary>Running server</summary>
+####  1. Generate sertificate
 
 ```
 mkdir keys
@@ -135,9 +102,7 @@ openssl rsa -in server.key -pubout -out server.pub
 cd ..
 ```
 
-### Running
-
-##### Create users
+##### 2. Create users
 To add a new user to the VPN server with a specified bandwidth limit, use the following command:
 ```
 sudo build/build/Release/code/fptn-passwd/fptn-passwd --add-user user10 --bandwidth 30
@@ -146,7 +111,7 @@ Options:
 - `--add-user`: The username for the new user. Example: user10.
 - `--bandwidth`: The bandwidth limit for the user in megabits per second (Mbps). Example: 30.
 
-##### Start the Server:
+##### 3. Start the Server:
     
 To start the server, use:
 ```
@@ -157,10 +122,11 @@ Options:
 - `--server-key`: Path to the server private key file. Example: keys/server.key.
 - `--out-network-interface`: The network interface to use for outbound traffic. Example: eth0.
 - `--server-pub`: Path to the server public key file. Example: keys/server.pub.
+</details>
 
 
-##### Start the client:
-
+<details>
+  <summary>Start the client</summary>  
 To start the client, use the following command:
 ```
 fpptn-client --out-network-interface=en0  --vpn-server-ip="170.64.148.142" --username=user10 --password=user10
@@ -170,6 +136,9 @@ Options:
 - `--out-network-interface`: The network interface to use for outbound traffic. Example: en0 (typically used for Ethernet or Wi-Fi on macOS).
 - `--username`: The username for VPN authentication. Example: user10.
 - `--password`: The password for VPN authentication. Example: user10.
+
+</details>
+
 
 
 
