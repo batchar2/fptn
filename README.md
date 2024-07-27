@@ -79,13 +79,26 @@ conan profile detect --force
   
 3. Install dependencies, build and install:
 
+
+Console version
+
+
 ```
 git submodule update --init --recursive 
 conan install . --output-folder=build --build=missing
 conan build . --output-folder=build
-conan build . --output-folder=build --setup=True
-conan build . --output-folder=cmake-build-debug  -o setup=True
+conan build . --output-folder=build -o setup=True
 ```
+
+Or GUI version
+
+```
+git submodule update --init --recursive 
+conan install . --output-folder=build-linux --build=missing -o with_gui_client=True -c tools.system.package_manager:mode=install
+conan build . --output-folder=build -o with_gui_client=True 
+conan build . --output-folder=build -o with_gui_client=True -o setup=True
+```
+
 </details>
 
 

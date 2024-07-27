@@ -23,6 +23,10 @@ class FPTN(ConanFile):
         "pcapplusplus/23.09",
         "nlohmann_json/3.11.3",
     )
+    replace_requires = (
+        # Fix for MacOS
+        ("meson/*", "meson/1.4.1"),
+    )
     settings = (
         "os",
         "arch",
@@ -33,7 +37,15 @@ class FPTN(ConanFile):
         "CMakeDeps",
         "CMakeToolchain",
     )
+    options = {
+        "setup": [True, False],
+        "with_gui_client": [True, False],
+    }
     default_options = {
+        # --- program ---
+        "setup": False,
+        "with_gui_client": False,
+        # -- depends --
         "*:shared": False,
         "*:fPIC": True,
         # --- boost options ---
@@ -69,39 +81,65 @@ class FPTN(ConanFile):
         "boost/*:without_url": True,
         "boost/*:without_type_erasure": True,
         "boost/*:without_wave": True,
+        # --- qt ---
+        "qt*:shared": True,
+        "qt*:qttools": True,
+        # "qt*:opengl": "no",
+        # "qt*:with_x11": False,
+        "qt*:with_icu": False,
+        "qt*:with_harfbuzz": False,
+        "qt*:with_mysql": False,
+        "qt*:with_pq": False,
+        "qt*:with_odbc": False,
+        "qt*:with_zstd": False,
+        "qt*:with_brotli": False,
+        "qt*:with_dbus": False,
+        "qt*:with_libalsa": False,
+        "qt*:with_openal": False,
+        "qt*:with_gstreamer": False,
+        "qt*:with_pulseaudio": False,
+        "qt*:with_gssapi": False,
     }
-    options = {
-        "setup": [True, False],
-    }
-    default_options = {
-        "setup": False,
-    }
-
+    
     def layout(self):
         cmake_layout(self)
+    
+    def requirements(self):
+        if self.options.with_gui_client:
+            self.requires("qt/6.7.1")
+        # Fix for MacOS
+        self.requires("meson/1.4.1", override=True, force=True)
 
     def build_requirements(self):
         self.test_requires("gtest/1.14.0")
+        # Fix for MacOS
+        self.build_requires("meson/1.4.1", override=True)
 
     def build(self):
+        # write cmake variables
+        conan_cmake_variables = ""
+        if self.options.with_gui_client:
+            conan_cmake_variables = "set(FPTN_BUILD_WITH_GUI_CLIENT True)"
+        with open(pathlib.Path(self.build_folder) / "conan_variables.cmake", "w") as fp:
+            fp.write(conan_cmake_variables)
+
         cmake = CMake(self)
         cmake.configure()
         cmake.build()
 
         if self.options.setup:
-            base_path = pathlib.Path(self.package_folder) / "build" / "Release" / "code" 
-            programs = [
-                base_path / "fptn-client" / "fptn-client",
-            ]
-            if (
-                sys.platform == "linux"
-                or sys.platform == "linux2"
-                or sys.platform == "darwin"
-            ):
+            base_path = pathlib.Path(self.package_folder) / "build" / "Release" / "code"
+            programs = [base_path / "fptn-client" / "fptn-client-cli",]
+            if sys.platform == "linux" or sys.platform == "linux2" or sys.platform == "darwin":
                 programs.extend([
                     base_path / "fptn-passwd" / "fptn-passwd",
                     base_path / "fptn-server" / "fptn-server",
                 ])
+            if self.options.with_gui_client:
+                programs.extend([
+                    base_path / "fptn-client" / "fptn-client-gui",
+                ])
+            
             cp_commands = " ;".join(
                 f"cp -v '{program}' /usr/local/bin/" for program in programs
             )
@@ -110,3 +148,6 @@ class FPTN(ConanFile):
                 subprocess.run(f"sudo sh -c '{cmd}'", shell=True, check=True)
             except subprocess.CalledProcessError as e:
                 print(f"Error occurred while installing binaries: {e}")
+                
+    def configure(self):
+        self.settings.compiler.cppstd = "17"

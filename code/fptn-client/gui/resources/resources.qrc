@@ -1,0 +1,7 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+    <qresource prefix="/">
+        <file>icons/active.ico</file>
+        <file>icons/incactive.ico</file>
+    </qresource>
+</RCC>
