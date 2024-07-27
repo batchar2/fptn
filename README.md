@@ -132,10 +132,10 @@ To start the client, use the following command:
 fpptn-client --out-network-interface=en0  --vpn-server-ip="170.64.148.142" --username=user10 --password=user10
 ```
 Options:
-- `--vpn-server-ip`: The IP address of the VPN server you want to connect to. Example: "170.64.148.142".
-- `--out-network-interface`: The network interface to use for outbound traffic. Example: en0 (typically used for Ethernet or Wi-Fi on macOS).
-- `--username`: The username for VPN authentication. Example: user10.
-- `--password`: The password for VPN authentication. Example: user10.
+-  `--vpn-server-ip`: The IP address of the VPN server you want to connect to. Example: "170.64.148.142".
+-  `--out-network-interface`: The network interface to use for outbound traffic. Example: en0 (typically used for Ethernet or Wi-Fi on macOS).
+-  `--username`: The username for VPN authentication. Example: user10.
+-  `--password`: The password for VPN authentication. Example: user10.
 
 </details>
 
