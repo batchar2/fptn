@@ -91,7 +91,8 @@ conan build . --output-folder=cmake-build-debug  -o setup=True
 
 <details>
   <summary>Running server</summary>
-####  1. Generate sertificate
+
+1. Generate sertificate
 
 ```
 mkdir keys
@@ -102,7 +103,8 @@ openssl rsa -in server.key -pubout -out server.pub
 cd ..
 ```
 
-##### 2. Create users
+2. Create users
+
 To add a new user to the VPN server with a specified bandwidth limit, use the following command:
 ```
 sudo build/build/Release/code/fptn-passwd/fptn-passwd --add-user user10 --bandwidth 30
@@ -111,7 +113,7 @@ Options:
 - `--add-user`: The username for the new user. Example: user10.
 - `--bandwidth`: The bandwidth limit for the user in megabits per second (Mbps). Example: 30.
 
-##### 3. Start the Server:
+3. Start the Server:
     
 To start the server, use:
 ```
@@ -127,6 +129,7 @@ Options:
 
 <details>
   <summary>Start the client</summary>  
+
 To start the client, use the following command:
 ```
 fpptn-client --out-network-interface=en0  --vpn-server-ip="170.64.148.142" --username=user10 --password=user10
