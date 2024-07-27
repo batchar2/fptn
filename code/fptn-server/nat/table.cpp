@@ -1,8 +1,5 @@
 #include "table.h"
 
-#include <glog/logging.h>
-
-
 using namespace fptn::nat;
 
 
@@ -21,9 +18,6 @@ fptn::client::SessionSPtr Table::createClientSession(ClientID clientId, const pc
         auto session = std::make_shared<fptn::client::Session>(clientId, clientIP, fakeIp, trafficShaper);
         ipToSessions_.insert({fakeIp.toInt(), session});
         clientIdToSessions_.insert({clientId, session});
-        
-        LOG(INFO) << "NEW SESSION: " <<  clientId << " VIRTUAL_IP: " << clientIP;
-
         return session;
     }
     return nullptr;
@@ -39,7 +33,6 @@ bool Table::delClientSession(ClientID clientId) noexcept
         {
             auto it_ip = ipToSessions_.find(ipInt);
             if (it_ip != ipToSessions_.end()) {
-                LOG(INFO) << "DEL SESSION: " <<  clientId;
                 ipToSessions_.erase(it_ip);
                 return true;
             }

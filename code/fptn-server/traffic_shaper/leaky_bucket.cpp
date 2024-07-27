@@ -1,11 +1,10 @@
 #include "leaky_bucket.h"
 
-
 using namespace fptn::traffic_shaper;
 
 
-LeakyBucket::LeakyBucket(std::size_t maxRateBytesPerSecond) :  
-    currentAmount_(0), maxRateBytesPerSecond_(maxRateBytesPerSecond), lastLeakTime_(std::chrono::steady_clock::now())
+LeakyBucket::LeakyBucket(std::size_t maxRateBitesPerSecond) :  
+    currentAmount_(0), maxRateBytesPerSecond_(maxRateBitesPerSecond/8), lastLeakTime_(std::chrono::steady_clock::now())
 {
 }
 

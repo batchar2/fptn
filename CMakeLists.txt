@@ -26,7 +26,8 @@ include_directories(code/)
 include_directories(depends/)
 
 if(APPLE OR UNIX)
-    add_subdirectory(code/server)
+    add_subdirectory(code/fptn-server)
+    add_subdirectory(code/fptn-passwd)
 endif()
 
-add_subdirectory(code/client)
+add_subdirectory(code/fptn-client)

@@ -6,11 +6,13 @@ using namespace fptn::web;
 
 
 WebsocketServer::WebsocketServer(
+    const fptn::common::jwt_token::TokenManagerSPtr& tokenManager,
     const NewConnectionCallback &newConnection,
     const CloseConnectionCallback &closeConnection,
     const NewIPPacketCallback &newPacket
 )
     :
+        tokenManager_(tokenManager),
         newConnectionCallback_(newConnection),
         closeConnectionCallback_(closeConnection),
         newPacketCallback_(newPacket)
@@ -27,17 +29,26 @@ void WebsocketServer::onOpenHandle(const WebSocketChannelPtr& channel, const Htt
         if (req->headers.find("Authorization") != req->headers.end() && req->headers.find("ClientIP") != req->headers.end()) {
             const std::string token = req->headers["Authorization"];
             const std::uint32_t channelId = channel->id();
-            const auto clientIP = pcpp::IPv4Address(req->headers["ClientIP"]);
+            const pcpp::IPv4Address clientVpnIP(req->headers["ClientIP"]);
+            const pcpp::IPv4Address clientIP(req->client_addr.ip);
 
-            {
-                std::unique_lock<std::mutex> lock(mutex_);
-                if (channels_.find(channelId) == channels_.end()) {
-                    channels_.insert({channelId, channel});
+            std::string username;
+            int bandwidthBitesSeconds = 0;
+            if(tokenManager_->validate(token, username, bandwidthBitesSeconds)) {
+                {
+                    std::unique_lock<std::mutex> lock(mutex_);
+                    if (channels_.find(channelId) == channels_.end()) {
+                        channels_.insert({channelId, channel});
+                    }
                 }
+                if (newConnectionCallback_)  {
+                    newConnectionCallback_(channelId, clientVpnIP, clientIP, username, bandwidthBitesSeconds);
+                }
+            } else {
+                LOG(WARNING) << "WRONG TOKEN: " << username << std::endl;
+                channel->close();
             }
-            if (newConnectionCallback_)  {
-                newConnectionCallback_(channelId, clientIP);
-            }
+        
         } else {
             LOG(WARNING) << "CHECK: Authorization or ClientIP" << std::endl;
         }

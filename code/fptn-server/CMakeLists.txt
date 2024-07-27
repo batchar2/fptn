@@ -9,6 +9,8 @@ find_package(glog REQUIRED)
 find_package(websocketpp REQUIRED)
 find_package(fmt REQUIRED)
 find_package(PcapPlusPlus REQUIRED)
+find_package(nlohmann_json REQUIRED)
+find_package(jwt-cpp REQUIRED)
 
 add_executable("${PROJECT_NAME}"
     fptn-server.cpp
@@ -39,4 +41,6 @@ target_link_libraries(
     tuntap
     tuntap++
     hv_static
+    nlohmann_json::nlohmann_json
+    jwt-cpp::jwt-cpp
 )

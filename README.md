@@ -122,7 +122,7 @@ mkdir keys
 cd keys
 openssl genrsa -out server.key 2048
 openssl req -new -x509 -key server.key -out server.crt -days 365
-openssl dhparam -out dh.pem 2048
+openssl rsa -in server.key -pubout -out server.pub
 cd ..
 ```
 

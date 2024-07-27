@@ -1,19 +1,22 @@
 #include "websocket_client.h"
 
+#include <fmt/format.h>
+#include <hv/requests.h>
+
 
 using namespace fptn::http;
 
 
 WebSocketClient::WebSocketClient(
     const std::string& url,
-    const std::string& token,
-    const std::string& interfaceAddress,
+    const std::string& tunInterfaceAddress,
     bool useSsl,
     const NewIPPacketCallback& newIPPktCallback 
 )
     :
         url_(url),
-        token_(token),
+        token_(""),
+        tunInterfaceAddress_(tunInterfaceAddress),
         newIPPktCallback_(newIPPktCallback)
 {
     reconn_setting_t reconn;
@@ -23,23 +26,49 @@ WebSocketClient::WebSocketClient(
     reconn.delay_policy = 2;
 
     ws_.setReconnect(&reconn);
-
-    http_headers headers = {
-            {"Authorization", token},
-            {"ClientIP", interfaceAddress}
-    };
-    if (ws_.open(url.c_str(), headers) != 0) {
-        std::cerr << "Failed to open WebSocket connection" << std::endl;
-//        throw std::runtime_error("Failed to open WebSocket connection");
-    }
     ws_.onopen = std::bind(&WebSocketClient::onOpenHandle, this);
     ws_.onmessage = std::bind(&WebSocketClient::onMessageHandle, this, std::placeholders::_1);
     ws_.onclose = std::bind(&WebSocketClient::onCloseHandle, this);
 }
 
+bool WebSocketClient::login(const std::string& vpnServerIP, int vpnServerPort, const std::string& username, const std::string& password) noexcept
+{
+    const std::string url = fmt::format("https://{}:{}/api/v1/login", vpnServerIP, vpnServerPort);
+    const std::string request = fmt::format(R"({{ "username": "{}", "password": "{}" }})", username, password);
+
+    auto resp = requests::post(url.c_str(), request);
+    if (resp != nullptr) {
+        try {
+            auto response = nlohmann::json::parse(resp->body);
+            if (response.contains("access_token")) {
+                token_ = response["access_token"];
+                std::cerr << "Login successful." << std::endl;
+                return true;
+            } else {
+                std::cerr << "Error: Access token not found in the response." << std::endl;
+            }
+        } catch (const nlohmann::json::parse_error& e) {
+            std::cerr << "Error parsing JSON response: " << e.what() << std::endl;
+        }
+    } else {
+        std::cerr << "Error: Request failed or response is null." << std::endl;
+    }
+    return false;
+}
+
 bool WebSocketClient::start() noexcept
 {
     std::lock_guard<std::mutex> lock(mtx_);
+
+    http_headers headers = {
+        {"Authorization", token_},
+        {"ClientIP", tunInterfaceAddress_}
+    };
+    if (ws_.open(url_.c_str(), headers) != 0) {
+        std::cerr << "Failed to open WebSocket connection" << std::endl;
+//        throw std::runtime_error("Failed to open WebSocket connection");
+    }
+
     th_ = std::thread(&WebSocketClient::run, this);
     return th_.joinable();
 }

@@ -40,7 +40,7 @@ bool IPTables::apply() noexcept
     LOG(INFO)<< "=== Setting up routing ===";
 #ifdef __linux__ 
     const std::vector<std::string> commands = {
-        "echo 1 > /proc/sys/net/ipv4/ip_forward",
+        "sysctl -w net.ipv4.ip_forward=1",
         "iptables -P INPUT ACCEPT",
         "iptables -P FORWARD ACCEPT",
         "iptables -P OUTPUT ACCEPT",

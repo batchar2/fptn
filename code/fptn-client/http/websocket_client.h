@@ -18,11 +18,11 @@ namespace fptn::http
         using NewIPPacketCallback = std::function<void(fptn::common::network::IPPacketPtr packet)>;
     public:
         WebSocketClient(const std::string& url,
-            const std::string& token,
-            const std::string& interfaceAddress,
+            const std::string& tunInterfaceAddress,
             bool useSsl = true,
             const NewIPPacketCallback& newIPPktCallback = nullptr
         );
+        bool login(const std::string& vpnServerIP, int vpnServerPort, const std::string& username, const std::string& password) noexcept;
         bool start() noexcept;
         bool stop() noexcept;
         bool send(fptn::common::network::IPPacketPtr packet) noexcept;
@@ -40,6 +40,7 @@ namespace fptn::http
 
         std::string url_;
         std::string token_;
+        std::string tunInterfaceAddress_;
         NewIPPacketCallback newIPPktCallback_;
     };
 

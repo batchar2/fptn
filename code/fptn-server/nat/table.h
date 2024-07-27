@@ -26,7 +26,7 @@ namespace fptn::nat
         fptn::client::SessionSPtr getSessionByFakeIP(const pcpp::IPv4Address& ip) noexcept;
         fptn::client::SessionSPtr getSessionByClientId(ClientID clientId) noexcept;
     private:
-        std::mutex mutex_;
+        mutable std::mutex mutex_;
         std::unordered_map<IPv4INT, fptn::client::SessionSPtr> ipToSessions_;
         std::unordered_map<ClientID, fptn::client::SessionSPtr> clientIdToSessions_;
 

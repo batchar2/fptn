@@ -5,8 +5,10 @@
 #include <argparse/argparse.hpp>
 
 #include <common/data/channel.h>
+#include <common/user/manager.h>
 #include <common/network/ip_packet.h>
 #include <common/network/tun_interface.h>
+#include <common/jwt_token/token_manager.h>
 
 #include "nat/table.h"
 #include "web/server.h"
@@ -47,6 +49,9 @@ int main(int argc, char* argv[])
     program_args.add_argument("--server-key")
         .required()
         .help("Path to server.key file");
+    program_args.add_argument("--server-pub")
+        .required()
+        .help("Path to server.pub file");
     program_args.add_argument("--out-network-interface")
         .required()
         .help("Network out interface");
@@ -65,6 +70,9 @@ int main(int argc, char* argv[])
         .default_value(24)
         .help("Network mask")
         .scan<'i', int>();
+    program_args.add_argument("--userfile")
+        .help("Path to users file (default: /etc/fptn/users.list)")
+        .default_value("/etc/fptn/users.list");
 
     try {
         program_args.parse_args(argc, argv);
@@ -76,13 +84,22 @@ int main(int argc, char* argv[])
 
     const auto serverCrt = program_args.get<std::string>("--server-crt");
     const auto serverKey = program_args.get<std::string>("--server-key");
+    const auto serverPub = program_args.get<std::string>("--server-key");
     const auto outNetworkInterfaceName = program_args.get<std::string>("--out-network-interface");
+    const auto userFilePath = program_args.get<std::string>("--userfile");
+
     const auto serverPort = program_args.get<int>("--server-port");
+
     const auto tunInterfaceName = program_args.get<std::string>("--tun-interface-name");
     const auto tunInterfaceAddress = program_args.get<std::string>("--tun-interface-address");
     const auto tunInterfaceNetworkMask = program_args.get<int>("--tun-interface-network-mask");
 
+    auto userManager = std::make_shared<fptn::common::user::UserManager>(userFilePath);
     auto natTable = std::make_shared<fptn::nat::Table>(tunInterfaceAddress, tunInterfaceNetworkMask);
+
+    auto tokenManager = std::make_shared<fptn::common::jwt_token::TokenManager>(
+        serverCrt, serverKey, serverPub
+    );
 
     auto iptables = std::make_unique<fptn::system::IPTables>(
         outNetworkInterfaceName, 
@@ -100,8 +117,8 @@ int main(int argc, char* argv[])
         natTable,
         serverPort,
         true,
-        serverCrt,
-        serverKey
+        userManager,
+        tokenManager      
     );
 
     fptn::vpn::Manager manager(

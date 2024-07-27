@@ -25,7 +25,8 @@ inline void waitForSignal()
     io_context.run();
 }
 
-std::string extractIpOrHost(const std::string& url) {
+inline std::string extractIpOrHost(const std::string& url) 
+{
     std::regex rgx(R"(^(wss://)([a-zA-Z0-9.-]+)(:\d+)?/.*$)");
     std::smatch match;
 
@@ -33,6 +34,18 @@ std::string extractIpOrHost(const std::string& url) {
         return match[2];
     }
     return ""; 
+}
+
+int extractPort(const std::string& url) 
+{
+    std::regex rgx(R"(^(wss://)([a-zA-Z0-9.-]+)(:(\d+))?/.*$)");
+    std::smatch match;
+    if (std::regex_search(url, match, rgx)) {
+        if (match[4].length() > 0) {
+            return std::stoi(match[4].str());
+        }
+    }
+    return 443;
 }
 
 
@@ -51,6 +64,13 @@ int main(int argc, char* argv[])
     program_args.add_argument("--out-network-interface")
         .required()
         .help("Network out interface");
+    program_args.add_argument("--username")
+        .required()
+        .help("Username");
+    program_args.add_argument("--password")
+        .required()
+        .help("Username");
+
     // Optional arguments
     program_args.add_argument("--gateway-ip")
         .default_value("")
@@ -72,25 +92,34 @@ int main(int argc, char* argv[])
     const auto vpnServerURL = program_args.get<std::string>("--vpn-server-uri");
     const auto outNetworkInterfaceName = program_args.get<std::string>("--out-network-interface");
 
+    const auto username = program_args.get<std::string>("--username");
+    const auto password = program_args.get<std::string>("--password");
+
     const auto gatewayIP = program_args.get<std::string>("--gateway-ip");    
     const auto tunInterfaceName = program_args.get<std::string>("--tun-interface-name");
     const auto tunInterfaceAddress = program_args.get<std::string>("--tun-interface-address"); 
    
+    const int vpnServerPort = extractPort(vpnServerURL);
     const std::string vpnServerIP = extractIpOrHost(vpnServerURL);
 
+
+    auto webSocketClient = std::make_unique<fptn::http::WebSocketClient>(
+        vpnServerURL,
+        tunInterfaceAddress,
+        true
+    );
+
+    bool status = webSocketClient->login(vpnServerIP, vpnServerPort, username, password);
+    if (!status) {
+        std::cerr << "The username or password you entered is incorrect" << std::endl;
+        return EXIT_FAILURE;
+    }
 
     auto iptables = std::make_unique<fptn::system::IPTables>(
         outNetworkInterfaceName,
         tunInterfaceName,
         vpnServerIP,
         gatewayIP
-    );
-
-    auto webSocketClient = std::make_unique<fptn::http::WebSocketClient>(
-        vpnServerURL,
-        "token",
-        tunInterfaceAddress,
-        true
     );
 
     auto virtualNetworkInterface = std::make_unique<fptn::common::network::TunInterface>(

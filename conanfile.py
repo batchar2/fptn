@@ -18,6 +18,7 @@ class FPTN(ConanFile):
         "protobuf/5.27.0",
         "websocketpp/0.8.2",
         "pcapplusplus/23.09",
+        "nlohmann_json/3.11.3",
     )
     settings = (
         "os",

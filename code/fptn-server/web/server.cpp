@@ -1,6 +1,7 @@
 #include "server.h"
 
 #include <functional>
+#include <glog/logging.h>
 
 
 using namespace fptn::web;
@@ -10,15 +11,17 @@ Server::Server(
     const fptn::nat::TableSPtr& natTable,
     std::uint16_t port,
     const bool use_https,
-    const std::string& cert_file,
-    const std::string& key_file,
+    const fptn::common::user::UserManagerSPtr& userManager,
+    const fptn::common::jwt_token::TokenManagerSPtr& tokenManager,
     const int thread_number
 )
     : 
         running_(false), 
-        natTable_(natTable), 
+        natTable_(natTable),
+        http_(userManager, tokenManager),
         ws_(
-            std::bind(&Server::newVpnConnection, this, std::placeholders::_1, std::placeholders::_2), 
+            tokenManager,
+            std::bind(&Server::newVpnConnection, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5), 
             std::bind(&Server::closeVpnConnection, this, std::placeholders::_1),
             std::bind(&Server::newIPPacketFromVPN, this, std::placeholders::_1)
         )
@@ -27,8 +30,8 @@ Server::Server(
         mainServer_.https_port = port;
         hssl_ctx_opt_t param;
         std::memset(&param, 0x00, sizeof(param));
-        param.crt_file = cert_file.c_str();
-        param.key_file = key_file.c_str();
+        param.crt_file = tokenManager->serverCrt().c_str();
+        param.key_file = tokenManager->serverKey().c_str();
         param.endpoint = HSSL_SERVER;
         if (mainServer_.newSslCtx(&param) != 0) {
             LOG(ERROR) << "new SSL_CTX failed!";
@@ -89,13 +92,16 @@ void Server::runSenderThread() noexcept
     }
 }
 
-void Server::newVpnConnection(std::uint32_t clientId, const pcpp::IPv4Address& clientVpnIP) noexcept
+void Server::newVpnConnection(std::uint32_t clientId, const pcpp::IPv4Address& clientVpnIP, const pcpp::IPv4Address &clientIP, const std::string& username, int bandwidthBitesSeconds) noexcept
 {
-    natTable_->createClientSession(clientId, clientVpnIP, nullptr);
+    LOG(INFO) << "NEW SESSION! Username=" << username << " ClientId=" << clientId << " Bandwidth=" << bandwidthBitesSeconds << " IP=" << clientIP.toString();
+    auto shaper = std::make_shared<fptn::traffic_shaper::LeakyBucket>(bandwidthBitesSeconds);
+    natTable_->createClientSession(clientId, clientVpnIP, shaper);
 }
 
 void Server::closeVpnConnection(std::uint32_t clientId) noexcept
 {
+    LOG(INFO) << "DEL SESSION! clientId=" << clientId;
     natTable_->delClientSession(clientId);
 }
 
