@@ -7,7 +7,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update -y >/dev/null 2>/dev/null \
     && apt-get -y install gcc g++ git cmake python3-pip \
     && pip install conan==2.3.2
-RUN conan profile detect --force
+RUN conan profile detect --force 
 
 RUN mkdir -p /app
 WORKDIR /app
@@ -45,7 +45,6 @@ RUN INSTALLED_SIZE=$(du -s /fptn-client-cli/usr | cut -f1) \
     && echo "Section: admin" >> /fptn-client-cli/DEBIAN/control \
     && echo "Priority: optional" >> /fptn-client-cli/DEBIAN/control \
     && echo "Description: fptn client" >> /fptn-client-cli/DEBIAN/control
-
 RUN dpkg-deb --build /fptn-client-cli /fptn-client-cli-${VERSION}-$(dpkg --print-architecture).deb \
     && mkdir -p /result \
     && cp /fptn-client-cli-${VERSION}-$(dpkg --print-architecture).deb /result \
@@ -75,4 +74,4 @@ RUN INSTALLED_SIZE=$(du -s /fptn-server/usr | cut -f1) \
 RUN dpkg-deb --build /fptn-server /fptn-server-${VERSION}-$(dpkg --print-architecture).deb \
     && mkdir -p /result \
     && cp /fptn-server-${VERSION}-$(dpkg --print-architecture).deb /result \
-    && chmod 644 /result/fptn-server-cli-${VERSION}-$(dpkg --print-architecture).deb
+    && chmod 644 /result/fptn-server-${VERSION}-$(dpkg --print-architecture).deb
