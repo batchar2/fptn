@@ -1,4 +1,4 @@
-ARG PLATFORM_ARCH=amd64
+ARG PLATFORM_ARCH
 
 
 #################### stage 1
