@@ -1,10 +1,9 @@
 ARG PLATFORM_ARCH=amd64
 
+
 #################### stage 1
 FROM --platform=linux/$PLATFORM_ARCH ubuntu:22.04 AS build-fptn
-
 ENV DEBIAN_FRONTEND=noninteractive
-
 RUN apt-get update -y >/dev/null 2>/dev/null \
     && apt-get -y install gcc g++ git cmake python3-pip \
     && pip install conan==2.3.2
