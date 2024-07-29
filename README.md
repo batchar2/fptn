@@ -1,7 +1,7 @@
-#  FPTN (FuckOffPutin-VPN)
+#  FPTN 
 
   
-FPTN (FuckOffPutin-VPN) is a VPN service designed to bypass censorship and access blocked content, particularly in ***heavily censored environments*** like Russia and other countries.
+FPTN is a VPN service designed to bypass censorship and access blocked content, particularly in ***heavily censored environments*** like Russia and other countries.
 
 
 FPTN operates by securely routing network traffic from your device through a VPN server to bypass censorship and access restricted content. The process involves encapsulating your traffic within a secure WebSocket tunnel, which is then processed by the VPN server. Here's a high-level overview of the workflow:
