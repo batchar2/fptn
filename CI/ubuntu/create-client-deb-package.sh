@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/env bash
 
 # Function to print usage
 print_usage() {
@@ -19,14 +19,15 @@ CLIENT_TMP_DIR=$(mktemp -d -t fptn-client-cli-XXXXXX)
 
 mkdir -p "$CLIENT_TMP_DIR/DEBIAN"
 mkdir -p "$CLIENT_TMP_DIR/usr/bin"
-mkdir -p "$CLIENT_TMP_DIR/etc/fptn"
+mkdir -p "$CLIENT_TMP_DIR/etc/fptn-client"
 mkdir -p "$CLIENT_TMP_DIR/lib/systemd/system"
 
+# Copy client binary
 cp "$CLIENT_CLI" "$CLIENT_TMP_DIR/usr/bin/"
 chmod 755 "$CLIENT_TMP_DIR/usr/bin/$(basename "$CLIENT_CLI")"
 
 # Create client configuration file
-cat <<EOL > "$CLIENT_TMP_DIR/etc/fptn/client.conf"
+cat <<EOL > "$CLIENT_TMP_DIR/etc/fptn-client/client.conf"
 # Configuration for fptn client
 USERNAME=
 PASSWORD=
@@ -43,8 +44,8 @@ Description=FPTN Client Service
 After=network.target
 
 [Service]
-EnvironmentFile=-/etc/fptn/client.conf
-ExecStart=/usr/bin/$(basename "$CLIENT_CLI") --vpn-server-ip=\$VPN_SERVER_IP --vpn-server-port=\$VPN_SERVER_PORT --out-network-interface=\$NETWORK_INTERFACE --username=\$USERNAME --password=\$PASSWORD --gateway-ip=\$GATEWAY_IP
+EnvironmentFile=/etc/fptn-client/client.conf
+ExecStart=/usr/bin/$(basename "$CLIENT_CLI") --vpn-server-ip=\${VPN_SERVER_IP} --vpn-server-port=\${VPN_SERVER_PORT} --out-network-interface=\${NETWORK_INTERFACE} --username=\${USERNAME} --password=\${PASSWORD} --gateway-ip=\${GATEWAY_IP}
 Restart=always
 User=root
 
@@ -66,9 +67,22 @@ Priority: optional
 Description: fptn client
 EOL
 
+
+cat <<EOL > "$SERVER_TMP_DIR/DEBIAN/postrm"
+#!/bin/bash
+set -e
+
+# Remove configuration directory if empty
+rm -rf /etc/fptn-client
+EOL
+
+chmod 755 "$SERVER_TMP_DIR/DEBIAN/postrm"
+
+# Build the Debian package
 dpkg-deb --build "$CLIENT_TMP_DIR" "fptn-client-cli-${VERSION}-$(dpkg --print-architecture).deb"
 
-mkdir -p result
-mv "fptn-client-cli-${VERSION}-$(dpkg --print-architecture).deb" result/
+# Clean up temporary directories
 rm -rf "$CLIENT_TMP_DIR"
-echo "Client Debian package created successfully in the 'result' directory."
+
+echo "Client Debian package created successfully."
+

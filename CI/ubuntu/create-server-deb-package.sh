@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/env bash
 
 # Function to print usage
 print_usage() {
@@ -40,7 +40,7 @@ SERVER_CRT=
 SERVER_PUB=
 
 PORT=443
-TuN_INTERFACE_NAME=fptn0
+TUN_INTERFACE_NAME=fptn0
 
 LOG_FILE=/var/log/fptn-server.log
 EOL
@@ -53,8 +53,9 @@ After=network.target
 
 [Service]
 EnvironmentFile=-/etc/fptn/server.conf
-ExecStart=/usr/bin/$(basename "$SERVER_BIN") --server-key=\${SERVER_KEY} --server-crt=\${SERVER_CRT} --server-pub=\${SERVER_PUB} --out-network-interface=\${OUT_NETWORK_INTERFACE} --server-port=\${PORT} --tun-interface-name=\${TuN_INTERFACE_NAME}
+ExecStart=/usr/bin/$(basename "$SERVER_BIN") --server-key=\${SERVER_KEY} --server-crt=\${SERVER_CRT} --server-pub=\${SERVER_PUB} --out-network-interface=\${OUT_NETWORK_INTERFACE} --server-port=\${PORT} --tun-interface-name=\${TUN_INTERFACE_NAME}
 Restart=always
+WorkingDirectory=/etc/fptn
 User=root
 
 [Install]
@@ -75,11 +76,25 @@ Priority: optional
 Description: fptn server
 EOL
 
+
+cat <<EOL > "$SERVER_TMP_DIR/DEBIAN/postrm"
+#!/bin/bash
+set -e
+
+# Remove configuration directory if empty
+rm -rf /etc/fptn
+systemctl daemon-reload
+EOL
+
+chmod 755 "$SERVER_TMP_DIR/DEBIAN/postrm"
+
 # Build the Debian package
 dpkg-deb --build "$SERVER_TMP_DIR" "fptn-server-${VERSION}-$(dpkg --print-architecture).deb"
 
-# Move the package to result directory
-mkdir -p result
-mv "fptn-server-${VERSION}-$(dpkg --print-architecture).deb" result/
+# Clean up temporary directory
 rm -rf "$SERVER_TMP_DIR"
-echo "Server Debian package created successfully in the 'result' directory."
+
+
+chmod 644 "fptn-server-${VERSION}-$(dpkg --print-architecture).deb"
+
+echo "Server Debian package created successfully."

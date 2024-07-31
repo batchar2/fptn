@@ -90,6 +90,8 @@ conan build . --output-folder=build
 conan build . --output-folder=build -o setup=True
 ```
 
+
+
 Or GUI version
 
 ```
@@ -97,6 +99,11 @@ git submodule update --init --recursive
 conan install . --output-folder=build-linux --build=missing -o with_gui_client=True -c tools.system.package_manager:mode=install
 conan build . --output-folder=build -o with_gui_client=True 
 conan build . --output-folder=build -o with_gui_client=True -o setup=True
+```
+
+Build deb:
+```
+CI/ubuntu/create-server-deb-package.sh build/build/Release/code/fptn-server/fptn-server build/build/Release/code/fptn-passwd/fptn-passwd 0.0.2
 ```
 
 </details>
