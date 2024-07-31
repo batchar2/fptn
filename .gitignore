@@ -1,3 +1,5 @@
+*.deb
+
 tmp/
 keys/
 build*/
