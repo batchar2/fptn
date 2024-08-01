@@ -38,10 +38,10 @@ bool VirtualInterface::start() noexcept
 bool VirtualInterface::stop() noexcept
 {
     running_ = false;
+    virtualNetworkInterface_->stop();
     if (thread_.joinable()) {
         iptables_->clean();
         thread_.join();
-        virtualNetworkInterface_->stop();
         return true;
     }
     return false;
