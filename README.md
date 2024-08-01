@@ -58,6 +58,173 @@ FPTN can be seamlessly integrated with **NGINX**, allowing you to disguise the V
 **This method makes it significantly harder for censorship systems to identify and block your VPN traffic.** Since the VPN traffic is disguised as standard web traffic, filtering mechanisms that focus on identifying specific VPN protocols or patterns will struggle to detect and block this traffic. Consequently, the VPN becomes more resilient against censorship and filtering attempts, improving access to restricted content in heavily censored environments.
 
 
+
+
+
+
+
+
+
+
+
+
+### FPTN Server Installation and Configuration
+
+##### Step 1: Download FPTN from GitHub
+Download the FPTN server DEB package for your architecture (x86_64 or arm64) from [GitHub](https://github.com/batchar2/fptn/releases).
+
+
+##### Step 2: Install the DEB Package
+
+To install the FPTN server DEB package, consider your processor architecture (ADM or ARM). Run the following command in the terminal:
+
+```bash
+sudo dpkg -i fptn-server_<version>_<architecture>.deb
+```
+
+##### Step 3: Generate sertificate
+
+Navigate to the /etc/fptn/ directory:
+```bash
+cd /etc/fptn/
+```
+
+Generate the required keys using OpenSSL:
+
+```bash
+openssl genrsa -out server.key 2048
+openssl req -new -x509 -key server.key -out server.crt -days 365
+openssl rsa -in server.key -pubout -out server.pub
+```
+
+##### Step 4: Configure the Server
+
+Open the server configuration file /etc/fptn/server.conf and set it up as follows:
+
+```bash
+# Configuration for fptn server
+
+OUT_NETWORK_INTERFACE=eth0
+
+# KEYS
+SERVER_KEY=server.key
+SERVER_CRT=server.crt
+SERVER_PUB=server.pub
+
+PORT=8080
+TUN_INTERFACE_NAME=fptn0
+
+LOG_FILE=/var/log/fptn-server.log
+```
+
+Configuration File Fields
+- `OUT_NETWORK_INTERFACE` Specifies the network interface that the server will use for outgoing traffic (e.g., eth0 for Ethernet). Ensure this is set to the correct network interface on your system.
+- `SERVER_KEY` The filename of the private key for the server. This key is used for encrypting and signing communications.
+- `SERVER_CRT` The filename of the server's SSL certificate. This certificate is used to establish a secure connection between the server and clients.
+- `SERVER_PUB` The filename of the public key derived from the private key. This is used by clients to verify the server's identity.
+- `PORT` The port number on which the server will listen for incoming connections (e.g., 8080). Ensure this port is open and not in use by other services.
+- `TUN_INTERFACE_NAME` The name of the virtual network interface used by the VPN (e.g., fptn0). This interface is used for tunneling VPN traffic.
+- `LOG_FILE` The path to the log file where server logs will be written (e.g., /var/log/fptn-server.log). This file is useful for troubleshooting and monitoring server activity.
+
+
+##### Step 5: Add User
+
+Before restarting the server, add a user with bandwidth limits. Use the following command:
+
+```bash
+sudo fptn-passwd --add-user user10 --bandwidth 30
+```
+
+This command adds a user named user10 and sets a bandwidth limit of 30 MB for this user.
+
+##### Step 7: Start the Server
+
+To start the server, use the following command:
+```bash
+sudo systemctl start fptn-server
+```
+
+Check the server status with:
+```bash
+sudo systemctl status fptn-server
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+### FPTN Client Installation and Configuration
+
+##### Step 1: Download FPTN Client
+
+Download the FPTN client DEB package for your architecture (x86_64 or arm64) from [GitHub](https://github.com/batchar2/fptn/releases).
+
+
+
+##### Step 2: Install the DEB Package
+
+To install the FPTN client DEB package, run the following command in the terminal:
+```bash
+sudo dpkg -i fptn-client-cli-0.0.2-arm64.deb
+```
+
+##### Step 3: Configure the Client
+Open the client configuration file /etc/fptn-client/client.conf and set it up as follows:
+
+```bash
+# Configuration for fptn client
+USERNAME=
+PASSWORD=
+NETWORK_INTERFACE=
+VPN_SERVER_IP=
+VPN_SERVER_PORT=443
+GATEWAY_IP=
+```
+
+Configuration File Fields:
+- `USERNAME` The username for authentication with the VPN server.
+- `PASSWORD` The password associated with the username for VPN authentication.
+NETWORK_INTERFACE The network interface on the client device to be used for VPN connections (e.g., eth0 or wlan0).
+- `VPN_SERVER_IP` The IP address of the VPN server to connect to.
+- `VPN_SERVER_PORT` The port number for the VPN server connection (default is 443).
+- `GATEWAY_IP` The IP address of the gateway for the VPN connection. If not provided, the client will attempt to auto-detect the gateway IP.
+
+##### Step 4: Start the Client Service
+
+To start the FPTN client service, use the following command:
+```bash
+sudo systemctl start fptn-client
+```
+
+Check the client service status with:
+
+```bash
+sudo systemctl status fptn-client
+```
+
+Logs for the client service will be written to the system journal. You can view logs with:
+```bash
+journalctl -u fptn-client
+```
+
+
+
+
+
+
+
+
+
+
   
 <details>
   <summary>Build</summary>
