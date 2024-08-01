@@ -33,34 +33,6 @@ FPTN operates by securely routing network traffic from your device through a VPN
 FPTN can be seamlessly integrated with **NGINX**, allowing you to disguise the VPN server behind any regular web server. This can be particularly useful in evading detection and bypassing restrictive network filters. By using NGINX to proxy WebSocket connections, you can effectively hide the VPN server behind the facade of a regular website.
 
 
-```
-    location /fptn/ {
-        proxy_pass http://localhost:YOUR_VPN_SERVER_PORT; # Replace with the port where your VPN server is running
-        proxy_http_version 1.1;
-
-        # Upgrade the connection to WebSocket
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-
-        # Pass necessary headers to the VPN server
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-
-        # Optional: Set timeouts to ensure stable connections
-        proxy_read_timeout 86400;
-        proxy_send_timeout 86400;
-    }
-```
-
-
-**This method makes it significantly harder for censorship systems to identify and block your VPN traffic.** Since the VPN traffic is disguised as standard web traffic, filtering mechanisms that focus on identifying specific VPN protocols or patterns will struggle to detect and block this traffic. Consequently, the VPN becomes more resilient against censorship and filtering attempts, improving access to restricted content in heavily censored environments.
-
-
-
-
-
 
 
 
