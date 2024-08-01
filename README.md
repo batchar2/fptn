@@ -83,7 +83,7 @@ SERVER_KEY=server.key
 SERVER_CRT=server.crt
 SERVER_PUB=server.pub
 
-PORT=8080
+PORT=443
 TUN_INTERFACE_NAME=fptn0
 
 LOG_FILE=/var/log/fptn-server.log
@@ -94,7 +94,7 @@ Configuration File Fields
 - `SERVER_KEY` The filename of the private key for the server. This key is used for encrypting and signing communications.
 - `SERVER_CRT` The filename of the server's SSL certificate. This certificate is used to establish a secure connection between the server and clients.
 - `SERVER_PUB` The filename of the public key derived from the private key. This is used by clients to verify the server's identity.
-- `PORT` The port number on which the server will listen for incoming connections (e.g., 8080). Ensure this port is open and not in use by other services.
+- `PORT` The port number on which the server will listen for incoming connections (e.g., 443). Ensure this port is open and not in use by other services.
 - `TUN_INTERFACE_NAME` The name of the virtual network interface used by the VPN (e.g., fptn0). This interface is used for tunneling VPN traffic.
 - `LOG_FILE` The path to the log file where server logs will be written (e.g., /var/log/fptn-server.log). This file is useful for troubleshooting and monitoring server activity.
 
