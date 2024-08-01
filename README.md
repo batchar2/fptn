@@ -103,7 +103,7 @@ conan build . --output-folder=build -o with_gui_client=True -o setup=True
 
 Build deb:
 ```
-CI/ubuntu/create-server-deb-package.sh build/build/Release/code/fptn-server/fptn-server build/build/Release/code/fptn-passwd/fptn-passwd 0.0.2
+./scripts/ubuntu/create-server-deb-package.sh build/build/Release/code/fptn-server/fptn-server build/build/Release/code/fptn-passwd/fptn-passwd 0.0.2
 ```
 
 </details>

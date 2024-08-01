@@ -94,9 +94,9 @@ void Server::runSenderThread() noexcept
 
 void Server::newVpnConnection(std::uint32_t clientId, const pcpp::IPv4Address& clientVpnIP, const pcpp::IPv4Address &clientIP, const std::string& username, int bandwidthBitesSeconds) noexcept
 {
-    LOG(INFO) << "NEW SESSION! Username=" << username << " ClientId=" << clientId << " Bandwidth=" << bandwidthBitesSeconds << " IP=" << clientIP.toString() << " VirtualIP=" << clientVpnIP.toString();
     auto shaper = std::make_shared<fptn::traffic_shaper::LeakyBucket>(bandwidthBitesSeconds);
-    natTable_->createClientSession(clientId, clientVpnIP, shaper);
+    auto session = natTable_->createClientSession(clientId, clientVpnIP, shaper);
+    LOG(INFO) << "NEW SESSION! Username=" << username << " ClientId=" << clientId << " Bandwidth=" << bandwidthBitesSeconds << " IP=" << clientIP.toString() << " VirtualIP=" << session->fakeClientIP().toString();
 }
 
 void Server::closeVpnConnection(std::uint32_t clientId) noexcept
