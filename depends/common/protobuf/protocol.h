@@ -4,7 +4,6 @@
 #include <stdexcept>
 
 #include <protocol.pb.h>
-#include <google/protobuf/text_format.h>
 
 #include <common/network/ip_packet.h>
 
@@ -28,6 +27,7 @@ namespace fptn::common::protobuf::protocol
         explicit MessageError(const std::string& message)
             : std::runtime_error(message) {}
     };
+
     class UnsoportedProtocolVersion : public std::runtime_error 
     {
     public:
@@ -36,15 +36,12 @@ namespace fptn::common::protobuf::protocol
     };
 
 
-
     inline std::string getPayload(const std::string& raw)
     {
         fptn::protocol::Message message;
         if (!message.ParseFromString(raw)) {
             throw ProcessingError("Failed to parse Protobuf message.");
         } else if (message.protocol_version() != FPTN_PROTOBUF_PROTOCOL_VERSION) {
-            std::string s = message.DebugString();  // or ShortDebugString
-            std::cerr << "s> " << s << std::endl;
             throw UnsoportedProtocolVersion("Unsupported protocol version.");
         } else if (message.msg_type() == fptn::protocol::MSG_ERROR) {
             if (message.has_error()) {
