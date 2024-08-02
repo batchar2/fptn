@@ -30,12 +30,18 @@ namespace fptn::common::network
     class IPPacket final
     {
     public:
+        // WARNING FIXME
         static std::unique_ptr<IPPacket> parse(const std::uint8_t *data, std::size_t size, std::uint32_t clientId = PACKET_UNDEFINED_CLIENT_ID)
         {
-            /* TODO REWRITE */
+            std::string tmp((const char*)data, size);
+            return parse(tmp);
+        }
+        static std::unique_ptr<IPPacket> parse(const std::string &data, std::uint32_t clientId = PACKET_UNDEFINED_CLIENT_ID)
+        {
+            /* TODO REWRITE */         
             pcpp::RawPacket rawPacket(
-                (const std::uint8_t*)data,
-                (int)size,
+                (const std::uint8_t*)data.c_str(),
+                (int)data.size(),
                 timeval { 0, 0 },
                 false,
                 pcpp::LINKTYPE_IPV4
@@ -44,7 +50,7 @@ namespace fptn::common::network
             if (parsedPacket.isPacketOfType(pcpp::IPv4) || parsedPacket.isPacketOfType(pcpp::IP)) {
                 if (parsedPacket.getLayerOfType<pcpp::IPv4Layer>()) {
                     return std::make_unique<IPPacket>(
-                        std::string((char*)data, size),
+                        data,
                         clientId
                     );
                 }
@@ -82,26 +88,37 @@ namespace fptn::common::network
         {
             clientId_ = clientId;
         }
+        
         std::uint32_t clientId() const noexcept
         {
             return clientId_;
         }
+
         pcpp::Packet& pkt() noexcept
         {
             return parsedPacket_;
         }
+        
         pcpp::IPv4Layer* ipLayer() noexcept
         {
             return ipLayer_;
         }
+        
         std::vector<std::uint8_t> serialize() noexcept
         {
             const auto raw = parsedPacket_.getRawPacket();
             return std::vector<std::uint8_t>(raw->getRawData(), raw->getRawData() + raw->getRawDataLen());
         }
+
         std::size_t size() const 
         {
             return packetData_.size();
+        }
+
+        std::string toString()
+        {
+            const auto raw = parsedPacket_.getRawPacket();
+            return std::string((const char*)raw->getRawData(), raw->getRawDataLen());
         }
     private:
         std::string packetData_;

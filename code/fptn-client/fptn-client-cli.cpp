@@ -1,6 +1,8 @@
 #include <regex>
 #include <iostream>
 
+#include <glog/logging.h>
+
 #include <boost/asio.hpp>
 #include <boost/process.hpp>
 #include <argparse/argparse.hpp>
@@ -83,13 +85,15 @@ int main(int argc, char* argv[])
 
     const std::string usingGatewayIP = (!gatewayIP.empty() ? gatewayIP : fptn::system::getDefaultGatewayIPAddress());
     if (usingGatewayIP.empty()) {
-        std::cerr << "Error: Unable to find the default gateway IP address. Please specify it using the \"--gateway-ip\" option." << std::endl;
+        LOG(ERROR) << "Error: Unable to find the default gateway IP address. Please specify it using the \"--gateway-ip\" option." << std::endl;
         return EXIT_FAILURE;
     }
-    std::cerr << "GATEWAY IP:        " << usingGatewayIP << std::endl;
-    std::cerr << "NETWORK INTERFACE: " << outNetworkInterfaceName << std::endl;
-    std::cerr << "VPN SERVER IP:     " << vpnServerIP << std::endl;
-    std::cerr << "VPN SERVER PORT:   " << vpnServerPort << std::endl;
+    LOG(INFO) << std::endl
+        << "GATEWAY IP:        " << usingGatewayIP << std::endl
+        << "NETWORK INTERFACE: " << outNetworkInterfaceName << std::endl
+        << "VPN SERVER IP:     " << vpnServerIP << std::endl
+        << "VPN SERVER PORT:   " << vpnServerPort << std::endl
+        << std::endl;
 
 
     auto webSocketClient = std::make_unique<fptn::http::WebSocketClient>(
@@ -101,7 +105,7 @@ int main(int argc, char* argv[])
 
     bool status = webSocketClient->login(username, password);
     if (!status) {
-        std::cerr << "The username or password you entered is incorrect" << std::endl;
+        LOG(ERROR) << "The username or password you entered is incorrect" << std::endl;
         return EXIT_FAILURE;
     }
 

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(FOPN VERSION 0.1 LANGUAGES CXX)
+project(FPTN VERSION 0.1 LANGUAGES CXX)
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_CXX_STANDARD 17)
@@ -27,6 +27,9 @@ add_subdirectory(depends/libs/libhv)
 # include
 include_directories(code/)
 include_directories(depends/)
+
+# protobuf
+add_subdirectory(depends/protobuf/fptn_protocol)
 
 if(APPLE OR UNIX)
     add_subdirectory(code/fptn-server)

@@ -31,6 +31,8 @@ namespace fptn::common::network
             const NewIPPacketCallback& callback = nullptr
         )
             : 
+                mtu_(1500),
+                running_(false),
                 name_(std::move(name)),
                 addr_(std::move(addr)),
                 netmask_(netmask),
@@ -47,6 +49,7 @@ namespace fptn::common::network
                 tun_ = std::make_unique<tuntap::tun>();
                 tun_->name(name_);
                 tun_->ip(addr_, netmask_);
+                tun_->mtu(mtu_);
                 tun_->up();
                 running_ = true;
                 thread_ = std::thread(&TunInterface::run, this);
@@ -76,7 +79,7 @@ namespace fptn::common::network
         {
             std::uint8_t buffer[65536] = {0};
             while(running_) {
-                std::memset(buffer, 0, sizeof(buffer));
+                std::memset(buffer, 0, mtu_ + 1);
                 int size = tun_->read((void*)buffer, sizeof(buffer));
                 if (size) {
                     auto packet = IPPacket::parse(buffer, size);
@@ -89,7 +92,8 @@ namespace fptn::common::network
             tun_->release();
         }
     private:
-        std::atomic<bool> running_ = false; 
+        const std::uint16_t mtu_;
+        std::atomic<bool> running_; 
         std::thread thread_;
         std::unique_ptr<tuntap::tun> tun_;
 

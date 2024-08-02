@@ -6,7 +6,6 @@ find_package(Boost REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_package(argparse REQUIRED)
 find_package(glog REQUIRED)
-find_package(websocketpp REQUIRED)
 find_package(fmt REQUIRED)
 find_package(PcapPlusPlus REQUIRED)
 find_package(nlohmann_json REQUIRED)
@@ -33,14 +32,15 @@ target_link_libraries(
     OpenSSL::Crypto
     argparse::argparse
 
+    nlohmann_json::nlohmann_json
+    jwt-cpp::jwt-cpp
+
     glog::glog
-    websocketpp::websocketpp
     fmt::fmt
     PcapPlusPlus::PcapPlusPlus
 
-    tuntap
     tuntap++
     hv_static
-    nlohmann_json::nlohmann_json
-    jwt-cpp::jwt-cpp
+
+    fptn_protocol
 )

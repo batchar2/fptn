@@ -2,6 +2,9 @@
 
 #include <glog/logging.h>
 
+#include <common/protobuf/protocol.h>
+
+
 using namespace fptn::web;
 
 
@@ -61,9 +64,24 @@ void WebsocketServer::onOpenHandle(const WebSocketChannelPtr& channel, const Htt
 void WebsocketServer::onMessageHandle(const WebSocketChannelPtr& channel, const std::string& msg) noexcept
 {
     const std::uint32_t channelId = channel->id();
-    auto packet = fptn::common::network::IPPacket::parse((const std::uint8_t*)msg.c_str(), msg.size(), channelId);
-    if (packet != nullptr && newPacketCallback_) {
-        newPacketCallback_(std::move(packet));
+    try {
+        const std::string rawIpPacket = fptn::common::protobuf::protocol::getPayload(msg);
+        auto packet = fptn::common::network::IPPacket::parse(rawIpPacket, channelId);
+        if (packet != nullptr && newPacketCallback_) {
+            newPacketCallback_(std::move(packet));
+        }
+    } catch (const fptn::common::protobuf::protocol::ProcessingError &err) {
+        LOG(ERROR) << "Processing error: " << err.what();
+        const std::string msg = fptn::common::protobuf::protocol::createError(err.what(), fptn::protocol::ERROR_DEFAULT);
+        channel->send(msg);
+    } catch (const fptn::common::protobuf::protocol::MessageError &err) {
+        LOG(ERROR) << "Message error: " << err.what();
+    } catch (const fptn::common::protobuf::protocol::UnsoportedProtocolVersion &err) {
+        LOG(ERROR) << "Unsupported protocol version: " << err.what();
+        const std::string msg = fptn::common::protobuf::protocol::createError(err.what(), fptn::protocol::ERROR_WRONG_VERSION);
+        channel->send(msg);
+    } catch(...) {
+        LOG(ERROR) << "Unexpected error: ";
     }
 }
 
@@ -84,10 +102,21 @@ void WebsocketServer::onCloseHandle(const WebSocketChannelPtr& channel) noexcept
 
 void WebsocketServer::send(fptn::common::network::IPPacketPtr packet)
 {
-    std::unique_lock<std::mutex> lock(mutex_);
-    auto it = channels_.find(packet->clientId());
-    if (it != channels_.end()) {
-        std::vector<std::uint8_t> serializedPacket = packet->serialize();
-        it->second->send((const char*)serializedPacket.data(), serializedPacket.size());
-    }
+    try {
+        std::unique_lock<std::mutex> lock(mutex_);
+        auto it = channels_.find(packet->clientId());
+        if (it != channels_.end()) {
+            lock.unlock();
+            try {
+                const std::string msg = fptn::common::protobuf::protocol::createPacket(
+                    std::move(packet)
+                );
+                it->second->send(msg);
+            } catch (const std::runtime_error &err) {
+                LOG(ERROR) << "Websockwt.send" << err.what();
+            }
+        }
+    } catch(...) {
+        LOG(ERROR) << "Websockwt.send: undefined error";
+    } 
 }

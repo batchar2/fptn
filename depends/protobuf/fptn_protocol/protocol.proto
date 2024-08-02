@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+
+package fptn.protocol;
+
+
+enum MessageType {
+    MSG_ERROR = 0;
+    MSG_IP_PACKET = 1;
+}
+
+enum ErrorType {
+    ERROR_DEFAULT = 0;
+    ERROR_WRONG_VERSION = 1;
+    ERROR_SESSION_EXPIRED = 2;
+}
+
+message ErrorMessage {
+    ErrorType error_type = 1; 
+    string error_msg = 2;
+}
+
+message IPPacket {
+    bytes payload = 1; 
+}
+
+message Message {
+    int32 protocol_version = 1; 
+    MessageType msg_type = 2;
+
+    oneof message_content { 
+        ErrorMessage error = 3; 
+        IPPacket packet = 4;
+    }
+}

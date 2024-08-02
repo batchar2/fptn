@@ -46,7 +46,7 @@ bool IPTables::apply() noexcept
     LOG(INFO)<< "=== Setting up routing ===";
 #ifdef __linux__ 
     const std::vector<std::string> commands = {
-        "echo 1 > /proc/sys/net/ipv4/ip_forward",
+        "sysctl -w net.ipv4.ip_forward=1",
         fmt::format("iptables -t nat -A POSTROUTING -o {} -j MASQUERADE", outInterfaceName_),
         fmt::format("iptables -A FORWARD -i {} -o {} -m state --state RELATED,ESTABLISHED -j ACCEPT", outInterfaceName_, tunInterfaceName_),
         fmt::format("iptables -A FORWARD -i {} -o {} -j ACCEPT", tunInterfaceName_, outInterfaceName_),
@@ -148,14 +148,14 @@ std::string fptn::system::getDefaultGatewayIPAddress()
         child.wait();
 
         if (result.empty()) {
-            std::cerr << "Warning: Default gateway IP address not found." << std::endl;
+            LOG(ERROR)<< "Warning: Default gateway IP address not found.";
             return "";
         }
 
         // Убираем пробелы по краям строки
         result.erase(result.find_last_not_of(" \n\r\t") + 1); 
     } catch (const std::exception& ex) {
-        std::cerr << "Error: Failed to retrieve the default gateway IP address. " << ex.what() << std::endl;
+        LOG(ERROR) << "Error: Failed to retrieve the default gateway IP address. " << ex.what();
     }
     return result;
 }
