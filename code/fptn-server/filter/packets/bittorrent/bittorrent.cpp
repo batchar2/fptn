@@ -2,9 +2,6 @@
 #include "bittorrent.h"
 
 #include <cstring>
-// #include <algorithm> 
-
-#include <iostream>
 
 using namespace fptn::filter::packets;
 
