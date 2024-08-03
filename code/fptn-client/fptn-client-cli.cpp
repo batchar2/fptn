@@ -66,7 +66,7 @@ int main(int argc, char* argv[])
         .help("Network interface address");    
     try {
         program_args.parse_args(argc, argv);
-    } catch (const std::exception& err) {
+    } catch (const std::runtime_error& err) {
         std::cerr << err.what() << std::endl;
         std::cerr << program_args;
         return EXIT_FAILURE;

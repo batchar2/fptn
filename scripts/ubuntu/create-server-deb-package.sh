@@ -42,6 +42,8 @@ SERVER_PUB=
 PORT=443
 TUN_INTERFACE_NAME=fptn0
 
+DISABLE_BITTORENT=false
+
 LOG_FILE=/var/log/fptn-server.log
 EOL
 
@@ -53,7 +55,7 @@ After=network.target
 
 [Service]
 EnvironmentFile=-/etc/fptn/server.conf
-ExecStart=/usr/bin/$(basename "$SERVER_BIN") --server-key=\${SERVER_KEY} --server-crt=\${SERVER_CRT} --server-pub=\${SERVER_PUB} --out-network-interface=\${OUT_NETWORK_INTERFACE} --server-port=\${PORT} --tun-interface-name=\${TUN_INTERFACE_NAME}
+ExecStart=/usr/bin/$(basename "$SERVER_BIN") --server-key=\${SERVER_KEY} --server-crt=\${SERVER_CRT} --server-pub=\${SERVER_PUB} --out-network-interface=\${OUT_NETWORK_INTERFACE} --server-port=\${PORT} --tun-interface-name=\${TUN_INTERFACE_NAME} --disable-bittorrent=\${DISABLE_BITTORENT}
 Restart=always
 WorkingDirectory=/etc/fptn
 User=root

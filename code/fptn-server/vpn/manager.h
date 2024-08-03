@@ -5,6 +5,7 @@
 
 #include "nat/table.h"
 #include "web/server.h"
+#include "filter/manager.h"
 #include "network/virtual_interface.h"
 
 
@@ -16,7 +17,8 @@ namespace fptn::vpn
         Manager(
             fptn::web::ServerSPtr webServer, 
             fptn::network::VirtualInterfaceSPtr networkInterface,
-            fptn::nat::TableSPtr nat
+            fptn::nat::TableSPtr nat,
+            fptn::filter::FilterManagerSPtr filter
         );
         ~Manager();
         bool stop() noexcept;
@@ -29,6 +31,7 @@ namespace fptn::vpn
         fptn::web::ServerSPtr webServer_;
         fptn::network::VirtualInterfaceSPtr networkInterface_;
         fptn::nat::TableSPtr nat_;
+        fptn::filter::FilterManagerSPtr filter_;
 
         std::thread readToClientThread_;
         std::thread readFromClientThread_;

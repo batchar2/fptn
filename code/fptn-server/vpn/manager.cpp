@@ -6,12 +6,14 @@ using namespace fptn::vpn;
 Manager::Manager(
     fptn::web::ServerSPtr webServer, 
     fptn::network::VirtualInterfaceSPtr networkInterface,
-    fptn::nat::TableSPtr nat
+    fptn::nat::TableSPtr nat,
+    fptn::filter::FilterManagerSPtr filter
 )
 :
     webServer_(std::move(webServer)),
     networkInterface_(std::move(networkInterface)),
-    nat_(std::move(nat))
+    nat_(std::move(nat)),
+    filter_(std::move(std::move(filter)))
 {
 }
 
@@ -50,46 +52,62 @@ bool Manager::start() noexcept
     return (toStatus && fromStatus);
 }
 
-
 void Manager::runToClient() noexcept
 {
     const std::chrono::milliseconds timeout{300};
+
     while (running_) {
         auto packet = networkInterface_->waitForPacket(timeout);
         if (!packet) {
             continue;
         }
+        // get session
         auto session = nat_->getSessionByFakeIP(packet->ipLayer()->getDstIPv4Address());
         if (!session) {
             continue;
         }
+        // check shaper
         auto shaper = session->getTrafficShaper();
-        if (shaper == nullptr || (shaper != nullptr && shaper->checkSpeedLimit(packet->size()))) {
-            webServer_->send(
-                session->changeIPAddressToCleintIP(std::move(packet))
-            );
+        if (shaper && !shaper->checkSpeedLimit(packet->size())) {
+            continue;
         }
+        // filter 
+        packet = filter_->apply(std::move(packet));
+        if (!packet) {
+            continue;
+        }
+        // send
+        webServer_->send(session->changeIPAddressToCleintIP(std::move(packet)));
     }
 }
 
 
 void Manager::runFromClient() noexcept
 {
-    const std::chrono::milliseconds timeout{300};
+    constexpr std::chrono::milliseconds timeout{300};
     while (running_) {
         auto packet = webServer_->waitForPacket(timeout);
         if (!packet) {
             continue;
         }
+        // get session
         auto session = nat_->getSessionByClientId(packet->clientId());
         if (!session) {
             continue;
         }
+        // check shaper
         auto shaper = session->getTrafficShaper();
-        if (shaper == nullptr || (shaper != nullptr && shaper->checkSpeedLimit(packet->size()))) {
-            networkInterface_->send(
-                session->changeIPAddressToFakeIP(std::move(packet))
-            );
+        if (shaper && !shaper->checkSpeedLimit(packet->size())) {
+            continue;
         }
+        // filter 
+        packet = filter_->apply(std::move(packet));
+        if (!packet) {
+            continue;
+        }
+        // send
+        networkInterface_->send(
+            session->changeIPAddressToFakeIP(std::move(packet))
+        );
     }
 }

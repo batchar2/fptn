@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <filesystem>
 
 #include <glog/logging.h>
@@ -13,6 +14,7 @@
 #include "nat/table.h"
 #include "web/server.h"
 #include "vpn/manager.h"
+#include "filter/manager.h"
 #include "system/iptables.h"
 #include "network/virtual_interface.h"
 
@@ -30,6 +32,13 @@ inline void waitForSignal()
 }
 
 
+bool parseBoolean(const std::string& value) {
+    std::string lowercasedValue = value;
+    std::transform(lowercasedValue.begin(), lowercasedValue.end(), lowercasedValue.begin(), ::tolower);
+    return lowercasedValue == "true";
+}
+
+
 int main(int argc, char* argv[]) 
 {
     google::InitGoogleLogging(argv[0]);
@@ -41,62 +50,69 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
 
-    argparse::ArgumentParser program_args("fptn-server");
+    argparse::ArgumentParser args("fptn-server");
     // Required arguments
-    program_args.add_argument("--server-crt")
+    args.add_argument("--server-crt")
         .required()
         .help("Path to server.crt file");
-    program_args.add_argument("--server-key")
+    args.add_argument("--server-key")
         .required()
         .help("Path to server.key file");
-    program_args.add_argument("--server-pub")
+    args.add_argument("--server-pub")
         .required()
         .help("Path to server.pub file");
-    program_args.add_argument("--out-network-interface")
+    args.add_argument("--out-network-interface")
         .required()
         .help("Network out interface");
     // Optional arguments
-    program_args.add_argument("--server-port")
+    args.add_argument("--server-port")
         .default_value(8080)
         .help("Port number")
         .scan<'i', int>();
-    program_args.add_argument("--tun-interface-name")
+    args.add_argument("--tun-interface-name")
         .default_value("tun0")
         .help("Network interface name");
-    program_args.add_argument("--tun-interface-address")
+    args.add_argument("--tun-interface-address")
         .default_value("2.2.0.1")
         .help("IP address of the virtual interface");
-    program_args.add_argument("--tun-interface-network-mask")
+    args.add_argument("--tun-interface-network-mask")
         .default_value(24)
         .help("Network mask")
         .scan<'i', int>();
-    program_args.add_argument("--userfile")
+    args.add_argument("--userfile")
         .help("Path to users file (default: /etc/fptn/users.list)")
         .default_value("/etc/fptn/users.list");
-
+    // Packet filters
+    args.add_argument("--disable-bittorrent")
+        .help("Disable BitTorrent traffic filtering. Use this flag to disable filtering.")
+        .default_value("false");
     try {
-        program_args.parse_args(argc, argv);
-    } catch (const std::logic_error& err) {
+        args.parse_args(argc, argv);
+    } catch (const std::runtime_error& err) {
         LOG(ERROR) << "Argument parsing error: " << err.what() << std::endl;
-        LOG(ERROR) << program_args;
+        LOG(ERROR) << args;
         return EXIT_FAILURE;
     }
 
-    const auto serverCrt = program_args.get<std::string>("--server-crt");
-    const auto serverKey = program_args.get<std::string>("--server-key");
-    const auto serverPub = program_args.get<std::string>("--server-key");
-    const auto outNetworkInterfaceName = program_args.get<std::string>("--out-network-interface");
-    const auto userFilePath = program_args.get<std::string>("--userfile");
+    const auto serverCrt = args.get<std::string>("--server-crt");
+    const auto serverKey = args.get<std::string>("--server-key");
+    const auto serverPub = args.get<std::string>("--server-key");
+    const auto outNetworkInterfaceName = args.get<std::string>("--out-network-interface");
+    const auto userFilePath = args.get<std::string>("--userfile");
 
-    const auto serverPort = program_args.get<int>("--server-port");
+    const auto serverPort = args.get<int>("--server-port");
 
-    const auto tunInterfaceName = program_args.get<std::string>("--tun-interface-name");
-    const auto tunInterfaceAddress = program_args.get<std::string>("--tun-interface-address");
-    const auto tunInterfaceNetworkMask = program_args.get<int>("--tun-interface-network-mask");
+    const auto tunInterfaceName = args.get<std::string>("--tun-interface-name");
+    const auto tunInterfaceAddress = args.get<std::string>("--tun-interface-address");
+    const auto tunInterfaceNetworkMask = args.get<int>("--tun-interface-network-mask");
 
     auto userManager = std::make_shared<fptn::common::user::UserManager>(userFilePath);
     auto natTable = std::make_shared<fptn::nat::Table>(tunInterfaceAddress, tunInterfaceNetworkMask);
 
+    // filters
+    const bool disableBittorrent = parseBoolean(args.get<std::string>("--disable-bittorrent"));
+    auto filterManager = std::make_shared<fptn::filter::FilterManager>(disableBittorrent);
+    
     auto tokenManager = std::make_shared<fptn::common::jwt_token::TokenManager>(
         serverCrt, serverKey, serverPub
     );
@@ -118,13 +134,14 @@ int main(int argc, char* argv[])
         serverPort,
         true,
         userManager,
-        tokenManager      
+        tokenManager
     );
 
     fptn::vpn::Manager manager(
         std::move(webServer), 
         std::move(virtualNetworkInterface),
-        natTable
+        natTable,
+        filterManager
     );
 
     LOG(INFO) << "Starting server";

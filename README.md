@@ -221,7 +221,6 @@ conan profile detect --force
 
 Console version
 
-
 ```
 git submodule update --init --recursive 
 conan install . --output-folder=build --build=missing

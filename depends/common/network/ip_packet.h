@@ -19,6 +19,7 @@
 #endif // TCPOPT_CCECHO
 
 #include <pcapplusplus/TcpLayer.h>
+#include <pcapplusplus/UdpLayer.h>
 
 
 namespace fptn::common::network
@@ -27,7 +28,7 @@ namespace fptn::common::network
     #define PACKET_UNDEFINED_CLIENT_ID        (static_cast<std::uint32_t>(-1))
     
 
-    class IPPacket final
+    class IPPacket
     {
     public:
         // WARNING FIXME

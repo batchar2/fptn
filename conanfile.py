@@ -2,10 +2,10 @@ import sys
 import pathlib
 import subprocess
 from conan import ConanFile
-from conan.tools.cmake import CMakeToolchain, CMake, CMakeDeps, cmake_layout
+from conan.tools.cmake import CMakeToolchain, CMake
 
 
-PROGRAM_VERSION = "1.0.0"
+PROGRAM_VERSION = "0.0.2"
 
 
 class FPTN(ConanFile):
@@ -34,7 +34,6 @@ class FPTN(ConanFile):
     )
     generators = (
         "CMakeDeps",
-        "CMakeToolchain",
     )
     options = {
         "setup": [True, False],
@@ -106,9 +105,6 @@ class FPTN(ConanFile):
         "qt/*:with_gssapi": False,
     }
     
-    def layout(self):
-        cmake_layout(self)
-    
     def requirements(self):
         if self.options.with_gui_client:
             self.requires("qt/6.7.1")
@@ -120,14 +116,14 @@ class FPTN(ConanFile):
         # Fix for MacOS
         self.build_requires("meson/1.4.1", override=True)
 
-    def build(self):
-        # write cmake variables
-        conan_cmake_variables = ""
+    def generate(self):
+        tc = CMakeToolchain(self)
         if self.options.with_gui_client:
-            conan_cmake_variables = "set(FPTN_BUILD_WITH_GUI_CLIENT True)"
-        with open(pathlib.Path(self.build_folder) / "conan_variables.cmake", "w") as fp:
-            fp.write(conan_cmake_variables)
+            tc.variables["FPTN_BUILD_WITH_GUI_CLIENT"] = "True"
+        tc.preprocessor_definitions["FPTN_VERSION"] = PROGRAM_VERSION
+        tc.generate()
 
+    def build(self):
         cmake = CMake(self)
         cmake.configure()
         cmake.build()

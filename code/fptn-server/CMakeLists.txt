@@ -22,6 +22,9 @@ add_executable("${PROJECT_NAME}"
     web/http/http_server.h web/http/http_server.cpp
     web/websocket/websocket_server.h web/websocket/websocket_server.cpp
 
+    filter/manager.h filter/manager.cpp
+    filter/packets/base.h
+    filter/packets/bittorrent/bittorrent.h filter/packets/bittorrent/bittorrent.cpp
     vpn/manager.h vpn/manager.cpp
 )
 

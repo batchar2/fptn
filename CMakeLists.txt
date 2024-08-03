@@ -6,8 +6,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
-# Project settings variables
-include(${CMAKE_BINARY_DIR}/conan_variables.cmake)
+enable_testing()
 
 # add depends tuntap
 add_subdirectory(depends/libs/libtuntap)
@@ -37,3 +36,5 @@ if(APPLE OR UNIX)
 endif()
 
 add_subdirectory(code/fptn-client)
+
+add_subdirectory(tests)
