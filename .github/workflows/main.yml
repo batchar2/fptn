@@ -20,7 +20,7 @@ on:
 
 jobs:
   build:
-    runs-on: [self-hosted, "${{ inputs.chosen-os }}]
+    runs-on: [self-hosted, "${{ inputs.chosen-os }}"]
 
     steps:
       - name: Checkout code
