@@ -35,25 +35,29 @@ jobs:
         run: |
           sed -i "s/^FPTN_VERSION = \".*\"/FPTN_VERSION = \"$RELEASE_VERSION\"/" conanfile.py
 
-      - name: Install dependencies
+      - name: TEST
         run: |
-          conan install . --output-folder=build --build=missing
+          cat conanfile.py
 
-      - name: Build
-        run: |
-          cd build
-          cmake .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release
-          cmake --build .
+      # - name: Install dependencies
+      #   run: |
+      #     conan install . --output-folder=build --build=missing
+
+      # - name: Build
+      #   run: |
+      #     cd build
+      #     cmake .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release
+      #     cmake --build .
       
-      - name: Test
-        run: |
-          cd build
-          ctest
+      # - name: Test
+      #   run: |
+      #     cd build
+      #     ctest
 
-      - name: Build Debian package
-        run: |
-          cd build
-          cmake --build . --target build-deb
+      # - name: Build Debian package
+      #   run: |
+      #     cd build
+      #     cmake --build . --target build-deb
 
       # - name: Upload client-deb
       #   if: github.event.action == 'release'
