@@ -1,5 +1,7 @@
 #  FPTN 
 
+[![Build and Test](https://github.com/batchar2/fptn/actions/workflows/main.yml/badge.svg)](https://github.com/batchar2/fptn/actions/workflows/main.yml)
+
   
 FPTN is a VPN service designed to bypass censorship and access blocked content, particularly in ***heavily censored environments*** like Russia and other countries.
 
