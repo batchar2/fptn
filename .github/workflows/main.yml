@@ -37,14 +37,14 @@ jobs:
 
       - name: TEST
         run: |
-          echo ${{ secrets.GITHUB_TOKEN }}
+          echo ${{ secrets.CI_TOKEN }}
           cat conanfile.py
       
       - name: Upload server-deb
         if: github.event.action == 'release'
         uses: actions/upload-release-asset@v1.0.1
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.CI_TOKEN }}
         with:
           upload_url: ${{ github.event.release.upload_url }}
           asset_path:  conanfile.py
