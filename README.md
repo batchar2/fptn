@@ -59,7 +59,7 @@ Download the FPTN server DEB package for your architecture (x86_64 or arm64) fro
 To install the FPTN server DEB package, consider your processor architecture (ADM or ARM). Run the following command in the terminal:
 
 ```bash
-sudo dpkg -i fptn-server_<version>_<architecture>.deb
+sudo apt install -f /path/to/fptn-server.deb 
 ```
 
 ##### Step 3: Generate sertificate
@@ -154,7 +154,7 @@ Download the FPTN client DEB package for your architecture (x86_64 or arm64) fro
 
 To install the FPTN client DEB package, run the following command in the terminal:
 ```bash
-sudo dpkg -i fptn-client-cli-0.0.2-arm64.deb
+sudo apt install -f /path/to/fptn-client-cli.deb 
 ```
 
 ##### Step 3: Configure the Client
@@ -242,6 +242,7 @@ make install
 
 
 After that you can build deb (only on ubuntu)
+
 ```
 cmake --build . --target build-deb
 ```

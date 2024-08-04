@@ -96,7 +96,7 @@ EOL
 chmod 755 "$SERVER_TMP_DIR/DEBIAN/postrm"
 
 # Build the Debian package
-dpkg-deb --build "$SERVER_TMP_DIR" "fptn-server-${VERSION}-$(dpkg --print-architecture).deb"
+dpkg-deb --build "$SERVER_TMP_DIR" "fptn-server-${VERSION}-${OS_NAME}${OS_VERSION}-$(dpkg --print-architecture).deb"
 
 # Clean up temporary directory
 rm -rf "$SERVER_TMP_DIR"
