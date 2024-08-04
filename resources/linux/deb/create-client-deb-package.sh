@@ -15,6 +15,9 @@ CLIENT_CLI="$1"
 VERSION="$2"
 MAINTAINER="FPTN Project"
 
+OS_NAME=$(lsb_release -i | awk -F':\t' '{print $2}' | tr '[:upper:]' '[:lower:]')
+OS_VERSION=$(lsb_release -r | awk -F':\t' '{print $2}')
+
 CLIENT_TMP_DIR=$(mktemp -d -t fptn-client-cli-XXXXXX)
 
 mkdir -p "$CLIENT_TMP_DIR/DEBIAN"
@@ -80,7 +83,7 @@ EOL
 chmod 755 "$CLIENT_TMP_DIR/DEBIAN/postrm"
 
 # Build the Debian package
-dpkg-deb --build "$CLIENT_TMP_DIR" "fptn-client-cli-${VERSION}-$(dpkg --print-architecture).deb"
+dpkg-deb --build "$CLIENT_TMP_DIR" "fptn-client-cli-${VERSION}-${OS_NAME}${OS_VERSION}-$(dpkg --print-architecture).deb"
 
 # Clean up temporary directories
 rm -rf "$CLIENT_TMP_DIR"

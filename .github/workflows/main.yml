@@ -5,22 +5,14 @@ on:
     branches:
       - dev 
       - master
+    tags:
+      - '*'
   release:
     types: [published]
-  workflow_dispatch:
-    inputs:
-      chosen-os:
-        required: true
-        type: choice
-        options:
-        - Ubuntu
-        - macOS
-        - Windows
-
 
 jobs:
   build:
-    runs-on: [self-hosted, "${{ inputs.chosen-os }}"]
+    runs-on: [self-hosted]
 
     steps:
       - name: Checkout code
@@ -28,40 +20,25 @@ jobs:
         with:
           submodules: true 
 
-      - name: Install dependencies
-        run: |
-          conan install . --output-folder=build --build=missing
+      - name: Set env
+        if: github.event_name == 'release'
+        run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
 
-      - name: Build
+      - name: Print Release Version
+        if: github.event_name == 'release'
         run: |
-          cd build
-          cmake .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release
-          cmake --build .
-      
-      - name: Test
-        run: |
-          cd build
-          ctest
+          echo "Release Version: $RELEASE_VERSION"
+          echo "Release Version from env: ${{ env.RELEASE_VERSION }}"
 
-      - name: Build Debian package
+      - name: Update FPTN_VERSION in conanfile.py
+        if: github.event_name == 'release'
         run: |
-          cd build
-          cmake --build . --target build-deb
-
-      - name: Upload client-deb
-        if: github.event.action == 'release'
-        uses: actions/upload-release-asset@v1.0.1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          sed -i "s/^FPTN_VERSION = \".*\"/FPTN_VERSION = \"$RELEASE_VERSION\"/" conanfile.py
+    
+      - name: Upload deb
+        if: github.event_name == 'release'
+        uses: AButler/upload-release-assets@v3.0
         with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path:  fptn-client-cli-*.deb
-      
-      - name: Upload server-deb
-        if: github.event.action == 'release'
-        uses: actions/upload-release-asset@v1.0.1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path:  fptn-server-*.deb
+          files: "fptn-*.deb"
+          repo-token: ${{ secrets.CI_TOKEN }}
+          
