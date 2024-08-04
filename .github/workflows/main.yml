@@ -44,7 +44,7 @@ jobs:
         uses: AButler/upload-release-assets@v3.0
         with:
           files: "conanfile.py;fptn-*.deb"
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          repo-token: ${{ secrets.CI_TOKEN }}
           # files: "artifacts/*;packages/*.nupkg"
           # repo-token: ${{ secrets.GITHUB_TOKEN }}
 
