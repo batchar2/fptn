@@ -37,6 +37,7 @@ jobs:
 
       - name: TEST
         run: |
+          echo $GITHUB_TOKEN
           cat conanfile.py
       
       - name: Upload server-deb
