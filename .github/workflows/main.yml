@@ -12,7 +12,11 @@ on:
 
 jobs:
   build:
-    runs-on: [self-hosted]
+    strategy:
+      matrix:
+        os: [Ubuntu_x86_64, Ubuntu_ARM64]
+
+    runs-on: [self-hosted, ${{ matrix.os }}]
 
     steps:
       - name: Checkout code
@@ -61,4 +65,3 @@ jobs:
         with:
           files: "fptn-*.deb"
           repo-token: ${{ secrets.CI_TOKEN }}
-          
