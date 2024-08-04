@@ -1,4 +1,4 @@
-### Setting Up a VPN Access Point on Raspberry Pi
+### Setting Up a WiFi-VPN Access Point on Raspberry Pi
 
 This guide outlines the process of setting up a WiFi access point on a Raspberry Pi or another computer with all traffic routed through a VPN. Follow the instructions to turn your Raspberry Pi into a full-fledged access point.
 
