@@ -34,11 +34,6 @@ jobs:
         if: github.event_name == 'release'
         run: |
           sed -i "s/^FPTN_VERSION = \".*\"/FPTN_VERSION = \"$RELEASE_VERSION\"/" conanfile.py
-
-      - name: Test
-        run: |
-          echo "TOKEN=${{secrets.CI_TOKEN }}"
-          cat conanfile.py
     
       - name: Upload deb
         if: github.event_name == 'release'

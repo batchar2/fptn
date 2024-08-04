@@ -1,6 +1,3 @@
-import sys
-import pathlib
-import subprocess
 from conan import ConanFile
 from conan.tools.cmake import CMakeToolchain, CMake
 
