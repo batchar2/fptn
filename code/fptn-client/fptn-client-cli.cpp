@@ -1,4 +1,3 @@
-#include <regex>
 #include <iostream>
 
 #include <glog/logging.h>
@@ -35,53 +34,52 @@ int main(int argc, char* argv[])
     google::SetStderrLogging(google::INFO);
     google::SetLogDestination(google::INFO, "");
 
-    argparse::ArgumentParser program_args("fptn-client");
+    argparse::ArgumentParser args("fptn-client");
     // Required arguments
-    program_args.add_argument("--vpn-server-ip")
+    args.add_argument("--vpn-server-ip")
         .required()
         .help("Host address");
-    program_args.add_argument("--vpn-server-port")
+    args.add_argument("--vpn-server-port")
         .default_value(8080)
         .help("Port number")
         .scan<'i', int>();
-    program_args.add_argument("--out-network-interface")
+    args.add_argument("--out-network-interface")
         .required()
         .help("Network out interface");
-    program_args.add_argument("--username")
+    args.add_argument("--username")
         .required()
         .help("Username");
-    program_args.add_argument("--password")
+    args.add_argument("--password")
         .required()
         .help("Username");
-
     // Optional arguments
-    program_args.add_argument("--gateway-ip")
+    args.add_argument("--gateway-ip")
         .default_value("")
         .help("Your default gateway ip");
-    program_args.add_argument("--tun-interface-name")
+    args.add_argument("--tun-interface-name")
         .default_value("tun0")
         .help("Network interface name");
-    program_args.add_argument("--tun-interface-address")
+    args.add_argument("--tun-interface-address")
         .default_value("10.10.10.1")
         .help("Network interface address");    
     try {
-        program_args.parse_args(argc, argv);
+        args.parse_args(argc, argv);
     } catch (const std::runtime_error& err) {
         std::cerr << err.what() << std::endl;
-        std::cerr << program_args;
+        std::cerr << args;
         return EXIT_FAILURE;
     }
 
-    const auto vpnServerIP = program_args.get<std::string>("--vpn-server-ip");
-    const auto vpnServerPort = program_args.get<int>("--vpn-server-port");
-    const auto outNetworkInterfaceName = program_args.get<std::string>("--out-network-interface");
+    const auto vpnServerIP = args.get<std::string>("--vpn-server-ip");
+    const auto vpnServerPort = args.get<int>("--vpn-server-port");
+    const auto outNetworkInterfaceName = args.get<std::string>("--out-network-interface");
 
-    const auto username = program_args.get<std::string>("--username");
-    const auto password = program_args.get<std::string>("--password");
+    const auto username = args.get<std::string>("--username");
+    const auto password = args.get<std::string>("--password");
 
-    const auto gatewayIP = program_args.get<std::string>("--gateway-ip");    
-    const auto tunInterfaceName = program_args.get<std::string>("--tun-interface-name");
-    const auto tunInterfaceAddress = program_args.get<std::string>("--tun-interface-address"); 
+    const auto gatewayIP = args.get<std::string>("--gateway-ip");    
+    const auto tunInterfaceName = args.get<std::string>("--tun-interface-name");
+    const auto tunInterfaceAddress = args.get<std::string>("--tun-interface-address"); 
 
     const std::string usingGatewayIP = (!gatewayIP.empty() ? gatewayIP : fptn::system::getDefaultGatewayIPAddress());
     if (usingGatewayIP.empty()) {

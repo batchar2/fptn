@@ -5,12 +5,12 @@ from conan import ConanFile
 from conan.tools.cmake import CMakeToolchain, CMake
 
 
-PROGRAM_VERSION = "0.0.2"
+FPTN_VERSION = "0.0.2"
 
 
 class FPTN(ConanFile):
     name = "fptn"
-    version = PROGRAM_VERSION
+    version = FPTN_VERSION
     requires = (
         "fmt/11.0.1",
         "glog/0.7.1",
@@ -120,35 +120,14 @@ class FPTN(ConanFile):
         tc = CMakeToolchain(self)
         if self.options.with_gui_client:
             tc.variables["FPTN_BUILD_WITH_GUI_CLIENT"] = "True"
-        tc.preprocessor_definitions["FPTN_VERSION"] = PROGRAM_VERSION
+        tc.variables["FPTN_VERSION"] = FPTN_VERSION
+        tc.preprocessor_definitions["FPTN_VERSION"] = FPTN_VERSION
         tc.generate()
 
     def build(self):
         cmake = CMake(self)
         cmake.configure()
         cmake.build()
-
-        if self.options.setup:
-            base_path = pathlib.Path(self.package_folder) / "build" / "Release" / "code"
-            programs = [base_path / "fptn-client" / "fptn-client-cli",]
-            if sys.platform == "linux" or sys.platform == "linux2" or sys.platform == "darwin":
-                programs.extend([
-                    base_path / "fptn-passwd" / "fptn-passwd",
-                    base_path / "fptn-server" / "fptn-server",
-                ])
-            if self.options.with_gui_client:
-                programs.extend([
-                    base_path / "fptn-client" / "fptn-client-gui",
-                ])
-            
-            cp_commands = " ;".join(
-                f"cp -v '{program}' /usr/local/bin/" for program in programs
-            )
-            cmd = f'sudo sh -c "{cp_commands}"'
-            try:
-                subprocess.run(f"sudo sh -c '{cmd}'", shell=True, check=True)
-            except subprocess.CalledProcessError as e:
-                print(f"Error occurred while installing binaries: {e}")
                 
     def configure(self):
         self.settings.compiler.cppstd = "17"

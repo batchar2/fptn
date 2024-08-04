@@ -42,7 +42,8 @@ SERVER_PUB=
 PORT=443
 TUN_INTERFACE_NAME=fptn0
 
-DISABLE_BITTORENT=false
+# true or false
+DISABLE_BITTORENT=true
 
 LOG_FILE=/var/log/fptn-server.log
 EOL

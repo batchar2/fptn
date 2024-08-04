@@ -224,26 +224,21 @@ Console version
 ```
 git submodule update --init --recursive 
 conan install . --output-folder=build --build=missing
-conan build . --output-folder=build
-conan build . --output-folder=build -o setup=True
+cd build
+cmake .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release
+cmake --build .
+ctest
+# to install in system
+make install
 ```
 
 
-
-Or GUI version
-
+After that you can build deb (only on ubuntu)
 ```
-git submodule update --init --recursive 
-conan install . --output-folder=build-linux --build=missing -o with_gui_client=True -c tools.system.package_manager:mode=install
-conan build . --output-folder=build -o with_gui_client=True 
-conan build . --output-folder=build -o with_gui_client=True -o setup=True
+cmake --build . --target build-deb
 ```
 
-Build deb:
-```
-./scripts/ubuntu/create-server-deb-package.sh build/build/Release/code/fptn-server/fptn-server build/build/Release/code/fptn-passwd/fptn-passwd 0.0.2
-./scripts/ubuntu/create-client-deb-package.sh build/build/Release/code/fptn-client/fptn-client-cli 0.0.2
-```
+
 
 </details>
 

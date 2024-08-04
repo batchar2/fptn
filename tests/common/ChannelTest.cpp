@@ -4,42 +4,22 @@
 #include <gtest/gtest.h>
 
 #include <common/data/channel.h>
-
-
-
-// class MockIPPacket : public IPPacket {
-//     // Mock implementation
-// };
+#include <common/network/ip_packet.h>
 
 
 TEST(ChannelTest, PushAndWaitForPacket)
 {
     fptn::common::data::Channel channel(10);
-    // auto pkt = std::make_shared<MockIPPacket>();
+    auto packet = std::make_unique<fptn::common::network::IPPacket>("packet-data", 1);
+    channel.push(std::move(packet));
 
-    // channel.push(pkt);
-
-    // EXPECT_EQ(channel.waitForPacket(std::chrono::milliseconds(100)), pkt);
+    EXPECT_NE(channel.waitForPacket(std::chrono::milliseconds(100)), nullptr);
 }
 
 
-// TEST(ChannelTest, WaitForPacketTimeout)
-// {
-//     Channel channel(10);
+TEST(ChannelTest, WaitForPacketTimeout)
+{
+    fptn::common::data::Channel channel(10);
 
-//     EXPECT_EQ(channel.waitForPacket(std::chrono::milliseconds(100)), nullptr);
-// }
-
-
-// TEST(ChannelTest, MultiplePushAndWaitForPacket)
-// {
-//     Channel channel(10);
-//     auto pkt1 = std::make_shared<MockIPPacket>();
-//     auto pkt2 = std::make_shared<MockIPPacket>();
-
-//     channel.push(pkt1);
-//     channel.push(pkt2);
-
-//     EXPECT_EQ(channel.waitForPacket(std::chrono::milliseconds(100)), pkt1);
-//     EXPECT_EQ(channel.waitForPacket(std::chrono::milliseconds(100)), pkt2);
-// }
+    EXPECT_EQ(channel.waitForPacket(std::chrono::milliseconds(100)), nullptr);
+}
