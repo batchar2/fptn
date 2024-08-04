@@ -1,0 +1,12 @@
+[Unit]
+Description=FPTN hostapd Service
+After=network.target fptn-client.service
+
+[Service]
+ExecStart=bash -c "sleep 20 && hostapd /etc/fptn-hostapd.conf" 
+Restart=always
+User=root
+RestartSec=5
+ 
+[Install]
+WantedBy=multi-user.target

@@ -176,7 +176,7 @@ Configuration File Fields:
 NETWORK_INTERFACE The network interface on the client device to be used for VPN connections (e.g., eth0 or wlan0).
 - `VPN_SERVER_IP` The IP address of the VPN server to connect to.
 - `VPN_SERVER_PORT` The port number for the VPN server connection (default is 443).
-- `GATEWAY_IP` The IP address of the gateway for the VPN connection. If not provided, the client will attempt to auto-detect the gateway IP.
+- `GATEWAY_IP` The IP address of the gateway for the VPN connection (your router's address)
 
 ##### Step 4: Start the Client Service
 

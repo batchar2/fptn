@@ -3,6 +3,7 @@
 #include <string>
 #include <memory>
 #include <vector>
+#include <cstdint>
 
 #include <pcapplusplus/Packet.h>
 #include <pcapplusplus/EthLayer.h>

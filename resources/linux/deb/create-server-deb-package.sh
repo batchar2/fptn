@@ -62,6 +62,7 @@ EnvironmentFile=-/etc/fptn/server.conf
 ExecStart=/usr/bin/$(basename "$SERVER_BIN") --server-key=\${SERVER_KEY} --server-crt=\${SERVER_CRT} --server-pub=\${SERVER_PUB} --out-network-interface=\${OUT_NETWORK_INTERFACE} --server-port=\${PORT} --tun-interface-name=\${TUN_INTERFACE_NAME} --disable-bittorrent=\${DISABLE_BITTORENT}
 Restart=always
 WorkingDirectory=/etc/fptn
+RestartSec=5
 User=root
 
 [Install]

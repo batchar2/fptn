@@ -37,8 +37,8 @@ USERNAME=
 PASSWORD=
 NETWORK_INTERFACE=
 VPN_SERVER_IP=
-VPN_SERVER_PORT=443
 GATEWAY_IP=
+VPN_SERVER_PORT=443
 EOL
 
 # Create systemd service file for client
@@ -51,6 +51,7 @@ After=network.target
 EnvironmentFile=/etc/fptn-client/client.conf
 ExecStart=/usr/bin/$(basename "$CLIENT_CLI") --vpn-server-ip=\${VPN_SERVER_IP} --vpn-server-port=\${VPN_SERVER_PORT} --out-network-interface=\${NETWORK_INTERFACE} --username=\${USERNAME} --password=\${PASSWORD} --gateway-ip=\${GATEWAY_IP}
 Restart=always
+RestartSec=5
 User=root
 
 [Install]

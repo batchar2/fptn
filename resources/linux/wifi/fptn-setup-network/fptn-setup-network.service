@@ -1,0 +1,12 @@
+[Unit]
+Description=FPTN dnsmasq Service
+After=network.target fptn-client.service fptn-hostapd.service fptn-dnsmasq.service
+
+[Service]
+ExecStart=bash -c "sleep 2 && bash /usr/sbin/fptn-setup-network.sh" 
+Restart=always
+User=root
+RestartSec=5
+ 
+[Install]
+WantedBy=multi-user.target
