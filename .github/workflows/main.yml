@@ -39,7 +39,9 @@ jobs:
         run: |
           echo "TOKEN=${{secrets.CI_TOKEN }}"
           cat conanfile.py
-      - uses: AButler/upload-release-assets@v3.0
+    
+      - name: PUSH
+        uses: AButler/upload-release-assets@v3.0
         with:
           files: "artifacts/*;packages/*.nupkg"
           repo-token: ${{ secrets.GITHUB_TOKEN }}
