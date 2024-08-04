@@ -5,7 +5,8 @@ from conan import ConanFile
 from conan.tools.cmake import CMakeToolchain, CMake
 
 
-FPTN_VERSION = "0.0.2"
+# will replace automaticaly using CI
+FPTN_VERSION = "0.0.0"
 
 
 class FPTN(ConanFile):
