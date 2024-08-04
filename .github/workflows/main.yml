@@ -3,7 +3,6 @@ name: Build and Test
 on:
   push:
     branches:
-      - сi
       - dev 
       - master
   release:
@@ -28,6 +27,9 @@ jobs:
           cd build
           cmake .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release
           cmake --build .
+      
+      - name: Test
+        run: |
           ctest
 
       - name: Build Debian package

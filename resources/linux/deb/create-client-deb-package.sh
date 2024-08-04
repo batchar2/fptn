@@ -21,6 +21,7 @@ mkdir -p "$CLIENT_TMP_DIR/DEBIAN"
 mkdir -p "$CLIENT_TMP_DIR/usr/bin"
 mkdir -p "$CLIENT_TMP_DIR/etc/fptn-client"
 mkdir -p "$CLIENT_TMP_DIR/lib/systemd/system"
+mkdir -p "$CLIENT_TMP_DIR/DEBIAN/postrm"
 
 # Copy client binary
 cp "$CLIENT_CLI" "$CLIENT_TMP_DIR/usr/bin/"
@@ -68,7 +69,7 @@ Description: fptn client
 EOL
 
 
-cat <<EOL > "$SERVER_TMP_DIR/DEBIAN/postrm"
+cat <<EOL > "$CLIENT_TMP_DIR/DEBIAN/postrm"
 #!/bin/bash
 set -e
 
@@ -76,7 +77,7 @@ set -e
 rm -rf /etc/fptn-client
 EOL
 
-chmod 755 "$SERVER_TMP_DIR/DEBIAN/postrm"
+chmod 755 "$CLIENT_TMP_DIR/DEBIAN/postrm"
 
 # Build the Debian package
 dpkg-deb --build "$CLIENT_TMP_DIR" "fptn-client-cli-${VERSION}-$(dpkg --print-architecture).deb"
