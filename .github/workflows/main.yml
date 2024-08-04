@@ -40,12 +40,23 @@ jobs:
           echo "TOKEN=${{secrets.CI_TOKEN }}"
           cat conanfile.py
       
-      - name: Upload release binaries
-        uses: alexellis/upload-assets@0.4.0
+      - name: Upload Release Asset
+        id: upload-release-asset 
+        uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.CI_TOKEN }}
         with:
-          asset_paths: '["conanfile.py"]'
+          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
+          asset_path: ./conanfile.py
+          asset_name: conanfile.py
+          asset_content_type: application/zip
+
+      # - name: Upload release binaries
+      #   uses: alexellis/upload-assets@0.4.0
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.CI_TOKEN }}
+      #   with:
+      #     asset_paths: '["conanfile.py"]'
           # asset_paths: '["./bin/release-it*"]'
 
       # - name: Upload server-deb
