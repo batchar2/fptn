@@ -13,13 +13,13 @@ on:
         required: true
         type: choice
         options:
-        - Ubuntu
-        - macOS
-        - Windows
+          - Ubuntu
+          - macOS
+          - Windows
 
 jobs:
   build:
-    runs-on: [self-hosted, "${{ inputs.chosen-os }}"]
+    runs-on: self-hosted-${{ inputs.chosen-os }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -45,21 +45,3 @@ jobs:
         run: |
           cd build
           cmake --build . --target build-deb
-
-      # - name: Upload client-deb
-      #   if: github.event.action == 'release'
-      #   uses: actions/upload-release-asset@v1.0.1
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #   with:
-      #     upload_url: ${{ github.event.release.upload_url }}
-      #     asset_path:  fptn-client-cli-*.deb
-      
-      # - name: Upload server-deb
-      #   if: github.event.action == 'release'
-      #   uses: actions/upload-release-asset@v1.0.1
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #   with:
-      #     upload_url: ${{ github.event.release.upload_url }}
-      #     asset_path:  fptn-server-*.deb
