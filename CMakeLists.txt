@@ -30,16 +30,16 @@ link_directories(${CMAKE_BINARY_DIR}/lib/)
 add_subdirectory(depends/libs/libhv EXCLUDE_FROM_ALL)
 
 # --- include ---
-include_directories(code/)
+include_directories(src/)
 include_directories(depends/)
 
 # --- project ---
 add_subdirectory(depends/protobuf/fptn_protocol)
 if(APPLE OR UNIX)
-    add_subdirectory(code/fptn-server)
-    add_subdirectory(code/fptn-passwd)
+    add_subdirectory(src/fptn-server)
+    add_subdirectory(src/fptn-passwd)
 endif()
-add_subdirectory(code/fptn-client)
+add_subdirectory(src/fptn-client)
 
 # --- tests ---
 add_subdirectory(tests)
@@ -57,8 +57,8 @@ if(UNIX)
     add_custom_target(build-deb
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         COMMAND bash -c "\
-            ${CMAKE_CURRENT_SOURCE_DIR}/resources/linux/deb/create-client-deb-package.sh ${CMAKE_BINARY_DIR}/code/fptn-client/fptn-client-cli ${FPTN_VERSION}; \
-            ${CMAKE_CURRENT_SOURCE_DIR}/resources/linux/deb/create-server-deb-package.sh ${CMAKE_BINARY_DIR}/code/fptn-server/fptn-server ${CMAKE_BINARY_DIR}/code/fptn-passwd/fptn-passwd ${FPTN_VERSION} \
+            ${CMAKE_CURRENT_SOURCE_DIR}/resources/linux/deb/create-client-deb-package.sh ${CMAKE_BINARY_DIR}/src/fptn-client/fptn-client-cli ${FPTN_VERSION}; \
+            ${CMAKE_CURRENT_SOURCE_DIR}/resources/linux/deb/create-server-deb-package.sh ${CMAKE_BINARY_DIR}/src/fptn-server/fptn-server ${CMAKE_BINARY_DIR}/src/fptn-passwd/fptn-passwd ${FPTN_VERSION} \
         "
         COMMENT "Building .deb package"
         VERBATIM
