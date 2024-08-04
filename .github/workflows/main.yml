@@ -35,6 +35,26 @@ jobs:
         run: |
           sed -i "s/^FPTN_VERSION = \".*\"/FPTN_VERSION = \"$RELEASE_VERSION\"/" conanfile.py
     
+      - name: Install dependencies
+        run: |
+          conan install . --output-folder=build --build=missing
+
+      - name: Build
+        run: |
+          cd build
+          cmake .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release
+          cmake --build .
+      
+      - name: Test
+        run: |
+          cd build
+          ctest
+
+      - name: Build Debian package
+        run: |
+          cd build
+          cmake --build . --target build-deb
+
       - name: Upload deb
         if: github.event_name == 'release'
         uses: AButler/upload-release-assets@v3.0
