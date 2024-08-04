@@ -26,41 +26,34 @@ sudo systemctl stop dnsmasq
 sudo systemctl disable dnsmasq
 ```
 
-
 <details>
-<summary>Дополнительные настройки для Ubuntu 24.04
-</summary>
+<summary>Дополнительные настройки для Ubuntu 24.04</summary>
 
 Если вы используете Ubuntu 24.04, выполните следующие дополнительные шаги:
 
-Разрешите порт 53 для DNS:
+Откройте файл `/etc/systemd/resolved.conf`
+
+
+Найдите параметр DNSStubListener, раскомментируйте его и измените значение на no:
 
 ```bash
-sudo ufw allow 53
+DNSStubListener=no
+``` 
+
+Перезапустите службу systemd-resolved:
+
+```bash
+sudo systemctl restart systemd-resolved
 ```
-
-Остановите и отключите systemd-resolved:
-
-```bash
-sudo systemctl stop systemd-resolved
-sudo systemctl disable systemd-resolved
-```  
-
-Удалите символическую ссылку на /etc/resolv.conf и создайте новый файл с вашим DNS сервером:
-
-```bash
-sudo rm /etc/resolv.conf
-sudo sh -c 'echo "nameserver 8.8.8.8" > /etc/resolv.conf'
-sudo chattr +i /etc/resolv.conf
-```
-
 
 Перезагрузите систему:
 
 ```bash
 sudo reboot
 ```
+
 </details>
+
 
 
 #### Шаг 5: Настройка Hostapd
