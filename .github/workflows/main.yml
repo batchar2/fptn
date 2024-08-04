@@ -37,7 +37,7 @@ jobs:
 
       - name: TEST
         run: |
-          echo ${{ secrets.CI_TOKEN }}
+          echo "TOKEN=${{secrets.CI_TOKEN }}"
           cat conanfile.py
       
       - name: Upload server-deb
