@@ -40,14 +40,24 @@ jobs:
           echo "TOKEN=${{secrets.CI_TOKEN }}"
           cat conanfile.py
       
-      - name: Upload server-deb
-        if: github.event.action == 'release'
-        uses: actions/upload-release-asset@v1.0.1
+      - name: Upload release binaries
+        uses: alexellis/upload-assets@0.4.0
         env:
           GITHUB_TOKEN: ${{ secrets.CI_TOKEN }}
         with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path:  conanfile.py
+          asset_paths: '["conanfile.py"]'
+          # asset_paths: '["./bin/release-it*"]'
+
+      # - name: Upload server-deb
+      #   if: github.event.action == 'release'
+      #   uses: actions/upload-release-asset@v1.0.1
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.CI_TOKEN }}
+      #   with:
+      #     upload_url: ${{ github.event.release.upload_url }}
+      #     asset_path:  conanfile.py
+      #   run: |
+      #     ls -lha
 
       # - name: Install dependencies
       #   run: |
