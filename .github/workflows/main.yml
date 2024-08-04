@@ -35,83 +35,15 @@ jobs:
         run: |
           sed -i "s/^FPTN_VERSION = \".*\"/FPTN_VERSION = \"$RELEASE_VERSION\"/" conanfile.py
 
-      - name: TEST
+      - name: Test
         run: |
           echo "TOKEN=${{secrets.CI_TOKEN }}"
           cat conanfile.py
     
-      - name: PUSH
+      - name: Upload deb
+        if: github.event_name == 'release'
         uses: AButler/upload-release-assets@v3.0
         with:
-          files: "conanfile.py;fptn-*.deb"
+          files: "fptn-*.deb"
           repo-token: ${{ secrets.CI_TOKEN }}
-          # files: "artifacts/*;packages/*.nupkg"
-          # repo-token: ${{ secrets.GITHUB_TOKEN }}
-
-      # - name: Upload Release Asset
-      #   id: upload-release-asset 
-      #   uses: actions/upload-release-asset@v1
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.CI_TOKEN }}
-      #   with:
-      #     upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
-      #     asset_path: ./conanfile.py
-      #     asset_name: conanfile.py
-      #     asset_content_type: application/zip
-
-      # - name: Upload release binaries
-      #   uses: alexellis/upload-assets@0.4.0
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.CI_TOKEN }}
-      #   with:
-      #     asset_paths: '["conanfile.py"]'
-          # asset_paths: '["./bin/release-it*"]'
-
-      # - name: Upload server-deb
-      #   if: github.event.action == 'release'
-      #   uses: actions/upload-release-asset@v1.0.1
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.CI_TOKEN }}
-      #   with:
-      #     upload_url: ${{ github.event.release.upload_url }}
-      #     asset_path:  conanfile.py
-      #   run: |
-      #     ls -lha
-
-      # - name: Install dependencies
-      #   run: |
-      #     conan install . --output-folder=build --build=missing
-
-      # - name: Build
-      #   run: |
-      #     cd build
-      #     cmake .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release
-      #     cmake --build .
-      
-      # - name: Test
-      #   run: |
-      #     cd build
-      #     ctest
-
-      # - name: Build Debian package
-      #   run: |
-      #     cd build
-      #     cmake --build . --target build-deb
-
-      # - name: Upload client-deb
-      #   if: github.event.action == 'release'
-      #   uses: actions/upload-release-asset@v1.0.1
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #   with:
-      #     upload_url: ${{ github.event.release.upload_url }}
-      #     asset_path:  fptn-client-cli-*.deb
-      
-      # - name: Upload server-deb
-      #   if: github.event.action == 'release'
-      #   uses: actions/upload-release-asset@v1.0.1
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #   with:
-      #     upload_url: ${{ github.event.release.upload_url }}
-      #     asset_path:  fptn-server-*.deb
+          

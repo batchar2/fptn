@@ -15,6 +15,9 @@ PASSWD_BIN="$2"
 VERSION="$3"
 MAINTAINER="FPTN Project"
 
+OS_NAME=$(lsb_release -i | awk -F':\t' '{print $2}' | tr '[:upper:]' '[:lower:]')
+OS_VERSION=$(lsb_release -r | awk -F':\t' '{print $2}')
+
 SERVER_TMP_DIR=$(mktemp -d -t fptn-server-XXXXXX)
 
 mkdir -p "$SERVER_TMP_DIR/DEBIAN"
@@ -98,6 +101,6 @@ dpkg-deb --build "$SERVER_TMP_DIR" "fptn-server-${VERSION}-$(dpkg --print-archit
 rm -rf "$SERVER_TMP_DIR"
 
 
-chmod 644 "fptn-server-${VERSION}-$(dpkg --print-architecture).deb"
+chmod 644 "fptn-server-${VERSION}-${OS_NAME}${OS_VERSION}-$(dpkg --print-architecture).deb"
 
 echo "Server Debian package created successfully."
