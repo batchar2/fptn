@@ -308,14 +308,21 @@ Options:
 
 
 
+
 <details>
   <summary>Using CLion IDE</summary>
   
-After opening the project, the "Open Project Wizard" will appear automatically. You need to add the following CMake options:
+Run the following command in the project folder:
+```
+conan install . --output-folder=cmake-build-debug --build=missing --settings build_type=Debug
+```
+
+Open the project in CLion. After opening the project, the "Open Project Wizard" will appear automatically. You need to add the following CMake option:
 
 ```
--DCONAN_HOST_PROFILE="auto-cmake;default" -DCMAKE_PROJECT_TOP_LEVEL_INCLUDES=./conan_provider.cmake
+-DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake
 ```
+
 </details>
 
 
