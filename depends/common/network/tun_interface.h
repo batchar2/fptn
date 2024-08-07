@@ -25,16 +25,16 @@ namespace fptn::common::network
     {
     public:
         TunInterface(
-            std::string name, 
-            std::string addr, 
+            const std::string& name,
+            const pcpp::IPv4Address& addr,
             const int netmask, 
             const NewIPPacketCallback& callback = nullptr
         )
             : 
                 mtu_(1500),
                 running_(false),
-                name_(std::move(name)),
-                addr_(std::move(addr)),
+                name_(name),
+                addr_(addr),
                 netmask_(netmask),
                 newIPPktCallback_(callback)
         {
@@ -48,7 +48,7 @@ namespace fptn::common::network
             try {
                 tun_ = std::make_unique<tuntap::tun>();
                 tun_->name(name_);
-                tun_->ip(addr_, netmask_);
+                tun_->ip(addr_.toString(), netmask_);
                 tun_->mtu(mtu_);
                 tun_->up();
                 running_ = true;
@@ -98,7 +98,7 @@ namespace fptn::common::network
         std::unique_ptr<tuntap::tun> tun_;
 
         const std::string name_;
-        const std::string addr_;
+        const pcpp::IPv4Address addr_;
         const int netmask_;
         NewIPPacketCallback newIPPktCallback_;
     };

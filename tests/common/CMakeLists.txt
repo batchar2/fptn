@@ -14,6 +14,11 @@ set(LIBS
 )
 
 # --- Channel test ---
-add_executable(ChannelTest ChannelTest.cpp)
+add_executable(ChannelTest data/ChannelTest.cpp)
 target_link_libraries(ChannelTest ${LIBS})
 add_test(NAME ChannelTest COMMAND ChannelTest)
+
+# --- IP Generator test ---
+add_executable(IPGeneratorTest network/IPGeneratorTest.cpp)
+target_link_libraries(IPGeneratorTest ${LIBS})
+add_test(NAME IPGeneratorTest COMMAND IPGeneratorTest)

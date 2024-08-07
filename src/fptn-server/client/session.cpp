@@ -8,9 +8,12 @@ Session::Session(
     fptn::ClientID clientId, 
     const pcpp::IPv4Address& clientIP, 
     const pcpp::IPv4Address& fakeClientIP,
-    fptn::traffic_shaper::LeakyBucketSPtr trafficShaper
+    const fptn::traffic_shaper::LeakyBucketSPtr& trafficShaper
 ) :
-    clientId_(clientId), clientIP_(clientIP), fakeClientIP_(fakeClientIP), trafficShaper_(trafficShaper)
+    clientId_(clientId),
+    clientIP_(clientIP),
+    fakeClientIP_(fakeClientIP),
+    trafficShaper_(trafficShaper)
 {
 }
 

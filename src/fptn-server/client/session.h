@@ -25,14 +25,16 @@ namespace fptn::client
             ClientID clientId, 
             const pcpp::IPv4Address& clientIP, 
             const pcpp::IPv4Address& fakeClientIP,
-            fptn::traffic_shaper::LeakyBucketSPtr trafficShaper
+            const fptn::traffic_shaper::LeakyBucketSPtr& trafficShaper
         );
         const ClientID clientId() const noexcept;
         const pcpp::IPv4Address& clientIP() const noexcept;
         const pcpp::IPv4Address& fakeClientIP() const noexcept;
         fptn::traffic_shaper::LeakyBucketSPtr getTrafficShaper() noexcept;
-        fptn::common::network::IPPacketPtr changeIPAddressToCleintIP(fptn::common::network::IPPacketPtr packet) noexcept;
-        fptn::common::network::IPPacketPtr changeIPAddressToFakeIP(fptn::common::network::IPPacketPtr packet) noexcept;
+        fptn::common::network::IPPacketPtr changeIPAddressToCleintIP(
+                fptn::common::network::IPPacketPtr packet) noexcept;
+        fptn::common::network::IPPacketPtr changeIPAddressToFakeIP(
+                fptn::common::network::IPPacketPtr packet) noexcept;
     private:
         const ClientID clientId_;
         const pcpp::IPv4Address clientIP_;
