@@ -104,11 +104,10 @@ int main(int argc, char* argv[])
     const auto userFilePath = args.get<std::string>("--userfile");
 
     const auto serverPort = args.get<int>("--server-port");
-
     const auto tunInterfaceName = args.get<std::string>("--tun-interface-name");
     const auto tunInterfaceIP = pcpp::IPv4Address(args.get<std::string>("--tun-interface-ip"));
     const auto tunInterfaceNetworkAddress = pcpp::IPv4Address(args.get<std::string>("--tun-interface-network-address"));
-    const auto tunInterfaceNetworkMask = args.get<std::uint32_t>("--tun-interface-network-mask");
+    const auto tunInterfaceNetworkMask = args.get<int>("--tun-interface-network-mask");
 
     auto userManager = std::make_shared<fptn::common::user::UserManager>(
             userFilePath

@@ -90,6 +90,7 @@ set -e
 
 # Remove configuration directory if empty
 rm -rf /etc/fptn
+systemctl stop fptn-server
 systemctl daemon-reload
 EOL
 
