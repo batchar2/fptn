@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<installer-gui-script minSpecVersion="1">
+    <title>fptn-client-cli Installer</title>
+    <background file="background.png" alignment="bottomleft" scaling="proportional"/>
+    <welcome file="welcome.html"/>
+    <license file="license.html"/>
+    <options customize="never" require-scripts="true"/>
+    <choices-outline>
+        <line choice="fptn-client-cli"/>
+    </choices-outline>
+    <choice id="fptn-client-cli" visible="true" title="fptn-client-cli">
+        <pkg-ref id="com.fptn.fptn-client-cli"/>
+    </choice>
+    <pkg-ref id="com.fptn.fptn-client-cli" installKBytes="10240" auth="Root">#fptn-client-cli.pkg</pkg-ref>
+</installer-gui-script>
