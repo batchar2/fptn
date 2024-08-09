@@ -1,6 +1,0 @@
-#!/bin/bash
-
-touch /tmp/1.txt
-ln -s /Volumes/fptn-client/fptn-client-cli /usr/local/bin/fptn-client-cli
-chmod +x /usr/local/bin/fptn-client-cli
-#kex --start

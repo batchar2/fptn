@@ -1,6 +1,8 @@
 *.dmg
 *.deb
 *.pkg
+.vs/
+.vscode/
 tmp/
 keys/
 build*/
