@@ -1,22 +1,41 @@
 #!/bin/bash
 
-# Path to the driver
-KEXT_PATH="/Library/Extensions/tunnelblick-tun.kext"
-
+# Check for root privileges
 if [ "$(id -u)" -ne 0 ]; then
     echo "This operation requires root privileges."
     exit 1
 fi
 
+# Define paths
+KEXT_LIBRARY_EXTENSION="/Library/Extensions"
+KEXT_PATH_INSIDE_APPLICATION="/Applications/FptnClient.app/Contents/Resources/tun.kext"
+KEXT_PATH="$KEXT_LIBRARY_EXTENSION/tun.kext"
+
+TUN_PLIST_PATH="/Library/LaunchDaemons/net.tunnelblick.tun.plist"
+TUN_PLIST_PATH_INSIDE_APPLICATION="/Applications/FptnClient.app/Contents/Resources/net.tunnelblick.tun.plist"
+
+# Copy KEXT if not already present
+if [ ! -d "$KEXT_PATH" ]; then
+    echo "Copying Kext to $KEXT_LIBRARY_EXTENSION..."
+    cp -rv "$KEXT_PATH_INSIDE_APPLICATION" "$KEXT_LIBRARY_EXTENSION"
+fi
+
+kextcache -i /
+
+# Copy and load LaunchDaemon plist
+if [ ! -f "$TUN_PLIST_PATH" ]; then
+    echo "Copying LaunchDaemon plist to /Library/LaunchDaemons/"
+    cp -rv "$TUN_PLIST_PATH_INSIDE_APPLICATION" "/Library/LaunchDaemons/"
+fi
+
 # Check if the driver is loaded
 if ! kextstat | grep -q "$(basename "$KEXT_PATH" .kext)"; then
     echo "Driver not loaded. Attempting to load..."
-    kextload "$KEXT_PATH"
-    if [ $? -ne 0 ]; then
+    if kextload "$KEXT_PATH"; then
+        echo "Driver loaded successfully."
+    else
         echo "Failed to load the driver."
         exit 1
-    else
-        echo "Driver loaded successfully."
     fi
 else
     echo "Driver is already loaded."

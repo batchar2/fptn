@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 import os
 import sys
 import shutil
@@ -114,7 +115,7 @@ def create_pkg(app_path: pathlib.Path) -> bool:
     try:
         post_install = SCRIPT_FOLDER / "scripts" / "post_install.sh"
         pkg_obj = Packages(
-            pkg_output="fptn-client-cli.pkg",
+            pkg_output="fptn-client-apple-silicon.pkg",
             pkg_bundle_id="com.fptn-vpn.installer",
             pkg_as_distribution=True,
             pkg_title="FPTN-VPN",
@@ -149,9 +150,8 @@ if __name__ == "__main__":
     with tempfile.TemporaryDirectory() as temp_dir:
         app_path = pathlib.Path(temp_dir) / f"{APP_NAME}-{args.version}.app"
         if create_app(app_path, fptn_client_cli, args.version):
-            pkg_path = pathlib.Path(f"fptn-client-cli-{args.version}-apple-silicon.pkg")
             if create_pkg(app_path):
-                print(f"Package created successfully: {pkg_path}")
+                print(f"Package created successfully")
             else:
                 print("Failed to create package.")
         else:
