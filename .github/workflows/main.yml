@@ -32,11 +32,16 @@ jobs:
           echo "Release Version: $RELEASE_VERSION"
           echo "Release Version from env: ${{ env.RELEASE_VERSION }}"
 
-      - name: Update FPTN_VERSION in conanfile.py
-        if: github.event_name == 'release'
+      - name: Update FPTN_VERSION in conanfile.py (Linux)
+        if: runner.os == 'Linux' && github.event_name == 'release'
         run: |
           sed -i "s/^FPTN_VERSION = \".*\"/FPTN_VERSION = \"$RELEASE_VERSION\"/" conanfile.py
-    
+
+      - name: Update FPTN_VERSION in conanfile.py (MacOS)
+        if: runner.os == 'MacOS' && github.event_name == 'release'
+        run: |
+          sed -i '' "s/^FPTN_VERSION = \".*\"/FPTN_VERSION = \"$RELEASE_VERSION\"/" conanfile.py
+
       - name: Install dependencies
         run: |
           conan install . --output-folder=build --build=missing
