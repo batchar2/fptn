@@ -35,7 +35,7 @@ target_link_libraries(
 
 #### part 2
 if("${FPTN_BUILD_WITH_GUI_CLIENT}")
-    find_package(Qt6 COMPONENTS Core Gui Widgets  CONFIG REQUIRED)
+    find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network CONFIG REQUIRED)
     # Svg
     set(CMAKE_AUTOMOC ON)
     set(CMAKE_AUTORCC ON)
@@ -55,9 +55,10 @@ if("${FPTN_BUILD_WITH_GUI_CLIENT}")
         gui/tray/tray.h gui/tray/tray.cpp
         gui/speedwidget/speedwidget.h gui/speedwidget/speedwidget.cpp
         gui/settingswidget/settings.h gui/settingswidget/settings.cpp
+
+        gui/settingsmodel/settingsmodel.h gui/settingsmodel/settingsmodel.cpp
+
         ${PROJECT_RESOURCES}
-            gui/servermodel/server_model.h
-            gui/servermodel/server_model.cpp
     )
 
     target_link_libraries(
@@ -75,7 +76,7 @@ if("${FPTN_BUILD_WITH_GUI_CLIENT}")
         hv_static
         fptn_protocol
 
-        Qt6::Core Qt6::Gui Qt6::Widgets 
-        #Qt6::Svg
+        Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Network
     )
+    set_target_properties("${PROJECT_NAME}-gui" PROPERTIES AUTOMOC ON)
 endif()

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <queue>
+#include <mutex>
 #include <atomic>
 #include <memory>
 #include <string>
@@ -19,8 +20,44 @@
 namespace fptn::common::network
 {
 
+    class DataRateCalculator
+    {
+    public:
+        DataRateCalculator(std::chrono::seconds interval = std::chrono::seconds(5))
+                : interval_(interval),
+                  bytes_(0),
+                  lastUpdateTime_(std::chrono::steady_clock::now()),
+                  rate_(0)
+        {
+        }
+        void update(std::size_t len) noexcept
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            auto now = std::chrono::steady_clock::now();
+            std::chrono::duration<double> elapsed = now - lastUpdateTime_;
+            bytes_ += len;
+            if (elapsed >= interval_) {
+                rate_ = static_cast<std::size_t>(bytes_ / elapsed.count());
+                lastUpdateTime_ = now;
+                bytes_ = 0;
+            }
+        }
+        std::size_t getRateForSecond() const noexcept
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            return static_cast<std::size_t>(rate_ / interval_.count());;
+        }
+    private:
+        mutable std::mutex mutex_;
+        std::chrono::seconds interval_;
+        std::atomic<std::size_t> bytes_;
+        std::chrono::steady_clock::time_point lastUpdateTime_;
+        std::atomic<std::size_t> rate_;
+    };
+
+
     using NewIPPacketCallback = std::function<void(IPPacketPtr packet)>;
-    
+
     class TunInterface
     {
     public:
@@ -71,8 +108,17 @@ namespace fptn::common::network
         }
         bool send(IPPacketPtr packet)
         {
+            sendRateCalculator_.update(packet->size()); // calculate rate
             std::vector<std::uint8_t> serialized = packet->serialize();
             return tun_->write(serialized.data(), serialized.size()) == serialized.size();
+        }
+        std::size_t getSendRate() const noexcept
+        {
+            return sendRateCalculator_.getRateForSecond();
+        }
+        std::size_t getReceiveRate() const noexcept
+        {
+            return receiveRateCalculator_.getRateForSecond();
         }
     private:
         void run() noexcept
@@ -84,6 +130,7 @@ namespace fptn::common::network
                 if (size) {
                     auto packet = IPPacket::parse(buffer, size);
                     if (packet != nullptr && newIPPktCallback_) {
+                        receiveRateCalculator_.update(packet->size()); // calculate rate
                         newIPPktCallback_(std::move(packet));
                     }
                 }
@@ -101,6 +148,9 @@ namespace fptn::common::network
         const pcpp::IPv4Address addr_;
         const int netmask_;
         NewIPPacketCallback newIPPktCallback_;
+
+        DataRateCalculator sendRateCalculator_;
+        DataRateCalculator receiveRateCalculator_;
     };
 
 

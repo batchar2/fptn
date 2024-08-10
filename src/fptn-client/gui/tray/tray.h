@@ -6,24 +6,53 @@
 #include <QString>
 #include <QAction>
 #include <QApplication>
+#include <QWidgetAction>
 #include <QSystemTrayIcon>
 
-#include "gui/servermodel/server_model.h"
+#include "gui/speedwidget/speedwidget.h"
 #include "gui/settingswidget/settings.h"
+#include "gui/settingsmodel/settingsmodel.h"
+
+#include <common/data/channel.h>
+#include <common/network/ip_packet.h>
+#include <common/network/tun_interface.h>
+
+#include "gui/tray/tray.h"
+#include "vpn/vpn_client.h"
+#include "system/iptables.h"
+#include "http/websocket_client.h"
 
 
-namespace fptn::gui {
+namespace fptn::gui
+{
 
-    class TrayApp : public QObject {
-    Q_OBJECT
+    class TrayApp : public QObject
+    {
+        Q_OBJECT
+    private:
+        enum class ConnectionState {
+            None,           // No connection
+            Connecting,     // Connecting
+            Connected,      // Connected
+            Disconnecting   // Disconnecting
+        };
     public:
         TrayApp(QObject *parent = nullptr);
+    signals:
+        void defaultState(); // Signal for default state
+        void connecting(); // Signal for connecting state
+        void connected(); // Signal for connected state
+        void disconnecting(); // Signal for disconnecting state
 
     private slots:
-        void onConnectToServer(const Server &server);
+        void onConnectToServer(const ServerConnectionInformation &server);
         void onDisconnectFromServer();
         void onShowSettings();
-        void onServerActionTriggered();
+        void handleDefaultState(); // Handler for default state
+        void handleConnecting(); // Handler for connecting state
+        void handleConnected(); // Handler for connected state
+        void handleDisconnecting(); // Handler for disconnecting state
+        void updateSpeedWidget(); // Handler for updating the speed widget
 
     private:
         void setUpTrayIcon();
@@ -36,8 +65,16 @@ namespace fptn::gui {
         QAction *settingsAction_;
         QAction *quitAction_;
         SettingsWidget *settingsWidget_;
-        ServerModel serverModel_;
+
+        SpeedWidget *speedWidget_;
+        QTimer *updateTimer_;
+
+        ConnectionState connectionState_ = ConnectionState::None;
         QString connectedServerAddress_;
-        QString connectedServerPort_;
+
+        SettingsModel serverModel_;
+        ServerConnectionInformation selectedServer_;
+        fptn::vpn::VpnClientPtr vpnClient_;
+        fptn::system::IPTablesPtr ipTables_;
     };
 }

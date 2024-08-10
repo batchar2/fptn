@@ -1,39 +1,43 @@
 
 #include "speedwidget.h" 
 
-using namespace fptn::gui; 
+using namespace fptn::gui;
+
+static QString formatSpeed(std::size_t bytesPerSec);
 
 
-SpeedWidget::SpeedWidget()
+SpeedWidget::SpeedWidget(QWidget *parent)
+        : QWidget(parent),
+          uploadSpeedLabel_(new QLabel("Upload Speed: 0 MB/s", this)),
+          downloadSpeedLabel_(new QLabel("Download Speed: 0 MB/s", this))
 {
-    QVBoxLayout *mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(20, 4, 20, 4);
-
-    QHBoxLayout *downloadLayout = new QHBoxLayout();
-    {
-        QLabel *downloadLabel = new QLabel("Download:");
-        downloadLabel->setStyleSheet("font-weight: bold;");
-
-        downloadSpeedLabel = new QLabel("0.0 KB/s");
-        downloadLayout->addWidget(downloadLabel);
-        downloadLayout->addWidget(downloadSpeedLabel);
-    }
-    QHBoxLayout *uploadLayout = new QHBoxLayout();
-    {
-        QLabel *uploadLabel = new QLabel("Upload:");
-        uploadLabel->setStyleSheet("font-weight: bold;");
-
-        uploadSpeedLabel = new QLabel("0.0 KB/s");
-        uploadLayout->addWidget(uploadLabel);
-        uploadLayout->addWidget(uploadSpeedLabel);
-    }
-    mainLayout->addLayout(downloadLayout);
-    mainLayout->addLayout(uploadLayout);
-    setLayout(mainLayout);
+    QVBoxLayout *layout = new QVBoxLayout();
+    layout->setContentsMargins(20, 4, 20, 4);
+    layout->addWidget(uploadSpeedLabel_);
+    layout->addWidget(downloadSpeedLabel_);
+    setLayout(layout);
 }
 
-void SpeedWidget::updateSpeeds(const QString &uploadSpeed, const QString &downloadSpeed) noexcept
+void SpeedWidget::updateSpeed(std::size_t uploadSpeed, std::size_t downloadSpeed) {
+    uploadSpeedLabel_->setText("Upload Speed: " + formatSpeed(uploadSpeed));
+    downloadSpeedLabel_->setText("Download Speed: " + formatSpeed(downloadSpeed));
+}
+
+static QString formatSpeed(std::size_t bytesPerSec)
 {
-    uploadSpeedLabel->setText(uploadSpeed);
-    downloadSpeedLabel->setText(downloadSpeed);
+    QString speedStr;
+    double bitsPerSec = bytesPerSec * 8.0;
+    if (bitsPerSec >= 1e9) {
+        speedStr =  QString::asprintf("%.2f Gbps", bitsPerSec / 1e9);
+    } else if (bitsPerSec >= 1e6) {
+        speedStr = QString::asprintf("%.2f Mbps", bitsPerSec / 1e6);
+    } else if (bitsPerSec >= 1e3) {
+        speedStr = QString::asprintf("%.2f Kbps", bitsPerSec / 1e3);
+    } else {
+        speedStr = QString::asprintf("%.2f bps", bitsPerSec);
+    }
+    if (speedStr.size() >= 20) {
+        return speedStr;
+    }
+    return speedStr.leftJustified(20);
 }
