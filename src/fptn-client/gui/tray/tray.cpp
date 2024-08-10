@@ -1,122 +1,100 @@
+#include <QMenu>
+#include <QIcon>
+#include <QAction>
+#include <QApplication>
 
-// #include "tray.h"
+#include "tray.h"
+
+using namespace fptn::gui;
+
+const QString activeIconPath = ":/icons/active.ico";
+const QString inactiveIconPath = ":/icons/incactive.ico";
 
 
-// TrayApp::TrayApp(QSystemTrayIcon *trayIcon, SpeedWidget *speedWidget) 
-//     : trayIcon(trayIcon), speedWidget(speedWidget), isConnected(false) 
-// {  
-//     QMenu *menu = new QMenu; 
- 
-//     // Create actions 
-//     QAction *connectAction = new QAction("Connect to", menu); 
-//     QAction *disconnectAction = new QAction("Disconnect", menu); 
-//     QAction *settingsAction = new QAction("Settings", menu); 
-//     QAction *quitAction = new QAction("Quit", menu); 
- 
-//     // Submenu for server options 
-//     QMenu *connectMenu = new QMenu("Connect to", menu); 
-//     QAction *server1Action = new QAction("server1", connectMenu); 
-//     QAction *server2Action = new QAction("server2", connectMenu); 
- 
-//     connectMenu->addAction(server1Action); 
-//     connectMenu->addAction(server2Action); 
-//     connectAction->setMenu(connectMenu); 
- 
-//     // Connect actions 
-//     // connect(server1Action, &QAction::triggered, [this]() { 
-//     //     connectedServer = "server1"; 
-//     //     speedWidget->setConnectionStatus(true, connectedServer); 
-//     //     isConnected = true; 
-//     //     updateMenu(); 
-//     // }); 
- 
-//     // connect(server2Action, &QAction::triggered, [this]() { 
-//     //     connectedServer = "server2"; 
-//     //     speedWidget->setConnectionStatus(true, connectedServer); 
-//     //     isConnected = true; 
-//     //     updateMenu(); 
-//     // }); 
- 
-//     // connect(disconnectAction, &QAction::triggered, [this]() { 
-//     //     if (isConnected) { 
-//     //         isConnected = false; 
-//     //         speedWidget->setConnectionStatus(false); 
-//     //         connectedServer.clear(); 
-//     //         updateMenu(); 
-//     //     } else { 
-//     //         QMessageBox::information(nullptr, "Disconnect", "Not connected to any server."); 
-//     //     } 
-//     // }); 
- 
-//     // connect(settingsAction, &QAction::triggered, [this]() { 
-//     //     QMessageBox::information(nullptr, "Settings", "Settings dialog (dummy implementation)."); 
-//     // }); 
- 
-//     // connect(quitAction, &QAction::triggered, qApp, &QApplication::quit); 
- 
-//     // // Add actions to menu 
-//     // menu->addAction(connectAction); 
-//     // menu->addAction(disconnectAction); 
-//     // menu->addAction(settingsAction); 
-//     // menu->addAction(quitAction); 
- 
-//     // // Update the menu initially 
-//     // updateMenu(); 
- 
-//     // trayIcon->setContextMenu(menu); 
-//     // trayIcon->show(); 
- 
-//     // // Simulate speed updates 
-//     // QTimer *timer = new QTimer(this); 
-//     // connect(timer, &QTimer::timeout, this, &TrayApp::simulateSpeedUpdates); 
-//     // timer->start(1000);  // Update every second 
-// } 
- 
-// void TrayApp::onConnectToServer() { 
-//     // Placeholder for connection logic 
-// } 
- 
-// void TrayApp::onDisconnect() { 
-//     // Placeholder for disconnection logic 
-// } 
- 
-// void TrayApp::onSettings() { 
-//     // Placeholder for settings dialog 
-// } 
- 
-// void TrayApp::onQuit() { 
-//     qApp->quit(); 
-// } 
- 
-// void TrayApp::updateMenu() { 
-//     QMenu *menu = trayIcon->contextMenu(); 
-//     menu->clear(); // Clear existing actions 
- 
-//     if (isConnected) { 
-//         menu->addAction(new QAction("Disconnect", menu)); 
-//         // menu->addAction(new QWidgetAction(menu)); 
-//         // Add speed widget to menu 
-//         // QWidgetAction *speedAction = new QWidgetAction(menu); 
-//         // speedAction->setDefaultWidget(speedWidget); 
-//         // menu->addAction(speedAction); 
-//     } else { 
-//         QMenu *connectMenu = new QMenu("Connect to", menu); 
-//         QAction *server1Action = new QAction("server1", connectMenu); 
-//         QAction *server2Action = new QAction("server2", connectMenu); 
-//         connectMenu->addAction(server1Action); 
-//         connectMenu->addAction(server2Action);
 
-// menu->addMenu(connectMenu); 
-//     } 
- 
-//     menu->addAction(new QAction("Settings", menu)); 
-//     menu->addAction(new QAction("Quit", menu)); 
-// } 
- 
-// void TrayApp::simulateSpeedUpdates() { 
-//     // if (isConnected) { 
-//     //     int upSpeed = qrand() % 100; 
-//     //     int downSpeed = qrand() % 100; 
-//     //     speedWidget->updateSpeeds(upSpeed, downSpeed); 
-//     // } 
-// } 
+fptn::gui::TrayApp::TrayApp(QObject *parent)
+        : QObject(parent),
+          trayIcon_(new QSystemTrayIcon(this)),
+          trayMenu_(new QMenu()),
+          connectMenu_(new QMenu("Connect to")),
+          settingsWidget_(nullptr)
+{
+    setUpTrayIcon();
+    updateTrayMenu();
+}
+
+void fptn::gui::TrayApp::setUpTrayIcon() {
+    trayIcon_->setIcon(QIcon(inactiveIconPath));
+    trayIcon_->show();
+}
+
+void fptn::gui::TrayApp::updateTrayMenu() {
+    trayMenu_->clear();
+    connectMenu_->clear();
+
+    if (connectedServerAddress_.isEmpty()) {
+        // Default state
+        for (const Server &server : serverModel_.servers()) {
+            QAction *serverAction = new QAction(QString("%1:%2").arg(server.address).arg(server.port), this);
+            connect(serverAction, &QAction::triggered, [this, server]() {
+                onConnectToServer(server);
+            });
+            connectMenu_->addAction(serverAction);
+        }
+        trayMenu_->addMenu(connectMenu_);
+        disconnectAction_ = nullptr;
+    } else if (connectedServerAddress_ == "CONNECTING") {
+        // Connecting state
+        trayMenu_->addAction("Connecting...");
+        disconnectAction_ = nullptr;
+    } else {
+        // Connected state
+        disconnectAction_ = trayMenu_->addAction("Disconnect");
+        connect(disconnectAction_, &QAction::triggered, this, &TrayApp::onDisconnectFromServer);
+        trayMenu_->addAction(QString("Status %1:%2").arg(connectedServerAddress_).arg(connectedServerPort_));
+    }
+
+    settingsAction_ = trayMenu_->addAction("Settings", this, &TrayApp::onShowSettings);
+    quitAction_ = trayMenu_->addAction("Quit", qApp, &QApplication::quit);
+
+    trayIcon_->setContextMenu(trayMenu_);
+}
+
+void fptn::gui::TrayApp::onConnectToServer(const Server& server) {
+    // Update status to "Connecting"
+    connectedServerAddress_ = "CONNECTING";
+    updateTrayMenu();
+
+    // Simulate connection attempt (replace with actual connection code)
+    bool success = /* attempt to connect */ true; // Replace with actual connection logic
+    if (success) {
+        connectedServerAddress_ = server.address;
+        //connectedServerPort_ = server.port;
+    } else {
+        connectedServerAddress_.clear();
+    }
+    updateTrayMenu();
+}
+
+void fptn::gui::TrayApp::onShowSettings() {
+    if (!settingsWidget_) {
+        settingsWidget_ = new SettingsWidget(&serverModel_, nullptr);
+    }
+    if (!settingsWidget_->isVisible()) {
+        settingsWidget_->show();
+    } else {
+        settingsWidget_->raise();
+        settingsWidget_->activateWindow();
+    }
+}
+
+void fptn::gui::TrayApp::onDisconnectFromServer() {
+    connectedServerAddress_.clear();
+    connectedServerPort_.clear();
+    updateTrayMenu();
+}
+
+void fptn::gui::TrayApp::onServerActionTriggered() {
+    // Implement server action triggered logic here
+}
+

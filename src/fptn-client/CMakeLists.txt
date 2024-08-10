@@ -43,7 +43,7 @@ if("${FPTN_BUILD_WITH_GUI_CLIENT}")
     set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
     set(QRC_FILES gui/resources/resources.qrc)
-    qt6_add_resources(RESOURCES ${QRC_FILES})
+    qt6_add_resources(PROJECT_RESOURCES ${QRC_FILES})
 
     add_executable("${PROJECT_NAME}-gui"
         fptn-client-gui.cpp
@@ -54,7 +54,10 @@ if("${FPTN_BUILD_WITH_GUI_CLIENT}")
         
         gui/tray/tray.h gui/tray/tray.cpp
         gui/speedwidget/speedwidget.h gui/speedwidget/speedwidget.cpp
-        ${QRC_FILES}
+        gui/settingswidget/settings.h gui/settingswidget/settings.cpp
+        ${PROJECT_RESOURCES}
+            gui/servermodel/server_model.h
+            gui/servermodel/server_model.cpp
     )
 
     target_link_libraries(
@@ -65,7 +68,6 @@ if("${FPTN_BUILD_WITH_GUI_CLIENT}")
         argparse::argparse
 
         glog::glog
-        websocketpp::websocketpp
         fmt::fmt
         PcapPlusPlus::PcapPlusPlus
         

@@ -229,7 +229,7 @@ conan profile detect --force
 
 Console version
 
-```
+```bash
 git submodule update --init --recursive 
 conan install . --output-folder=build --build=missing
 cd build
@@ -240,6 +240,18 @@ ctest
 make install
 ```
 
+Or GUI version
+
+git submodule update --init --recursive
+```bash
+conan install . --output-folder=build --build=missing -o with_gui_client=True
+cd build
+cmake .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release
+cmake --build .
+ctest
+# to install in system
+make install
+```
 
 After that you can build deb (only on ubuntu)
 
@@ -319,7 +331,8 @@ Options:
   
 Run the following command in the project folder:
 ```
-conan install . --output-folder=cmake-build-debug --build=missing --settings build_type=Debug
+conan install . --output-folder=cmake-build-debug --build=missing -o with_gui_client=True --settings build_type=Debug
+
 ```
 
 Open the project in CLion. After opening the project, the "Open Project Wizard" will appear automatically. You need to add the following CMake option:

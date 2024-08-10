@@ -2,9 +2,6 @@
 <RCC version="1.0">
     <qresource prefix="/">
         <file>icons/active.ico</file>
-        <file>icons/incactive.svg</file>
-
         <file>icons/incactive.ico</file>
-        <file>icons/incactive.svg</file>
     </qresource>
 </RCC>
