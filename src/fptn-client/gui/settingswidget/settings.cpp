@@ -4,6 +4,7 @@
 #include <QHeaderView>
 #include <QPushButton>
 #include <QMessageBox>
+#include <QFormLayout>
 #include <QTableWidgetItem>
 
 
@@ -12,59 +13,74 @@
 using namespace fptn::gui;
 
 
-
 SettingsWidget::SettingsWidget(SettingsModel *model, QWidget *parent)
         : QWidget(parent), model_(model), editingRow(-1) {
     setupUi();
 }
 
+
 void SettingsWidget::setupUi() {
     tabWidget = new QTabWidget(this);
 
+    // Settings tab
     settingsTab = new QWidget();
     QVBoxLayout *settingsLayout = new QVBoxLayout(settingsTab);
-    settingsLayout->setContentsMargins(5, 5, 5, 5);
+    settingsLayout->setContentsMargins(10, 10, 10, 10);
 
-    QHBoxLayout *interfaceLayout = new QHBoxLayout();
+    // Grid Layout for settings
+    QGridLayout *gridLayout = new QGridLayout();
+    gridLayout->setContentsMargins(0, 0, 0, 0);
+    gridLayout->setHorizontalSpacing(10);
+    gridLayout->setVerticalSpacing(10);
+
+    // Adjust column stretching
+    gridLayout->setColumnStretch(0, 1); // Label column
+    gridLayout->setColumnStretch(1, 4); // Field column
+
     QLabel *interfaceLabel = new QLabel("Network Interface:", this);
     interfaceComboBox = new QComboBox(this);
-
     interfaceComboBox->addItems(model_->getNetworkInterfaces());
-    interfaceLayout->addWidget(interfaceLabel);
-    interfaceLayout->addWidget(interfaceComboBox);
-    settingsLayout->addLayout(interfaceLayout);
+    gridLayout->addWidget(interfaceLabel, 0, 0, Qt::AlignLeft);
+    gridLayout->addWidget(interfaceComboBox, 0, 1, Qt::AlignLeft);
 
-    QHBoxLayout *gatewayLayout = new QHBoxLayout();
     QLabel *gatewayLabel = new QLabel("Gateway IP:", this);
     gatewayLineEdit = new QLineEdit(this);
-    gatewayLayout->addWidget(gatewayLabel);
-    gatewayLayout->addWidget(gatewayLineEdit);
-    settingsLayout->addLayout(gatewayLayout);
+    gridLayout->addWidget(gatewayLabel, 1, 0, Qt::AlignLeft);
+    gridLayout->addWidget(gatewayLineEdit, 1, 1, Qt::AlignLeft);
 
+    settingsLayout->addLayout(gridLayout);
+
+    // Server Table
     serverTable = new QTableWidget(0, 4, this);
     serverTable->setHorizontalHeaderLabels({"Address", "Port", "User", "Action"});
     serverTable->horizontalHeader()->setStretchLastSection(true);
     serverTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     serverTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     serverTable->setSelectionBehavior(QAbstractItemView::SelectRows);
-
     connect(serverTable, &QTableWidget::itemDoubleClicked, this, &SettingsWidget::onItemDoubleClicked);
 
+    settingsLayout->addWidget(serverTable);
+
+    // Buttons
     QHBoxLayout *buttonLayout = new QHBoxLayout();
     buttonLayout->addStretch();
+
+    QPushButton *addServerButton = new QPushButton("Add Server", this);
+    connect(addServerButton, &QPushButton::clicked, this, &SettingsWidget::addServer);
+    buttonLayout->addWidget(addServerButton);
 
     saveButton = new QPushButton("Save", this);
     connect(saveButton, &QPushButton::clicked, this, &SettingsWidget::saveModel);
     buttonLayout->addWidget(saveButton);
 
-    settingsLayout->addWidget(serverTable);
     settingsLayout->addLayout(buttonLayout);
 
     tabWidget->addTab(settingsTab, "Settings");
 
+    // About tab
     aboutTab = new QWidget();
     QVBoxLayout *aboutLayout = new QVBoxLayout(aboutTab);
-    aboutLayout->setContentsMargins(0, 0, 0, 0);
+    aboutLayout->setContentsMargins(10, 10, 10, 10);
 
     QPushButton *versionLabel = new QPushButton("App Version: 1.0.0", this);
     versionLabel->setFlat(true);
@@ -72,14 +88,16 @@ void SettingsWidget::setupUi() {
 
     tabWidget->addTab(aboutTab, "About");
 
+    // Main Layout
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(0, 0, 0, 0);
     mainLayout->addWidget(tabWidget);
-    setMinimumSize(500, 300);
+    setMinimumSize(600, 400);
     setLayout(mainLayout);
 
+    // Populate server table with data
     const QVector<ServerConnectionInformation> &servers = model_->servers();
-    serverTable->setRowCount(servers.size() + 1);
+    serverTable->setRowCount(servers.size());
     for (int i = 0; i < servers.size(); ++i) {
         const ServerConnectionInformation &server = servers[i];
         serverTable->setItem(i, 0, new QTableWidgetItem(server.address));
@@ -90,8 +108,9 @@ void SettingsWidget::setupUi() {
         passwordItem->setData(Qt::UserRole, server.password);
         serverTable->setItem(i, 3, passwordItem);
 
-        QPushButton *deleteButton = new QPushButton(QIcon::fromTheme("edit-delete"), "", this);
-        deleteButton->setFixedSize(24, 24);
+//        QPushButton *deleteButton = new QPushButton(QIcon(":/icons/delete.ico"), "", this);
+        QPushButton *deleteButton = new QPushButton("Delete", this);
+        //deleteButton->setFixedSize(24, 24);
         connect(deleteButton, &QPushButton::clicked, [this, i]() { removeServer(i); });
 
         QWidget *buttonContainer = new QWidget();
@@ -102,17 +121,6 @@ void SettingsWidget::setupUi() {
         serverTable->setCellWidget(i, 3, buttonContainer);
     }
 
-    QPushButton *addServerButton = new QPushButton(QIcon::fromTheme("list-add"), "", this);
-    addServerButton->setFixedSize(24, 24);
-    connect(addServerButton, &QPushButton::clicked, this, &SettingsWidget::addServer);
-
-    QWidget *addButtonContainer = new QWidget();
-    QHBoxLayout *addButtonLayout = new QHBoxLayout(addButtonContainer);
-    addButtonLayout->setContentsMargins(0, 0, 0, 0);
-    addButtonLayout->setAlignment(Qt::AlignCenter);
-    addButtonLayout->addWidget(addServerButton);
-    serverTable->setCellWidget(servers.size(), 3, addButtonContainer);
-
     interfaceComboBox->setCurrentText(model_->networkInterface());
     gatewayLineEdit->setText(model_->gatewayIp());
 }
@@ -122,7 +130,7 @@ void SettingsWidget::saveModel() {
     model_->setGatewayIp(gatewayLineEdit->text());
 
     model_->clear();
-    for (int row = 0; row < serverTable->rowCount() - 1; ++row) {
+    for (int row = 0; row < serverTable->rowCount(); ++row) {
         ServerConnectionInformation server;
         server.address = serverTable->item(row, 0)->text();
         server.port = serverTable->item(row, 1)->text().toInt();
@@ -133,29 +141,44 @@ void SettingsWidget::saveModel() {
 
         model_->addServer(server);
     }
-    model_->save();
+    if (model_->save() ) {
+        QMessageBox::information(this, "Save Successful", "Data has been successfully saved.");
+        this->hide();  // Hide the widget instead of closing the application
+    } else {
+        QMessageBox::critical(this, "Save Failed", "An error occurred while saving the data.");
+    }
 
-    QMessageBox::information(this, "Save Successful", "Data has been successfully saved.");
 }
 
-void SettingsWidget::addServer() {
+void SettingsWidget::closeEvent(QCloseEvent *event)
+{
+    this->hide();
+    event->ignore();
+}
+
+
+void SettingsWidget::addServer()
+{
     openEditDialog(-1);
 }
 
-void SettingsWidget::editServer() {
+void SettingsWidget::editServer()
+{
     openEditDialog(serverTable->currentRow());
 }
 
-void SettingsWidget::deleteServer() {
+void SettingsWidget::deleteServer()
+{
     int row = serverTable->currentRow();
     if (row >= 0) {
         removeServer(row);
     }
 }
 
-void SettingsWidget::saveServer() {
+void SettingsWidget::saveServer()
+{
     if (editingRow == -1) {
-        int newRow = serverTable->rowCount() - 1;
+        int newRow = serverTable->rowCount();
         serverTable->insertRow(newRow);
 
         serverTable->setItem(newRow, 0, new QTableWidgetItem(addressLineEdit->text()));
@@ -165,6 +188,20 @@ void SettingsWidget::saveServer() {
         QTableWidgetItem *passwordItem = new QTableWidgetItem();
         passwordItem->setData(Qt::UserRole, passwordLineEdit->text());
         serverTable->setItem(newRow, 3, passwordItem);
+
+        // Add delete button to the new row
+
+//        QPushButton *deleteButton = new QPushButton(QIcon(":/icons/delete.ico"), "", this);
+        QPushButton *deleteButton = new QPushButton("Delete", this);
+//        deleteButton->setFixedSize(24, 24);
+        connect(deleteButton, &QPushButton::clicked, [this, newRow]() { removeServer(newRow); });
+
+        QWidget *buttonContainer = new QWidget();
+        QHBoxLayout *buttonLayout = new QHBoxLayout(buttonContainer);
+        buttonLayout->setContentsMargins(0, 0, 0, 0);
+        buttonLayout->setAlignment(Qt::AlignCenter);
+        buttonLayout->addWidget(deleteButton);
+        serverTable->setCellWidget(newRow, 3, buttonContainer);
     } else {
         serverTable->item(editingRow, 0)->setText(addressLineEdit->text());
         serverTable->item(editingRow, 1)->setText(portLineEdit->text());
@@ -177,15 +214,18 @@ void SettingsWidget::saveServer() {
     editDialog->accept();
 }
 
-void SettingsWidget::cancelEditing() {
+void SettingsWidget::cancelEditing()
+{
     editDialog->reject();
 }
 
-void SettingsWidget::onItemDoubleClicked(QTableWidgetItem *item) {
+void SettingsWidget::onItemDoubleClicked(QTableWidgetItem *item)
+{
     openEditDialog(item->row());
 }
 
-void SettingsWidget::openEditDialog(int row) {
+void SettingsWidget::openEditDialog(int row)
+{
     editDialog = new QDialog(this);
     editDialog->setWindowTitle(row == -1 ? "Add Server" : "Edit Server");
 
@@ -205,28 +245,33 @@ void SettingsWidget::openEditDialog(int row) {
 
     gridLayout->addWidget(new QLabel("Password:"), 3, 0);
     passwordLineEdit = new QLineEdit();
-    passwordLineEdit->setEchoMode(QLineEdit::Password);
     gridLayout->addWidget(passwordLineEdit, 3, 1);
 
-    if (row != -1) {
+    QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Cancel);
+    connect(buttonBox, &QDialogButtonBox::accepted, this, &SettingsWidget::saveServer);
+    connect(buttonBox, &QDialogButtonBox::rejected, this, &SettingsWidget::cancelEditing);
+    gridLayout->addWidget(buttonBox, 4, 0, 1, 2);
+
+    if (row >= 0) {
         addressLineEdit->setText(serverTable->item(row, 0)->text());
         portLineEdit->setText(serverTable->item(row, 1)->text());
         userLineEdit->setText(serverTable->item(row, 2)->text());
 
         QTableWidgetItem *passwordItem = serverTable->item(row, 3);
         passwordLineEdit->setText(passwordItem->data(Qt::UserRole).toString());
+
+        editingRow = row;
+    } else {
+        editingRow = -1;
     }
 
-    QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
-    connect(buttonBox, &QDialogButtonBox::accepted, this, &SettingsWidget::saveServer);
-    connect(buttonBox, &QDialogButtonBox::rejected, this, &SettingsWidget::cancelEditing);
-
-    gridLayout->addWidget(buttonBox, 4, 0, 1, 2);
-
-    editDialog->setLayout(gridLayout);
     editDialog->exec();
 }
 
-void SettingsWidget::removeServer(int row) {
-    serverTable->removeRow(row);
+void SettingsWidget::removeServer(int row)
+{
+    if (row >= 0 && row < serverTable->rowCount()) {
+        serverTable->removeRow(row);
+        QMessageBox::information(this, "Delete Successful", "Server has been successfully deleted.");
+    }
 }

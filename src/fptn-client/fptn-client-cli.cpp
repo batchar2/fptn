@@ -1,5 +1,9 @@
 #include <iostream>
 
+#if defined(__linux__) || defined(__APPLE__)
+#include <unistd.h>
+#endif
+
 #include <glog/logging.h>
 
 #include <boost/asio.hpp>
@@ -30,6 +34,12 @@ inline void waitForSignal()
 
 int main(int argc, char* argv[])
 {
+#if defined(__linux__) || defined(__APPLE__)
+    if (geteuid() != 0) {
+        std::cerr << "You must be root to run this program." << std::endl;
+        return EXIT_FAILURE;
+    }
+#endif
     google::InitGoogleLogging(argv[0]);
     google::SetStderrLogging(google::INFO);
     google::SetLogDestination(google::INFO, "");

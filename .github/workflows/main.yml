@@ -42,9 +42,14 @@ jobs:
         run: |
           sed -i '' "s/^FPTN_VERSION = \".*\"/FPTN_VERSION = \"$RELEASE_VERSION\"/" conanfile.py
 
-      - name: Install dependencies
+      - name: Install dependencies (Linux)
         run: |
-          conan install . --output-folder=build --build=missing
+          conan install . --output-folder=build --build=missing --settings build_type=Release
+
+      - name: Install dependencies (MacOS)
+        if: runner.os == 'MacOS'
+        run: |
+          conan install . --output-folder=build --build=missing -o with_gui_client=True --settings build_type=Release
 
       - name: Build
         run: |

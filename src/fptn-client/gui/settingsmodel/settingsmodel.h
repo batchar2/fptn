@@ -25,7 +25,7 @@ namespace fptn::gui {
         explicit SettingsModel(QObject *parent = nullptr);
 
         void load();
-        void save() const;
+        bool save();
 
         QString networkInterface() const;
         void setNetworkInterface(const QString &interface);
@@ -39,7 +39,8 @@ namespace fptn::gui {
         void addServer(const ServerConnectionInformation& server);
         void removeServer(int index);
         void clear();
-
+    signals:
+        void dataChanged();
     private:
         QVector<ServerConnectionInformation> servers_;
         QString networkInterface_;

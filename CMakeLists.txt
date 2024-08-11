@@ -57,20 +57,22 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     add_custom_target(build-deb
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         COMMAND bash -c "\
-            ${CMAKE_CURRENT_SOURCE_DIR}/deploy/linux/deb/create-client-deb-package.sh ${CMAKE_BINARY_DIR}/src/fptn-client/fptn-client-cli ${FPTN_VERSION}; \
+            ${CMAKE_CURRENT_SOURCE_DIR}/deploy/linux/deb/create-client-cli-deb-package.sh ${CMAKE_BINARY_DIR}/src/fptn-client/fptn-client-cli ${FPTN_VERSION}; \
             ${CMAKE_CURRENT_SOURCE_DIR}/deploy/linux/deb/create-server-deb-package.sh ${CMAKE_BINARY_DIR}/src/fptn-server/fptn-server ${CMAKE_BINARY_DIR}/src/fptn-passwd/fptn-passwd ${FPTN_VERSION} \
         "
         COMMENT "Building .deb package"
         VERBATIM
     )
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-    # macOS
-    add_custom_target(build-pkg
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-        COMMAND bash -c "${CMAKE_CURRENT_SOURCE_DIR}/deploy/macos/fptn-client-dmg/create-pkg.py --fptn-client-cli=${CMAKE_BINARY_DIR}/src/fptn-client/fptn-client-cli --version=${FPTN_VERSION}"
-        COMMENT "Building .dmg package"
-        VERBATIM
-    )
+    if("${FPTN_BUILD_WITH_GUI_CLIENT}")
+        # macOS
+        add_custom_target(build-pkg
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            COMMAND bash -c "${CMAKE_CURRENT_SOURCE_DIR}/deploy/macos/fptn-client-dmg/create-pkg.py --fptn-client-cli=${CMAKE_BINARY_DIR}/src/fptn-client/fptn-client-cli --fptn-client-gui=${CMAKE_BINARY_DIR}/src/fptn-client/fptn-client-gui  --version=${FPTN_VERSION}"
+            COMMENT "Building .dmg package"
+            VERBATIM
+        )
+    endif()
 else()
     message(FATAL_ERROR "Unsupported platform")
 endif()

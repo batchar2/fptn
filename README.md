@@ -212,7 +212,7 @@ journalctl -u fptn-client
 
 ```
 pip install conan==2.3.2
-sudo apt install gcc g++ cmake
+sudo apt install gcc g++ cmake pkg-config
 ```
 
   
@@ -244,7 +244,10 @@ Or GUI version
 
 git submodule update --init --recursive
 ```bash
-conan install . --output-folder=build --build=missing -o with_gui_client=True
+conan install . --output-folder=build --build=missing -o with_gui_client=True 
+# or 
+# conan install . --output-folder=build --build=missing -o with_gui_client=True -c tools.system.package_manager:mode=install
+
 cd build
 cmake .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release
 cmake --build .

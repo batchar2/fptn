@@ -12,6 +12,9 @@ else
     echo "Symbolic link created: $SYMLINK_PATH"
 fi
 
+# Fix rpath
+install_name_tool -add_rpath @executable_path/../Frameworks /Applications/FptnClient.app/Contents/MacOS/fptn-client-gui
+
 # Copy and load driver (kext)
 KEXT_LIBRARY_EXTENSION="/Library/Extensions"
 KEXT_PATH_INSIDE_APPLICATION="/Applications/FptnClient.app/Contents/Resources/tun.kext"

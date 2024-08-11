@@ -11,8 +11,37 @@
 using namespace fptn::gui;
 
 const QString activeIconPath = ":/icons/active.ico";
-const QString inactiveIconPath = ":/icons/incactive.ico";
+const QString inactiveIconPath = ":/icons/inactive.ico";
 
+
+static QString styleSheet = R"(
+    QMenu {
+        background-color: #333;
+        color: #fff;
+        border: 1px solid #555;
+    }
+
+    QMenu::item {
+        background-color: #333;
+        padding: 5px 15px;
+    }
+
+    QMenu::item:selected {
+        background-color: #555;
+    }
+
+    QMenu::icon {
+        margin-right: 10px;
+    }
+
+    QAction {
+        color: #fff;
+    }
+
+    QWidgetAction {
+        padding: 5px;
+    }
+)";
 
 TrayApp::TrayApp(QObject *parent)
         : QObject(parent),
@@ -22,10 +51,14 @@ TrayApp::TrayApp(QObject *parent)
           speedWidget_(new SpeedWidget()),
           updateTimer_(new QTimer(this))
 {
+    qApp->setStyleSheet(styleSheet);
+
     connect(this, &TrayApp::defaultState, this, &TrayApp::handleDefaultState);
     connect(this, &TrayApp::connecting, this, &TrayApp::handleConnecting);
     connect(this, &TrayApp::connected, this, &TrayApp::handleConnected);
     connect(this, &TrayApp::disconnecting, this, &TrayApp::handleDisconnecting);
+
+    connect(&serverModel_, &SettingsModel::dataChanged, this, &TrayApp::updateTrayMenu);
 
     connect(updateTimer_, &QTimer::timeout, this, &TrayApp::updateSpeedWidget);
     updateTimer_->start(1000);
@@ -40,6 +73,8 @@ void TrayApp::setUpTrayIcon() {
 }
 
 void TrayApp::updateTrayMenu() {
+    qDebug() << "updateTrayMenu";
+    serverModel_.load();
     trayMenu_->clear();
     connectMenu_->clear();
 
@@ -65,7 +100,7 @@ void TrayApp::updateTrayMenu() {
             break;
         }
         case ConnectionState::Connected: {
-            disconnectAction_ = trayMenu_->addAction("Disconnect");
+            disconnectAction_ = trayMenu_->addAction(QString("Disconnect: %1:%2").arg(selectedServer_.address).arg(selectedServer_.port));
             connect(disconnectAction_, &QAction::triggered, this, &TrayApp::onDisconnectFromServer);
 
             trayMenu_->addSeparator(); // Разделитель перед виджетом
@@ -84,7 +119,7 @@ void TrayApp::updateTrayMenu() {
     }
 
     trayMenu_->addSeparator();
-    settingsAction_ = trayMenu_->addAction("Settings          ");
+    settingsAction_ = trayMenu_->addAction("Settings                     ");
     connect(settingsAction_, &QAction::triggered, this, &TrayApp::onShowSettings);
 
     trayMenu_->addSeparator();
@@ -119,6 +154,8 @@ void TrayApp::onShowSettings() {
         settingsWidget_->raise();
         settingsWidget_->activateWindow();
     }
+//    serverModel_.load();
+//    updateTrayMenu();
 }
 
 void TrayApp::handleDefaultState() {
@@ -200,8 +237,8 @@ void TrayApp::handleDisconnecting() {
 void TrayApp::updateSpeedWidget() {
     if (vpnClient_) {
         speedWidget_->updateSpeed(
-                vpnClient_->getSendRate(),
-                vpnClient_->getReceiveRate()
+                vpnClient_->getReceiveRate(),
+                vpnClient_->getSendRate()
         );
     }
 }

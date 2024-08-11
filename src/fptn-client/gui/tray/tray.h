@@ -28,7 +28,7 @@ namespace fptn::gui
 
     class TrayApp : public QObject
     {
-        Q_OBJECT
+    Q_OBJECT
     private:
         enum class ConnectionState {
             None,           // No connection
@@ -38,6 +38,8 @@ namespace fptn::gui
         };
     public:
         TrayApp(QObject *parent = nullptr);
+        void applyStyles(); // Method to apply cross-platform styles
+
     signals:
         void defaultState(); // Signal for default state
         void connecting(); // Signal for connecting state

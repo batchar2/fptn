@@ -17,14 +17,12 @@ namespace fptn::gui
 
     class SettingsWidget : public QWidget
     {
-        Q_OBJECT
+    Q_OBJECT
     public:
         explicit SettingsWidget(SettingsModel *model, QWidget *parent = nullptr);
+
     protected:
-        void closeEvent(QCloseEvent* event) override {
-            this->hide();
-            event->ignore();
-        }
+        void closeEvent(QCloseEvent *event);
     private slots:
         void saveModel();
         void addServer();
@@ -39,7 +37,6 @@ namespace fptn::gui
         void openEditDialog(int row);
 
         SettingsModel *model_;
-
         QTabWidget *tabWidget;
         QWidget *settingsTab;
         QWidget *aboutTab;

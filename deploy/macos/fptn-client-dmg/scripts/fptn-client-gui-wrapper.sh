@@ -3,8 +3,17 @@
 # Check for root privileges
 if [ "$(id -u)" -ne 0 ]; then
     echo "This operation requires root privileges."
+    osascript <<EOF
+do shell script "$0" with administrator privileges
+EOF
     exit 1
 fi
+#
+## Check for root privileges
+#if [ "$(id -u)" -ne 0 ]; then
+#    echo "This operation requires root privileges."
+#    exit 1
+#fi
 
 # Define paths
 KEXT_LIBRARY_EXTENSION="/Library/Extensions"
@@ -43,4 +52,8 @@ fi
 
 cd /tmp/
 
-/Applications/FptnClient.app/Contents/MacOS/fptn-client-cli "$@"
+export QT_PLUGIN_PATH=/Applications/FptnClient.app/Contents/Frameworks/plugins
+export QT_QPA_PLATFORM_PLUGIN_PATH=/Applications/FptnClient.app/Contents/Frameworks/plugins/platforms
+export LD_LIBRARY_PATH=/Applications/FptnClient.app/Contents/Frameworks
+
+exec /Applications/FptnClient.app/Contents/MacOS/fptn-client-gui "$@" &

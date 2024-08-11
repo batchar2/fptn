@@ -23,7 +23,7 @@ namespace fptn::common::network
     class DataRateCalculator
     {
     public:
-        DataRateCalculator(std::chrono::seconds interval = std::chrono::seconds(5))
+        DataRateCalculator(std::chrono::milliseconds interval = std::chrono::milliseconds(1000))
                 : interval_(interval),
                   bytes_(0),
                   lastUpdateTime_(std::chrono::steady_clock::now()),
@@ -45,11 +45,11 @@ namespace fptn::common::network
         std::size_t getRateForSecond() const noexcept
         {
             std::lock_guard<std::mutex> lock(mutex_);
-            return static_cast<std::size_t>(rate_ / interval_.count());;
+            return static_cast<std::size_t>(rate_ / (1000 / interval_.count()));;
         }
     private:
         mutable std::mutex mutex_;
-        std::chrono::seconds interval_;
+        std::chrono::milliseconds interval_;
         std::atomic<std::size_t> bytes_;
         std::chrono::steady_clock::time_point lastUpdateTime_;
         std::atomic<std::size_t> rate_;

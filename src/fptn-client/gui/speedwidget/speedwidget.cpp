@@ -13,8 +13,8 @@ SpeedWidget::SpeedWidget(QWidget *parent)
 {
     QVBoxLayout *layout = new QVBoxLayout();
     layout->setContentsMargins(20, 4, 20, 4);
-    layout->addWidget(uploadSpeedLabel_);
     layout->addWidget(downloadSpeedLabel_);
+    layout->addWidget(uploadSpeedLabel_);
     setLayout(layout);
 }
 

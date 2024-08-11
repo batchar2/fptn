@@ -40,6 +40,7 @@ void SettingsModel::load() {
         qWarning() << "Failed to open file for reading:" << filePath;
         return;
     }
+    qDebug() << filePath;
 
     QByteArray data = file.readAll();
     file.close();
@@ -65,16 +66,16 @@ void SettingsModel::load() {
     gatewayIp_ = jsonObject["gatewayIp"].toString();
 }
 
-void SettingsModel::save() const {
+bool SettingsModel::save()
+{
     QString filePath = getFilePath();
     QFile file(filePath);
     if (!file.open(QIODevice::WriteOnly)) {
         qWarning() << "Failed to open file for writing:" << filePath;
-        return;
+        return false;
     }
 
     QJsonObject jsonObject;
-
     // Save servers
     QJsonArray serversArray;
     for (const ServerConnectionInformation &server : servers_) {
@@ -92,8 +93,12 @@ void SettingsModel::save() const {
     jsonObject["gatewayIp"] = gatewayIp_;
 
     QJsonDocument document(jsonObject);
-    file.write(document.toJson());
+    auto len = file.write(document.toJson());
     file.close();
+    qDebug() << len;
+
+    emit dataChanged();
+    return len > 0;
 }
 
 QString SettingsModel::networkInterface() const {
