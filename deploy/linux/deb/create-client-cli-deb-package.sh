@@ -1,4 +1,4 @@
-#!/bin/env bash
+#!/usr/bin/env bash
 
 # Function to print usage
 print_usage() {
@@ -77,7 +77,9 @@ cat <<EOL > "$CLIENT_TMP_DIR/DEBIAN/postrm"
 set -e
 
 # Remove configuration directory if empty
+systemctl stop fptn-client
 rm -rf /etc/fptn-client
+systemctl daemon-reload
 EOL
 
 chmod 755 "$CLIENT_TMP_DIR/DEBIAN/postrm"

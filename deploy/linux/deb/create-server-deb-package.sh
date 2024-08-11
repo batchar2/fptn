@@ -1,4 +1,4 @@
-#!/bin/env bash
+#!/usr/bin/env bash
 
 # Function to print usage
 print_usage() {
@@ -90,6 +90,7 @@ set -e
 
 # Remove configuration directory if empty
 rm -rf /etc/fptn
+systemctl stop fptn-server
 systemctl daemon-reload
 EOL
 

@@ -72,9 +72,12 @@ int main(int argc, char* argv[])
     args.add_argument("--tun-interface-name")
         .default_value("tun0")
         .help("Network interface name");
-    args.add_argument("--tun-interface-address")
-        .default_value("2.2.0.1")
+    args.add_argument("--tun-interface-ip")
+        .default_value("172.20.0.1")
         .help("IP address of the virtual interface");
+    args.add_argument("--tun-interface-network-address")
+            .default_value("172.20.0.0")
+            .help("IP network of the virtual interface");
     args.add_argument("--tun-interface-network-mask")
         .default_value(24)
         .help("Network mask")
@@ -101,13 +104,19 @@ int main(int argc, char* argv[])
     const auto userFilePath = args.get<std::string>("--userfile");
 
     const auto serverPort = args.get<int>("--server-port");
-
     const auto tunInterfaceName = args.get<std::string>("--tun-interface-name");
-    const auto tunInterfaceAddress = args.get<std::string>("--tun-interface-address");
+    const auto tunInterfaceIP = pcpp::IPv4Address(args.get<std::string>("--tun-interface-ip"));
+    const auto tunInterfaceNetworkAddress = pcpp::IPv4Address(args.get<std::string>("--tun-interface-network-address"));
     const auto tunInterfaceNetworkMask = args.get<int>("--tun-interface-network-mask");
 
-    auto userManager = std::make_shared<fptn::common::user::UserManager>(userFilePath);
-    auto natTable = std::make_shared<fptn::nat::Table>(tunInterfaceAddress, tunInterfaceNetworkMask);
+    auto userManager = std::make_shared<fptn::common::user::UserManager>(
+            userFilePath
+            );
+    auto natTable = std::make_shared<fptn::nat::Table>(
+            tunInterfaceIP,
+            tunInterfaceNetworkAddress,
+            tunInterfaceNetworkMask
+            );
 
     // filters
     const bool disableBittorrent = parseBoolean(args.get<std::string>("--disable-bittorrent"));
@@ -123,8 +132,8 @@ int main(int argc, char* argv[])
     );
 
     auto virtualNetworkInterface = std::make_unique<fptn::network::VirtualInterface>(
-        tunInterfaceName, 
-        tunInterfaceAddress, 
+        tunInterfaceName,
+        tunInterfaceIP,
         tunInterfaceNetworkMask, 
         std::move(iptables)
     );

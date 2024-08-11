@@ -102,7 +102,7 @@ class FPTN(ConanFile):
         "qt/*:with_pulseaudio": False,
         "qt/*:with_gssapi": False,
     }
-    
+
     def requirements(self):
         if self.options.with_gui_client:
             self.requires("qt/6.7.1")
@@ -128,4 +128,9 @@ class FPTN(ConanFile):
         cmake.build()
                 
     def configure(self):
+        if self.settings.os == "Windows":
+            del self.options["*:fPIC"]
+        # Set qt/*:shared to True only on macOS
+        # if self.settings.os == "Macos":
+        #     self.options["qt/*"].shared = True
         self.settings.compiler.cppstd = "17"

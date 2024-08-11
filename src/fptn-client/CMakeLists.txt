@@ -35,7 +35,7 @@ target_link_libraries(
 
 #### part 2
 if("${FPTN_BUILD_WITH_GUI_CLIENT}")
-    find_package(Qt6 COMPONENTS Core Gui Widgets  CONFIG REQUIRED)
+    find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network CONFIG REQUIRED)
     # Svg
     set(CMAKE_AUTOMOC ON)
     set(CMAKE_AUTORCC ON)
@@ -43,7 +43,7 @@ if("${FPTN_BUILD_WITH_GUI_CLIENT}")
     set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
     set(QRC_FILES gui/resources/resources.qrc)
-    qt6_add_resources(RESOURCES ${QRC_FILES})
+    qt6_add_resources(PROJECT_RESOURCES ${QRC_FILES})
 
     add_executable("${PROJECT_NAME}-gui"
         fptn-client-gui.cpp
@@ -54,7 +54,11 @@ if("${FPTN_BUILD_WITH_GUI_CLIENT}")
         
         gui/tray/tray.h gui/tray/tray.cpp
         gui/speedwidget/speedwidget.h gui/speedwidget/speedwidget.cpp
-        ${QRC_FILES}
+        gui/settingswidget/settings.h gui/settingswidget/settings.cpp
+
+        gui/settingsmodel/settingsmodel.h gui/settingsmodel/settingsmodel.cpp
+
+        ${PROJECT_RESOURCES}
     )
 
     target_link_libraries(
@@ -65,7 +69,6 @@ if("${FPTN_BUILD_WITH_GUI_CLIENT}")
         argparse::argparse
 
         glog::glog
-        websocketpp::websocketpp
         fmt::fmt
         PcapPlusPlus::PcapPlusPlus
         
@@ -73,7 +76,7 @@ if("${FPTN_BUILD_WITH_GUI_CLIENT}")
         hv_static
         fptn_protocol
 
-        Qt6::Core Qt6::Gui Qt6::Widgets 
-        #Qt6::Svg
+        Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Network
     )
+    set_target_properties("${PROJECT_NAME}-gui" PROPERTIES AUTOMOC ON)
 endif()

@@ -44,6 +44,17 @@ void VpnClient::stop() noexcept
     virtualNetworkInterface_->stop();
 }
 
+
+std::size_t VpnClient::getSendRate() noexcept
+{
+    return virtualNetworkInterface_->getSendRate();
+}
+
+std::size_t VpnClient::getReceiveRate() noexcept
+{
+    return virtualNetworkInterface_->getReceiveRate();
+}
+
 void VpnClient::packetFromVirtualNetworkInterface(fptn::common::network::IPPacketPtr packet) noexcept
 {
     webSocket_->send(std::move(packet));

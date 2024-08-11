@@ -1,9 +1,9 @@
 #  FPTN 
 
-[![Ubuntu](https://img.shields.io/badge/Ubuntu-E95420?style=for-the-badge\&logo=ubuntu\&logoColor=white)](https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#jobsjob_idruns-on)
+[![Ubuntu](https://img.shields.io/badge/Ubuntu-E95420?style=for-the-badge\&logo=ubuntu\&logoColor=white)](https://github.com/batchar2/fptn/releases)
+[![Mac OS](https://img.shields.io/badge/mac%20os-000000?style=for-the-badge\&logo=macos\&logoColor=F0F0F0)](https://github.com/batchar2/fptn/releases)
 <!--
-[![Mac OS](https://img.shields.io/badge/mac%20os-000000?style=for-the-badge\&logo=macos\&logoColor=F0F0F0)](https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#jobsjob_idruns-on)
-[![Windows](https://img.shields.io/badge/Windows-0078D6?style=for-the-badge\&logo=windows\&logoColor=white)](https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#jobsjob_idruns-on)
+[![Windows](https://img.shields.io/badge/Windows-0078D6?style=for-the-badge\&logo=windows\&logoColor=white)](https://github.com/batchar2/fptn/releases)
 -->
 [![Build and Test](https://github.com/batchar2/fptn/actions/workflows/main.yml/badge.svg)](https://github.com/batchar2/fptn/actions/workflows/main.yml)
 
@@ -212,7 +212,7 @@ journalctl -u fptn-client
 
 ```
 pip install conan==2.3.2
-sudo apt install gcc g++ cmake
+sudo apt install gcc g++ cmake pkg-config
 ```
 
   
@@ -229,7 +229,7 @@ conan profile detect --force
 
 Console version
 
-```
+```bash
 git submodule update --init --recursive 
 conan install . --output-folder=build --build=missing
 cd build
@@ -240,13 +240,33 @@ ctest
 make install
 ```
 
+Or GUI version
+
+git submodule update --init --recursive
+```bash
+conan install . --output-folder=build --build=missing -o with_gui_client=True 
+# or 
+# conan install . --output-folder=build --build=missing -o with_gui_client=True -c tools.system.package_manager:mode=install
+
+cd build
+cmake .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release
+cmake --build .
+ctest
+# to install in system
+make install
+```
 
 After that you can build deb (only on ubuntu)
 
-```
+```bash
 cmake --build . --target build-deb
 ```
 
+or build MacOS (only MacOs)
+
+```bash
+cmake --build . --target build-pkg
+```
 
 
 </details>
@@ -314,7 +334,8 @@ Options:
   
 Run the following command in the project folder:
 ```
-conan install . --output-folder=cmake-build-debug --build=missing --settings build_type=Debug
+conan install . --output-folder=cmake-build-debug --build=missing -o with_gui_client=True --settings build_type=Debug
+
 ```
 
 Open the project in CLion. After opening the project, the "Open Project Wizard" will appear automatically. You need to add the following CMake option:

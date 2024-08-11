@@ -1,5 +1,9 @@
 #include <iostream>
 
+#if defined(__linux__) || defined(__APPLE__)
+#include <unistd.h>
+#endif
+
 #include <glog/logging.h>
 
 #include <boost/asio.hpp>
@@ -30,6 +34,12 @@ inline void waitForSignal()
 
 int main(int argc, char* argv[])
 {
+#if defined(__linux__) || defined(__APPLE__)
+    if (geteuid() != 0) {
+        std::cerr << "You must be root to run this program." << std::endl;
+        return EXIT_FAILURE;
+    }
+#endif
     google::InitGoogleLogging(argv[0]);
     google::SetStderrLogging(google::INFO);
     google::SetLogDestination(google::INFO, "");
@@ -59,7 +69,7 @@ int main(int argc, char* argv[])
     args.add_argument("--tun-interface-name")
         .default_value("tun0")
         .help("Network interface name");
-    args.add_argument("--tun-interface-address")
+    args.add_argument("--tun-interface-ip")
         .default_value("10.10.10.1")
         .help("Network interface address");    
     try {
@@ -79,7 +89,7 @@ int main(int argc, char* argv[])
 
     const auto gatewayIP = args.get<std::string>("--gateway-ip");    
     const auto tunInterfaceName = args.get<std::string>("--tun-interface-name");
-    const auto tunInterfaceAddress = args.get<std::string>("--tun-interface-address"); 
+    const auto tunInterfaceAddress = args.get<std::string>("--tun-interface-ip");
 
     const std::string usingGatewayIP = (!gatewayIP.empty() ? gatewayIP : fptn::system::getDefaultGatewayIPAddress());
     if (usingGatewayIP.empty()) {

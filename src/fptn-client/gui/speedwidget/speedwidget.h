@@ -11,13 +11,14 @@ namespace fptn::gui
 {
     class SpeedWidget : public QWidget
     {
+        Q_OBJECT
     public:
-        SpeedWidget();
-        ~SpeedWidget()=default;
-        void updateSpeeds(const QString &uploadSpeed, const QString &downloadSpeed) noexcept;
+        SpeedWidget(QWidget *parent = nullptr);
+    public slots:
+        void updateSpeed(std::size_t uploadSpeed, std::size_t downloadSpeed);
     private:
-        QLabel *uploadSpeedLabel;
-        QLabel *downloadSpeedLabel;
+        QLabel *uploadSpeedLabel_;
+        QLabel *downloadSpeedLabel_;
     };
 
 }

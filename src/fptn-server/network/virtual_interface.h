@@ -17,8 +17,8 @@ namespace fptn::network
     {
     public:
         VirtualInterface(
-            const std::string &name, 
-            const std::string &ipAddress, 
+            const std::string& name,
+            const pcpp::IPv4Address& ipAddress,
             std::uint16_t netmask,
             fptn::system::IPTablesPtr iptables
         );
