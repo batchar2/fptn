@@ -1,6 +1,5 @@
 #pragma once
 
-#include <queue>
 #include <mutex>
 #include <atomic>
 #include <memory>
@@ -56,25 +55,31 @@ namespace fptn::common::network
     };
 
 
+    #define FPTN_MTU    (1500)
     using NewIPPacketCallback = std::function<void(IPPacketPtr packet)>;
+
 
     class TunInterface
     {
     public:
         TunInterface(
-            const std::string& name,
-            const pcpp::IPv4Address& addr,
-            const int netmask, 
-            const NewIPPacketCallback& callback = nullptr
+                const std::string& name,
+                const pcpp::IPv4Address& addr,
+                const int netmask,
+                const NewIPPacketCallback& callback = nullptr
         )
-            : 
-                mtu_(1500),
+                :
+                mtu_(FPTN_MTU),
                 running_(false),
                 name_(name),
                 addr_(addr),
                 netmask_(netmask),
                 newIPPktCallback_(callback)
         {
+        }
+        ~TunInterface()
+        {
+            stop();
         }
         void setNewIPPacketCallback(const NewIPPacketCallback& callback) noexcept
         {
@@ -87,6 +92,7 @@ namespace fptn::common::network
                 tun_->name(name_);
                 tun_->ip(addr_.toString(), netmask_);
                 tun_->mtu(mtu_);
+                tun_->nonblocking(true);
                 tun_->up();
                 running_ = true;
                 thread_ = std::thread(&TunInterface::run, this);
@@ -98,19 +104,21 @@ namespace fptn::common::network
         }
         bool stop() noexcept
         {
-            running_ = false;
-            if (thread_.joinable()) {
+            if (thread_.joinable() && running_ && tun_) {
+                running_ = false;
                 thread_.join();
-                tun_->down();
+                tun_.reset();
                 return true;
             }
             return false;
         }
-        bool send(IPPacketPtr packet)
-        {
-            sendRateCalculator_.update(packet->size()); // calculate rate
-            std::vector<std::uint8_t> serialized = packet->serialize();
-            return tun_->write(serialized.data(), serialized.size()) == serialized.size();
+        bool send(IPPacketPtr packet) {
+            if (running_) {
+                sendRateCalculator_.update(packet->size()); // calculate rate
+                std::vector <std::uint8_t> serialized = packet->serialize();
+                return tun_->write(serialized.data(), serialized.size()) == serialized.size();
+            }
+            return false;
         }
         std::size_t getSendRate() const noexcept
         {
@@ -123,24 +131,25 @@ namespace fptn::common::network
     private:
         void run() noexcept
         {
-            std::uint8_t buffer[65536] = {0};
+            // FIX IT!!!
+            std::uint8_t buffer[FPTN_MTU+1] = {0};
             while(running_) {
                 std::memset(buffer, 0, mtu_ + 1);
                 int size = tun_->read((void*)buffer, sizeof(buffer));
-                if (size) {
+                if (size > 0 && running_) {
                     auto packet = IPPacket::parse(buffer, size);
                     if (packet != nullptr && newIPPktCallback_) {
                         receiveRateCalculator_.update(packet->size()); // calculate rate
                         newIPPktCallback_(std::move(packet));
                     }
+                } else {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
                 }
             }
-            tun_->down();
-            tun_->release();
         }
     private:
         const std::uint16_t mtu_;
-        std::atomic<bool> running_; 
+        std::atomic<bool> running_;
         std::thread thread_;
         std::unique_ptr<tuntap::tun> tun_;
 

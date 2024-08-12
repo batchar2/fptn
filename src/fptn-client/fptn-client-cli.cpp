@@ -136,12 +136,12 @@ int main(int argc, char* argv[])
 
     vpnClient.start();
 
-    std::this_thread::sleep_for(std::chrono::seconds(1)); // FIX IT!
-
+    std::this_thread::sleep_for(std::chrono::seconds(2)); // FIX IT!
     iptables->apply();
 
     waitForSignal();
-    
+
+    iptables->clean();
     vpnClient.stop();
 
     google::ShutdownGoogleLogging();

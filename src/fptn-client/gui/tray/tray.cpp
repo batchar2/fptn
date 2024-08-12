@@ -67,12 +67,14 @@ TrayApp::TrayApp(QObject *parent)
     updateTrayMenu();
 }
 
-void TrayApp::setUpTrayIcon() {
+void TrayApp::setUpTrayIcon()
+{
     trayIcon_->setIcon(QIcon(inactiveIconPath));
     trayIcon_->show();
 }
 
-void TrayApp::updateTrayMenu() {
+void TrayApp::updateTrayMenu()
+{
     qDebug() << "updateTrayMenu";
     serverModel_.load();
     trayMenu_->clear();
@@ -117,19 +119,19 @@ void TrayApp::updateTrayMenu() {
             break;
         }
     }
-
     trayMenu_->addSeparator();
     settingsAction_ = trayMenu_->addAction("Settings                     ");
     connect(settingsAction_, &QAction::triggered, this, &TrayApp::onShowSettings);
 
     trayMenu_->addSeparator();
     quitAction_ = trayMenu_->addAction("Quit");
-    connect(quitAction_, &QAction::triggered, qApp, &QApplication::quit);
+    connect(quitAction_, &QAction::triggered, this, &TrayApp::handleQuit);
 
     trayIcon_->setContextMenu(trayMenu_);
 }
 
-void TrayApp::onConnectToServer(const ServerConnectionInformation &server) {
+void TrayApp::onConnectToServer(const ServerConnectionInformation &server)
+{
     qDebug() << "Click on connect to server";
     selectedServer_ = server;
     connectionState_ = ConnectionState::Connecting;
@@ -137,14 +139,25 @@ void TrayApp::onConnectToServer(const ServerConnectionInformation &server) {
     emit connecting();
 }
 
-void TrayApp::onDisconnectFromServer() {
+void TrayApp::onDisconnectFromServer()
+{
     qDebug() << "Click on disconnect from server";
-    emit disconnecting(); // Emit disconnecting state signal
+    if (vpnClient_ != nullptr) {
+        vpnClient_->stop();
+        vpnClient_.reset();
+    }
+    if (ipTables_ != nullptr) {
+        ipTables_->clean();
+        ipTables_.reset();
+    }
+    //emit disconnecting(); // Emit disconnecting state signal
     connectionState_ = ConnectionState::None;
     updateTrayMenu();
 }
 
-void TrayApp::onShowSettings() {
+void TrayApp::onShowSettings()
+{
+    qDebug() << "onShowSettings";
     if (!settingsWidget_) {
         settingsWidget_ = new SettingsWidget(&serverModel_, nullptr);
     }
@@ -158,18 +171,23 @@ void TrayApp::onShowSettings() {
 //    updateTrayMenu();
 }
 
-void TrayApp::handleDefaultState() {
+void TrayApp::handleDefaultState()
+{
     qDebug() << "Handling default state";
-    if (vpnClient_) {
-        ipTables_.reset();
+    if (vpnClient_ != nullptr) {
         vpnClient_->stop();
         vpnClient_.reset();
+    }
+    if (ipTables_ != nullptr) {
+        ipTables_->clean();
+        ipTables_.reset();
     }
     trayIcon_->setIcon(QIcon(inactiveIconPath));
     updateTrayMenu();
 }
 
-void TrayApp::handleConnecting() {
+void TrayApp::handleConnecting()
+{
     qDebug() << "Handling connecting state";
     updateTrayMenu();
 
@@ -191,11 +209,14 @@ void TrayApp::handleConnecting() {
     );
 
     if (!loginStatus) {
+        QWidget tempWidget;
         QMessageBox::critical(
-                nullptr,
+                &tempWidget,
                 "Connection Error",
                 "Failed to connect to the server. Please check your credentials and try again."
         );
+        connectionState_ = ConnectionState::None;
+        updateTrayMenu();
         return;
     }
 
@@ -222,23 +243,50 @@ void TrayApp::handleConnecting() {
     emit connected();
 }
 
-void TrayApp::handleConnected() {
+void TrayApp::handleConnected()
+{
     qDebug() << "Handling connected state";
     trayIcon_->setIcon(QIcon(activeIconPath));
     updateTrayMenu();
 }
 
-void TrayApp::handleDisconnecting() {
+void TrayApp::handleDisconnecting()
+{
+    if (vpnClient_ != nullptr) {
+        vpnClient_->stop();
+        vpnClient_.reset();
+    }
+    if (ipTables_ != nullptr) {
+        ipTables_->clean();
+        ipTables_.reset();
+    }
     qDebug() << "Handling disconnecting state";
     trayIcon_->setIcon(QIcon(inactiveIconPath));
     updateTrayMenu();
 }
 
-void TrayApp::updateSpeedWidget() {
+void TrayApp::updateSpeedWidget()
+{
     if (vpnClient_) {
         speedWidget_->updateSpeed(
                 vpnClient_->getReceiveRate(),
                 vpnClient_->getSendRate()
         );
     }
+}
+
+void TrayApp::handleQuit()
+{
+    qDebug() << "=============================";
+    if (vpnClient_ != nullptr) {
+        vpnClient_->stop();
+        vpnClient_.reset();
+        vpnClient_ = nullptr;
+    }
+    if (ipTables_ != nullptr) {
+        ipTables_->clean();
+        ipTables_.reset();
+        ipTables_ = nullptr;
+    }
+    QApplication::quit();
 }

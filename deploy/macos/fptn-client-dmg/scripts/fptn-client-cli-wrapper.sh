@@ -18,14 +18,14 @@ TUN_PLIST_PATH_INSIDE_APPLICATION="/Applications/FptnClient.app/Contents/Resourc
 if [ ! -d "$KEXT_PATH" ]; then
     echo "Copying Kext to $KEXT_LIBRARY_EXTENSION..."
     cp -rv "$KEXT_PATH_INSIDE_APPLICATION" "$KEXT_LIBRARY_EXTENSION"
+    kextcache -i /
 fi
-
-kextcache -i /
 
 # Copy and load LaunchDaemon plist
 if [ ! -f "$TUN_PLIST_PATH" ]; then
     echo "Copying LaunchDaemon plist to /Library/LaunchDaemons/"
     cp -rv "$TUN_PLIST_PATH_INSIDE_APPLICATION" "/Library/LaunchDaemons/"
+    kextcache -i /
 fi
 
 # Check if the driver is loaded
@@ -34,7 +34,7 @@ if ! kextstat | grep -q "$(basename "$KEXT_PATH" .kext)"; then
     if kextload "$KEXT_PATH"; then
         echo "Driver loaded successfully."
     else
-        echo "Failed to load the driver."
+        echo "Failed to load the driver. Please check the system extension. You need to allow the use of the TUN driver to use this application."
         exit 1
     fi
 else

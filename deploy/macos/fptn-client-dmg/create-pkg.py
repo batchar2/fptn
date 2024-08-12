@@ -19,7 +19,11 @@ ICON = SCRIPT_FOLDER / "assets" / "FptnClient.icns"
 
 def run_command(command, cwd=None):
     result = subprocess.run(
-        command, shell=True, cwd=cwd, text=True, capture_output=True
+        command,
+        shell=True,
+        cwd=cwd,
+        text=True,
+        capture_output=True,
     )
     if result.returncode != 0:
         raise RuntimeError(
@@ -33,12 +37,7 @@ def save_tunnelblick_tun_driver(target_dir: pathlib.Path) -> bool:
     with tempfile.TemporaryDirectory() as temp_git_dir:
         print("Cloning repository...")
         run_command(f"git clone --depth 1 -b master {repo_url}", cwd=temp_git_dir)
-        source_folder = (
-            pathlib.Path(temp_git_dir)
-            / "Tunnelblick"
-            / "third_party"
-            / "tun-notarized.kext"
-        )
+        source_folder = pathlib.Path(temp_git_dir) / "Tunnelblick" / "third_party" / "tun-notarized.kext"
         if source_folder.exists():
             print(f"Copying folder '{source_folder}' to target directory...")
             shutil.copytree(source_folder, target_dir, dirs_exist_ok=True)
@@ -84,6 +83,11 @@ def create_app(
         # --- copy gui program ---
         binary_dest = macos_path / "fptn-client-gui"
         shutil.copy(fptn_client_gui, binary_dest)
+        # Fix rpath
+        run_command(
+            f'install_name_tool -add_rpath @executable_path/../Frameworks {macos_path / "fptn-client-gui"}'
+        )
+
         os.chmod(binary_dest, 0o755)
         fptn_client_gui_wrapper_sh = (
             SCRIPT_FOLDER / "scripts" / "fptn-client-gui-wrapper.sh"
@@ -128,7 +132,6 @@ def create_app(
             "LSApplicationCategoryType": "public.app-category.utilities",
             "LSRequiresNativeExecution": True,
             "LD_LIBRARY_PATH": "@executable_path/../Frameworks",
-            # "LD_LIBRARY_PATH": "@executable_path",
             "RunAtLoad": True,
             "KeepAlive": True,
             "UserName": "root",

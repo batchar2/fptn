@@ -1,5 +1,7 @@
 #pragma once
 
+#include <mutex>
+
 #include <QMenu>
 #include <QTimer>
 #include <QObject>
@@ -39,7 +41,6 @@ namespace fptn::gui
     public:
         TrayApp(QObject *parent = nullptr);
         void applyStyles(); // Method to apply cross-platform styles
-
     signals:
         void defaultState(); // Signal for default state
         void connecting(); // Signal for connecting state
@@ -55,11 +56,11 @@ namespace fptn::gui
         void handleConnected(); // Handler for connected state
         void handleDisconnecting(); // Handler for disconnecting state
         void updateSpeedWidget(); // Handler for updating the speed widget
-
+        void handleQuit();
     private:
         void setUpTrayIcon();
         void updateTrayMenu();
-
+    private:
         QSystemTrayIcon *trayIcon_;
         QMenu *trayMenu_;
         QMenu *connectMenu_;
