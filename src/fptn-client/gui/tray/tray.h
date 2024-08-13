@@ -24,38 +24,35 @@
 #include "system/iptables.h"
 #include "http/websocket_client.h"
 
-
 namespace fptn::gui
 {
-
     class TrayApp : public QObject
     {
-    Q_OBJECT
+        Q_OBJECT
     private:
         enum class ConnectionState {
-            None,           // No connection
-            Connecting,     // Connecting
-            Connected,      // Connected
-            Disconnecting   // Disconnecting
+            None,
+            Connecting,
+            Connected,
+            Disconnecting
         };
     public:
         TrayApp(QObject *parent = nullptr);
-        void applyStyles(); // Method to apply cross-platform styles
+        void applyStyles();
     signals:
-        void defaultState(); // Signal for default state
-        void connecting(); // Signal for connecting state
-        void connected(); // Signal for connected state
-        void disconnecting(); // Signal for disconnecting state
-
+        void defaultState();
+        void connecting();
+        void connected();
+        void disconnecting();
     private slots:
         void onConnectToServer(const ServerConnectionInformation &server);
         void onDisconnectFromServer();
         void onShowSettings();
-        void handleDefaultState(); // Handler for default state
-        void handleConnecting(); // Handler for connecting state
-        void handleConnected(); // Handler for connected state
-        void handleDisconnecting(); // Handler for disconnecting state
-        void updateSpeedWidget(); // Handler for updating the speed widget
+        void handleDefaultState();
+        void handleConnecting();
+        void handleConnected();
+        void handleDisconnecting();
+        void updateSpeedWidget();
         void handleQuit();
     private:
         void setUpTrayIcon();
@@ -68,10 +65,10 @@ namespace fptn::gui
         QAction *settingsAction_;
         QAction *quitAction_;
         SettingsWidget *settingsWidget_;
-
+        QAction *connectingAction_;
+        QWidgetAction *speedWidgetAction_;
         SpeedWidget *speedWidget_;
         QTimer *updateTimer_;
-
         ConnectionState connectionState_ = ConnectionState::None;
         QString connectedServerAddress_;
 

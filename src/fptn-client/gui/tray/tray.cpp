@@ -7,12 +7,10 @@
 
 #include "tray.h"
 
-
 using namespace fptn::gui;
 
 const QString activeIconPath = ":/icons/active.ico";
 const QString inactiveIconPath = ":/icons/inactive.ico";
-
 
 static QString styleSheet = R"(
     QMenu {
@@ -20,24 +18,19 @@ static QString styleSheet = R"(
         color: #fff;
         border: 1px solid #555;
     }
-
     QMenu::item {
         background-color: #333;
         padding: 5px 15px;
     }
-
     QMenu::item:selected {
         background-color: #555;
     }
-
     QMenu::icon {
         margin-right: 10px;
     }
-
     QAction {
         color: #fff;
     }
-
     QWidgetAction {
         padding: 5px;
     }
@@ -47,7 +40,7 @@ TrayApp::TrayApp(QObject *parent)
         : QObject(parent),
           trayIcon_(new QSystemTrayIcon(this)),
           trayMenu_(new QMenu()),
-          connectMenu_(new QMenu("Connect to")),
+          connectMenu_(new QMenu("Connect to", trayMenu_)),
           speedWidget_(new SpeedWidget()),
           updateTimer_(new QTimer(this))
 {
@@ -64,6 +57,19 @@ TrayApp::TrayApp(QObject *parent)
     updateTimer_->start(1000);
 
     setUpTrayIcon();
+
+    settingsAction_ = new QAction("Settings", this);
+    connect(settingsAction_, &QAction::triggered, this, &TrayApp::onShowSettings);
+
+    quitAction_ = new QAction("Quit", this);
+    connect(quitAction_, &QAction::triggered, this, &TrayApp::handleQuit);
+
+    trayMenu_->addSeparator();
+    trayMenu_->addAction(settingsAction_);
+    trayMenu_->addSeparator();
+    trayMenu_->addAction(quitAction_);
+
+    trayIcon_->setContextMenu(trayMenu_);
     updateTrayMenu();
 }
 
@@ -75,64 +81,80 @@ void TrayApp::setUpTrayIcon()
 
 void TrayApp::updateTrayMenu()
 {
-    qDebug() << "updateTrayMenu";
-    serverModel_.load();
-    trayMenu_->clear();
     connectMenu_->clear();
+    trayMenu_->removeAction(connectMenu_->menuAction());
 
     switch (connectionState_) {
         case ConnectionState::None: {
-            for (const auto &server: serverModel_.servers()) {
+            for (const auto &server : serverModel_.servers()) {
                 QAction *serverAction = new QAction(QString("%1:%2").arg(server.address).arg(server.port), this);
                 connect(serverAction, &QAction::triggered, [this, server]() {
                     onConnectToServer(server);
                 });
                 connectMenu_->addAction(serverAction);
             }
-            trayMenu_->addMenu(connectMenu_);
-            trayMenu_->addSeparator();
-            disconnectAction_ = nullptr;
+            trayMenu_->insertMenu(settingsAction_, connectMenu_);
+            if (disconnectAction_) {
+                disconnectAction_->setVisible(false);
+            }
+            if (speedWidgetAction_) {
+                speedWidgetAction_->setVisible(false);
+            }
             break;
         }
         case ConnectionState::Connecting: {
-            QAction *connectingAction = new QAction("Connecting...", this);
-            trayMenu_->addAction(connectingAction);
-            trayMenu_->addSeparator();
-            disconnectAction_ = nullptr;
+            if (!connectingAction_) {
+                connectingAction_ = new QAction("Connecting...", this);
+                trayMenu_->insertAction(settingsAction_, connectingAction_);
+            }
+            if (disconnectAction_) {
+                disconnectAction_->setVisible(false);
+            }
+            if (speedWidgetAction_) {
+                speedWidgetAction_->setVisible(false);
+            }
             break;
         }
         case ConnectionState::Connected: {
-            disconnectAction_ = trayMenu_->addAction(QString("Disconnect: %1:%2").arg(selectedServer_.address).arg(selectedServer_.port));
-            connect(disconnectAction_, &QAction::triggered, this, &TrayApp::onDisconnectFromServer);
-
-            trayMenu_->addSeparator(); // Разделитель перед виджетом
-            QWidgetAction* speedWidgetAction = new QWidgetAction(this);
-            speedWidgetAction->setDefaultWidget(speedWidget_);
-            speedWidgetAction->setVisible(true);
-            trayMenu_->addAction(speedWidgetAction);
+            if (!disconnectAction_) {
+                disconnectAction_ = new QAction(this);
+                connect(disconnectAction_, &QAction::triggered, this, &TrayApp::onDisconnectFromServer);
+                trayMenu_->insertAction(settingsAction_, disconnectAction_);
+            }
+            disconnectAction_->setText(QString("Disconnect: %1:%2").arg(selectedServer_.address).arg(selectedServer_.port));
+            disconnectAction_->setVisible(true);
+            if (connectingAction_) {
+                connectingAction_->setVisible(false);
+            }
+            if (!speedWidgetAction_) {
+                speedWidgetAction_ = new QWidgetAction(this);
+                speedWidgetAction_->setDefaultWidget(speedWidget_);
+                trayMenu_->insertAction(settingsAction_, speedWidgetAction_);
+            }
+            speedWidgetAction_->setVisible(true);
             break;
         }
         case ConnectionState::Disconnecting: {
-            QAction *disconnectingAction = new QAction("Disconnecting...", this);
-            trayMenu_->addAction(disconnectingAction);
-            trayMenu_->addSeparator();
+            if (disconnectAction_) {
+                disconnectAction_->setVisible(false);
+            }
+            if (!connectingAction_) {
+                connectingAction_ = new QAction("Disconnecting...", this);
+                trayMenu_->insertAction(settingsAction_, connectingAction_);
+            } else {
+                connectingAction_->setText("Disconnecting...");
+            }
+            connectingAction_->setVisible(true);
+            if (speedWidgetAction_) {
+                speedWidgetAction_->setVisible(false);
+            }
             break;
         }
     }
-    trayMenu_->addSeparator();
-    settingsAction_ = trayMenu_->addAction("Settings                     ");
-    connect(settingsAction_, &QAction::triggered, this, &TrayApp::onShowSettings);
-
-    trayMenu_->addSeparator();
-    quitAction_ = trayMenu_->addAction("Quit");
-    connect(quitAction_, &QAction::triggered, this, &TrayApp::handleQuit);
-
-    trayIcon_->setContextMenu(trayMenu_);
 }
 
 void TrayApp::onConnectToServer(const ServerConnectionInformation &server)
 {
-    qDebug() << "Click on connect to server";
     selectedServer_ = server;
     connectionState_ = ConnectionState::Connecting;
     updateTrayMenu();
@@ -141,23 +163,20 @@ void TrayApp::onConnectToServer(const ServerConnectionInformation &server)
 
 void TrayApp::onDisconnectFromServer()
 {
-    qDebug() << "Click on disconnect from server";
-    if (vpnClient_ != nullptr) {
+    if (vpnClient_) {
         vpnClient_->stop();
         vpnClient_.reset();
     }
-    if (ipTables_ != nullptr) {
+    if (ipTables_) {
         ipTables_->clean();
         ipTables_.reset();
     }
-    //emit disconnecting(); // Emit disconnecting state signal
     connectionState_ = ConnectionState::None;
     updateTrayMenu();
 }
 
 void TrayApp::onShowSettings()
 {
-    qDebug() << "onShowSettings";
     if (!settingsWidget_) {
         settingsWidget_ = new SettingsWidget(&serverModel_, nullptr);
     }
@@ -167,18 +186,15 @@ void TrayApp::onShowSettings()
         settingsWidget_->raise();
         settingsWidget_->activateWindow();
     }
-//    serverModel_.load();
-//    updateTrayMenu();
 }
 
 void TrayApp::handleDefaultState()
 {
-    qDebug() << "Handling default state";
-    if (vpnClient_ != nullptr) {
+    if (vpnClient_) {
         vpnClient_->stop();
         vpnClient_.reset();
     }
-    if (ipTables_ != nullptr) {
+    if (ipTables_) {
         ipTables_->clean();
         ipTables_.reset();
     }
@@ -245,48 +261,32 @@ void TrayApp::handleConnecting()
 
 void TrayApp::handleConnected()
 {
-    qDebug() << "Handling connected state";
-    trayIcon_->setIcon(QIcon(activeIconPath));
     updateTrayMenu();
 }
 
 void TrayApp::handleDisconnecting()
 {
-    if (vpnClient_ != nullptr) {
+    if (vpnClient_) {
         vpnClient_->stop();
         vpnClient_.reset();
     }
-    if (ipTables_ != nullptr) {
+    if (ipTables_) {
         ipTables_->clean();
         ipTables_.reset();
     }
-    qDebug() << "Handling disconnecting state";
-    trayIcon_->setIcon(QIcon(inactiveIconPath));
+    connectionState_ = ConnectionState::None;
     updateTrayMenu();
+    emit defaultState();
 }
 
 void TrayApp::updateSpeedWidget()
 {
-    if (vpnClient_) {
-        speedWidget_->updateSpeed(
-                vpnClient_->getReceiveRate(),
-                vpnClient_->getSendRate()
-        );
+    if (vpnClient_ && connectionState_ == ConnectionState::Connected) {
+        speedWidget_->updateSpeed(vpnClient_->getReceiveRate(), vpnClient_->getSendRate());
     }
 }
 
 void TrayApp::handleQuit()
 {
-    qDebug() << "=============================";
-    if (vpnClient_ != nullptr) {
-        vpnClient_->stop();
-        vpnClient_.reset();
-        vpnClient_ = nullptr;
-    }
-    if (ipTables_ != nullptr) {
-        ipTables_->clean();
-        ipTables_.reset();
-        ipTables_ = nullptr;
-    }
     QApplication::quit();
 }
