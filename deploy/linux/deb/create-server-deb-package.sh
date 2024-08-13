@@ -88,10 +88,10 @@ cat <<EOL > "$SERVER_TMP_DIR/DEBIAN/postrm"
 #!/bin/bash
 set -e
 
-# Remove configuration directory if empty
-rm -rf /etc/fptn
-systemctl stop fptn-server
-systemctl daemon-reload
+systemctl stop fptn-server || true
+systemctl disable fptn-server.service || true
+rm -rf /etc/fptn || true
+systemctl daemon-reload || true
 EOL
 
 chmod 755 "$SERVER_TMP_DIR/DEBIAN/postrm"

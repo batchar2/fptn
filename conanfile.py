@@ -130,7 +130,4 @@ class FPTN(ConanFile):
     def configure(self):
         if self.settings.os == "Windows":
             del self.options["*:fPIC"]
-        # Set qt/*:shared to True only on macOS
-        # if self.settings.os == "Macos":
-        #     self.options["qt/*"].shared = True
         self.settings.compiler.cppstd = "17"

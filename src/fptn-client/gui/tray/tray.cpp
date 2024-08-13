@@ -103,6 +103,9 @@ void TrayApp::updateTrayMenu()
             if (settingsAction_) {
                 settingsAction_->setEnabled(true);
             }
+            if (connectingAction_) {
+                connectingAction_->setVisible(false);
+            }
             break;
         }
         case ConnectionState::Connecting: {
@@ -127,8 +130,11 @@ void TrayApp::updateTrayMenu()
                 connect(disconnectAction_, &QAction::triggered, this, &TrayApp::onDisconnectFromServer);
                 trayMenu_->insertAction(settingsAction_, disconnectAction_);
             }
-            disconnectAction_->setText(QString("Disconnect: %1:%2").arg(selectedServer_.address).arg(selectedServer_.port));
-            disconnectAction_->setVisible(true);
+            if (disconnectAction_) {
+                disconnectAction_->setText(
+                        QString("Disconnect: %1:%2").arg(selectedServer_.address).arg(selectedServer_.port));
+                disconnectAction_->setVisible(true);
+            }
             if (connectingAction_) {
                 connectingAction_->setVisible(false);
             }
@@ -136,10 +142,12 @@ void TrayApp::updateTrayMenu()
                 speedWidgetAction_ = new QWidgetAction(this);
                 speedWidgetAction_->setDefaultWidget(speedWidget_);
                 trayMenu_->insertAction(settingsAction_, speedWidgetAction_);
-                speedWidgetAction_->setVisible(true);
             }
             if (settingsAction_) {
                 settingsAction_->setEnabled(false);
+            }
+            if (speedWidgetAction_) {
+                speedWidgetAction_->setVisible(true);
             }
             break;
         }
