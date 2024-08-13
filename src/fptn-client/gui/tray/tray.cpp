@@ -100,6 +100,9 @@ void TrayApp::updateTrayMenu()
             if (speedWidgetAction_) {
                 speedWidgetAction_->setVisible(false);
             }
+            if (settingsAction_) {
+                settingsAction_->setEnabled(true);
+            }
             break;
         }
         case ConnectionState::Connecting: {
@@ -112,6 +115,9 @@ void TrayApp::updateTrayMenu()
             }
             if (speedWidgetAction_) {
                 speedWidgetAction_->setVisible(false);
+            }
+            if (settingsAction_) {
+                settingsAction_->setEnabled(false);
             }
             break;
         }
@@ -130,8 +136,11 @@ void TrayApp::updateTrayMenu()
                 speedWidgetAction_ = new QWidgetAction(this);
                 speedWidgetAction_->setDefaultWidget(speedWidget_);
                 trayMenu_->insertAction(settingsAction_, speedWidgetAction_);
+                speedWidgetAction_->setVisible(true);
             }
-            speedWidgetAction_->setVisible(true);
+            if (settingsAction_) {
+                settingsAction_->setEnabled(false);
+            }
             break;
         }
         case ConnectionState::Disconnecting: {
@@ -147,6 +156,9 @@ void TrayApp::updateTrayMenu()
             connectingAction_->setVisible(true);
             if (speedWidgetAction_) {
                 speedWidgetAction_->setVisible(false);
+            }
+            if (settingsAction_) {
+                settingsAction_->setEnabled(false);
             }
             break;
         }
