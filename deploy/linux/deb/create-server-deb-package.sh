@@ -90,8 +90,9 @@ set -e
 
 systemctl stop fptn-server || true
 systemctl disable fptn-server.service || true
-rm -rf /etc/fptn || true
 systemctl daemon-reload || true
+rm -rf /etc/fptn || true
+rm -f /lib/systemd/system/fptn-server.service || true
 EOL
 
 chmod 755 "$SERVER_TMP_DIR/DEBIAN/postrm"
