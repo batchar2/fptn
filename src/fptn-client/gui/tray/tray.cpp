@@ -75,7 +75,6 @@ TrayApp::TrayApp(QObject *parent)
 
 void TrayApp::setUpTrayIcon()
 {
-    trayIcon_->setIcon(QIcon(inactiveIconPath));
     trayIcon_->show();
 }
 
@@ -86,6 +85,7 @@ void TrayApp::updateTrayMenu()
 
     switch (connectionState_) {
         case ConnectionState::None: {
+            trayIcon_->setIcon(QIcon(inactiveIconPath));
             for (const auto &server : serverModel_.servers()) {
                 QAction *serverAction = new QAction(QString("%1:%2").arg(server.address).arg(server.port), this);
                 connect(serverAction, &QAction::triggered, [this, server]() {
@@ -109,6 +109,7 @@ void TrayApp::updateTrayMenu()
             break;
         }
         case ConnectionState::Connecting: {
+            trayIcon_->setIcon(QIcon(inactiveIconPath));
             if (!connectingAction_) {
                 connectingAction_ = new QAction("Connecting...", this);
                 trayMenu_->insertAction(settingsAction_, connectingAction_);
@@ -125,6 +126,7 @@ void TrayApp::updateTrayMenu()
             break;
         }
         case ConnectionState::Connected: {
+            trayIcon_->setIcon(QIcon(activeIconPath));
             if (!disconnectAction_) {
                 disconnectAction_ = new QAction(this);
                 connect(disconnectAction_, &QAction::triggered, this, &TrayApp::onDisconnectFromServer);
@@ -152,6 +154,7 @@ void TrayApp::updateTrayMenu()
             break;
         }
         case ConnectionState::Disconnecting: {
+            trayIcon_->setIcon(QIcon(inactiveIconPath));
             if (disconnectAction_) {
                 disconnectAction_->setVisible(false);
             }
@@ -218,7 +221,7 @@ void TrayApp::handleDefaultState()
         ipTables_->clean();
         ipTables_.reset();
     }
-    trayIcon_->setIcon(QIcon(inactiveIconPath));
+
     updateTrayMenu();
 }
 
@@ -226,6 +229,7 @@ void TrayApp::handleConnecting()
 {
     qDebug() << "Handling connecting state";
     updateTrayMenu();
+    trayIcon_->setIcon(QIcon(inactiveIconPath));
 
     const std::string tunInterfaceAddress = "10.0.1.1";
     const std::string tunInterfaceName = "tun0";
@@ -281,6 +285,7 @@ void TrayApp::handleConnecting()
 
 void TrayApp::handleConnected()
 {
+    connectionState_ = ConnectionState::Connected;
     updateTrayMenu();
 }
 
