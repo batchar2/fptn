@@ -2,7 +2,7 @@ from conan import ConanFile
 from conan.tools.cmake import CMakeToolchain, CMake
 
 
-# will replace automaticaly using CI
+# CI will replace automaticaly
 FPTN_VERSION = "0.0.0"
 
 
@@ -20,9 +20,8 @@ class FPTN(ConanFile):
         "pcapplusplus/23.09",
         "nlohmann_json/3.11.3",
     )
-    replace_requires = (
-        # Fix for MacOS
-        ("meson/*", "meson/1.4.1"),
+    tool_requires = (
+        "cmake/3.30.1",
     )
     settings = (
         "os",
@@ -42,8 +41,8 @@ class FPTN(ConanFile):
         "setup": False,
         "with_gui_client": False,
         # -- depends --
-        "*:shared": False,
         "*:fPIC": True,
+        "*:shared": False,
         # --- protobuf options ---
         "protobuf/*:lite": True,
         "protobuf/*:upb": False,
@@ -53,6 +52,7 @@ class FPTN(ConanFile):
         # --- boost options ---
         "boost/*:without_atomic": False,
         "boost/*:without_system": False,
+        "boost/*:without_process": False,
         "boost/*:without_exception": False,
         "boost/*:without_container": False,
         "boost/*:without_filesystem": False,
@@ -86,9 +86,6 @@ class FPTN(ConanFile):
         # --- qt ---
         "qt/*:shared": True,
         "qt/*:qttools": True,
-        # "qt*:opengl": "no",
-        # "qt*:with_x11": False,
-        "qt/*:with_icu": False,
         "qt/*:with_harfbuzz": False,
         "qt/*:with_mysql": False,
         "qt/*:with_pq": False,
@@ -96,23 +93,22 @@ class FPTN(ConanFile):
         "qt/*:with_zstd": False,
         "qt/*:with_brotli": False,
         "qt/*:with_dbus": False,
-        "qt/*:with_libalsa": False,
         "qt/*:with_openal": False,
         "qt/*:with_gstreamer": False,
         "qt/*:with_pulseaudio": False,
-        "qt/*:with_gssapi": False,
     }
 
     def requirements(self):
         if self.options.with_gui_client:
             self.requires("qt/6.7.1")
-        # Fix for MacOS
-        self.requires("meson/1.4.1", override=True, force=True)
+        if self.settings.os != "Windows":
+            self.requires("meson/1.4.1", override=True, force=True)
 
     def build_requirements(self):
         self.test_requires("gtest/1.14.0")
-        # Fix for MacOS
-        self.build_requires("meson/1.4.1", override=True)
+        if self.settings.os != "Windows":
+            # Fix for MacOS
+            self.build_requires("meson/1.4.1", override=True)
 
     def generate(self):
         tc = CMakeToolchain(self)
@@ -126,8 +122,7 @@ class FPTN(ConanFile):
         cmake = CMake(self)
         cmake.configure()
         cmake.build()
-                
-    def configure(self):
+
+    def config_options(self):
         if self.settings.os == "Windows":
-            del self.options["*:fPIC"]
-        self.settings.compiler.cppstd = "17"
+            self.options.rm_safe("fPIC")

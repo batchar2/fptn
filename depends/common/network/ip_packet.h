@@ -60,7 +60,7 @@ namespace fptn::common::network
             return nullptr;
         }
     public:
-        IPPacket(std::string packetData, std::uint32_t clientId)
+        IPPacket(std::string packetData, std::uint32_t clientId = PACKET_UNDEFINED_CLIENT_ID)
             : 
                 packetData_(std::move(packetData)), 
                 clientId_(clientId),

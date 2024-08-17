@@ -68,6 +68,15 @@ bool IPTables::apply() noexcept
         fmt::format("route add -net 128.0.0.0/1 -interface {}", tunInterfaceName_),
         fmt::format("route add {} {}", vpnServerIp_, gatewayIp_)
     };
+#elif _WIN32
+    const std::vector<std::string> commands = {
+        "netsh interface ipv4 set global forwarding=enabled",
+        fmt::format("netsh routing ip nat add interface \"{}\" full", outInterfaceName_),
+        fmt::format("netsh routing ip nat add interface \"{}\" private", tunInterfaceName_),
+        fmt::format("route add 0.0.0.0 mask 128.0.0.0 {} metric 1", vpnServerIp_),
+        fmt::format("route add 128.0.0.0 mask 128.0.0.0 {} metric 1", vpnServerIp_),
+        fmt::format("route add {} {}", vpnServerIp_, gatewayIp_)
+    };
 #else
     #error "Unsupported system!"
 #endif
@@ -100,6 +109,15 @@ bool IPTables::clean() noexcept
         fmt::format("route delete -net 0.0.0.0/1 -interface {}", tunInterfaceName_),
         fmt::format("route delete -net 128.0.0.0/1 -interface {}", tunInterfaceName_),
         fmt::format("route delete {} {}", vpnServerIp_, gatewayIp_)
+    };
+#elif _WIN32
+    const std::vector<std::string> commands = {
+        fmt::format("route delete 0.0.0.0 mask 128.0.0.0 {}", vpnServerIp_),
+        fmt::format("route delete 128.0.0.0 mask 128.0.0.0 {}", vpnServerIp_),
+        fmt::format("route delete {}", vpnServerIp_),
+        fmt::format("netsh routing ip nat delete interface \"{}\"", outInterfaceName_),
+        fmt::format("netsh routing ip nat delete interface \"{}\"", tunInterfaceName_),
+        "netsh interface ipv4 set global forwarding=disabled"
     };
 #else
     #error "Unsupported system!"

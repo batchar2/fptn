@@ -2,7 +2,7 @@
 
 #include <memory>
 #include <common/network/ip_packet.h>
-#include <common/network/tun_interface.h>
+#include <common/network/net_interface.h>
 
 #include "http/websocket_client.h"
 
@@ -13,8 +13,12 @@ namespace fptn::vpn
     {
     public:
         VpnClient(
-            fptn::http::WebSocketClientPtr webSocket, 
-            fptn::common::network::TunInterfacePtr virtualNetworkInterface
+            fptn::http::WebSocketClientPtr webSocket,
+//#ifdef _WIN32
+            fptn::common::network::TapInterfacePtr virtualNetworkInterface
+//#else
+//    fptn::common::network::TunInterfacePtr virtualNetworkInterface
+//#endif
         );
         ~VpnClient();
         void start() noexcept;
@@ -26,7 +30,12 @@ namespace fptn::vpn
         void packetFromWebSocket(fptn::common::network::IPPacketPtr packet) noexcept;
     private:
         fptn::http::WebSocketClientPtr webSocket_;
-        fptn::common::network::TunInterfacePtr virtualNetworkInterface_;
+
+//#ifdef _WIN32
+        fptn::common::network::TapInterfacePtr virtualNetworkInterface_;
+//#else
+//        fptn::common::network::TunInterfacePtr virtualNetworkInterface_;
+//#endif
     };
 
     using VpnClientPtr = std::unique_ptr<fptn::vpn::VpnClient>;

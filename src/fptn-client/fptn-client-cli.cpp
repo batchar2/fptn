@@ -12,7 +12,7 @@
 
 #include <common/data/channel.h>
 #include <common/network/ip_packet.h>
-#include <common/network/tun_interface.h>
+#include <common/network/net_interface.h>
 
 #include "vpn/vpn_client.h"
 #include "system/iptables.h"
@@ -124,9 +124,15 @@ int main(int argc, char* argv[])
         usingGatewayIP
     );
 
-    auto virtualNetworkInterface = std::make_unique<fptn::common::network::TunInterface>(
-        tunInterfaceName, tunInterfaceAddress, 30, nullptr
+//#ifdef _WIN32
+    auto virtualNetworkInterface = std::make_unique<fptn::common::network::TapInterface>(
+         tunInterfaceName, tunInterfaceAddress, 30, nullptr
     );
+//#else
+//    auto virtualNetworkInterface = std::make_unique<fptn::common::network::TunInterface>(
+//            tunInterfaceName, tunInterfaceAddress, 30, nullptr
+//    );
+//#endif
 
     fptn::vpn::VpnClient vpnClient(
         std::move(webSocketClient),

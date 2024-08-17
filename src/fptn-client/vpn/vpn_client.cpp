@@ -10,11 +10,15 @@ using namespace fptn::vpn;
 
 
 VpnClient::VpnClient(
-    fptn::http::WebSocketClientPtr webSocket, 
-    fptn::common::network::TunInterfacePtr virtualNetworkInterface
+    fptn::http::WebSocketClientPtr webSocket,
+//#ifdef _WIN32
+    fptn::common::network::TapInterfacePtr virtualNetworkInterface
+//#else
+//    fptn::common::network::TunInterfacePtr virtualNetworkInterface
+//#endif
 )
     : 
-        webSocket_(std::move(webSocket)), 
+        webSocket_(std::move(webSocket)),
         virtualNetworkInterface_(std::move(virtualNetworkInterface))
 {
 }
