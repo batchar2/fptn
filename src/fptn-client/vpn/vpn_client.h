@@ -14,11 +14,7 @@ namespace fptn::vpn
     public:
         VpnClient(
             fptn::http::WebSocketClientPtr webSocket,
-//#ifdef _WIN32
-            fptn::common::network::TapInterfacePtr virtualNetworkInterface
-//#else
-//    fptn::common::network::TunInterfacePtr virtualNetworkInterface
-//#endif
+            fptn::common::network::BaseNetInterfacePtr virtualNetworkInterface
         );
         ~VpnClient();
         void start() noexcept;
@@ -30,12 +26,7 @@ namespace fptn::vpn
         void packetFromWebSocket(fptn::common::network::IPPacketPtr packet) noexcept;
     private:
         fptn::http::WebSocketClientPtr webSocket_;
-
-//#ifdef _WIN32
-        fptn::common::network::TapInterfacePtr virtualNetworkInterface_;
-//#else
-//        fptn::common::network::TunInterfacePtr virtualNetworkInterface_;
-//#endif
+        fptn::common::network::BaseNetInterfacePtr virtualNetworkInterface_;
     };
 
     using VpnClientPtr = std::unique_ptr<fptn::vpn::VpnClient>;

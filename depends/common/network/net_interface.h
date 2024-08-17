@@ -59,9 +59,22 @@ namespace fptn::common::network
     #define FPTN_MTU    (1500)
     using NewIPPacketCallback = std::function<void(IPPacketPtr packet)>;
 
+    class BaseNetInterface
+    {
+    public:
+        BaseNetInterface() {}
+        virtual ~BaseNetInterface() {}
+        virtual bool start() noexcept = 0;
+        virtual bool stop() noexcept = 0;
+        virtual bool send(IPPacketPtr packet) noexcept = 0;
+        virtual void setNewIPPacketCallback(const NewIPPacketCallback &callback) noexcept  = 0;
+        virtual std::size_t getSendRate() const noexcept = 0;
+        virtual std::size_t getReceiveRate() const noexcept = 0;
+    };
 
     template<class T>
-    class NetInterface {
+    class NetInterface : public BaseNetInterface
+    {
     public:
         NetInterface(
                 const std::string &name,
@@ -75,19 +88,16 @@ namespace fptn::common::network
                 name_(name),
                 addr_(addr),
                 netmask_(netmask),
-                newIPPktCallback_(callback) {
+                newIPPktCallback_(callback)
+        {
         }
 
-        virtual ~NetInterface() {
+        virtual ~NetInterface()
+        {
             stop();
         }
 
-        void setNewIPPacketCallback(const NewIPPacketCallback &callback) noexcept
-        {
-            newIPPktCallback_ = callback;
-        }
-
-        bool start() noexcept
+        virtual bool start() noexcept override
         {
             try {
                 net_interface_ = std::make_unique<T>();
@@ -105,7 +115,7 @@ namespace fptn::common::network
             return false;
         }
 
-        bool stop() noexcept
+        virtual bool stop() noexcept override
         {
             if (thread_.joinable() && running_ && net_interface_) {
                 running_ = false;
@@ -116,7 +126,7 @@ namespace fptn::common::network
             return false;
         }
 
-        bool send(IPPacketPtr packet)
+        virtual bool send(IPPacketPtr packet) noexcept override
         {
             if (running_) {
                 sendRateCalculator_.update(packet->size()); // calculate rate
@@ -126,19 +136,28 @@ namespace fptn::common::network
             return false;
         }
 
-        std::size_t getSendRate() const noexcept
+        virtual void setNewIPPacketCallback(const NewIPPacketCallback &callback) noexcept override
+        {
+            newIPPktCallback_ = callback;
+        }
+
+        virtual std::size_t getSendRate() const noexcept override
         {
             return sendRateCalculator_.getRateForSecond();
         }
 
-        std::size_t getReceiveRate() const noexcept
+        virtual std::size_t getReceiveRate() const noexcept override
         {
             return receiveRateCalculator_.getRateForSecond();
         }
+
         pcpp::MacAddress hwaddr() const noexcept
         {
             return pcpp::MacAddress(net_interface_->hwaddr());
         }
+    protected:
+        virtual IPPacketPtr toIPPacket(const std::uint8_t* buffer, std::size_t size) = 0;
+        virtual std::vector<std::uint8_t> serializeNetPacket(IPPacketPtr packet) = 0;
     private:
         void run() noexcept
         {
@@ -158,9 +177,6 @@ namespace fptn::common::network
                 }
             }
         }
-    protected:
-        virtual IPPacketPtr toIPPacket(const std::uint8_t* buffer, std::size_t size) = 0;
-        virtual std::vector<std::uint8_t> serializeNetPacket(IPPacketPtr packet) = 0;
     private:
         const std::uint16_t mtu_;
         std::atomic<bool> running_;
@@ -228,6 +244,7 @@ namespace fptn::common::network
         }
     };
 
+    using BaseNetInterfacePtr = std::unique_ptr<BaseNetInterface>;
     using TapInterfacePtr = std::unique_ptr<TapInterface>;
     using TunInterfacePtr = std::unique_ptr<TunInterface>;
 }

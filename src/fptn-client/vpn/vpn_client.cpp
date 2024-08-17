@@ -11,11 +11,7 @@ using namespace fptn::vpn;
 
 VpnClient::VpnClient(
     fptn::http::WebSocketClientPtr webSocket,
-//#ifdef _WIN32
-    fptn::common::network::TapInterfacePtr virtualNetworkInterface
-//#else
-//    fptn::common::network::TunInterfacePtr virtualNetworkInterface
-//#endif
+    fptn::common::network::BaseNetInterfacePtr virtualNetworkInterface
 )
     : 
         webSocket_(std::move(webSocket)),

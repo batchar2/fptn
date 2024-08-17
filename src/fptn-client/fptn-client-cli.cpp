@@ -41,8 +41,8 @@ int main(int argc, char* argv[])
     }
 #endif
     google::InitGoogleLogging(argv[0]);
-    google::SetStderrLogging(google::INFO);
-    google::SetLogDestination(google::INFO, "");
+    google::SetStderrLogging(google::GLOG_INFO);
+    google::SetLogDestination(google::GLOG_INFO, "");
 
     argparse::ArgumentParser args("fptn-client");
     // Required arguments
@@ -124,16 +124,15 @@ int main(int argc, char* argv[])
         usingGatewayIP
     );
 
-//#ifdef _WIN32
+#ifdef _WIN32
     auto virtualNetworkInterface = std::make_unique<fptn::common::network::TapInterface>(
          tunInterfaceName, tunInterfaceAddress, 30, nullptr
     );
-//#else
-//    auto virtualNetworkInterface = std::make_unique<fptn::common::network::TunInterface>(
-//            tunInterfaceName, tunInterfaceAddress, 30, nullptr
-//    );
-//#endif
-
+#else
+    auto virtualNetworkInterface = std::make_unique<fptn::common::network::TunInterface>(
+            tunInterfaceName, tunInterfaceAddress, 30, nullptr
+    );
+#endif
     fptn::vpn::VpnClient vpnClient(
         std::move(webSocketClient),
         std::move(virtualNetworkInterface)
