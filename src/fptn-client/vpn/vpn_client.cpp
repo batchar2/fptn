@@ -50,7 +50,6 @@ void VpnClient::stop() noexcept
     }
 }
 
-
 std::size_t VpnClient::getSendRate() noexcept
 {
     return virtualNetworkInterface_->getSendRate();

@@ -17,7 +17,7 @@
 
 #include <common/data/channel.h>
 #include <common/network/ip_packet.h>
-#include <common/network/tun_interface.h>
+#include <common/network/net_interface.h>
 
 #include "gui/tray/tray.h"
 #include "vpn/vpn_client.h"

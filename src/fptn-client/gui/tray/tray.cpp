@@ -243,6 +243,9 @@ void TrayApp::handleConnecting()
             tunInterfaceAddress,
             true
     );
+
+    qDebug() << selectedServer_.username.toStdString() << " " << selectedServer_.password.toStdString();
+
     bool loginStatus = webSocketClient->login(
             selectedServer_.username.toStdString(),
             selectedServer_.password.toStdString()
