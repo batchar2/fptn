@@ -58,7 +58,6 @@ def create_app(
         macos_path = app_contents_path / "MacOS"
         resources_path = app_contents_path / "Resources"
         frameworks_path = app_contents_path / "Frameworks"
-        # frameworks_qt_plugins_path = app_contents_path / "Frameworks" / "Qt6" / "plugins"
         frameworks_qt_plugins_path = app_contents_path / "Frameworks" / "plugins"
         os.makedirs(macos_path, exist_ok=True)
         os.makedirs(resources_path, exist_ok=True)
@@ -111,7 +110,6 @@ def create_app(
                 shutil.copy(lib, frameworks_path / lib_name)
             elif "qtbase/plugins/" in str(lib_path):
                 separeted = lib.split(r"qtbase/plugins/")
-                print(separeted)
                 plugin_folder = frameworks_qt_plugins_path / separeted[1].replace(lib_name, "")
                 os.makedirs(plugin_folder, exist_ok=True)
 

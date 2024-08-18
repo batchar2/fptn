@@ -12,7 +12,7 @@ SpeedWidget::SpeedWidget(QWidget *parent)
           downloadSpeedLabel_(new QLabel("Download Speed: 0 MB/s", this))
 {
     QVBoxLayout *layout = new QVBoxLayout();
-    layout->setContentsMargins(20, 4, 20, 4);
+    layout->setContentsMargins(30, 4, 20, 4);
     layout->addWidget(downloadSpeedLabel_);
     layout->addWidget(uploadSpeedLabel_);
     setLayout(layout);

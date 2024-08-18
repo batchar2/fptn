@@ -1,5 +1,6 @@
 #include <iostream>
 #include <QApplication>
+#include <QStyleFactory>
 
 #if defined(__linux__) || defined(__APPLE__)
 #include <unistd.h>
@@ -16,7 +17,11 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 #endif
+
     QApplication app(argc, argv);
+#if defined(__linux__)
+    QApplication::setStyle(QStyleFactory::create("Fusion"));
+#endif
     fptn::gui::TrayApp trayApp;
     return app.exec();
 }

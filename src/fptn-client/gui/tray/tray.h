@@ -7,6 +7,7 @@
 #include <QObject>
 #include <QString>
 #include <QAction>
+#include <QMouseEvent>
 #include <QApplication>
 #include <QWidgetAction>
 #include <QSystemTrayIcon>
@@ -26,6 +27,8 @@
 
 namespace fptn::gui
 {
+
+
     class TrayApp : public QObject
     {
         Q_OBJECT
@@ -38,7 +41,7 @@ namespace fptn::gui
         };
     public:
         TrayApp(QObject *parent = nullptr);
-        void applyStyles();
+        virtual ~TrayApp() = default;
     signals:
         void defaultState();
         void connecting();
@@ -58,19 +61,22 @@ namespace fptn::gui
         void setUpTrayIcon();
         void updateTrayMenu();
     private:
-        QSystemTrayIcon *trayIcon_;
-        QMenu *trayMenu_;
-        QMenu *connectMenu_;
-        QAction *disconnectAction_;
-        QAction *settingsAction_;
-        QAction *quitAction_;
-        SettingsWidget *settingsWidget_;
-        QAction *connectingAction_;
-        QWidgetAction *speedWidgetAction_;
-        SpeedWidget *speedWidget_;
-        QTimer *updateTimer_;
+        QSystemTrayIcon *trayIcon_ = nullptr;
+        QMenu *trayMenu_ = nullptr;
+        QMenu *connectMenu_ = nullptr;
+        QAction *disconnectAction_ = nullptr;
+        QAction *settingsAction_ = nullptr;
+        QAction *quitAction_ = nullptr;
+        SettingsWidget *settingsWidget_ = nullptr;
+        QAction *connectingAction_ = nullptr;
+        QWidgetAction *speedWidgetAction_ = nullptr;
+        SpeedWidget *speedWidget_ = nullptr;
+        QTimer *updateTimer_ = nullptr;
         ConnectionState connectionState_ = ConnectionState::None;
         QString connectedServerAddress_;
+
+        QString activeIconPath_;
+        QString inactiveIconPath_;
 
         SettingsModel serverModel_;
         ServerConnectionInformation selectedServer_;

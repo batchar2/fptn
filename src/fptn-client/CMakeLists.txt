@@ -60,7 +60,10 @@ if("${FPTN_BUILD_WITH_GUI_CLIENT}")
 
             gui/settingsmodel/settingsmodel.h gui/settingsmodel/settingsmodel.cpp
 
+            gui/style/style.h gui/style/style.cpp
+
             ${PROJECT_RESOURCES}
+
     )
 
     target_link_libraries(

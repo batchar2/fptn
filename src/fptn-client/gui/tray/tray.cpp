@@ -1,58 +1,74 @@
 #include <QMenu>
 #include <QIcon>
 #include <QAction>
+#include <QStyleHints>
 #include <QMessageBox>
 #include <QApplication>
 #include <QWidgetAction>
 
+#include "gui/style/style.h"
+
+
 #include "tray.h"
+
 
 using namespace fptn::gui;
 
-const QString activeIconPath = ":/icons/active.ico";
-const QString inactiveIconPath = ":/icons/inactive.ico";
 
-static QString styleSheet = R"(
-    QMenu {
-        background-color: #333;
-        color: #fff;
-        border: 1px solid #555;
-    }
-    QMenu::item {
-        background-color: #333;
-        padding: 5px 15px;
-    }
-    QMenu::item:selected {
-        background-color: #555;
-    }
-    QMenu::icon {
-        margin-right: 10px;
-    }
-    QAction {
-        color: #fff;
-    }
-    QWidgetAction {
-        padding: 5px;
-    }
-)";
+inline bool isDarkMode()
+{
+    const auto scheme = QGuiApplication::styleHints()->colorScheme();
+    return scheme == Qt::ColorScheme::Dark;
+}
+
+
+inline bool isUbuntu()
+{
+    QString osName = QSysInfo::prettyProductName();
+    return osName.contains("Ubuntu", Qt::CaseInsensitive);
+}
+
 
 TrayApp::TrayApp(QObject *parent)
-        : QObject(parent),
-          trayIcon_(new QSystemTrayIcon(this)),
-          trayMenu_(new QMenu()),
-          connectMenu_(new QMenu("Connect to", trayMenu_)),
-          speedWidget_(new SpeedWidget()),
-          updateTimer_(new QTimer(this))
+    : QObject(parent),
+        trayIcon_(new QSystemTrayIcon(this)),
+        trayMenu_(new QMenu()),
+        connectMenu_(new QMenu("Connect to", trayMenu_)),
+        speedWidget_(new SpeedWidget()),
+        updateTimer_(new QTimer(this))
 {
-    qApp->setStyleSheet(styleSheet);
+    qDebug() << "UBUNTU: " << isUbuntu();
 
+    if (isUbuntu()) {
+        activeIconPath_ = ":/icons/dark/active.ico";
+        inactiveIconPath_ = ":/icons/dark/inactive.ico";
+        qApp->setStyleSheet(fptn::gui::whiteStyleSheet);
+    } else if (isDarkMode()) {
+        qDebug() << "THEME: " << "dark";
+        activeIconPath_ = ":/icons/dark/active.ico";
+        inactiveIconPath_ = ":/icons/dark/inactive.ico";
+        qApp->setStyleSheet(fptn::gui::darkStyleSheet);
+    } else {
+        qDebug() << "THEME: " << "white";
+        activeIconPath_ = ":/icons/white/active.ico";
+        inactiveIconPath_ = ":/icons/white/inactive.ico";
+        qApp->setStyleSheet(fptn::gui::whiteStyleSheet);
+    }
+
+#if defined(__linux__)
+    connect(trayIcon_, &QSystemTrayIcon::activated, this, [this](QSystemTrayIcon::ActivationReason reason){
+        // FIX LEFT CLICK FOR UBUNTU
+        if (reason == QSystemTrayIcon::Trigger) {
+            // trayMenu_->popup(QCursor::pos());
+        }
+    });
+#endif
     connect(this, &TrayApp::defaultState, this, &TrayApp::handleDefaultState);
     connect(this, &TrayApp::connecting, this, &TrayApp::handleConnecting);
     connect(this, &TrayApp::connected, this, &TrayApp::handleConnected);
     connect(this, &TrayApp::disconnecting, this, &TrayApp::handleDisconnecting);
 
     connect(&serverModel_, &SettingsModel::dataChanged, this, &TrayApp::updateTrayMenu);
-
     connect(updateTimer_, &QTimer::timeout, this, &TrayApp::updateSpeedWidget);
     updateTimer_->start(1000);
 
@@ -68,8 +84,8 @@ TrayApp::TrayApp(QObject *parent)
     trayMenu_->addAction(settingsAction_);
     trayMenu_->addSeparator();
     trayMenu_->addAction(quitAction_);
-
     trayIcon_->setContextMenu(trayMenu_);
+
     updateTrayMenu();
 }
 
@@ -80,12 +96,15 @@ void TrayApp::setUpTrayIcon()
 
 void TrayApp::updateTrayMenu()
 {
-    connectMenu_->clear();
-    trayMenu_->removeAction(connectMenu_->menuAction());
-
+    if (connectMenu_) {
+        connectMenu_->clear();
+    }
+    if (trayMenu_ && connectMenu_) {
+        trayMenu_->removeAction(connectMenu_->menuAction());
+    }
     switch (connectionState_) {
         case ConnectionState::None: {
-            trayIcon_->setIcon(QIcon(inactiveIconPath));
+            trayIcon_->setIcon(QIcon(inactiveIconPath_));
             for (const auto &server : serverModel_.servers()) {
                 QAction *serverAction = new QAction(QString("%1:%2").arg(server.address).arg(server.port), this);
                 connect(serverAction, &QAction::triggered, [this, server]() {
@@ -109,7 +128,7 @@ void TrayApp::updateTrayMenu()
             break;
         }
         case ConnectionState::Connecting: {
-            trayIcon_->setIcon(QIcon(inactiveIconPath));
+            trayIcon_->setIcon(QIcon(inactiveIconPath_));
             if (!connectingAction_) {
                 connectingAction_ = new QAction("Connecting...", this);
                 trayMenu_->insertAction(settingsAction_, connectingAction_);
@@ -126,7 +145,7 @@ void TrayApp::updateTrayMenu()
             break;
         }
         case ConnectionState::Connected: {
-            trayIcon_->setIcon(QIcon(activeIconPath));
+            trayIcon_->setIcon(QIcon(activeIconPath_));
             if (!disconnectAction_) {
                 disconnectAction_ = new QAction(this);
                 connect(disconnectAction_, &QAction::triggered, this, &TrayApp::onDisconnectFromServer);
@@ -154,7 +173,7 @@ void TrayApp::updateTrayMenu()
             break;
         }
         case ConnectionState::Disconnecting: {
-            trayIcon_->setIcon(QIcon(inactiveIconPath));
+            trayIcon_->setIcon(QIcon(inactiveIconPath_));
             if (disconnectAction_) {
                 disconnectAction_->setVisible(false);
             }
@@ -229,7 +248,7 @@ void TrayApp::handleConnecting()
 {
     qDebug() << "Handling connecting state";
     updateTrayMenu();
-    trayIcon_->setIcon(QIcon(inactiveIconPath));
+    trayIcon_->setIcon(QIcon(inactiveIconPath_));
 
     const std::string tunInterfaceAddress = "10.0.1.1";
     const std::string tunInterfaceName = "tun0";
@@ -269,10 +288,15 @@ void TrayApp::handleConnecting()
             selectedServer_.address.toStdString(),
             usingGatewayIP
     );
-
+#ifdef _WIN32
+    auto virtualNetworkInterface = std::make_unique<fptn::common::network::TapInterface>(
+         tunInterfaceName, tunInterfaceAddress, 30, nullptr
+    );
+#else
     auto virtualNetworkInterface = std::make_unique<fptn::common::network::TunInterface>(
             tunInterfaceName, tunInterfaceAddress, 30, nullptr
     );
+#endif
     vpnClient_ = std::make_unique<fptn::vpn::VpnClient>(
             std::move(webSocketClient),
             std::move(virtualNetworkInterface)

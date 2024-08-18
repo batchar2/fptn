@@ -1,12 +1,10 @@
 <!DOCTYPE RCC>
 <RCC version="1.0">
     <qresource prefix="/">
-        <file>icons/delete.ico</file>
+        <file>icons/dark/active.ico</file>
+        <file>icons/dark/inactive.ico</file>
 
-        <file>icons/active.ico</file>
-        <file>icons/active.svg</file>
-
-        <file>icons/inactive.ico</file>
-        <file>icons/inactive.svg</file>
+        <file>icons/white/active.ico</file>
+        <file>icons/white/inactive.ico</file>
     </qresource>
 </RCC>
