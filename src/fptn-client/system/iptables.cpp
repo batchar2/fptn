@@ -153,6 +153,9 @@ std::string fptn::system::getDefaultGatewayIPAddress()
         const std::string command = "ip route | grep default | awk '{print $3}'";
 #elif __APPLE__
         const std::string command = "netstat -rn | grep default | awk '{print $2}'";
+#elif _WIN32
+        const std::string command = "";
+        return "";
 #else
     #error "Unsupported system!"
 #endif

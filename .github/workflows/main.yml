@@ -44,12 +44,12 @@ jobs:
 
       - name: Install dependencies (Linux)
         run: |
-          conan install . --output-folder=build --build=missing --settings build_type=Release
+          conan install . --output-folder=build --build=missing --settings build_type=Release -s compiler.cppstd=17
 
       - name: Install dependencies (MacOS)
         if: runner.os == 'MacOS'
         run: |
-          conan install . --output-folder=build --build=missing -o with_gui_client=True --settings build_type=Release
+          conan install . --output-folder=build --build=missing -o with_gui_client=True --settings build_type=Release -s compiler.cppstd=17
 
       - name: Build
         run: |

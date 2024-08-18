@@ -8,7 +8,7 @@
 #include <common/data/channel.h>
 #include <common/user/manager.h>
 #include <common/network/ip_packet.h>
-#include <common/network/tun_interface.h>
+#include <common/network/net_interface.h>
 #include <common/jwt_token/token_manager.h>
 
 #include "nat/table.h"

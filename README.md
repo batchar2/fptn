@@ -231,7 +231,7 @@ Console version
 
 ```bash
 git submodule update --init --recursive 
-conan install . --output-folder=build --build=missing
+conan install . --output-folder=build --build=missing  -s compiler.cppstd=17
 cd build
 cmake .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release
 cmake --build .
@@ -244,7 +244,7 @@ Or GUI version
 
 git submodule update --init --recursive
 ```bash
-conan install . --output-folder=build --build=missing -o with_gui_client=True 
+conan install . --output-folder=build --build=missing  -s compiler.cppstd=17 -o with_gui_client=True 
 # or 
 # conan install . --output-folder=build --build=missing -o with_gui_client=True -c tools.system.package_manager:mode=install
 
@@ -334,7 +334,7 @@ Options:
   
 Run the following command in the project folder:
 ```
-conan install . --output-folder=cmake-build-debug --build=missing -o with_gui_client=True --settings build_type=Debug
+conan install . --output-folder=cmake-build-debug --build=missing -s compiler.cppstd=17 -o with_gui_client=True --settings build_type=Debug
 
 ```
 
