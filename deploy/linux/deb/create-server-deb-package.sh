@@ -3,6 +3,7 @@
 # Function to print usage
 print_usage() {
     echo "Usage: $0 <fptn-server-path> <fptn-passwd-path> <version>"
+    echo "$@"
     exit 1
 }
 
