@@ -4,7 +4,6 @@ print_usage() {
     echo "Usage: $0 <fptn-client-path> <icon-path> <version>"
     exit 1
 }
-
 if [ "$#" -ne 3 ]; then
     print_usage
 fi
@@ -12,8 +11,8 @@ fi
 CLIENT_GUI="$1"
 CLIENT_ICON="$2"
 VERSION="$3"
-MAINTAINER="FPTN Project"
 
+MAINTAINER="FPTN Project"
 OS_NAME=$(lsb_release -i | awk -F':\t' '{print $2}' | tr '[:upper:]' '[:lower:]')
 OS_VERSION=$(lsb_release -r | awk -F':\t' '{print $2}')
 CLIENT_TMP_DIR=$(mktemp -d -t fptn-client-XXXXXX)
@@ -27,8 +26,12 @@ mkdir -p "$CLIENT_TMP_DIR/opt/fptn/qt6"  # Qt directory
 mkdir -p "$CLIENT_TMP_DIR/usr/share/applications"  # Directory for .desktop file
 mkdir -p "$CLIENT_TMP_DIR/usr/share/icons/hicolor/512x512/apps"  # Directory for icon
 
+
+
+# copy program
 cp -v "$CLIENT_GUI" "$CLIENT_TMP_DIR/opt/fptn/fptn-client-gui"
 chmod 755 "$CLIENT_TMP_DIR/opt/fptn/fptn-client-gui"
+
 
 
 # copy qt
@@ -48,6 +51,9 @@ done
 cat <<EOL > "$CLIENT_TMP_DIR/usr/bin/fptn-client"
 #!/usr/bin/env bash
 
+set -euo pipefail
+
+# Check if the script is run as root
 if [[ \$(id -u) -ne 0 ]]; then
    echo "This script must be run as root or with sudo"
    exit 1
@@ -56,26 +62,36 @@ fi
 export FPTN_QT_DIR=/opt/fptn/qt6
 export QT_PLUGIN_PATH=\$FPTN_QT_DIR/plugins
 export QT_QPA_PLATFORM_PLUGIN_PATH=\$FPTN_QT_DIR/plugins/platforms
-export LD_LIBRARY_PATH=\$FPTN_QT_DIR:\$QT_QPA_PLATFORM_PLUGIN_PATH:\$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=\$FPTN_QT_DIR:\$QT_QPA_PLATFORM_PLUGIN_PATH
 
-#export QT_STYLE_OVERRIDE=kvantum
-export QT_QPA_PLATFORMTHEME="qt5ct"
+declare -a VARS
+VARS+=(
+    "QT_PLUGIN_PATH=\$QT_PLUGIN_PATH"
+    "QT_QPA_PLATFORM_PLUGIN_PATH=\$QT_QPA_PLATFORM_PLUGIN_PATH"
+    "LD_LIBRARY_PATH=\$LD_LIBRARY_PATH"
+)
 
-/opt/fptn/fptn-client-gui "\$@"
+for VAR in \$(env | sed 's/=/\t/g' | awk '{ print \$1 }' | tr '\n' ' '); do
+    # Add variable if not already set manually
+    if [[ ! " \${VARS[@]} " =~ " \$VAR=" ]]; then
+        VARS+=("\$VAR=\${!VAR}")
+    fi
+done
+
+exec pkexec env -u PKEXEC_UID "SUDO_USER=\$USER" "SUDO_UID=\$(id -u)" "SUDO_GID=\$(id -g)" "\${VARS[@]}" "/bin/sh" -c "exec /opt/fptn/fptn-client-gui \"\$@\"" "\$@"
 
 EOL
 chmod 755 "$CLIENT_TMP_DIR/usr/bin/fptn-client"
 
 
 
-# icon
-cp "$CLIENT_ICON" "$CLIENT_TMP_DIR/usr/share/icons/hicolor/512x512/apps/fptn-client.png"
 # Create .desktop file
+cp "$CLIENT_ICON" "$CLIENT_TMP_DIR/usr/share/icons/hicolor/512x512/apps/fptn-client.png"
 cat <<EOL > "$CLIENT_TMP_DIR/usr/share/applications/fptn-client.desktop"
 [Desktop Entry]
 Name=FPTN Client
 Comment=FPTN VPN Client
-Exec=pkexec env DISPLAY=$DISPLAY XAUTHORITY=$XAUTHORITY /usr/bin/fptn-client
+Exec=/usr/bin/fptn-client
 Icon=/usr/share/icons/hicolor/512x512/apps/fptn-client.png
 Terminal=false
 Type=Application

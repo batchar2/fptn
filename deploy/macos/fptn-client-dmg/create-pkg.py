@@ -148,17 +148,18 @@ def create_app(
 
         with open(resources_path / "net.tunnelblick.tun.plist", "wb") as plist_file:
             plistlib.dump(plist_content, plist_file)
-
-        return True
+            return True
     except Exception as e:
         print(f"Error creating .app: {e}")
         raise e
+    return False
 
-def create_pkg(app_path: pathlib.Path) -> bool:
+
+def create_pkg(app_path: pathlib.Path, version: str) -> bool:
     try:
         post_install = SCRIPT_FOLDER / "scripts" / "post_install.sh"
         pkg_obj = Packages(
-            pkg_output="fptn-client-apple-silicon.pkg",
+            pkg_output=f"fptn-client-{version}-apple-silicon.pkg",
             pkg_bundle_id="com.fptn-vpn.installer",
             pkg_as_distribution=True,
             pkg_title="FPTN-VPN",
@@ -171,10 +172,10 @@ def create_pkg(app_path: pathlib.Path) -> bool:
             return True
         else:
             print("Error building package.")
-            return False
     except Exception as e:
         print(f"Error creating package: {e}")
-        return False
+        raise e
+    return False
 
 
 if __name__ == "__main__":
@@ -196,9 +197,11 @@ if __name__ == "__main__":
     with tempfile.TemporaryDirectory() as temp_dir:
         app_path = pathlib.Path(temp_dir) / f"{APP_NAME}-{args.version}.app"
         if create_app(app_path, fptn_client_cli, fptn_client_gui, args.version):
-            if create_pkg(app_path):
+            if create_pkg(app_path, args.version):
                 print(f"Package created successfully")
             else:
                 print("Failed to create package.")
+                sys.exit(1)
         else:
             print("Failed to create .app")
+            sys.exit(1)
