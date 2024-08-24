@@ -242,11 +242,30 @@ make install
 
 Or GUI version
 
-git submodule update --init --recursive
+
+
+<details>
+  <summary>For build on Ubuntu, install the following packages:</summary>
+
 ```bash
+sudo apt-get update
+sudo apt-get install -y libx11-dev libx11-xcb-dev libfontenc-dev libice-dev libsm-dev libxau-dev libxaw7-dev \
+libxcomposite-dev libxcursor-dev libxdamage-dev libxfixes-dev libxi-dev libxinerama-dev libxkbfile-dev \
+libxmuu-dev libxrandr-dev libxrender-dev libxres-dev libxss-dev libxtst-dev libxv-dev libxxf86vm-dev \
+libxcb-glx0-dev libxcb-render0-dev libxcb-render-util0-dev libxcb-xkb-dev libxcb-icccm4-dev libxcb-image0-dev \
+libxcb-keysyms1-dev libxcb-randr0-dev libxcb-shape0-dev libxcb-sync-dev libxcb-xfixes0-dev libxcb-xinerama0-dev \
+libxcb-dri3-dev uuid-dev libxcb-cursor-dev libxcb-dri2-0-dev libxcb-dri3-dev libxcb-present-dev libxcb-composite0-dev \
+libxcb-ewmh-dev libxcb-res0-dev libxcb-util-dev pkg-config libgl-dev libgl1-mesa-dev
+```
+
+</details>
+
+
+```bash
+git submodule update --init --recursive
+
+# Need a manual installation list of dependencies for Ubuntu.
 conan install . --output-folder=build --build=missing  -s compiler.cppstd=17 -o with_gui_client=True 
-# or 
-# conan install . --output-folder=build --build=missing -o with_gui_client=True -c tools.system.package_manager:mode=install
 
 cd build
 cmake .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release

@@ -14,7 +14,7 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [Ubuntu_x86_64, Ubuntu_ARM64, MacOS_ARM64]
+        os: [Ubuntu_x86_64, Ubuntu_ARM64_Desktop, MacOS_ARM64]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout code
@@ -43,8 +43,9 @@ jobs:
           sed -i '' "s/^FPTN_VERSION = \".*\"/FPTN_VERSION = \"$RELEASE_VERSION\"/" conanfile.py
 
       - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
         run: |
-          conan install . --output-folder=build --build=missing --settings build_type=Release -s compiler.cppstd=17
+          conan install . --output-folder=build --build=missing -o with_gui_client=True --settings build_type=Release -s compiler.cppstd=17
 
       - name: Install dependencies (MacOS)
         if: runner.os == 'MacOS'
