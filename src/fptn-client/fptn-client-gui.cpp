@@ -17,11 +17,7 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 #endif
-
     QApplication app(argc, argv);
-#if defined(__linux__)
-    QApplication::setStyle(QStyleFactory::create("Fusion"));
-#endif
     fptn::gui::TrayApp trayApp;
     return app.exec();
 }

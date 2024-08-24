@@ -111,12 +111,12 @@ int main(int argc, char* argv[])
 
     auto userManager = std::make_shared<fptn::common::user::UserManager>(
             userFilePath
-            );
+    );
     auto natTable = std::make_shared<fptn::nat::Table>(
             tunInterfaceIP,
             tunInterfaceNetworkAddress,
             tunInterfaceNetworkMask
-            );
+    );
 
     // filters
     const bool disableBittorrent = parseBoolean(args.get<std::string>("--disable-bittorrent"));
@@ -153,7 +153,14 @@ int main(int argc, char* argv[])
         filterManager
     );
 
-    LOG(INFO) << "Starting server";
+    LOG(INFO) << std::endl
+        << "Starting server"     << std::endl
+        << "VERSION:           " << FPTN_VERSION << std::endl
+        << "NETWORK INTERFACE: " << outNetworkInterfaceName << std::endl
+        << "VPN SERVER IP:     " << tunInterfaceIP << std::endl
+        << "VPN SERVER PORT:   " << serverPort << std::endl
+        << std::endl;
+
     manager.start();
 
     waitForSignal();

@@ -37,19 +37,15 @@ TrayApp::TrayApp(QObject *parent)
         speedWidget_(new SpeedWidget()),
         updateTimer_(new QTimer(this))
 {
-    qDebug() << "UBUNTU: " << isUbuntu();
-
     if (isUbuntu()) {
         activeIconPath_ = ":/icons/dark/active.ico";
         inactiveIconPath_ = ":/icons/dark/inactive.ico";
-        qApp->setStyleSheet(fptn::gui::whiteStyleSheet);
+        qApp->setStyleSheet(fptn::gui::ubuntuStyleSheet);
     } else if (isDarkMode()) {
-        qDebug() << "THEME: " << "dark";
         activeIconPath_ = ":/icons/dark/active.ico";
         inactiveIconPath_ = ":/icons/dark/inactive.ico";
         qApp->setStyleSheet(fptn::gui::darkStyleSheet);
     } else {
-        qDebug() << "THEME: " << "white";
         activeIconPath_ = ":/icons/white/active.ico";
         inactiveIconPath_ = ":/icons/white/inactive.ico";
         qApp->setStyleSheet(fptn::gui::whiteStyleSheet);

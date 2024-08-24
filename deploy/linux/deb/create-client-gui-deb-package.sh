@@ -1,66 +1,93 @@
 #!/usr/bin/env bash
 
-# Function to print usage
 print_usage() {
-    echo "Usage: $0 <fptn-client-cli-path> <version>"
+    echo "Usage: $0 <fptn-client-path> <icon-path> <version>"
     exit 1
 }
 
-# Check if the correct number of arguments are provided
-if [ "$#" -ne 2 ]; then
+if [ "$#" -ne 3 ]; then
     print_usage
 fi
 
-CLIENT_CLI="$1"
-VERSION="$2"
+CLIENT_GUI="$1"
+CLIENT_ICON="$2"
+VERSION="$3"
 MAINTAINER="FPTN Project"
 
 OS_NAME=$(lsb_release -i | awk -F':\t' '{print $2}' | tr '[:upper:]' '[:lower:]')
 OS_VERSION=$(lsb_release -r | awk -F':\t' '{print $2}')
+CLIENT_TMP_DIR=$(mktemp -d -t fptn-client-XXXXXX)
 
-CLIENT_TMP_DIR=$(mktemp -d -t fptn-client-cli-XXXXXX)
 
+
+# create structure
 mkdir -p "$CLIENT_TMP_DIR/DEBIAN"
 mkdir -p "$CLIENT_TMP_DIR/usr/bin"
-mkdir -p "$CLIENT_TMP_DIR/etc/fptn-client"
-mkdir -p "$CLIENT_TMP_DIR/lib/systemd/system"
+mkdir -p "$CLIENT_TMP_DIR/opt/fptn/qt6"  # Qt directory
+mkdir -p "$CLIENT_TMP_DIR/usr/share/applications"  # Directory for .desktop file
+mkdir -p "$CLIENT_TMP_DIR/usr/share/icons/hicolor/512x512/apps"  # Directory for icon
 
-# Copy client binary
-cp "$CLIENT_CLI" "$CLIENT_TMP_DIR/usr/bin/"
-chmod 755 "$CLIENT_TMP_DIR/usr/bin/$(basename "$CLIENT_CLI")"
+cp -v "$CLIENT_GUI" "$CLIENT_TMP_DIR/opt/fptn/fptn-client-gui"
+chmod 755 "$CLIENT_TMP_DIR/opt/fptn/fptn-client-gui"
 
-# Create client configuration file
-cat <<EOL > "$CLIENT_TMP_DIR/etc/fptn-client/client.conf"
-# Configuration for fptn client
-USERNAME=
-PASSWORD=
-NETWORK_INTERFACE=
-VPN_SERVER_IP=
-GATEWAY_IP=
-VPN_SERVER_PORT=443
+
+# copy qt
+QT_LIBS_DIR=$CLIENT_TMP_DIR/opt/fptn/qt6/
+QT_PLUGINS_DIR="$QT_LIBS_DIR/plugins"
+mkdir -p "$QT_LIBS_DIR"
+mkdir -p "$QT_PLUGINS_DIR"
+
+find ~/.conan2 -path "*/Release/qtbase/lib/libQt6*.so*" -print0 | xargs -0 cp -av -t "$QT_LIBS_DIR"
+find ~/.conan2 -type d -path "*/Release/qtbase/plugins" | grep -E "/qt[0-9a-f]+" | while read -r dir; do
+    cp -rv "$dir"/* "$QT_PLUGINS_DIR"
+done
+
+
+
+# Create wrapper script
+cat <<EOL > "$CLIENT_TMP_DIR/usr/bin/fptn-client"
+#!/usr/bin/env bash
+
+if [[ \$(id -u) -ne 0 ]]; then
+   echo "This script must be run as root or with sudo"
+   exit 1
+fi
+
+export FPTN_QT_DIR=/opt/fptn/qt6
+export QT_PLUGIN_PATH=\$FPTN_QT_DIR/plugins
+export QT_QPA_PLATFORM_PLUGIN_PATH=\$FPTN_QT_DIR/plugins/platforms
+export LD_LIBRARY_PATH=\$FPTN_QT_DIR:\$QT_QPA_PLATFORM_PLUGIN_PATH:\$LD_LIBRARY_PATH
+
+#export QT_STYLE_OVERRIDE=kvantum
+export QT_QPA_PLATFORMTHEME="qt5ct"
+
+/opt/fptn/fptn-client-gui "\$@"
+
+EOL
+chmod 755 "$CLIENT_TMP_DIR/usr/bin/fptn-client"
+
+
+
+# icon
+cp "$CLIENT_ICON" "$CLIENT_TMP_DIR/usr/share/icons/hicolor/512x512/apps/fptn-client.png"
+# Create .desktop file
+cat <<EOL > "$CLIENT_TMP_DIR/usr/share/applications/fptn-client.desktop"
+[Desktop Entry]
+Name=FPTN Client
+Comment=FPTN VPN Client
+Exec=pkexec env DISPLAY=$DISPLAY XAUTHORITY=$XAUTHORITY /usr/bin/fptn-client
+Icon=/usr/share/icons/hicolor/512x512/apps/fptn-client.png
+Terminal=false
+Type=Application
+Categories=Network;Utility;
 EOL
 
-# Create systemd service file for client
-cat <<EOL > "$CLIENT_TMP_DIR/lib/systemd/system/fptn-client.service"
-[Unit]
-Description=FPTN Client Service
-After=network.target
 
-[Service]
-EnvironmentFile=/etc/fptn-client/client.conf
-ExecStart=/usr/bin/$(basename "$CLIENT_CLI") --vpn-server-ip=\${VPN_SERVER_IP} --vpn-server-port=\${VPN_SERVER_PORT} --out-network-interface=\${NETWORK_INTERFACE} --username=\${USERNAME} --password=\${PASSWORD} --gateway-ip=\${GATEWAY_IP}
-Restart=always
-RestartSec=5
-User=root
-
-[Install]
-WantedBy=multi-user.target
-EOL
 
 # Create control file for client package
 INSTALLED_SIZE=$(du -s "$CLIENT_TMP_DIR/usr" | cut -f1)
 cat <<EOL > "$CLIENT_TMP_DIR/DEBIAN/control"
-Package: fptn-client-cli
+Package: fptn-client
 Version: ${VERSION}
 Architecture: $(dpkg --print-architecture)
 Maintainer: ${MAINTAINER}
@@ -71,23 +98,30 @@ Priority: optional
 Description: fptn client
 EOL
 
+
+
 # Create postrm file
 cat <<EOL > "$CLIENT_TMP_DIR/DEBIAN/postrm"
 #!/bin/bash
 set -e
 
-# Remove configuration directory if empty
-systemctl stop fptn-client
-rm -rf /etc/fptn-client
-systemctl daemon-reload
+rm -rf /opt/fptn || true
+rm -f /usr/bin/fptn-client || true
+rm -f /usr/share/icons/hicolor/512x512/apps/fptn-client.png || true
 EOL
-
 chmod 755 "$CLIENT_TMP_DIR/DEBIAN/postrm"
 
+
+
 # Build the Debian package
-dpkg-deb --build "$CLIENT_TMP_DIR" "fptn-client-cli-${VERSION}-${OS_NAME}${OS_VERSION}-$(dpkg --print-architecture).deb"
+dpkg-deb --build "$CLIENT_TMP_DIR" "fptn-client-${VERSION}-${OS_NAME}${OS_VERSION}-$(dpkg --print-architecture).deb"
+
+
 
 # Clean up temporary directories
 rm -rf "$CLIENT_TMP_DIR"
+rm -rf "$QT_LIBS_DIR"
+
+
 
 echo "Client Debian package created successfully."

@@ -81,11 +81,11 @@ void SettingsWidget::setupUi() {
     aboutTab = new QWidget();
     QVBoxLayout *aboutLayout = new QVBoxLayout(aboutTab);
     aboutLayout->setContentsMargins(10, 10, 10, 10);
+    aboutLayout->setSpacing(10);
 
-    QPushButton *versionLabel = new QPushButton("App Version: 1.0.0", this);
-    versionLabel->setFlat(true);
+    QLabel *versionLabel = new QLabel(QString("App Version: %1").arg(FPTN_VERSION), this);
+    versionLabel->setAlignment(Qt::AlignCenter);
     aboutLayout->addWidget(versionLabel);
-
     tabWidget->addTab(aboutTab, "About");
 
     // Main Layout
@@ -108,9 +108,7 @@ void SettingsWidget::setupUi() {
         passwordItem->setData(Qt::UserRole, server.password);
         serverTable->setItem(i, 3, passwordItem);
 
-//        QPushButton *deleteButton = new QPushButton(QIcon(":/icons/delete.ico"), "", this);
         QPushButton *deleteButton = new QPushButton("Delete", this);
-        //deleteButton->setFixedSize(24, 24);
         connect(deleteButton, &QPushButton::clicked, [this, i]() { removeServer(i); });
 
         QWidget *buttonContainer = new QWidget();
@@ -189,11 +187,7 @@ void SettingsWidget::saveServer()
         passwordItem->setData(Qt::UserRole, passwordLineEdit->text());
         serverTable->setItem(newRow, 3, passwordItem);
 
-        // Add delete button to the new row
-
-//        QPushButton *deleteButton = new QPushButton(QIcon(":/icons/delete.ico"), "", this);
         QPushButton *deleteButton = new QPushButton("Delete", this);
-//        deleteButton->setFixedSize(24, 24);
         connect(deleteButton, &QPushButton::clicked, [this, newRow]() { removeServer(newRow); });
 
         QWidget *buttonContainer = new QWidget();

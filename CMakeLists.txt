@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 project(fptn VERSION "${FPTN_VERSION}" LANGUAGES CXX)
 
+add_compile_definitions(FPTN_VERSION=\"${FPTN_VERSION}\")
+
 enable_testing()
 
 # cmake_policy(SET CMP0077 NEW)
@@ -62,6 +64,14 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         "
         COMMENT "Building .deb package"
         VERBATIM
+    )
+    add_custom_target(build-deb-gui
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            COMMAND bash -c "\
+            ${CMAKE_CURRENT_SOURCE_DIR}/deploy/linux/deb/create-client-gui-deb-package.sh ${CMAKE_BINARY_DIR}/src/fptn-client/fptn-client-gui ${CMAKE_CURRENT_SOURCE_DIR}/deploy/linux/deb/assets/FptnClient512x512.png ${FPTN_VERSION} \
+        "
+            COMMENT "Building .deb package"
+            VERBATIM
     )
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     if("${FPTN_BUILD_WITH_GUI_CLIENT}")

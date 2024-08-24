@@ -114,8 +114,6 @@ class FPTN(ConanFile):
         tc = CMakeToolchain(self)
         if self.options.with_gui_client:
             tc.variables["FPTN_BUILD_WITH_GUI_CLIENT"] = "True"
-        tc.variables["FPTN_VERSION"] = FPTN_VERSION
-        tc.preprocessor_definitions["FPTN_VERSION"] = FPTN_VERSION
         tc.generate()
 
     def build(self):

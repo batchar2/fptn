@@ -97,6 +97,7 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
     LOG(INFO) << std::endl
+        << "VERSION:           " << FPTN_VERSION << std::endl
         << "GATEWAY IP:        " << usingGatewayIP << std::endl
         << "NETWORK INTERFACE: " << outNetworkInterfaceName << std::endl
         << "VPN SERVER IP:     " << vpnServerIP << std::endl

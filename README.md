@@ -260,6 +260,8 @@ After that you can build deb (only on ubuntu)
 
 ```bash
 cmake --build . --target build-deb
+# or with UI
+cmake --build . --target build-deb-gui
 ```
 
 or build MacOS (only MacOs)

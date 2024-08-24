@@ -27,8 +27,6 @@
 
 namespace fptn::gui
 {
-
-
     class TrayApp : public QObject
     {
         Q_OBJECT
