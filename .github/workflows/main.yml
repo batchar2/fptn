@@ -68,6 +68,7 @@ jobs:
         run: |
           cd build
           cmake --build . --target build-deb
+          cmake --build . --target build-deb-gui
 
       - name: Upload deb
         if: runner.os == 'Linux' && github.event_name == 'release'
