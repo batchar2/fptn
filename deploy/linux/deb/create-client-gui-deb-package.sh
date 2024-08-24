@@ -92,7 +92,7 @@ Version: ${VERSION}
 Architecture: $(dpkg --print-architecture)
 Maintainer: ${MAINTAINER}
 Installed-Size: ${INSTALLED_SIZE}
-Depends: iptables, iproute2, libgl-dev, libgl1-mesa-dev
+Depends: iptables, iproute2, libgl-dev, libgl1-mesa-dev, libx11-dev, libx11-xcb-dev, libfontenc-dev
 Section: admin
 Priority: optional
 Description: fptn client
