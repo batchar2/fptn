@@ -2,7 +2,6 @@
 
 print_usage() {
     echo "Usage: $0 <fptn-client-path> <icon-path> <version>"
-    echo "$@"
     exit 1
 }
 
