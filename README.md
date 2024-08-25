@@ -157,8 +157,20 @@ To install the FPTN client DEB package, run the following command in the termina
 sudo apt install -f /path/to/fptn-client-cli.deb 
 ```
 
-##### Step 3: Configure the Client
-Open the client configuration file /etc/fptn-client/client.conf and set it up as follows:
+##### Step 3. Run in Command Line
+Using the user credentials created in the previous step, try to connect via the command line:
+
+```bash
+fptn-client-cli  --vpn-server-ip=<server-ip> --vpn-server-port=443 --out-network-interface=<network-interface-e.g.-eth0> --username=<username> --password=<password>
+```
+
+Replace `<server-ip>`, `<network-interface-e.g.-eth0>`, `<username>`, and `<password>` with your specific values.
+
+*In some situations, you may need to specify your network gateway IP (e.g., router IP) using the `--gateway-ip` option when the client cannot automatically detect it.*
+
+##### Step 4 (Optional): Configure the Client
+
+You can run fptn-client as a systemd service. To do this, open the client configuration file at `/etc/fptn-client/client.conf` and set it up as follows:
 
 ```bash
 # Configuration for fptn client
