@@ -52,7 +52,8 @@ bool WebSocketClient::login(const std::string& username, const std::string& pass
                 LOG(ERROR) << "Error: Access token not found in the response. Check your conection";
             }
         } catch (const nlohmann::json::parse_error& e) {
-            LOG(ERROR) << "Error parsing JSON response: " << e.what();
+            LOG(ERROR) << "Error parsing JSON response: " << e.what() << std::endl << resp->body;
+            LOG(ERROR) << "URL: " << url;
         }
     } else {
         LOG(ERROR) << "Error: Request failed or response is null.";

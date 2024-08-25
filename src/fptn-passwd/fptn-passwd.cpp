@@ -38,8 +38,8 @@ int main(int argc, char* argv[])
     parser.add_argument("--del-user")
         .help("Username to delete");
     parser.add_argument("--bandwidth")
-        .help("Bandwidth limit for the user in Megabit (default: 1000000)")
-        .default_value(1000000)
+        .help("Bandwidth limit for the user in Megabit (default: 100)")
+        .default_value(100)
         .scan<'i', int>();
     parser.add_argument("--userfile")
         .help("Path to users file (default: /etc/fptn/users.list)")

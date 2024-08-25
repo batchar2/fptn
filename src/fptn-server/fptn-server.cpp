@@ -85,6 +85,9 @@ int main(int argc, char* argv[])
     args.add_argument("--userfile")
         .help("Path to users file (default: /etc/fptn/users.list)")
         .default_value("/etc/fptn/users.list");
+    args.add_argument("--use-https")
+            .help("Use https")
+            .default_value("true");
     // Packet filters
     args.add_argument("--disable-bittorrent")
         .help("Disable BitTorrent traffic filtering. Use this flag to disable filtering.")
@@ -117,31 +120,31 @@ int main(int argc, char* argv[])
             tunInterfaceNetworkAddress,
             tunInterfaceNetworkMask
     );
+    const bool useHttps = parseBoolean(args.get<std::string>("--use-https"));
 
     // filters
     const bool disableBittorrent = parseBoolean(args.get<std::string>("--disable-bittorrent"));
     auto filterManager = std::make_shared<fptn::filter::FilterManager>(disableBittorrent);
-    
+
+
+
     auto tokenManager = std::make_shared<fptn::common::jwt_token::TokenManager>(
         serverCrt, serverKey, serverPub
     );
-
     auto iptables = std::make_unique<fptn::system::IPTables>(
         outNetworkInterfaceName, 
         tunInterfaceName
     );
-
     auto virtualNetworkInterface = std::make_unique<fptn::network::VirtualInterface>(
         tunInterfaceName,
         tunInterfaceIP,
         tunInterfaceNetworkMask, 
         std::move(iptables)
     );
-
     auto webServer = std::make_unique<fptn::web::Server>(
         natTable,
         serverPort,
-        true,
+        useHttps,
         userManager,
         tokenManager
     );

@@ -69,9 +69,13 @@ namespace fptn::common::user
             }
         }
 
-        bool authenticate(const std::string& username, const std::string& password) const 
+        bool authenticate(const std::string& username, const std::string& password)
         {
+            // TODO FIXIT
             std::lock_guard<std::mutex> lock(mutex_);
+
+            loadUsers();
+
             auto it = users_.find(username);
             if (it != users_.end()) {
                 std::string hash = hashPassword(password);
@@ -100,11 +104,13 @@ namespace fptn::common::user
             }
             return 0;
         }
-        
-
     private:
         void loadUsers() 
         {
+            // FIXIT
+            // update
+            users_.clear();
+
             std::ifstream file(filePath_);
             if (file.is_open()) {
                 std::string line;

@@ -21,19 +21,30 @@ Server::Server(
         http_(userManager, tokenManager),
         ws_(
             tokenManager,
-            std::bind(&Server::newVpnConnection, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5), 
+            std::bind(
+                &Server::newVpnConnection,
+                this,
+                std::placeholders::_1,
+                std::placeholders::_2,
+                std::placeholders::_3,
+                std::placeholders::_4,
+                std::placeholders::_5
+            ),
             std::bind(&Server::closeVpnConnection, this, std::placeholders::_1),
             std::bind(&Server::newIPPacketFromVPN, this, std::placeholders::_1)
         )
 {
     if (use_https) {
+        LOG(INFO) << "KEYS: " << std::endl
+            << "    CRT: " << tokenManager->serverCrt().c_str() << std::endl
+            << "    KEY: " << tokenManager->serverKey().c_str() << std::endl;
         mainServer_.https_port = port;
-        hssl_ctx_opt_t param;
-        std::memset(&param, 0x00, sizeof(param));
-        param.crt_file = tokenManager->serverCrt().c_str();
-        param.key_file = tokenManager->serverKey().c_str();
-        param.endpoint = HSSL_SERVER;
-        if (mainServer_.newSslCtx(&param) != 0) {
+        hssl_ctx_opt_t sslParam;
+        std::memset(&sslParam, 0x00, sizeof(sslParam));
+        sslParam.crt_file = tokenManager->serverCrt().c_str();
+        sslParam.key_file = tokenManager->serverKey().c_str();
+        sslParam.endpoint = HSSL_SERVER;
+        if (mainServer_.newSslCtx(&sslParam) != 0) {
             LOG(ERROR) << "new SSL_CTX failed!";
         }
     } else {

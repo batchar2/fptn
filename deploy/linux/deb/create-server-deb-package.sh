@@ -46,7 +46,10 @@ PORT=443
 TUN_INTERFACE_NAME=fptn0
 
 # true or false
-DISABLE_BITTORENT=true
+USE_HTTPS=true
+
+# true or false
+DISABLE_BITTORRENT=true
 
 LOG_FILE=/var/log/fptn-server.log
 EOL
@@ -59,7 +62,7 @@ After=network.target
 
 [Service]
 EnvironmentFile=-/etc/fptn/server.conf
-ExecStart=/usr/bin/$(basename "$SERVER_BIN") --server-key=\${SERVER_KEY} --server-crt=\${SERVER_CRT} --server-pub=\${SERVER_PUB} --out-network-interface=\${OUT_NETWORK_INTERFACE} --server-port=\${PORT} --tun-interface-name=\${TUN_INTERFACE_NAME} --disable-bittorrent=\${DISABLE_BITTORENT}
+ExecStart=/usr/bin/$(basename "$SERVER_BIN") --server-key=\${SERVER_KEY} --server-crt=\${SERVER_CRT} --server-pub=\${SERVER_PUB} --out-network-interface=\${OUT_NETWORK_INTERFACE} --server-port=\${PORT} --tun-interface-name=\${TUN_INTERFACE_NAME} --disable-bittorrent=\${DISABLE_BITTORRENT} --use-https=\${USE_HTTPS}
 Restart=always
 WorkingDirectory=/etc/fptn
 RestartSec=5
