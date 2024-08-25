@@ -86,8 +86,8 @@ int main(int argc, char* argv[])
         .help("Path to users file (default: /etc/fptn/users.list)")
         .default_value("/etc/fptn/users.list");
     args.add_argument("--use-https")
-            .help("Use https")
-            .default_value("true");
+        .help("Use https")
+        .default_value("true");
     // Packet filters
     args.add_argument("--disable-bittorrent")
         .help("Disable BitTorrent traffic filtering. Use this flag to disable filtering.")
@@ -103,6 +103,11 @@ int main(int argc, char* argv[])
     const auto serverCrt = args.get<std::string>("--server-crt");
     const auto serverKey = args.get<std::string>("--server-key");
     const auto serverPub = args.get<std::string>("--server-key");
+    if (!std::filesystem::exists(serverCrt) || !std::filesystem::exists(serverKey) || !std::filesystem::exists(serverPub)) {
+        LOG(ERROR) << "SSL certificate or key file does not exist!";
+        return EXIT_FAILURE;
+    }
+
     const auto outNetworkInterfaceName = args.get<std::string>("--out-network-interface");
     const auto userFilePath = args.get<std::string>("--userfile");
 

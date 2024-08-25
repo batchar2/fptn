@@ -35,7 +35,8 @@ Server::Server(
         )
 {
     if (use_https) {
-        LOG(INFO) << "KEYS: " << std::endl
+        LOG(INFO) << std::endl
+            << "  KEYS: " << std::endl
             << "    CRT: " << tokenManager->serverCrt().c_str() << std::endl
             << "    KEY: " << tokenManager->serverKey().c_str() << std::endl;
         mainServer_.https_port = port;
