@@ -4,13 +4,17 @@
 
 #include <fmt/format.h>
 #include <glog/logging.h>
+
+#include <boost/asio.hpp>
 #include <boost/process.hpp>
 
 
 using namespace fptn::system;
 
-static bool runCommand(const std::string& command);
+
 static std::string getDefaultGatewayIPAddress();
+static bool runCommand(const std::string& command);
+static std::string resolveDomain(const std::string& domain);
 
 
 IPTables::IPTables(
@@ -43,6 +47,9 @@ bool IPTables::check() noexcept
 
 bool IPTables::apply() noexcept
 {
+    const std::string vpnServerIP = resolveDomain(vpnServerIp_);
+
+    LOG(INFO) << "Resolve: " << vpnServerIp_ << " --> " << vpnServerIP;
     LOG(INFO)<< "=== Setting up routing ===";
 #ifdef __linux__ 
     const std::vector<std::string> commands = {
@@ -50,32 +57,32 @@ bool IPTables::apply() noexcept
         fmt::format("iptables -t nat -A POSTROUTING -o {} -j MASQUERADE", outInterfaceName_),
         fmt::format("iptables -A FORWARD -i {} -o {} -m state --state RELATED,ESTABLISHED -j ACCEPT", outInterfaceName_, tunInterfaceName_),
         fmt::format("iptables -A FORWARD -i {} -o {} -j ACCEPT", tunInterfaceName_, outInterfaceName_),
-        fmt::format("iptables -A OUTPUT -o {} -d {} -j ACCEPT", outInterfaceName_, vpnServerIp_),
-        fmt::format("iptables -A INPUT -i {} -s {} -j ACCEPT", outInterfaceName_, vpnServerIp_),
+        fmt::format("iptables -A OUTPUT -o {} -d {} -j ACCEPT", outInterfaceName_, vpnServerIP),
+        fmt::format("iptables -A INPUT -i {} -s {} -j ACCEPT", outInterfaceName_, vpnServerIP),
         fmt::format("ip route add default dev {}", tunInterfaceName_),
-        fmt::format("ip route add {} via {} dev {}", vpnServerIp_, gatewayIp_, outInterfaceName_)
+        fmt::format("ip route add {} via {} dev {}", vpnServerIP, gatewayIp_, outInterfaceName_)
     };
 #elif __APPLE__
     const std::vector<std::string> commands = {
         fmt::format("sysctl -w net.inet.ip.forwarding=1"),
         fmt::format("sh -c \"echo 'nat on {} from {}:network to any -> ({})' > /tmp/pf.conf\"", outInterfaceName_, tunInterfaceName_, outInterfaceName_),
-        fmt::format("sh -c \"echo 'pass out on {} proto tcp from any to {}' >> /tmp/pf.conf\"", outInterfaceName_, vpnServerIp_),
-        fmt::format("sh -c \"echo 'pass in on {} proto tcp from {} to any' >> /tmp/pf.conf\"", outInterfaceName_, vpnServerIp_),
+        fmt::format("sh -c \"echo 'pass out on {} proto tcp from any to {}' >> /tmp/pf.conf\"", outInterfaceName_, vpnServerIP),
+        fmt::format("sh -c \"echo 'pass in on {} proto tcp from {} to any' >> /tmp/pf.conf\"", outInterfaceName_, vpnServerIP),
         fmt::format("sh -c \"echo 'pass in on {} proto tcp from any to any' >> /tmp/pf.conf\"", tunInterfaceName_),
         fmt::format("sh -c \"echo 'pass out on {} proto tcp from any to any' >> /tmp/pf.conf\"", tunInterfaceName_),
         fmt::format("pfctl -ef /tmp/pf.conf"),
         fmt::format("route add -net 0.0.0.0/1 -interface {}", tunInterfaceName_),
         fmt::format("route add -net 128.0.0.0/1 -interface {}", tunInterfaceName_),
-        fmt::format("route add {} {}", vpnServerIp_, gatewayIp_)
+        fmt::format("route add {} {}", vpnServerIP, gatewayIp_)
     };
 #elif _WIN32
     const std::vector<std::string> commands = {
         "netsh interface ipv4 set global forwarding=enabled",
         fmt::format("netsh routing ip nat add interface \"{}\" full", outInterfaceName_),
         fmt::format("netsh routing ip nat add interface \"{}\" private", tunInterfaceName_),
-        fmt::format("route add 0.0.0.0 mask 128.0.0.0 {} metric 1", vpnServerIp_),
-        fmt::format("route add 128.0.0.0 mask 128.0.0.0 {} metric 1", vpnServerIp_),
-        fmt::format("route add {} {}", vpnServerIp_, gatewayIp_)
+        fmt::format("route add 0.0.0.0 mask 128.0.0.0 {} metric 1", vpnServerIP),
+        fmt::format("route add 128.0.0.0 mask 128.0.0.0 {} metric 1", vpnServerIP),
+        fmt::format("route add {} {}", vpnServerIP, gatewayIp_)
     };
 #else
     #error "Unsupported system!"
@@ -93,28 +100,29 @@ bool IPTables::apply() noexcept
 
 bool IPTables::clean() noexcept
 {
+    const std::string vpnServerIP = resolveDomain(vpnServerIp_);
 #ifdef __linux__
     const std::vector<std::string> commands = {
         fmt::format("iptables -t nat -D POSTROUTING -o {} -j MASQUERADE", outInterfaceName_),
         fmt::format("iptables -D FORWARD -i {} -o {} -m state --state RELATED,ESTABLISHED -j ACCEPT", outInterfaceName_, tunInterfaceName_),
         fmt::format("iptables -D FORWARD -i {} -o {} -j ACCEPT", tunInterfaceName_, outInterfaceName_),
-        fmt::format("iptables -D OUTPUT -o {} -d {} -j ACCEPT", outInterfaceName_, vpnServerIp_),
-        fmt::format("iptables -D INPUT -i {} -s {} -j ACCEPT", outInterfaceName_, vpnServerIp_),
+        fmt::format("iptables -D OUTPUT -o {} -d {} -j ACCEPT", outInterfaceName_, vpnServerIP),
+        fmt::format("iptables -D INPUT -i {} -s {} -j ACCEPT", outInterfaceName_, vpnServerIP),
         fmt::format("ip route del default dev {}", tunInterfaceName_),
-        fmt::format("ip route del {} via {} dev {}", vpnServerIp_, gatewayIp_, outInterfaceName_)
+        fmt::format("ip route del {} via {} dev {}", vpnServerIP, gatewayIp_, outInterfaceName_)
     };
 #elif __APPLE__
     const std::vector<std::string> commands = {
         "pfctl -F all -f /etc/pf.conf",
         fmt::format("route delete -net 0.0.0.0/1 -interface {}", tunInterfaceName_),
         fmt::format("route delete -net 128.0.0.0/1 -interface {}", tunInterfaceName_),
-        fmt::format("route delete {} {}", vpnServerIp_, gatewayIp_)
+        fmt::format("route delete {} {}", vpnServerIP, gatewayIp_)
     };
 #elif _WIN32
     const std::vector<std::string> commands = {
-        fmt::format("route delete 0.0.0.0 mask 128.0.0.0 {}", vpnServerIp_),
-        fmt::format("route delete 128.0.0.0 mask 128.0.0.0 {}", vpnServerIp_),
-        fmt::format("route delete {}", vpnServerIp_),
+        fmt::format("route delete 0.0.0.0 mask 128.0.0.0 {}", vpnServerIP),
+        fmt::format("route delete 128.0.0.0 mask 128.0.0.0 {}", vpnServerIP),
+        fmt::format("route delete {}", vpnServerIP),
         fmt::format("netsh routing ip nat delete interface \"{}\"", outInterfaceName_),
         fmt::format("netsh routing ip nat delete interface \"{}\"", tunInterfaceName_),
         "netsh interface ipv4 set global forwarding=disabled"
@@ -143,6 +151,29 @@ static bool runCommand(const std::string& command)
         LOG(ERROR)<< "IPTables error: " << e.what();
     }
     return false;
+}
+
+static std::string resolveDomain(const std::string& domain)
+{
+    try {
+        // Check if the domain is already an IP address
+        boost::asio::ip::address ip_address;
+        try {
+            ip_address = boost::asio::ip::make_address(domain);
+            return ip_address.to_string();
+        } catch (const std::exception&) {
+            // Not a valid IP address, proceed with domain name resolution
+        }
+        boost::asio::io_context io_context;
+        boost::asio::ip::tcp::resolver resolver(io_context);
+        boost::asio::ip::tcp::resolver::results_type endpoints = resolver.resolve(domain, "");
+        for (const auto& endpoint : endpoints) {
+            return endpoint.endpoint().address().to_string();
+        }
+    } catch (const std::exception& e) {
+        LOG(ERROR) << "Error resolving domain: " << e.what() << std::endl;
+    }
+    return domain;
 }
 
 std::string fptn::system::getDefaultGatewayIPAddress() 
@@ -180,3 +211,5 @@ std::string fptn::system::getDefaultGatewayIPAddress()
     }
     return result;
 }
+
+

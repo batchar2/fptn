@@ -102,7 +102,7 @@ int main(int argc, char* argv[])
 
     const auto serverCrt = args.get<std::string>("--server-crt");
     const auto serverKey = args.get<std::string>("--server-key");
-    const auto serverPub = args.get<std::string>("--server-key");
+    const auto serverPub = args.get<std::string>("--server-pub");
     if (!std::filesystem::exists(serverCrt) || !std::filesystem::exists(serverKey) || !std::filesystem::exists(serverPub)) {
         LOG(ERROR) << "SSL certificate or key file does not exist!";
         return EXIT_FAILURE;
