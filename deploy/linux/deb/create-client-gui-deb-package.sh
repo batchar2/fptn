@@ -53,12 +53,6 @@ cat <<EOL > "$CLIENT_TMP_DIR/usr/bin/fptn-client"
 
 set -euo pipefail
 
-# Check if the script is run as root
-if [[ \$(id -u) -ne 0 ]]; then
-   echo "This script must be run as root or with sudo"
-   exit 1
-fi
-
 export FPTN_QT_DIR=/opt/fptn/qt6
 export QT_PLUGIN_PATH=\$FPTN_QT_DIR/plugins
 export QT_QPA_PLATFORM_PLUGIN_PATH=\$FPTN_QT_DIR/plugins/platforms
