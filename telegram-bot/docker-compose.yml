@@ -1,0 +1,16 @@
+services:
+  telegram-bot:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    environment:
+      - TELEGRAM_API_TOKEN=${TELEGRAM_API_TOKEN}
+      - FPTN_WELCOME_MESSAGE=${FPTN_WELCOME_MESSAGE}
+      - MAX_USER_SPEED_LIMIT=${MAX_USER_SPEED_LIMIT}
+      - FPTN_SERVER_HOST=${FPTN_SERVER_HOST}
+      - FPTN_SERVER_PORT=${FPTN_SERVER_PORT}
+      - USERS_FILE=${USERS_FILE}
+    volumes:
+      - /etc/fptn/:/etc/fptn/:rw
+      - ./logs:/var/log/fptn_bot:rw
+    restart: unless-stopped

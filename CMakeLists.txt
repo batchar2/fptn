@@ -22,6 +22,8 @@ include_directories(depends/libs/libtuntap/bindings/cpp)
 link_directories(${CMAKE_BINARY_DIR}/depends/libs/libtuntap/lib)
 
 # --- depends: libhv ---
+find_package(OpenSSL REQUIRED)
+include_directories(${OPENSSL_INCLUDE_DIR})
 set(WITH_OPENSSL ON CACHE BOOL "with openssl library" FORCE)
 set(BUILD_STATIC ON CACHE BOOL "with openssl library" FORCE)
 set(BUILD_SHARED OFF CACHE BOOL "with openssl library" FORCE)
@@ -31,12 +33,20 @@ include_directories(CMAKE_BINARY_DIR/depends/libs/libhv/include)
 link_directories(${CMAKE_BINARY_DIR}/lib/)
 add_subdirectory(depends/libs/libhv EXCLUDE_FROM_ALL)
 
+# --- protobuf ---
+# find_package(Protobuf CONFIG)
+# find_package(Protobuf REQUIRED)
+# include_directories(${Protobuf_INCLUDE_DIRS} ${Protobuf_INCLUDE_DIR})
+# message(">>>>>  ${Protobuf_INCLUDE_DIRS} ${Protobuf_INCLUDE_DIR}")
+#exit(0)
+
+add_subdirectory(depends/protobuf/fptn_protocol)
+
 # --- include ---
 include_directories(src/)
 include_directories(depends/)
 
 # --- project ---
-add_subdirectory(depends/protobuf/fptn_protocol)
 if(APPLE OR UNIX)
     add_subdirectory(src/fptn-server)
     add_subdirectory(src/fptn-passwd)

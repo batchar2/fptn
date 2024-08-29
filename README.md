@@ -245,8 +245,11 @@ Console version
 git submodule update --init --recursive 
 conan install . --output-folder=build --build=missing  -s compiler.cppstd=17
 cd build
+# only linux & macos
 cmake .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release
-cmake --build .
+# only windows 
+cmake .. -G "Visual Studio 17 2022" -DCMAKE_TOOLCHAIN_FILE="conan_toolchain.cmake" -DCMAKE_BUILD_TYPE=Release
+cmake --build . --config Release
 ctest
 # to install in system
 make install
@@ -347,9 +350,11 @@ Options:
   <summary>Start the client</summary>  
 
 To start the client, use the following command:
+
 ```
-fptn-client --out-network-interface=en0  --vpn-server-ip="170.64.148.142" --username=user10 --password=user10
+fptn-client --out-network-interface=en0  --vpn-server-ip="SERVERIP" --vpn-server-port=443 --username=USERNAME --password=PASSWORD
 ```
+
 Options:
 -  `--vpn-server-ip`: The IP address of the VPN server you want to connect to. Example: "170.64.148.142".
 -  `--out-network-interface`: The network interface to use for outbound traffic. Example: en0 (typically used for Ethernet or Wi-Fi on macOS).
