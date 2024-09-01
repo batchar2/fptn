@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     <title>Download</title>
     <style>
         :root {
@@ -16,20 +17,11 @@
             color: #333;
         }
 
-        .container {
-            display: flex;
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 20px;
+        p {
+            font-size: 18px;
         }
 
         .sidebar {
-            width: 250px;
-            padding: 20px;
-            background-color: #fff;
-            border-radius: 8px;
-            /*box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);*/
-            margin-right: 20px;
         }
 
         .logo {
@@ -38,7 +30,7 @@
         }
 
         .version-info {
-            font-size: 14px;
+            font-size: 18px;
             color: #666;
             margin-bottom: 20px;
         }
@@ -48,7 +40,7 @@
             margin-bottom: 10px;
             color: var(--blue);
             text-decoration: none;
-            font-size: 14px;
+            font-size: 16px;
         }
 
         .nav-links a:hover {
@@ -64,7 +56,7 @@
         }
 
         h1 {
-            font-size: 24px;
+            font-size: 28px;
             margin-bottom: 20px;
             font-weight: 300;
         }
@@ -79,19 +71,17 @@
             padding: 10px;
             /*background-color: #f1f1f1;*/
             border: 0;
-            border-bottom: 1px solid rgba(25,25,28,.7);
+            border-bottom: 1px solid rgba(25,25,28,.4);
             cursor: pointer;
             text-align: center;
-            color: rgba(25,25,28,.7);
-            font-size: 14px;
+            color: rgba(25,25,28,.4);
+            font-size: 16px;
             background-color: white;
             margin-right: 32px;
             transition: all 0.3s ease;
         }
 
         .tablink.active {
-            /*background-color: var(--blue);*/
-            /*color: #fff;*/
             border-bottom: 1px solid #19191c;
             color: #19191c;
         }
@@ -99,7 +89,7 @@
         .download {
             /*display: flex;*/
             align-items: center;
-            margin-bottom: 20px;
+            margin-bottom: 32px;
             display: none;
         }
 
@@ -144,7 +134,7 @@
             box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
             border-radius: 4px;
             z-index: 1;
-            min-width: 160px;
+            min-width: 174px;
             top: 27px;
         }
 
@@ -169,12 +159,13 @@
             border: 1px solid #ccc;
             border-radius: 4px;
             text-align: center;
-            font-size: 14px;
+            font-size: 16px;
             color: #333;
         }
-        svg {
-            width: 162px;
-            height: 162px;
+
+        .toolbox-ad p{
+            margin: 0;
+            padding: 0;
         }
 
         .wrapper {
@@ -186,111 +177,227 @@
             flex-direction: column;
             align-items: center;
         }
+
+        .logo-svg {
+            margin-right: 12px;
+        }
+        .gth-svg path{
+            fill: white;
+        }
+
+        .center-flex {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .top-margin {
+            margin-top: 32px;
+        }
+
+        .footer {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 60px;
+            line-height: 60px;
+            background-color: rgb(33, 37, 41);
+        }
+
+        .white {
+            color: white!important;
+        }
+
+        .center {
+            text-align: center;
+        }
     </style>
 </head>
 <body>
-<div class="container">
-    <aside class="sidebar">
-        <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">
-            <g clip-path="url(#clip0_227_19)">
-                <rect x="-51" y="-304" width="1138" height="914" />
-                <g filter="url(#filter0_d_227_19)">
-                    <path d="M442.973 127.303L434.607 128.627L442.959 127.271C442.12 123.558 440.696 122.824 440.098 122.094C437.577 120.103 436.806 120.08 434.965 119.174C423.576 114.309 387.503 102.089 352.536 84.6197C330.428 73.5566 308.493 60.6346 291.599 50.3876C283.134 45.2823 275.929 40.8072 270.502 37.5517C267.763 35.9194 265.51 34.5955 263.624 33.5844C262 32.8136 261.37 32.2378 259.62 31.6756C258.446 31.2176 257.285 31 256.192 31C255.018 31 253.857 31.2176 252.765 31.6756C251.019 32.2423 250.398 32.8136 248.775 33.5844C236.32 40.3719 198.728 65.1958 159.875 84.6197C139.332 94.8802 118.189 103.418 102.098 109.625C94.0365 112.731 87.2944 115.238 82.3931 117.183C79.922 118.135 77.9543 118.942 76.3447 119.668C75.5376 120.035 74.8258 120.371 73.9507 120.888C73.5245 121.164 73.053 121.45 72.3184 122.107C71.6973 122.833 70.2464 123.581 69.4439 127.308C67.7572 137.654 67 148.192 67 158.896C67.1134 232.271 102.982 311.64 143.63 373.339C164.001 404.166 185.615 430.513 204.976 449.438C214.697 458.878 223.806 466.509 232.157 471.973C240.577 477.309 248.04 480.878 256.084 481H256.197H256.347C272.057 480.333 288.035 468.2 307.822 449.484C365.758 392.699 444.999 269.02 445.416 159.078C445.412 148.314 444.614 137.7 442.973 127.303ZM354.989 364.058C335.284 393.955 314.292 419.523 295.992 437.328C278.083 455.31 261.184 464.727 256.342 464.038V464.088H256.079V464.038C254.052 464.188 248.335 462.347 241.402 457.722C216.533 441.749 176.203 396.54 143.263 340.766C110.11 284.943 83.8757 218.197 83.9528 158.896C83.9528 150.468 84.4833 142.207 85.5624 134.132C96.9157 129.498 132.998 116.993 167.456 99.7634C190.254 88.3512 212.525 75.2251 229.605 64.9011C238.129 59.7232 245.365 55.2526 250.634 52.1105C252.887 50.7413 254.787 49.6259 256.21 48.8324C267.641 55.1937 305.972 80.2806 344.951 99.7679C366.266 110.432 387.893 119.174 404.175 125.462C412.331 128.591 419.155 131.13 423.834 132.962C424.959 133.388 425.961 133.801 426.813 134.136C427.915 142.279 428.418 150.595 428.418 159.082C428.572 226.866 394.454 304.29 354.989 364.058ZM336.069 112.785C297.303 93.4248 259.783 67.821 256.288 67.3586V67.3268C256.265 67.3268 256.22 67.3268 256.22 67.3268C256.21 67.3268 256.152 67.3268 256.152 67.3268V67.3586C252.633 67.821 215.123 93.4248 176.37 112.785C140.207 130.867 102.547 142.588 102.27 144.242C93.9867 196.003 113.578 256.152 141.562 308.96L337.207 113.347C336.826 113.166 336.45 112.994 336.069 112.785ZM396.158 138.344L173.283 361.228C207.102 410.355 242.735 444.678 256.102 444.678C256.138 444.678 256.17 444.678 256.215 444.678C256.251 444.678 256.283 444.678 256.319 444.678C286.28 444.678 430.273 269.713 410.151 144.242C410.051 143.635 404.714 141.59 396.158 138.344Z" fill="black"/>
-                </g>
-            </g>
-            <defs>
-                <filter id="filter0_d_227_19" x="64" y="30" width="390.416" height="462" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-                    <feFlood flood-opacity="0" result="BackgroundImageFix"/>
-                    <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
-                    <feOffset dx="3" dy="5"/>
-                    <feGaussianBlur stdDeviation="3"/>
-                    <feComposite in2="hardAlpha" operator="out"/>
-                    <feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.5 0"/>
-                    <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_227_19"/>
-                    <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_227_19" result="shape"/>
-                </filter>
-                <clipPath id="clip0_227_19">
-                    <rect width="512" height="512" rx="20" fill="white"/>
-                </clipPath>
-            </defs>
-        </svg>
-        <div class="version-info">
-            <p>Version: 2024.2.0.1</p>
-            <p>Version: 2024.2.0.1</p>
-        </div>
-        <nav class="nav-links">
-            <a href="#">Release notes</a>
-        </nav>
-    </aside>
-    <main class="content">
-        <h1>Download fptn</h1>
-        <div class="tabs">
-            <button class="tablink active" onclick="openTab('client')">MacOS</button>
-            <button class="tablink" onclick="openTab('server')">Linux</button>
-        </div>
-        <div class="download active client">
-            <p>Download MacOS client</p>
-            <br>
-            <div class="dropdown">
-                <a class="dropdown-button download_2" onclick="download('client')">.tar.gz (Linux)</a>
+<header>
+    <nav class="navbar navbar-expand-md navbar-dark bg-dark">
+        <div class="container">
+            <div class="col col-lg-2 center-flex">
+                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="38" viewBox="0 0 40 38" fill="none">
+                    <path d="M25.1094 10.4316L24.5507 10.52L25.1085 10.4295C25.0525 10.1815 24.9574 10.1325 24.9174 10.0837C24.749 9.95077 24.6976 9.94925 24.5746 9.88869C23.814 9.56378 21.4048 8.74772 19.0696 7.581C17.5931 6.84215 16.1281 5.97915 14.9999 5.2948C14.4345 4.95384 13.9534 4.65497 13.5909 4.43756C13.408 4.32855 13.2575 4.24013 13.1315 4.1726C13.0231 4.12112 12.981 4.08267 12.8642 4.04512C12.7857 4.01453 12.7082 4 12.6352 4C12.5568 4 12.4793 4.01453 12.4063 4.04512C12.2897 4.08297 12.2483 4.12112 12.1398 4.1726C11.308 4.6259 8.79746 6.28377 6.2027 7.581C4.83068 8.26625 3.41869 8.83644 2.34403 9.25098C1.80564 9.4584 1.35537 9.62586 1.02803 9.75576C0.863001 9.81935 0.731582 9.87325 0.624086 9.9217C0.570186 9.94623 0.522645 9.96863 0.464204 10.0032C0.43574 10.0216 0.404248 10.0407 0.355193 10.0846C0.313708 10.1331 0.21681 10.183 0.163213 10.4319C0.0505688 11.1229 0 11.8267 0 12.5416C0.00757018 17.4419 2.40308 22.7426 5.11775 26.8632C6.47826 28.9219 7.92174 30.6816 9.21473 31.9455C9.86395 32.5759 10.4723 33.0855 11.0301 33.4504C11.5924 33.8068 12.0908 34.0451 12.628 34.0533H12.6355H12.6455C13.6948 34.0088 14.7619 33.1985 16.0833 31.9485C19.9526 28.1561 25.2447 19.8962 25.2726 12.5537C25.2723 11.8348 25.219 11.126 25.1094 10.4316ZM19.2334 26.2433C17.9174 28.24 16.5154 29.9476 15.2933 31.1367C14.0972 32.3376 12.9686 32.9665 12.6452 32.9205V32.9238H12.6277V32.9205C12.4923 32.9305 12.1105 32.8076 11.6475 32.4987C9.98658 31.4319 7.29311 28.4126 5.09322 24.6878C2.87909 20.9596 1.12705 16.502 1.1322 12.5416C1.1322 11.9787 1.16762 11.427 1.23969 10.8877C1.99792 10.5782 4.40766 9.74304 6.709 8.59238C8.23151 7.83021 9.7189 6.95358 10.8596 6.26409C11.4289 5.91828 11.9121 5.61972 12.264 5.40987C12.4145 5.31842 12.5414 5.24393 12.6364 5.19094C13.3998 5.61578 15.9598 7.29121 18.563 8.59268C19.9865 9.30488 21.4309 9.88869 22.5183 10.3087C23.063 10.5176 23.5187 10.6872 23.8312 10.8095C23.9063 10.838 23.9733 10.8655 24.0302 10.888C24.1038 11.4318 24.1374 11.9871 24.1374 12.554C24.1477 17.081 21.869 22.2517 19.2334 26.2433ZM17.9698 9.46204C15.3808 8.16905 12.8751 6.4591 12.6416 6.42821V6.42609C12.6401 6.42609 12.6371 6.42609 12.6371 6.42609C12.6365 6.42609 12.6325 6.42609 12.6325 6.42609V6.42821C12.3975 6.4591 9.89241 8.16905 7.30432 9.46204C4.88913 10.6696 2.37401 11.4524 2.35554 11.5629C1.80231 15.0198 3.11074 19.0368 4.97967 22.5636L18.0458 9.49959C18.0204 9.48747 17.9952 9.47597 17.9698 9.46204ZM21.9829 11.169L7.09811 26.0544C9.35674 29.3353 11.7365 31.6275 12.6292 31.6275C12.6316 31.6275 12.6337 31.6275 12.6368 31.6275C12.6392 31.6275 12.6413 31.6275 12.6437 31.6275C14.6447 31.6275 24.2612 19.9425 22.9174 11.5629C22.9107 11.5223 22.5543 11.3858 21.9829 11.169Z" fill="white"/>
+                </svg>
+                <a class="navbar-brand" href="/">Free VPN</a>
+            </div>
+            <div class="col col-lg-2 center-flex" onclick="window.open('https://github.com/batchar2/fptn', '_blank').focus()">
+                <a class="navbar-brand" href="https://github.com/batchar2/fptn" target="_blank">Github</a>
+                <svg class="gth-svg" height="32" aria-hidden="true" viewBox="0 0 24 24" width="32" data-view-component="true" class="octicon octicon-mark-github">
+                    <path d="M12.5.75C6.146.75 1 5.896 1 12.25c0 5.089 3.292 9.387 7.863 10.91.575.101.79-.244.79-.546 0-.273-.014-1.178-.014-2.142-2.889.532-3.636-.704-3.866-1.35-.13-.331-.69-1.352-1.18-1.625-.402-.216-.977-.748-.014-.762.906-.014 1.553.834 1.769 1.179 1.035 1.74 2.688 1.25 3.349.948.1-.747.402-1.25.733-1.538-2.559-.287-5.232-1.279-5.232-5.678 0-1.25.445-2.285 1.178-3.09-.115-.288-.517-1.467.115-3.048 0 0 .963-.302 3.163 1.179.92-.259 1.897-.388 2.875-.388.977 0 1.955.13 2.875.388 2.2-1.495 3.162-1.179 3.162-1.179.633 1.581.23 2.76.115 3.048.733.805 1.179 1.825 1.179 3.09 0 4.413-2.688 5.39-5.247 5.678.417.36.776 1.05.776 2.128 0 1.538-.014 2.774-.014 3.162 0 .302.216.662.79.547C20.709 21.637 24 17.324 24 12.25 24 5.896 18.854.75 12.5.75Z"></path>
+                </svg>
             </div>
         </div>
-        <div class="download server">
-            <div class="wrapper">
-                <div class="item">
-                    <p>Download client</p>
+    </nav>
+</header>
+<div class="container top-margin">
+    <div class="row">
+        <div class="col col-lg-3">
+            <aside class="sidebar">
+                <img src="./comp.png" alt="">
+                <div class="version-info">
+                    <p>Version: <span id="version">2024.2.0.1</span></p>
+<!--                    <p>Version: 2024.2.0.1</p>-->
+                </div>
+                <nav class="nav-links">
+                    <a href="/" onclick="downloadUrl('notes')">Release notes</a>
+                </nav>
+            </aside>
+
+        </div>
+        <div class="col col-9">
+            <main class="content">
+                <div>
+                    <p>
+
+                        A paragraph of placeholder text. We're using it here to show the use of the clearfix class. We're adding quite a few meaningless phrases here to demonstrate how the columns interact here with the floated image.
+
+                        As you can see the paragraphs gracefully wrap around the floated image. Now imagine how this would look with some actual content in here, rather than just this boring placeholder text that goes on and on, but actually conveys no tangible information at. It simply takes up space and should not really be read.
+
+                        And yet, here you are, still persevering in reading this placeholder text, hoping for some more insights, or some hidden easter egg of content. A joke, perhaps. Unfortunately, there's none of that here.
+                    </p>
+                </div>
+                <h1>Download fptn</h1>
+                <div class="tabs">
+                    <button class="tablink active" onclick="openTab('macos')">MacOS</button>
+                    <button class="tablink" onclick="openTab('linux')">Linux</button>
+                    <button class="tablink" onclick="openTab('win')">Windows</button>
+                </div>
+                <div class="download active macos">
+                    <p>Download MacOS client</p>
                     <br>
                     <div class="dropdown">
-                        <a class="dropdown-button download_2" onclick="download('linux')">.tar.gz (Linux)</a>
-                        <div class="dropdown-content">
-                            <a href="#" onclick="download('linux')">.tar.gz (Linux)</a>
-                            <a href="#" onclick="download('arch')">.tar.gz (Arch)</a>
+                        <a class="dropdown-button download_2" onclick="downloadUrl('macos')">.dmg (MacOS)</a>
+        <!--                <div class="dropdown-content">-->
+        <!--                    <a href="#" onclick="downloadUrl('client')">.tar.gz (Linux)</a>-->
+        <!--                    <a href="#" onclick="downloadUrl('server')">.tar.gz (Arch)</a>-->
+        <!--                </div>-->
+                    </div>
+                </div>
+                <div class="download linux">
+                    <div class="wrapper">
+                        <div class="item">
+                            <p>Download client</p>
+                            <br>
+                            <div class="dropdown">
+                                <a class="dropdown-button download_2" onclick="downloadUrl('linux_l_server')">.deb (Linux amd)</a>
+                                <div class="dropdown-content">
+                                    <a href="#" onclick="downloadUrl('linux_l_server')">.deb (Linux amd)</a>
+                                    <a href="#" onclick="downloadUrl('linux_a_server')">.deb (Linux arm)</a>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="item">
+                            <p>Download server</p>
+                            <br>
+                            <div class="dropdown">
+                                <a class="dropdown-button download_2" onclick="downloadUrl('linux_l_client')">.deb (Linux amd)</a>
+                                <div class="dropdown-content">
+                                    <a href="#" onclick="downloadUrl('linux_l_client')">.deb (Linux amd)</a>
+                                    <a href="#" onclick="downloadUrl('linux_a_client')">.deb (Linux arm)</a>
+                                    <a href="#" onclick="downloadUrl('linux_l_client_cli')">.deb (Linux cli amd)</a>
+                                    <a href="#" onclick="downloadUrl('linux_a_client_cli')">.deb (Linux cli arm)</a>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div class="item">
-                    <p>Download server</p>
+                <div class="download win">
+                    <p>Download Windows client</p>
                     <br>
                     <div class="dropdown">
-                        <a class="dropdown-button download_2" onclick="download('linux')">.tar.gz (Linux)</a>
-                        <div class="dropdown-content">
-                            <a href="#" onclick="download('linux')">.tar.gz (Linux)</a>
-                            <a href="#" onclick="download('arch')">.tar.gz (Arch)</a>
-                        </div>
+                        <a class="dropdown-button download_2" onclick="downloadUrl('w_client')">.exe (Windows)</a>
+                        <!--                <div class="dropdown-content">-->
+                        <!--                    <a href="#" onclick="download('client')">.tar.gz (Linux)</a>-->
+                        <!--                    <a href="#" onclick="download('server')">.tar.gz (Arch)</a>-->
+                        <!--                </div>-->
                     </div>
                 </div>
-            </div>
+                <div class="toolbox-ad">
+                    <p>Server block</p>
+                </div>
+            </main>
         </div>
-        <div class="toolbox-ad">
-            <p>Server block</p>
-        </div>
-    </main>
+    </div>
 </div>
+<footer class="footer">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="white center">
+                FPTN company
+            </div>
+        </div>
+    </div>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 <script>
-    function openTab(tabName) {
-        const tabs = document.getElementsByClassName('tablink');
-        const downloads = document.getElementsByClassName('download');
-        for (let i = 0; i < tabs.length; i++) {
-            tabs[i].classList.remove('active');
-            downloads[i].classList.remove('active');
-            if (downloads[i].classList.contains(tabName)) {
-                downloads[i].classList.add('active');
-            }
-        }
-        document.querySelector(`[onclick="openTab('${tabName}')"]`).classList.add('active');
+  const owner = 'batchar2';
+  const repo = 'fptn';
+  let tag_name = ''
+
+  fetch(`https://api.github.com/repos/${owner}/${repo}/releases/latest`)
+    .then(response => response.json())
+    .then(data => {
+      console.log(data)
+      const releaseInfo = document.getElementById('version');
+
+      releaseInfo.innerHTML = data.tag_name;
+
+      tag_name = data.tag_name
+    })
+    .catch(error => {
+      console.error('Error fetching release data:', error);
+      document.getElementById('release-info').textContent = 'Failed to load release information.';
+    })
+  function openTab(tabName) {
+    const tabs = document.getElementsByClassName('tablink');
+    const downloads = document.getElementsByClassName('download');
+    for (let i = 0; i < tabs.length; i++) {
+      tabs[i].classList.remove('active');
+      downloads[i].classList.remove('active');
+      if (downloads[i].classList.contains(tabName)) {
+        downloads[i].classList.add('active');
+      }
     }
-    function download(name) {
-        // const tabs = document.getElementsByClassName('tablink');
-        // const downloads = document.getElementsByClassName('download');
-        // for (let i = 0; i < tabs.length; i++) {
-        //   tabs[i].classList.remove('active');
-        //   downloads[i].classList.remove('active');
-        //   if (downloads[i].classList.contains(tabName)) {
-        //     downloads[i].classList.add('active');
-        //   }
-        // }
-        // document.querySelector(`[onclick="openTab('${tabName}')"]`).classList.add('active');
+    document.querySelector(`[onclick="openTab('${tabName}')"]`).classList.add('active');
+  }
+  function downloadUrl(name) {
+    let url = ''
+    switch (name) {
+      case 'macos':
+        url = `https://github.com/${owner}/${repo}/releases/latest/download/fptn-client-${tag_name}-apple-silicon.pkg`
+        break;
+      case 'linux_l_server':
+        url = `https://github.com/${owner}/${repo}/releases/latest/download/fptn-server-${tag_name}-ubuntu22.04-amd64.deb`
+        break;
+      case 'linux_a_server':
+        url = `https://github.com/${owner}/${repo}/releases/latest/download/fptn-server-${tag_name}-ubuntu22.04-arm64.deb`
+        break;
+      case 'linux_l_client':
+        url = `https://github.com/${owner}/${repo}/releases/latest/download/fptn-client-${tag_name}-ubuntu22.04-amd64.deb`
+        break;
+      case 'linux_a_client':
+        url = `https://github.com/${owner}/${repo}/releases/latest/download/fptn-client-${tag_name}-ubuntu22.04-arm64.deb`
+        break;
+      case 'linux_l_client_cli':
+        url = `https://github.com/${owner}/${repo}/releases/latest/download/fptn-client-cli-${tag_name}-ubuntu22.04-amd64.deb`
+        break;
+      case 'linux_a_client_cli':
+        url = `https://github.com/${owner}/${repo}/releases/latest/download/fptn-client-cli-${tag_name}-ubuntu22.04-arm64.deb`
+        break;
+      case 'w_client':
+        // url = `https://github.com/${owner}/${repo}/releases/latest/download/fptn-client-${tag_name}-apple-silicon.pkg`
+        break;
+      case 'notes':
+        url = `https://github.com/${owner}/${repo}/releases/latest`
+        break;
+      default:
     }
+    window.open(url, '_blank').focus();
+  }
+
 </script>
 </body>
 </html>

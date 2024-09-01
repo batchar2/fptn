@@ -16,7 +16,8 @@ namespace fptn::system
             const std::string& outInterfaceName,
             const std::string& tunInterfaceName,
             const std::string& vpnServerIP,
-            const std::string& gatewayIp=""
+            const std::string& gatewayIp="",
+            const std::string& tunInterfaceAddress="10.10.10.1"
         );
         ~IPTables();
         bool check() noexcept;
@@ -28,6 +29,7 @@ namespace fptn::system
         std::string tunInterfaceName_;
         std::string vpnServerIp_;
         std::string gatewayIp_;
+        std::string tunInterfaceAddress_;
     };
 
     using IPTablesPtr = std::unique_ptr<IPTables>;

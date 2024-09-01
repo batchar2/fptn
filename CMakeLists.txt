@@ -10,16 +10,25 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_VERBOSE_MAKEFILE ON)
+if(WIN32)
+    set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS TRUE)
+endif()
 
 # -- depends: tuntap  ---
-set(ENABLE_CXX ON CACHE BOOL "Enable C++ support" FORCE)
-set(BUILD_TESTING OFF CACHE BOOL "Disable testing globally" FORCE)
-set(ENABLE_PYTHON OFF CACHE BOOL "Disable Python support" FORCE)
-set(LIBTUNTAP_DISABLE_TESTS ON CACHE BOOL "Disable library tests" FORCE)
-add_subdirectory(depends/libs/libtuntap EXCLUDE_FROM_ALL)
-include_directories(depends/libs/libtuntap/)
-include_directories(depends/libs/libtuntap/bindings/cpp)
-link_directories(${CMAKE_BINARY_DIR}/depends/libs/libtuntap/lib)
+if(APPLE OR UNIX)
+    set(ENABLE_CXX ON CACHE BOOL "Enable C++ support" FORCE)
+    set(BUILD_TESTING OFF CACHE BOOL "Disable testing globally" FORCE)
+    set(ENABLE_PYTHON OFF CACHE BOOL "Disable Python support" FORCE)
+    set(LIBTUNTAP_DISABLE_TESTS ON CACHE BOOL "Disable library tests" FORCE)
+    add_subdirectory(depends/libs/libtuntap EXCLUDE_FROM_ALL)
+    include_directories(depends/libs/libtuntap/)
+    include_directories(depends/libs/libtuntap/bindings/cpp)
+    link_directories(${CMAKE_BINARY_DIR}/depends/libs/libtuntap/lib)
+elseif(WIN32)
+    include(depends/cmake/wintun/wintun.cmake)
+else()
+    message(FATAL_ERROR "Unsupported platform")
+endif()
 
 # --- depends: libhv ---
 find_package(OpenSSL REQUIRED)
@@ -34,12 +43,6 @@ link_directories(${CMAKE_BINARY_DIR}/lib/)
 add_subdirectory(depends/libs/libhv EXCLUDE_FROM_ALL)
 
 # --- protobuf ---
-# find_package(Protobuf CONFIG)
-# find_package(Protobuf REQUIRED)
-# include_directories(${Protobuf_INCLUDE_DIRS} ${Protobuf_INCLUDE_DIR})
-# message(">>>>>  ${Protobuf_INCLUDE_DIRS} ${Protobuf_INCLUDE_DIR}")
-#exit(0)
-
 add_subdirectory(depends/protobuf/fptn_protocol)
 
 # --- include ---
@@ -64,8 +67,7 @@ if(APPLE OR UNIX)
 endif()
 
 # --- packaging ---
-if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    # deb
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")  # deb
     add_custom_target(build-deb
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         COMMAND bash -c "\
@@ -75,17 +77,18 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         COMMENT "Building .deb package"
         VERBATIM
     )
-    add_custom_target(build-deb-gui
-            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-            COMMAND bash -c "\
-            ${CMAKE_CURRENT_SOURCE_DIR}/deploy/linux/deb/create-client-gui-deb-package.sh ${CMAKE_BINARY_DIR}/src/fptn-client/fptn-client-gui ${CMAKE_CURRENT_SOURCE_DIR}/deploy/linux/deb/assets/FptnClient512x512.png ${FPTN_VERSION} \
-        "
-            COMMENT "Building .deb package"
-            VERBATIM
-    )
-elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     if("${FPTN_BUILD_WITH_GUI_CLIENT}")
-        # macOS
+        add_custom_target(build-deb-gui
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                COMMAND bash -c "\
+                ${CMAKE_CURRENT_SOURCE_DIR}/deploy/linux/deb/create-client-gui-deb-package.sh ${CMAKE_BINARY_DIR}/src/fptn-client/fptn-client-gui ${CMAKE_CURRENT_SOURCE_DIR}/deploy/linux/deb/assets/FptnClient512x512.png ${FPTN_VERSION} \
+            "
+                COMMENT "Building .deb package"
+                VERBATIM
+        )
+    endif()
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin") # MacOS
+    if("${FPTN_BUILD_WITH_GUI_CLIENT}")
         add_custom_target(build-pkg
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             COMMAND bash -c "${CMAKE_CURRENT_SOURCE_DIR}/deploy/macos/fptn-client-dmg/create-pkg.py --fptn-client-cli=${CMAKE_BINARY_DIR}/src/fptn-client/fptn-client-cli --fptn-client-gui=${CMAKE_BINARY_DIR}/src/fptn-client/fptn-client-gui  --version=${FPTN_VERSION}"
@@ -93,6 +96,21 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
             VERBATIM
         )
     endif()
+elseif(WIN32)
+    if("${FPTN_BUILD_WITH_GUI_CLIENT}")
+        add_custom_target(build-installer
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            COMMAND ${CMAKE_COMMAND} -E echo "Building installer for Windows..."
+            COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/deploy/windows/create-installer.py 
+                    --wintun-dll=${CMAKE_BINARY_DIR}/wintun/wintun.dll 
+                    --fptn-client=${CMAKE_BINARY_DIR}/src/fptn-client/Release/fptn-client-gui.exe 
+                    --fptn-client-cli=${CMAKE_BINARY_DIR}/src/fptn-client/Release/fptn-client-cli.exe 
+                    --output-folder=${CMAKE_CURRENT_SOURCE_DIR}
+                    --version=${FPTN_VERSION}
+            COMMENT "Building .exe installer"
+            VERBATIM
+        )
+    endif()
 else()
-    # message(FATAL_ERROR "Unsupported platform")
+    message(FATAL_ERROR "Unsupported platform")
 endif()

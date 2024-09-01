@@ -6,8 +6,9 @@
 #include <QApplication>
 #include <QWidgetAction>
 
-#include "gui/style/style.h"
+#include <glog/logging.h>
 
+#include "gui/style/style.h"
 
 #include "tray.h"
 
@@ -28,37 +29,66 @@ inline bool isUbuntu()
     return osName.contains("Ubuntu", Qt::CaseInsensitive);
 }
 
+inline bool isWindows()
+{
+    QString osName = QSysInfo::productType();
+    return osName.contains("windows", Qt::CaseInsensitive);
+}
+
 
 TrayApp::TrayApp(QObject *parent)
     : QObject(parent),
         trayIcon_(new QSystemTrayIcon(this)),
         trayMenu_(new QMenu()),
-        connectMenu_(new QMenu("Connect to", trayMenu_)),
+        connectMenu_(new QMenu("Connect to    ", trayMenu_)),
         speedWidget_(new SpeedWidget()),
         updateTimer_(new QTimer(this))
 {
-    if (isUbuntu()) {
+    if (isUbuntu()) { // Ubuntu
         activeIconPath_ = ":/icons/dark/active.ico";
         inactiveIconPath_ = ":/icons/dark/inactive.ico";
         qApp->setStyleSheet(fptn::gui::ubuntuStyleSheet);
-    } else if (isDarkMode()) {
+    } if (isWindows()) { // Windows
         activeIconPath_ = ":/icons/dark/active.ico";
         inactiveIconPath_ = ":/icons/dark/inactive.ico";
-        qApp->setStyleSheet(fptn::gui::darkStyleSheet);
-    } else {
-        activeIconPath_ = ":/icons/white/active.ico";
-        inactiveIconPath_ = ":/icons/white/inactive.ico";
-        qApp->setStyleSheet(fptn::gui::whiteStyleSheet);
+        if (isDarkMode()) {
+            LOG(INFO) << "Set dark mode";
+            activeIconPath_ = ":/icons/dark/active.ico";
+            inactiveIconPath_ = ":/icons/dark/inactive.ico";
+            qApp->setStyleSheet(fptn::gui::darkStyleSheet);
+        } else {
+            LOG(INFO) << "Set white mode";
+            activeIconPath_ = ":/icons/white/active.ico";
+            inactiveIconPath_ = ":/icons/white/inactive.ico";
+        }
+        qApp->setStyleSheet(fptn::gui::windowsStyleSheet);
+    } else { // MacOS
+        if (isDarkMode()) {
+            LOG(INFO) << "Set dark mode";
+            activeIconPath_ = ":/icons/dark/active.ico";
+            inactiveIconPath_ = ":/icons/dark/inactive.ico";
+            qApp->setStyleSheet(fptn::gui::darkStyleSheet);
+        } else {
+            LOG(INFO) << "Set white mode";
+            activeIconPath_ = ":/icons/white/active.ico";
+            inactiveIconPath_ = ":/icons/white/inactive.ico";
+            qApp->setStyleSheet(fptn::gui::whiteStyleSheet);
+        }
     }
 
-#if defined(__linux__)
-    connect(trayIcon_, &QSystemTrayIcon::activated, this, [this](QSystemTrayIcon::ActivationReason reason){
-        // FIX LEFT CLICK FOR UBUNTU
-        if (reason == QSystemTrayIcon::Trigger) {
-            // trayMenu_->popup(QCursor::pos());
+    #if defined(__linux__) || defined(_WIN32)
+        if (trayIcon_ && trayMenu_) {
+            QObject::connect(trayIcon_, &QSystemTrayIcon::activated, [this](QSystemTrayIcon::ActivationReason reason) {
+                if (trayMenu_->isVisible()) {
+                    trayMenu_->close(); // Hide the menu if it's visible
+                } else {
+                    trayMenu_->show();
+                    trayMenu_->exec(QCursor::pos()); // Show the menu if it's not visible
+                }
+            });
         }
-    });
-#endif
+    #endif
+
     connect(this, &TrayApp::defaultState, this, &TrayApp::handleDefaultState);
     connect(this, &TrayApp::connecting, this, &TrayApp::handleConnecting);
     connect(this, &TrayApp::connected, this, &TrayApp::handleConnected);
@@ -121,6 +151,9 @@ void TrayApp::updateTrayMenu()
             if (connectingAction_) {
                 connectingAction_->setVisible(false);
             }
+            if (speedWidget_) {
+                speedWidget_->setVisible(false);
+            }
             break;
         }
         case ConnectionState::Connecting: {
@@ -160,6 +193,9 @@ void TrayApp::updateTrayMenu()
                 speedWidgetAction_->setDefaultWidget(speedWidget_);
                 trayMenu_->insertAction(settingsAction_, speedWidgetAction_);
             }
+            if (speedWidget_) {
+                speedWidget_->setVisible(true);
+            }
             if (settingsAction_) {
                 settingsAction_->setEnabled(false);
             }
@@ -174,10 +210,10 @@ void TrayApp::updateTrayMenu()
                 disconnectAction_->setVisible(false);
             }
             if (!connectingAction_) {
-                connectingAction_ = new QAction("Disconnecting...", this);
+                connectingAction_ = new QAction("Disconnecting... ", this);
                 trayMenu_->insertAction(settingsAction_, connectingAction_);
             } else {
-                connectingAction_->setText("Disconnecting...");
+                connectingAction_->setText("Disconnecting... ");
             }
             connectingAction_->setVisible(true);
             if (speedWidgetAction_) {
@@ -242,7 +278,7 @@ void TrayApp::handleDefaultState()
 
 void TrayApp::handleConnecting()
 {
-    qDebug() << "Handling connecting state";
+    LOG(INFO) << "Handling connecting state";
     updateTrayMenu();
     trayIcon_->setIcon(QIcon(inactiveIconPath_));
 
@@ -258,8 +294,6 @@ void TrayApp::handleConnecting()
             tunInterfaceAddress,
             true
     );
-
-    qDebug() << selectedServer_.username.toStdString() << " " << selectedServer_.password.toStdString();
 
     bool loginStatus = webSocketClient->login(
             selectedServer_.username.toStdString(),
@@ -282,23 +316,18 @@ void TrayApp::handleConnecting()
             serverModel_.networkInterface().toStdString(),
             tunInterfaceName,
             selectedServer_.address.toStdString(),
-            usingGatewayIP
+            usingGatewayIP,
+            tunInterfaceAddress // FIX IT
     );
-#ifdef _WIN32
-    auto virtualNetworkInterface = std::make_unique<fptn::common::network::TapInterface>(
-         tunInterfaceName, tunInterfaceAddress, 30, nullptr
-    );
-#else
     auto virtualNetworkInterface = std::make_unique<fptn::common::network::TunInterface>(
-            tunInterfaceName, tunInterfaceAddress, 30, nullptr
+            tunInterfaceName, pcpp::IPv4Address(tunInterfaceAddress), 30, nullptr
     );
-#endif
     vpnClient_ = std::make_unique<fptn::vpn::VpnClient>(
             std::move(webSocketClient),
             std::move(virtualNetworkInterface)
     );
     vpnClient_->start();
-    std::this_thread::sleep_for(std::chrono::seconds(1)); // FIX IT!
+    std::this_thread::sleep_for(std::chrono::seconds(2)); // FIX IT!
     ipTables_->apply();
 
     connectionState_ = ConnectionState::Connected;
@@ -329,7 +358,7 @@ void TrayApp::handleDisconnecting()
 
 void TrayApp::updateSpeedWidget()
 {
-    if (vpnClient_ && connectionState_ == ConnectionState::Connected) {
+    if (vpnClient_ && speedWidget_ && connectionState_ == ConnectionState::Connected) {
         speedWidget_->updateSpeed(vpnClient_->getReceiveRate(), vpnClient_->getSendRate());
     }
 }

@@ -7,10 +7,7 @@
 -->
 [![Build and Test](https://github.com/batchar2/fptn/actions/workflows/main.yml/badge.svg)](https://github.com/batchar2/fptn/actions/workflows/main.yml)
 
-
-  
 FPTN is a VPN service designed to bypass censorship and access blocked content, particularly in ***heavily censored environments***.
-
 
 FPTN operates by securely routing network traffic from your device through a VPN server to bypass censorship and access restricted content. The process involves encapsulating your traffic within a secure WebSocket tunnel, which is then processed by the VPN server. Here's a high-level overview of the workflow:
 
@@ -43,16 +40,26 @@ FPTN can be seamlessly integrated with **NGINX**, allowing you to disguise the V
 
 
 
+### Install Client
 
+Download the FPTN client from [GitHub](https://github.com/batchar2/fptn/releases). After downloading, install and run the client.
 
+FPTN Client is a straightforward application with an interface located in the system tray. 
+Once the client is running, find the VPN client icon in the system tray.
 
+<img src="docs/client.png" alt="Application" height="200"/>
 
+Click on this icon to open the context menu, then select "Settings" to configure your client. In the settings, you can add a new server.
 
-### FPTN Server Installation and Configuration
+<img src="docs/settings.png" alt="Settings" height="300"/>
+
+After adding and saving the server, simply connect to it. It’s that easy!
+
+<details>
+  <summary>FPTN Server Installation and Configuration</summary>
 
 ##### Step 1: Download FPTN from GitHub
 Download the FPTN server DEB package for your architecture (x86_64 or arm64) from [GitHub](https://github.com/batchar2/fptn/releases).
-
 
 ##### Step 2: Install the DEB Package
 
@@ -106,7 +113,6 @@ Configuration File Fields
 - `TUN_INTERFACE_NAME` The name of the virtual network interface used by the VPN (e.g., fptn0). This interface is used for tunneling VPN traffic.
 - `LOG_FILE` The path to the log file where server logs will be written (e.g., /var/log/fptn-server.log). This file is useful for troubleshooting and monitoring server activity.
 
-
 ##### Step 5: Add User
 
 Before restarting the server, add a user with bandwidth limits. Use the following command:
@@ -126,28 +132,18 @@ sudo systemctl start fptn-server
 
 Check the server status with:
 ```bash
+
 sudo systemctl status fptn-server
 ```
 
+</details>
 
+<details>
+  <summary>FPTN Console Client Installation and Configuration</summary>  
 
-
-
-
-
-
-
-
-
-
-
-
-### FPTN Client Installation and Configuration
-
-##### Step 1: Download FPTN Client
+### Step 1. Download the FPTN client-cli from [GitHub](https://github.com/batchar2/fptn/releases)
 
 Download the FPTN client DEB package for your architecture (x86_64 or arm64) from [GitHub](https://github.com/batchar2/fptn/releases).
-
 
 
 ##### Step 2: Install the DEB Package
@@ -208,18 +204,14 @@ Logs for the client service will be written to the system journal. You can view 
 journalctl -u fptn-client
 ```
 
-
-
-
-
-
+</details>
 
 
 
 
   
 <details>
-  <summary>Build</summary>
+  <summary>How to build</summary>
 1. Install Conan (version 2.3.2):
 
 ```
@@ -243,7 +235,7 @@ Console version
 
 ```bash
 git submodule update --init --recursive 
-conan install . --output-folder=build --build=missing  -s compiler.cppstd=17
+conan install . --output-folder=build --build=missing  -s compiler.cppstd=17 --settings build_type=Release
 cd build
 # only linux & macos
 cmake .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release
@@ -275,16 +267,18 @@ libxcb-ewmh-dev libxcb-res0-dev libxcb-util-dev pkg-config libgl-dev libgl1-mesa
 
 </details>
 
-
 ```bash
 git submodule update --init --recursive
 
 # Need a manual installation list of dependencies for Ubuntu.
-conan install . --output-folder=build --build=missing  -s compiler.cppstd=17 -o with_gui_client=True 
+conan install . --output-folder=build --build=missing  -s compiler.cppstd=17 -o with_gui_client=True --settings build_type=Release
 
 cd build
+# only linux & macos
 cmake .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release
-cmake --build .
+# only windows 
+cmake .. -G "Visual Studio 17 2022" -DCMAKE_TOOLCHAIN_FILE="conan_toolchain.cmake" -DCMAKE_BUILD_TYPE=Release
+cmake --build . --config Release
 ctest
 # to install in system
 make install
@@ -293,17 +287,22 @@ make install
 After that you can build deb (only on ubuntu)
 
 ```bash
-cmake --build . --target build-deb
+cmake --build . --config Release --target build-deb
 # or with UI
-cmake --build . --target build-deb-gui
+cmake --build . --config Release --target build-deb-gui
 ```
 
-or build MacOS (only MacOs)
+or build MacOS installer
 
 ```bash
-cmake --build . --target build-pkg
+cmake --build . --config Release --target build-pkg
 ```
 
+or build Windows installer
+
+```bash
+cmake --build . --target build-installer
+```
 
 </details>
 
@@ -325,9 +324,11 @@ cd ..
 2. Create users
 
 To add a new user to the VPN server with a specified bandwidth limit, use the following command:
+
 ```
 sudo fptn-passwd --add-user user10 --bandwidth 30
 ```
+
 Options:
 - `--add-user`: The username for the new user. Example: user10.
 - `--bandwidth`: The bandwidth limit for the user in megabits per second (Mbps). Example: 30.
@@ -335,9 +336,11 @@ Options:
 3. Start the Server:
     
 To start the server, use:
+
 ```
 sudo fptn-server --server-crt=keys/server.crt --server-key=keys/server.key --out-network-interface=eth0 --server-pub=keys/server.pub
- ``` 
+``` 
+
 Options:
 - `--server-crt`: Path to the server certificate file. Example: keys/server.crt.
 - `--server-key`: Path to the server private key file. Example: keys/server.key.
@@ -364,16 +367,15 @@ Options:
 </details>
 
 
-
-
-
 <details>
   <summary>Using CLion IDE</summary>
   
 Run the following command in the project folder:
+
 ```
 conan install . --output-folder=cmake-build-debug --build=missing -s compiler.cppstd=17 -o with_gui_client=True --settings build_type=Debug
-
+cd cmake-build-debug/
+cmake .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Debug
 ```
 
 Open the project in CLion. After opening the project, the "Open Project Wizard" will appear automatically. You need to add the following CMake option:
@@ -383,8 +385,6 @@ Open the project in CLion. After opening the project, the "Open Project Wizard" 
 ```
 
 </details>
-
-
 
 <details>
   <summary>MacOS</summary>

@@ -1,0 +1,6 @@
+installer/tmp.iss
+installer/data/
+installer/tmp/
+installer/result/
+installer/Output/
+installer/depends/

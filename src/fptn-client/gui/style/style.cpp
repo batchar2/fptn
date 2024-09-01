@@ -162,4 +162,46 @@ QTabWidget::pane {
 
 )";
 
+
+
+QString windowsStyleSheet = R"(
+QMenu {
+    background-color: #ffffff;
+    color: #000000;
+    border: 1px solid #bfbfbf;
+    border-radius: 4px;
+    padding: 4px 8px;
+}
+QMenu::item {
+    background-color: #ffffff;
+    color: #000000;
+    padding: 4px 8px;
+    border-radius: 3px;
+}
+QMenu::item:selected {
+    background-color: #e0e0e0;
+    color: #000000;
+}
+QMenu::icon {
+    margin-right: 8px;
+}
+QAction {
+    color: #000000;
+}
+QMenu QWidget {
+    background-color: #ffffff;
+    color: #000000; 
+    border: none;
+    padding: 4px;
+}
+QMenu::item:disabled {
+    background-color: #ffffff; 
+    color: #a0a0a0;
+}
+QAction:disabled {
+    color: #a0a0a0;
+}
+)";
+
+
 }

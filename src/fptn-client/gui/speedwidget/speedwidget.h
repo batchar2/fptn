@@ -17,6 +17,8 @@ namespace fptn::gui
     public slots:
         void updateSpeed(std::size_t uploadSpeed, std::size_t downloadSpeed);
     private:
+        QString uploadSpeedText_;
+        QString downloadSpeedText_;
         QLabel *uploadSpeedLabel_;
         QLabel *downloadSpeedLabel_;
     };

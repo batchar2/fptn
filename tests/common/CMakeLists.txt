@@ -7,10 +7,17 @@ find_package(PcapPlusPlus REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(jwt-cpp REQUIRED)
 
+if (WIN32)
+    set(TUNTAP_LIB Wintun rpcrt4)
+else()
+    set(TUNTAP_LIB tuntap++)
+endif()
+
 set(LIBS
     GTest::gtest GTest::gtest_main
     Boost::boost OpenSSL::SSL OpenSSL::Crypto nlohmann_json::nlohmann_json jwt-cpp::jwt-cpp
-    glog::glog fmt::fmt PcapPlusPlus::PcapPlusPlus tuntap++ hv_static fptn_protocol
+    glog::glog fmt::fmt PcapPlusPlus::PcapPlusPlus hv_static fptn_protocol
+    ${TUNTAP_LIB}
 )
 
 # --- Channel test ---

@@ -5,7 +5,12 @@
 #include <vector>
 #include <cstdint>
 
+#include <iostream>
+
+#include <pcapplusplus/MacAddress.h>
+
 #include <pcapplusplus/Packet.h>
+#include <pcapplusplus/ArpLayer.h>
 #include <pcapplusplus/EthLayer.h>
 #include <pcapplusplus/IPv4Layer.h>
 
@@ -29,7 +34,7 @@ namespace fptn::common::network
     #define PACKET_UNDEFINED_CLIENT_ID        (static_cast<std::uint32_t>(-1))
     
 
-    class IPPacket
+    class IPPacket final
     {
     public:
         // WARNING FIXME
@@ -75,6 +80,7 @@ namespace fptn::common::network
                 ipLayer_(parsedPacket_.getLayerOfType<pcpp::IPv4Layer>())
         {
         }
+
         ~IPPacket() = default;
 
         void computeCalculateFields()

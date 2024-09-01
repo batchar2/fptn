@@ -11,11 +11,12 @@
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QJsonObject>
-#include <QDebug>
 #include <QNetworkInterface>
 
 #include <boost/asio.hpp>
-//#include <QNetworkInterface>
+#include <glog/logging.h>
+
+#include "system/iptables.h"
 
 using namespace fptn::gui;
 
@@ -40,7 +41,7 @@ void SettingsModel::load() {
         qWarning() << "Failed to open file for reading:" << filePath;
         return;
     }
-    qDebug() << filePath;
+    LOG(INFO) << "Settings: " << filePath.toStdString();
 
     QByteArray data = file.readAll();
     file.close();
@@ -64,6 +65,9 @@ void SettingsModel::load() {
     // Load network settings
     networkInterface_ = jsonObject["networkInterface"].toString();
     gatewayIp_ = jsonObject["gatewayIp"].toString();
+    if (gatewayIp_.isEmpty()) {
+        gatewayIp_ = QString::fromStdString(fptn::system::getDefaultGatewayIPAddress());
+    }
 }
 
 bool SettingsModel::save()
@@ -95,7 +99,6 @@ bool SettingsModel::save()
     QJsonDocument document(jsonObject);
     auto len = file.write(document.toJson());
     file.close();
-    qDebug() << len;
 
     emit dataChanged();
     return len > 0;

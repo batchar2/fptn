@@ -37,13 +37,13 @@ void SettingsWidget::setupUi() {
     gridLayout->setColumnStretch(0, 1); // Label column
     gridLayout->setColumnStretch(1, 4); // Field column
 
-    QLabel *interfaceLabel = new QLabel("Network Interface:", this);
+    QLabel *interfaceLabel = new QLabel("Network Interface:                                 ", this);
     interfaceComboBox = new QComboBox(this);
     interfaceComboBox->addItems(model_->getNetworkInterfaces());
     gridLayout->addWidget(interfaceLabel, 0, 0, Qt::AlignLeft);
     gridLayout->addWidget(interfaceComboBox, 0, 1, Qt::AlignLeft);
 
-    QLabel *gatewayLabel = new QLabel("Gateway IP:", this);
+    QLabel *gatewayLabel = new QLabel("Gateway IP Address (typically your router's address):", this);
     gatewayLineEdit = new QLineEdit(this);
     gridLayout->addWidget(gatewayLabel, 1, 0, Qt::AlignLeft);
     gridLayout->addWidget(gatewayLineEdit, 1, 1, Qt::AlignLeft);

@@ -54,7 +54,11 @@ int main(int argc, char* argv[])
         .help("Port number")
         .scan<'i', int>();
     args.add_argument("--out-network-interface")
+#if defined(__APPLE__) || defined(__linux__)
         .required()
+#elif _WIN32
+        .default_value("NoneForWindows")
+#endif
         .help("Network out interface");
     args.add_argument("--username")
         .required()
@@ -89,7 +93,7 @@ int main(int argc, char* argv[])
 
     const auto gatewayIP = args.get<std::string>("--gateway-ip");    
     const auto tunInterfaceName = args.get<std::string>("--tun-interface-name");
-    const auto tunInterfaceAddress = args.get<std::string>("--tun-interface-ip");
+    const auto tunInterfaceAddress = pcpp::IPv4Address(args.get<std::string>("--tun-interface-ip"));
 
     const std::string usingGatewayIP = (!gatewayIP.empty() ? gatewayIP : fptn::system::getDefaultGatewayIPAddress());
     if (usingGatewayIP.empty()) {
@@ -102,13 +106,13 @@ int main(int argc, char* argv[])
         << "NETWORK INTERFACE: " << outNetworkInterfaceName << std::endl
         << "VPN SERVER IP:     " << vpnServerIP << std::endl
         << "VPN SERVER PORT:   " << vpnServerPort << std::endl
+        << "TUN INTERFACE IP:  " << tunInterfaceAddress.toString() << std::endl
         << std::endl;
-
 
     auto webSocketClient = std::make_unique<fptn::http::WebSocketClient>(
         vpnServerIP, 
         vpnServerPort,
-        tunInterfaceAddress,
+        tunInterfaceAddress.toString(), // FIX IT
         true
     );
 
@@ -122,23 +126,18 @@ int main(int argc, char* argv[])
         outNetworkInterfaceName,
         tunInterfaceName,
         vpnServerIP,
-        usingGatewayIP
+        usingGatewayIP,
+        tunInterfaceAddress.toString() // FIX IT
     );
 
-#ifdef _WIN32
-    auto virtualNetworkInterface = std::make_unique<fptn::common::network::TapInterface>(
-         tunInterfaceName, tunInterfaceAddress, 30, nullptr
-    );
-#else
     auto virtualNetworkInterface = std::make_unique<fptn::common::network::TunInterface>(
-            tunInterfaceName, tunInterfaceAddress, 30, nullptr
+            tunInterfaceName, tunInterfaceAddress, 30
     );
-#endif
+
     fptn::vpn::VpnClient vpnClient(
         std::move(webSocketClient),
         std::move(virtualNetworkInterface)
     );
-
 
     vpnClient.start();
 
@@ -151,7 +150,6 @@ int main(int argc, char* argv[])
     vpnClient.stop();
 
     google::ShutdownGoogleLogging();
-
 
     return EXIT_SUCCESS;
 }
