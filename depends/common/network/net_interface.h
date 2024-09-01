@@ -349,11 +349,11 @@ namespace fptn::common::network
         {
             std::unique_ptr<std::uint8_t[]> data = std::make_unique<std::uint8_t[]>(mtu_);
             std::uint8_t *buffer = data.get();
-
             DWORD bufferSize = mtu_;
+
             while(running_) {
                 bufferSize = mtu_;
-                if (ERROR_SUCCESS == readPacketNonblock(session_, buffer, &bufferSize)) {
+                if (ERROR_SUCCESS == readPacketNonblock(session_, buffer, &mtu_)) {
                     auto packet = IPPacket::parse(buffer, bufferSize);
                     if (packet != nullptr && newIPPktCallback) {
                         receiveRateCalculator_.update(packet->size()); // calculate rate
