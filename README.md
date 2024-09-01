@@ -51,9 +51,12 @@ Once the client is running, find the VPN client icon in the system tray.
 
 Click on this icon to open the context menu, then select "Settings" to configure your client. In the settings, you can add a new server.
 
-<img src="docs/settings.png" alt="Settings" height="300"/>
+<img src="docs/settings.png" alt="Settings" width="400"/>
 
 After adding and saving the server, simply connect to it. It’s that easy!
+
+
+
 
 <details>
   <summary>FPTN Server Installation and Configuration</summary>
