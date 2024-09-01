@@ -353,7 +353,7 @@ namespace fptn::common::network
 
             while(running_) {
                 bufferSize = mtu_;
-                if (ERROR_SUCCESS == readPacketNonblock(session_, buffer, &mtu_)) {
+                if (ERROR_SUCCESS == readPacketNonblock(session_, buffer, &bufferSize)) {
                     auto packet = IPPacket::parse(buffer, bufferSize);
                     if (packet != nullptr && newIPPktCallback) {
                         receiveRateCalculator_.update(packet->size()); // calculate rate

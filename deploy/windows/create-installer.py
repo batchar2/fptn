@@ -210,7 +210,7 @@ if __name__ == "__main__":
     replace_values_in_innosetupfile(
         PREPARED_INNOSETUP_SCRIPT_PATH,
         {
-            "APP_VERSION": args.version,
+            "APP_VERSION_NAME": args.version,
             "APP_VERSION_NUMBER": datetime.datetime.now().strftime("%Y.%m.%d.%H%M"),
             "APP_COPYRIGHT_YEAR": str(datetime.datetime.now().year),
             "ARCHITECTURES_ALLOWED": "arm64 x64os" if is_arm_64() else "x64os",

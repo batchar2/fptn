@@ -1,5 +1,5 @@
 // replacement automatically
-#define APP_VERSION "1.0.0"
+#define APP_VERSION_NAME "1.0.0"
 // replacement automatically
 #define APP_VERSION_NUMBER "1.0.0"
 // replacement automatically
@@ -16,7 +16,7 @@
 [Setup]
 AppId={{#APP_ID}
 AppName={#APP_NAME}
-AppVersion={#APP_VERSION}
+AppVersion={#APP_VERSION_NAME}
 
 AppPublisher={#APP_PUBLISHER}
 AppPublisherURL={#APP_URL}
