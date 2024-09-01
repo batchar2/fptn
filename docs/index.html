@@ -272,11 +272,11 @@
                 </div>
                 <h1>Download fptn</h1>
                 <div class="tabs">
-                    <button class="tablink active" onclick="openTab('macos')">MacOS</button>
+                    <button class="tablink active" onclick="openTab('win')">Windows</button>
+                    <button class="tablink" onclick="openTab('macos')">MacOS</button>
                     <button class="tablink" onclick="openTab('linux')">Linux</button>
-                    <button class="tablink" onclick="openTab('win')">Windows</button>
                 </div>
-                <div class="download active macos">
+                <div class="download macos">
                     <p>Download MacOS client</p>
                     <br>
                     <div class="dropdown">
@@ -315,7 +315,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="download win">
+                <div class="download active win">
                     <p>Download Windows client</p>
                     <br>
                     <div class="dropdown">
@@ -425,5 +425,6 @@
     window.open(url, '_blank').focus();
   }
 
+</script>
 </body>
 </html>
