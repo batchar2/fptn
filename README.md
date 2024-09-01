@@ -304,7 +304,7 @@ cmake --build . --config Release --target build-pkg
 or build Windows installer
 
 ```bash
-cmake --build . --target build-installer
+cmake --build . --config Release --target build-installer
 ```
 
 </details>
