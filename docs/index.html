@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
-    <title>Download</title>
+    <title>FPTN Project</title>
     <style>
         :root {
             --blue: #0068fd;
@@ -15,6 +15,7 @@
             padding: 0;
             /*background-color: #f9f9f9;*/
             color: #333;
+            position: relative;
         }
 
         p {
@@ -134,7 +135,7 @@
             box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
             border-radius: 4px;
             z-index: 1;
-            min-width: 174px;
+            min-width: 240px;
             top: 27px;
         }
 
@@ -158,14 +159,21 @@
             background-color: #f9f9f9;
             border: 1px solid #ccc;
             border-radius: 4px;
-            text-align: center;
+            text-align: justify;
             font-size: 16px;
             color: #333;
+            margin-bottom: 74px;
         }
+
 
         .toolbox-ad p{
             margin: 0;
             padding: 0;
+            margin-bottom: 12px;
+        }
+
+        .toolbox-ad img{
+            margin-bottom: 12px;
         }
 
         .wrapper {
@@ -211,6 +219,12 @@
         .center {
             text-align: center;
         }
+
+        .img-center {
+            margin-left: auto;
+            margin-right: auto;
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -245,18 +259,15 @@
                     <a href="/" onclick="downloadUrl('notes')">Release notes</a>
                 </nav>
             </aside>
-
         </div>
         <div class="col col-9">
             <main class="content">
                 <div>
                     <p>
-
-                        A paragraph of placeholder text. We're using it here to show the use of the clearfix class. We're adding quite a few meaningless phrases here to demonstrate how the columns interact here with the floated image.
-
-                        As you can see the paragraphs gracefully wrap around the floated image. Now imagine how this would look with some actual content in here, rather than just this boring placeholder text that goes on and on, but actually conveys no tangible information at. It simply takes up space and should not really be read.
-
-                        And yet, here you are, still persevering in reading this placeholder text, hoping for some more insights, or some hidden easter egg of content. A joke, perhaps. Unfortunately, there's none of that here.
+                        <h3>FPTN - Fight for Your Right!</h3>
+                        A secure and easy-to-use VPN client for accessing free internet.
+                        Quickly connect to your VPN server, manage settings from the system tray,
+                        and enjoy safe browsing with just a few clicks.
                     </p>
                 </div>
                 <h1>Download fptn</h1>
@@ -269,7 +280,7 @@
                     <p>Download MacOS client</p>
                     <br>
                     <div class="dropdown">
-                        <a class="dropdown-button download_2" onclick="downloadUrl('macos')">.dmg (MacOS)</a>
+                        <a class="dropdown-button download_2" onclick="downloadUrl('macos')">.dmg (Apple Silicon)</a>
         <!--                <div class="dropdown-content">-->
         <!--                    <a href="#" onclick="downloadUrl('client')">.tar.gz (Linux)</a>-->
         <!--                    <a href="#" onclick="downloadUrl('server')">.tar.gz (Arch)</a>-->
@@ -284,8 +295,8 @@
                             <div class="dropdown">
                                 <a class="dropdown-button download_2" onclick="downloadUrl('linux_l_server')">.deb (Linux amd)</a>
                                 <div class="dropdown-content">
-                                    <a href="#" onclick="downloadUrl('linux_l_server')">.deb (Linux amd)</a>
-                                    <a href="#" onclick="downloadUrl('linux_a_server')">.deb (Linux arm)</a>
+                                    <a href="#" onclick="downloadUrl('linux_l_server')">.deb (Linux x86_64)</a>
+                                    <a href="#" onclick="downloadUrl('linux_a_server')">.deb (Linux ARM)</a>
                                 </div>
                             </div>
                         </div>
@@ -295,10 +306,10 @@
                             <div class="dropdown">
                                 <a class="dropdown-button download_2" onclick="downloadUrl('linux_l_client')">.deb (Linux amd)</a>
                                 <div class="dropdown-content">
-                                    <a href="#" onclick="downloadUrl('linux_l_client')">.deb (Linux amd)</a>
-                                    <a href="#" onclick="downloadUrl('linux_a_client')">.deb (Linux arm)</a>
-                                    <a href="#" onclick="downloadUrl('linux_l_client_cli')">.deb (Linux cli amd)</a>
-                                    <a href="#" onclick="downloadUrl('linux_a_client_cli')">.deb (Linux cli arm)</a>
+                                    <a href="#" onclick="downloadUrl('linux_l_client')">Server .deb (Linux x86_64)</a>
+                                    <a href="#" onclick="downloadUrl('linux_a_client')">Server .deb (Linux ARM)</a>
+                                    <a href="#" onclick="downloadUrl('linux_l_client_cli')">Client (command line) .deb (Linux x86_64)</a>
+                                    <a href="#" onclick="downloadUrl('linux_a_client_cli')">Client (command line) .deb (Linux CLI ARM)</a>
                                 </div>
                             </div>
                         </div>
@@ -316,7 +327,23 @@
                     </div>
                 </div>
                 <div class="toolbox-ad">
-                    <p>Server block</p>
+                    <p>
+                        After installing the FPTN client, you can find its icon in the system tray.
+                        The tray icon provides quick access to all essential features of the VPN client.
+                        Simply click on the icon to open the context menu, where you can access the settings, add or manage servers, and connect or disconnect from the VPN server with ease.
+
+                        </p><img class="img-center" src="client.png" alt="Application" height="200"/>
+
+                        <p>
+                            Registering for access to free internet through FPTN is very simple!
+                            Use our Telegram <a blank=True href="https://t.me/fptn_bot">@fptn_bot</a>,
+                            which will quickly provide you with server information as well as a login and password for free internet access.
+                        </p>
+
+                        <p>Right-click on this icon to open a context menu where you can access the settings. In the settings window, you can configure the client by adding a new server.
+
+                        </p><img style="width: 100%" src="settings.png" alt="Settings"/>
+                    </p>
                 </div>
             </main>
         </div>
@@ -326,7 +353,7 @@
     <div class="container">
         <div class="row justify-content-center">
             <div class="white center">
-                FPTN company
+                FPTN Project 2024
             </div>
         </div>
     </div>
@@ -388,7 +415,7 @@
         url = `https://github.com/${owner}/${repo}/releases/latest/download/fptn-client-cli-${tag_name}-ubuntu22.04-arm64.deb`
         break;
       case 'w_client':
-        // url = `https://github.com/${owner}/${repo}/releases/latest/download/fptn-client-${tag_name}-apple-silicon.pkg`
+        url = `https://github.com/${owner}/${repo}/releases/latest/download/fptn-client-${tag_name}-windows-amd64.pkg`
         break;
       case 'notes':
         url = `https://github.com/${owner}/${repo}/releases/latest`
@@ -398,6 +425,5 @@
     window.open(url, '_blank').focus();
   }
 
-</script>
 </body>
 </html>

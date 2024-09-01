@@ -45,8 +45,8 @@ TrayApp::TrayApp(QObject *parent)
         updateTimer_(new QTimer(this))
 {
     if (isUbuntu()) { // Ubuntu
-        activeIconPath_ = ":/icons/dark/active.ico";
-        inactiveIconPath_ = ":/icons/dark/inactive.ico";
+        activeIconPath_ = ":/icons/white/active.ico";
+        inactiveIconPath_ = ":/icons/white/inactive.ico";
         qApp->setStyleSheet(fptn::gui::ubuntuStyleSheet);
     } if (isWindows()) { // Windows
         activeIconPath_ = ":/icons/dark/active.ico";
@@ -76,7 +76,7 @@ TrayApp::TrayApp(QObject *parent)
         }
     }
 
-    #if defined(__linux__) || defined(_WIN32)
+    #if defined(_WIN32)
         if (trayIcon_ && trayMenu_) {
             QObject::connect(trayIcon_, &QSystemTrayIcon::activated, [this](QSystemTrayIcon::ActivationReason reason) {
                 if (trayMenu_->isVisible()) {

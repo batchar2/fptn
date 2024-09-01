@@ -42,20 +42,20 @@ FPTN can be seamlessly integrated with **NGINX**, allowing you to disguise the V
 
 ### Install Client
 
-Download the FPTN client from [GitHub](https://github.com/batchar2/fptn/releases). After downloading, install and run the client.
+Download the FPTN client from [WebSite](batchar2.github.io/fptn/) or [GitHub](https://github.com/batchar2/fptn/releases). After downloading, install and run the client.
 
 FPTN Client is a straightforward application with an interface located in the system tray. 
 Once the client is running, find the VPN client icon in the system tray.
 
-<img src="docs/client.png" alt="Application" height="200"/>
+<img src="docs/client.png" alt="Application" height="220"/>
 
 Click on this icon to open the context menu, then select "Settings" to configure your client. In the settings, you can add a new server.
+
+Use our Telegram [@fptn_bot](https://t.me/fptn_bot">@fptn_bot), which will quickly provide you with server information as well as a login and password for free internet access.
 
 <img src="docs/settings.png" alt="Settings"/>
 
 After adding and saving the server, simply connect to it. It’s that easy!
-
-
 
 
 <details>
