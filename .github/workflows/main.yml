@@ -162,7 +162,7 @@ jobs:
         run: |
           cd build
           cmake .. -G "Visual Studio 17 2022" -DCMAKE_TOOLCHAIN_FILE="conan_toolchain.cmake" -DCMAKE_BUILD_TYPE=Release
-          cmake --build .
+          cmake --build . --settings build_type=Release
       - name: Test
         run: |
           cd build
@@ -170,7 +170,7 @@ jobs:
       - name: Build Windows installer
         run: |
           cd build
-          cmake --build . --target build-installer
+          cmake --build . --settings build_type=Release --target build-installer
       - name: Upload macOS pkg
         if: github.event_name == 'release'
         uses: AButler/upload-release-assets@v3.0
