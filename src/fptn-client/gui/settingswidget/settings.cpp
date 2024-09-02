@@ -204,7 +204,6 @@ void SettingsWidget::saveServer()
         QTableWidgetItem *passwordItem = serverTable->item(editingRow, 3);
         passwordItem->setData(Qt::UserRole, passwordLineEdit->text());
     }
-
     editDialog->accept();
 }
 

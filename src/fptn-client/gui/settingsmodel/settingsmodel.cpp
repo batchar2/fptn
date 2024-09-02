@@ -84,10 +84,10 @@ bool SettingsModel::save()
     QJsonArray serversArray;
     for (const ServerConnectionInformation &server : servers_) {
         QJsonObject obj;
-        obj["address"] = server.address;
+        obj["address"] = sanitizeString(server.address);
         obj["port"] = server.port;
-        obj["username"] = server.username;
-        obj["password"] = server.password;
+        obj["username"] = sanitizeString(server.username);
+        obj["password"] = sanitizeString(server.password);
         serversArray.append(obj);
     }
     jsonObject["servers"] = serversArray;
@@ -157,3 +157,16 @@ QVector<QString> SettingsModel::getNetworkInterfaces() const
     return interfaces;
 }
 
+QString SettingsModel::sanitizeString(const QString& input) const noexcept
+{
+    QString output = input;
+    // Remove URLs starting with https://
+    QRegularExpression urlRegex(R"(https:\/\/[^\s]+)");
+    output.remove(urlRegex);
+
+    // Remove any spaces and slashes
+    output.remove(' ');
+    output.remove('/');
+
+    return output;
+}

@@ -25,7 +25,6 @@ jobs:
         if: github.event_name == 'release'
         run: |
           echo "Release Version: $RELEASE_VERSION"
-          echo "Release Version from env: ${{ env.RELEASE_VERSION }}"
       - name: Update FPTN_VERSION in conanfile.py
         if: github.event_name == 'release'
         run: |
@@ -67,7 +66,6 @@ jobs:
         if: github.event_name == 'release'
         run: |
           echo "Release Version: $RELEASE_VERSION"
-          echo "Release Version from env: ${{ env.RELEASE_VERSION }}"
       - name: Update FPTN_VERSION in conanfile.py
         if: github.event_name == 'release'
         run: |
@@ -109,7 +107,6 @@ jobs:
         if: github.event_name == 'release'
         run: |
           echo "Release Version: $RELEASE_VERSION"
-          echo "Release Version from env: ${{ env.RELEASE_VERSION }}"
       - name: Update FPTN_VERSION in conanfile.py
         if: github.event_name == 'release'
         run: |
@@ -145,16 +142,17 @@ jobs:
           submodules: true
       - name: Set env
         if: github.event_name == 'release'
-        run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+        run: |
+          $releaseVersion = "${{ github.ref_name }}"
+          echo "RELEASE_VERSION=$releaseVersion" >> $env:GITHUB_ENV
       - name: Print Release Version
         if: github.event_name == 'release'
         run: |
-          echo "Release Version: $RELEASE_VERSION"
-          echo "Release Version from env: ${{ env.RELEASE_VERSION }}"
+          Write-Output "Release Version: $env:RELEASE_VERSION"
       - name: Update FPTN_VERSION in conanfile.py
         if: github.event_name == 'release'
         run: |
-          (Get-Content conanfile.py) -replace '^FPTN_VERSION = ".*"', 'FPTN_VERSION = "$env:RELEASE_VERSION"' | Set-Content conanfile.py
+          python deploy\windows\conan-replace-version.py conanfile.py "$env:RELEASE_VERSION"
       - name: Install dependencies
         run: |
           conan install . --output-folder=build --build=missing -o with_gui_client=True --settings build_type=Release -s compiler.cppstd=17
@@ -162,15 +160,15 @@ jobs:
         run: |
           cd build
           cmake .. -G "Visual Studio 17 2022" -DCMAKE_TOOLCHAIN_FILE="conan_toolchain.cmake" -DCMAKE_BUILD_TYPE=Release
-          cmake --build . --settings build_type=Release
+          cmake --build . --config Release
       - name: Test
         run: |
           cd build
-          ctest
+          ctest -C Release
       - name: Build Windows installer
         run: |
           cd build
-          cmake --build . --settings build_type=Release --target build-installer
+          cmake --build . --config Release --target build-installer
       - name: Upload macOS pkg
         if: github.event_name == 'release'
         uses: AButler/upload-release-assets@v3.0

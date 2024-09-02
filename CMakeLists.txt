@@ -102,9 +102,9 @@ elseif(WIN32)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             COMMAND ${CMAKE_COMMAND} -E echo "Building installer for Windows..."
             COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/deploy/windows/create-installer.py 
-                    --wintun-dll=${CMAKE_BINARY_DIR}/wintun/wintun.dll 
-                    --fptn-client=${CMAKE_BINARY_DIR}/src/fptn-client/Release/fptn-client-gui.exe 
-                    --fptn-client-cli=${CMAKE_BINARY_DIR}/src/fptn-client/Release/fptn-client-cli.exe 
+                    --wintun-dll=${CMAKE_BINARY_DIR}/wintun/wintun.dll
+                    --fptn-client=${CMAKE_BINARY_DIR}/src/fptn-client/Release/fptn-client-gui.exe
+                    --fptn-client-cli=${CMAKE_BINARY_DIR}/src/fptn-client/Release/fptn-client-cli.exe
                     --output-folder=${CMAKE_CURRENT_SOURCE_DIR}
                     --version=${FPTN_VERSION}
             COMMENT "Building .exe installer"

@@ -70,7 +70,6 @@ namespace fptn::common::network
 
     using NewIPPacketCallback = std::function<void(IPPacketPtr packet)>;
 
-    
     class BaseNetInterface
     {
     public:
@@ -121,7 +120,6 @@ namespace fptn::common::network
         const std::string &name_;
         const pcpp::IPv4Address &addr_;
         const int netmask_;
-
     };
 
     using BaseNetInterfacePtr = std::unique_ptr<BaseNetInterface>;
@@ -231,7 +229,7 @@ namespace fptn::common::network
 
 #elif _WIN32
 
-    class WindowsTunInterface final : public BaseNetInterface
+    class WindowsTunInterface : public BaseNetInterface
     {
     public:
         WindowsTunInterface(
@@ -240,15 +238,15 @@ namespace fptn::common::network
                 const int netmask,
                 const NewIPPacketCallback &callback = nullptr
         )
-            :   
+            :
                 BaseNetInterface(name, addr, netmask, callback),
-                mtu_(65536),
                 running_(false),
                 wintun_(nullptr),
                 adapter_(0),
                 session_(0),
                 ipContext_(0),
                 ipInstance_(0)
+
         {
             wintun_ = InitializeWintun();
             UuidCreate(&guid_);
@@ -263,7 +261,7 @@ namespace fptn::common::network
                 return false;
             }
             LOG(INFO) << "WINTUN: " << parseWinTunVersion(WintunGetRunningDriverVersion()) << " version loaded";
-            
+
             // --- open adapter ---
             const std::wstring interfaceName = toWString(name());
             adapter_ = WintunCreateAdapter(
@@ -318,11 +316,10 @@ namespace fptn::common::network
             }
             return false;
         }
-
         virtual bool send(IPPacketPtr packet) noexcept override
         {
             if (running_ && session_ && packet && packet->size()) {
-                sendRateCalculator_.update(packet->size()); 
+                sendRateCalculator_.update(packet->size());
                 BYTE *data = WintunAllocateSendPacket(session_, packet->size());
                 if (data) {
                     std::vector<std::uint8_t> serialized = packet->serialize();
@@ -331,9 +328,8 @@ namespace fptn::common::network
                     return true;
                 }
             }
-            return false;            
+            return false;
         }
-
         virtual std::size_t getSendRate() const noexcept override
         {
             return sendRateCalculator_.getRateForSecond();
@@ -347,14 +343,11 @@ namespace fptn::common::network
     private:
         void run() noexcept
         {
-            std::unique_ptr<std::uint8_t[]> data = std::make_unique<std::uint8_t[]>(mtu_);
-            std::uint8_t *buffer = data.get();
-            DWORD bufferSize = mtu_;
-
+            std::uint8_t buffer[65536] = {0};
+            DWORD size = sizeof(buffer);
             while(running_) {
-                bufferSize = mtu_;
-                if (ERROR_SUCCESS == readPacketNonblock(session_, buffer, &bufferSize)) {
-                    auto packet = IPPacket::parse(buffer, bufferSize);
+                if (ERROR_SUCCESS == readPacketNonblock(session_, buffer, &size)) {
+                    auto packet = IPPacket::parse(buffer, size);
                     if (packet != nullptr && newIPPktCallback) {
                         receiveRateCalculator_.update(packet->size()); // calculate rate
                         newIPPktCallback(std::move(packet));
@@ -363,7 +356,7 @@ namespace fptn::common::network
             }
         }
 
-        inline std::wstring toWString(const std::string& s) 
+        inline std::wstring toWString(const std::string& s)
         {
             return std::wstring(s.begin(), s.end());
         }
@@ -372,7 +365,7 @@ namespace fptn::common::network
         {
             return std::to_string((versionNumber >> 16) & 0xff) + "." + std::to_string((versionNumber >> 0) & 0xff);
         }
-        
+
         int readPacketNonblock(WINTUN_SESSION_HANDLE session, BYTE *buff, DWORD *size)
         {
             static constexpr size_t retryAmount = 20;
@@ -380,7 +373,7 @@ namespace fptn::common::network
 				for (size_t i = 0; i < retryAmount; i++) {
 					DWORD packetSize;
 					BYTE* packet = WintunReceivePacket(session, &packetSize);
-					if (packet && running_ && *size > packetSize) {
+					if (packet && running_) {
                         memcpy(buff, packet, packetSize);
                         *size = packetSize;
                         WintunReleaseReceivePacket(session, packet);
@@ -437,10 +430,9 @@ namespace fptn::common::network
         WINTUN_ALLOCATE_SEND_PACKET_FUNC* WintunAllocateSendPacket = nullptr;
         WINTUN_SEND_PACKET_FUNC* WintunSendPacket = nullptr;
     private:
-        const std::uint16_t mtu_;
         std::atomic<bool> running_;
         std::thread thread_;
-        
+
         GUID guid_;
         HMODULE wintun_;
 		WINTUN_ADAPTER_HANDLE adapter_;
@@ -451,6 +443,7 @@ namespace fptn::common::network
         DataRateCalculator sendRateCalculator_;
         DataRateCalculator receiveRateCalculator_;
     };
+
 
     using TunInterface = WindowsTunInterface;
 #endif

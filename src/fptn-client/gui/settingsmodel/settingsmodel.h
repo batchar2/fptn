@@ -39,6 +39,8 @@ namespace fptn::gui {
         void addServer(const ServerConnectionInformation& server);
         void removeServer(int index);
         void clear();
+    private:
+        QString sanitizeString(const QString& input) const noexcept;
     signals:
         void dataChanged();
     private:
