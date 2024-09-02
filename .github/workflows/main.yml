@@ -136,3 +136,44 @@ jobs:
         with:
           files: "*.pkg"
           repo-token: ${{ secrets.CI_TOKEN }}
+  build_windows_arm64:
+    runs-on: Windows11_AMD64
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+      - name: Set env
+        if: github.event_name == 'release'
+        run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+      - name: Print Release Version
+        if: github.event_name == 'release'
+        run: |
+          echo "Release Version: $RELEASE_VERSION"
+          echo "Release Version from env: ${{ env.RELEASE_VERSION }}"
+      - name: Update FPTN_VERSION in conanfile.py
+        if: github.event_name == 'release'
+        run: |
+          (Get-Content conanfile.py) -replace '^FPTN_VERSION = ".*"', 'FPTN_VERSION = "$env:RELEASE_VERSION"' | Set-Content conanfile.py
+      - name: Install dependencies
+        run: |
+          conan install . --output-folder=build --build=missing -o with_gui_client=True --settings build_type=Release -s compiler.cppstd=17
+      - name: Build
+        run: |
+          cd build
+          cmake .. -G "Visual Studio 17 2022" -DCMAKE_TOOLCHAIN_FILE="conan_toolchain.cmake" -DCMAKE_BUILD_TYPE=Release
+          cmake --build .
+      - name: Test
+        run: |
+          cd build
+          ctest
+      - name: Build Windows installer
+        run: |
+          cd build
+          cmake --build . --target build-installer
+      - name: Upload macOS pkg
+        if: github.event_name == 'release'
+        uses: AButler/upload-release-assets@v3.0
+        with:
+          files: "*.exe"
+          repo-token: ${{ secrets.CI_TOKEN }}
