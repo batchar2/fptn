@@ -136,7 +136,7 @@ jobs:
         with:
           files: "*.pkg"
           repo-token: ${{ secrets.CI_TOKEN }}
-  build_windows_arm64:
+  build_windows_AMD64:
     runs-on: Windows11_AMD64
     steps:
       - name: Checkout code
