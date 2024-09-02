@@ -3,7 +3,7 @@ name: Build and Test
 on:
   push:
     branches:
-      - dev 
+      - dev
       - master
     tags:
       - '*'
@@ -11,80 +11,127 @@ on:
     types: [published]
 
 jobs:
-  build:
-    strategy:
-      matrix:
-        os: [Ubuntu_x86_64, Ubuntu_ARM64_Desktop, MacOS_ARM64]
-    runs-on: ${{ matrix.os }}
+  build_ubuntu_x86_64:
+    runs-on: Ubuntu_x86_64
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
         with:
-          submodules: true 
-
+          submodules: true
       - name: Set env
         if: github.event_name == 'release'
         run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
-
       - name: Print Release Version
         if: github.event_name == 'release'
         run: |
           echo "Release Version: $RELEASE_VERSION"
           echo "Release Version from env: ${{ env.RELEASE_VERSION }}"
-
-      - name: Update FPTN_VERSION in conanfile.py (Linux)
-        if: runner.os == 'Linux' && github.event_name == 'release'
+      - name: Update FPTN_VERSION in conanfile.py
+        if: github.event_name == 'release'
         run: |
           sed -i "s/^FPTN_VERSION = \".*\"/FPTN_VERSION = \"$RELEASE_VERSION\"/" conanfile.py
-
-      - name: Update FPTN_VERSION in conanfile.py (MacOS)
-        if: runner.os == 'MacOS' && github.event_name == 'release'
-        run: |
-          sed -i '' "s/^FPTN_VERSION = \".*\"/FPTN_VERSION = \"$RELEASE_VERSION\"/" conanfile.py
-
-      - name: Install dependencies (Linux)
-        if: runner.os == 'Linux'
+      - name: Install dependencies
         run: |
           conan install . --output-folder=build --build=missing -o with_gui_client=True --settings build_type=Release -s compiler.cppstd=17
-
-      - name: Install dependencies (MacOS)
-        if: runner.os == 'MacOS'
-        run: |
-          conan install . --output-folder=build --build=missing -o with_gui_client=True --settings build_type=Release -s compiler.cppstd=17
-
       - name: Build
         run: |
           cd build
           cmake .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release
           cmake --build .
-      
       - name: Test
         run: |
           cd build
           ctest
-
       - name: Build Debian package
-        if: runner.os == 'Linux'
         run: |
           cd build
           cmake --build . --target build-deb
           cmake --build . --target build-deb-gui
-
       - name: Upload deb
-        if: runner.os == 'Linux' && github.event_name == 'release'
+        if: github.event_name == 'release'
         uses: AButler/upload-release-assets@v3.0
         with:
           files: "fptn-*.deb"
           repo-token: ${{ secrets.CI_TOKEN }}
-
+  build_ubuntu_arm64:
+    runs-on: Ubuntu_ARM64_Desktop
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+      - name: Set env
+        if: github.event_name == 'release'
+        run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+      - name: Print Release Version
+        if: github.event_name == 'release'
+        run: |
+          echo "Release Version: $RELEASE_VERSION"
+          echo "Release Version from env: ${{ env.RELEASE_VERSION }}"
+      - name: Update FPTN_VERSION in conanfile.py
+        if: github.event_name == 'release'
+        run: |
+          sed -i "s/^FPTN_VERSION = \".*\"/FPTN_VERSION = \"$RELEASE_VERSION\"/" conanfile.py
+      - name: Install dependencies
+        run: |
+          conan install . --output-folder=build --build=missing -o with_gui_client=True --settings build_type=Release -s compiler.cppstd=17
+      - name: Build
+        run: |
+          cd build
+          cmake .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release
+          cmake --build .
+      - name: Test
+        run: |
+          cd build
+          ctest
+      - name: Build Debian package
+        run: |
+          cd build
+          cmake --build . --target build-deb
+          cmake --build . --target build-deb-gui
+      - name: Upload deb
+        if: github.event_name == 'release'
+        uses: AButler/upload-release-assets@v3.0
+        with:
+          files: "fptn-*.deb"
+          repo-token: ${{ secrets.CI_TOKEN }}
+  build_macos_arm64:
+    runs-on: MacOS_ARM64
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+      - name: Set env
+        if: github.event_name == 'release'
+        run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+      - name: Print Release Version
+        if: github.event_name == 'release'
+        run: |
+          echo "Release Version: $RELEASE_VERSION"
+          echo "Release Version from env: ${{ env.RELEASE_VERSION }}"
+      - name: Update FPTN_VERSION in conanfile.py
+        if: github.event_name == 'release'
+        run: |
+          sed -i '' "s/^FPTN_VERSION = \".*\"/FPTN_VERSION = \"$RELEASE_VERSION\"/" conanfile.py
+      - name: Install dependencies
+        run: |
+          conan install . --output-folder=build --build=missing -o with_gui_client=True --settings build_type=Release -s compiler.cppstd=17
+      - name: Build
+        run: |
+          cd build
+          cmake .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release
+          cmake --build .
+      - name: Test
+        run: |
+          cd build
+          ctest
       - name: Build MacOS pkg
-        if: runner.os == 'MacOS'
         run: |
           cd build
           cmake --build . --target build-pkg
-
       - name: Upload macOS pkg
-        if: runner.os == 'MacOS' && github.event_name == 'release'
+        if: github.event_name == 'release'
         uses: AButler/upload-release-assets@v3.0
         with:
           files: "*.pkg"
