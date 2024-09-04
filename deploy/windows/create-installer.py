@@ -244,6 +244,6 @@ if __name__ == "__main__":
     arch = "arm64" if is_arm_64() else "x64_x86"
     output_file = (
         pathlib.Path(args.output_folder)
-        / f"FptnClientInstaller-{args.version}-{arch}.exe"
+        / f"FptnClientInstaller-{args.version}-windows-{arch}.exe"
     )
     shutil.copy(INSTALLER_DIR / "Output" / "FptnClientInstaller.exe", output_file)
