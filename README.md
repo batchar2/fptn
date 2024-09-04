@@ -353,32 +353,12 @@ Options:
 
 
 <details>
-  <summary>Start the client</summary>  
-
-To start the client, use the following command:
-
-```
-fptn-client --out-network-interface=en0  --vpn-server-ip="SERVERIP" --vpn-server-port=443 --username=USERNAME --password=PASSWORD
-```
-
-Options:
--  `--vpn-server-ip`: The IP address of the VPN server you want to connect to. Example: "170.64.148.142".
--  `--out-network-interface`: The network interface to use for outbound traffic. Example: en0 (typically used for Ethernet or Wi-Fi on macOS).
--  `--username`: The username for VPN authentication. Example: user10.
--  `--password`: The password for VPN authentication. Example: user10.
-
-</details>
-
-
-<details>
   <summary>Using CLion IDE</summary>
   
 Run the following command in the project folder:
 
 ```
 conan install . --output-folder=cmake-build-debug --build=missing -s compiler.cppstd=17 -o with_gui_client=True --settings build_type=Debug
-cd cmake-build-debug/
-cmake .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Debug
 ```
 
 Open the project in CLion. After opening the project, the "Open Project Wizard" will appear automatically. You need to add the following CMake option:

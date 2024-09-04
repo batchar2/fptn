@@ -11,3 +11,4 @@ libhv.*
 cmake-build-debug
 build/
 build-*/
+conan_provider.cmake

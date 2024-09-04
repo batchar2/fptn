@@ -35,6 +35,7 @@ namespace fptn::gui
     private:
         void setupUi();
         void openEditDialog(int row);
+        QString sanitizeString(const QString& input) const noexcept;
 
         SettingsModel *model_;
         QTabWidget *tabWidget;

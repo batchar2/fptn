@@ -179,12 +179,12 @@ void SettingsWidget::saveServer()
         int newRow = serverTable->rowCount();
         serverTable->insertRow(newRow);
 
-        serverTable->setItem(newRow, 0, new QTableWidgetItem(addressLineEdit->text()));
-        serverTable->setItem(newRow, 1, new QTableWidgetItem(portLineEdit->text()));
-        serverTable->setItem(newRow, 2, new QTableWidgetItem(userLineEdit->text()));
+        serverTable->setItem(newRow, 0, new QTableWidgetItem(sanitizeString(addressLineEdit->text())));
+        serverTable->setItem(newRow, 1, new QTableWidgetItem(sanitizeString(portLineEdit->text())));
+        serverTable->setItem(newRow, 2, new QTableWidgetItem(sanitizeString(userLineEdit->text())));
 
         QTableWidgetItem *passwordItem = new QTableWidgetItem();
-        passwordItem->setData(Qt::UserRole, passwordLineEdit->text());
+        passwordItem->setData(Qt::UserRole, sanitizeString(passwordLineEdit->text()));
         serverTable->setItem(newRow, 3, passwordItem);
 
         QPushButton *deleteButton = new QPushButton("Delete", this);
@@ -197,12 +197,12 @@ void SettingsWidget::saveServer()
         buttonLayout->addWidget(deleteButton);
         serverTable->setCellWidget(newRow, 3, buttonContainer);
     } else {
-        serverTable->item(editingRow, 0)->setText(addressLineEdit->text());
-        serverTable->item(editingRow, 1)->setText(portLineEdit->text());
-        serverTable->item(editingRow, 2)->setText(userLineEdit->text());
+        serverTable->item(editingRow, 0)->setText(sanitizeString(addressLineEdit->text()));
+        serverTable->item(editingRow, 1)->setText(sanitizeString(portLineEdit->text()));
+        serverTable->item(editingRow, 2)->setText(sanitizeString(userLineEdit->text()));
 
         QTableWidgetItem *passwordItem = serverTable->item(editingRow, 3);
-        passwordItem->setData(Qt::UserRole, passwordLineEdit->text());
+        passwordItem->setData(Qt::UserRole, sanitizeString(passwordLineEdit->text()));
     }
     editDialog->accept();
 }
@@ -220,6 +220,7 @@ void SettingsWidget::onItemDoubleClicked(QTableWidgetItem *item)
 void SettingsWidget::openEditDialog(int row)
 {
     editDialog = new QDialog(this);
+    editDialog->setFixedWidth(300);
     editDialog->setWindowTitle(row == -1 ? "Add Server" : "Edit Server");
 
     QGridLayout *gridLayout = new QGridLayout(editDialog);
@@ -267,4 +268,15 @@ void SettingsWidget::removeServer(int row)
         serverTable->removeRow(row);
         QMessageBox::information(this, "Delete Successful", "Server has been successfully deleted.");
     }
+}
+
+QString SettingsWidget::sanitizeString(const QString& input) const noexcept
+{
+    QString sanitized = input;
+    sanitized.remove("http://");
+    sanitized.remove("https://");
+    sanitized.remove(' ');
+    sanitized.remove('/');
+    sanitized.remove('\\');
+    return sanitized;
 }

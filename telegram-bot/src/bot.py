@@ -71,7 +71,7 @@ class UserManager:
                 file.write(f"{username} {hashed_password} {MAX_USER_SPEED_LIMIT}\n")  # Default balance
 
     def register_user(self, user_id: int) -> (str, str):
-        username = f"user_{user_id}"
+        username = f"user{user_id}"
         with self.user_data_lock:
             users = self.load_users()
 
@@ -89,7 +89,7 @@ class UserManager:
                 return username, password
 
     def reset_password(self, user_id: int) -> (str, str):
-        username = f"user_{user_id}"
+        username = f"user{user_id}"
         with self.user_data_lock:
             users = self.load_users()
             if username in users:
