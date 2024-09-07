@@ -2,7 +2,28 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <link rel="icon" type="image/x-icon" href="images/favicon.ico">
+    <meta property="og:type" content="website"/>
+    <title data-rh="true">FPTN VPN Client</title>
+    <meta data-rh="true" name="description" content="FPTN is a VPN service specifically designed to bypass censorship. It’s free."/>
+    <meta data-rh="true" name="keywords" content="FPTN, VPN, OpenSource, bypass censorship, FPTN PROJECT, ВПН, Роскомнадзор очко, ютюб"/>
+    <meta data-rh="true" property="og:site_name" content="batchar2.github.io"/>
+    <meta data-rh="true" property="og:title" content="FPTN Project"/>
+    <meta data-rh="true" property="og:url" content="https://batchar2.github.io/fptn/"/>
+    <meta data-rh="true" property="og:locale" content="en_EN"/>
+    <meta data-rh="true" property="al:web:should_fallback" content="true"/>
+    <meta data-rh="true" name="twitter:title" content="FPTN Project"/>
+    <meta data-rh="true" property="al:android:package" content="io.meduza.android"/>
+    <meta data-rh="true" property="og:image" content="https://batchar2.github.io/fptn/images/fptn.png"/>
+    <meta data-rh="true" property="og:image:width" content="1200"/>
+    <meta data-rh="true" property="og:image:height" content="630"/>
+    <meta data-rh="true" name="twitter:image" content="https://batchar2.github.io/fptn/images/fptn.png"/>
+    <meta data-rh="true" property="vk:image" content="https://batchar2.github.io/fptn/images/fptn.png"/>
+    <link data-rh="true" rel="canonical" href="https://batchar2.github.io/fptn"/>
+    <link data-rh="true" rel="icon" type="image/png" href="https://batchar2.github.io/fptn/images/favicon-32x32.png" sizes="32x32"/>
+    <link data-rh="true" rel="image_src" href="https://batchar2.github.io/fptn/images/fptn.png"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     <title>FPTN Project</title>
     <style>
@@ -13,92 +34,72 @@
             font-family: Arial, sans-serif;
             margin: 0;
             padding: 0;
-            /*background-color: #f9f9f9;*/
             color: #333;
             position: relative;
         }
-
         p {
-            font-size: 18px;
+            font-size: 20px;
+            text-align: justify;
         }
-
-        .sidebar {
-        }
-
+        .sidebar {}
         .logo {
             width: 100px;
             margin-bottom: 20px;
         }
-
         .version-info {
-            font-size: 18px;
+            font-size: 20px;
             color: #666;
             margin-bottom: 20px;
         }
-
         .nav-links a {
             display: block;
             margin-bottom: 10px;
             color: var(--blue);
             text-decoration: none;
-            font-size: 16px;
+            font-size: 20px;
         }
-
         .nav-links a:hover {
             text-decoration: underline;
         }
-
         .content {
             flex: 1;
-            /*background-color: #fff;*/
             padding: 20px;
             border-radius: 8px;
-            /*box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);*/
         }
-
         h1 {
-            font-size: 28px;
+            font-size: 30px;
             margin-bottom: 20px;
             font-weight: 300;
         }
-
         .tabs {
             display: flex;
             margin-bottom: 20px;
         }
-
         .tablink {
-            /*flex: 1;*/
             padding: 10px;
-            /*background-color: #f1f1f1;*/
             border: 0;
             border-bottom: 1px solid rgba(25,25,28,.4);
             cursor: pointer;
             text-align: center;
             color: rgba(25,25,28,.4);
-            font-size: 16px;
+            font-size: 20px;
             background-color: white;
             margin-right: 32px;
             transition: all 0.3s ease;
         }
-
         .tablink.active {
             border-bottom: 1px solid #19191c;
             color: #19191c;
         }
-
         .download {
-            /*display: flex;*/
             align-items: center;
             margin-bottom: 32px;
             display: none;
         }
-
         .download.active {
             display: flex;
             flex-direction: column;
         }
-
         .download-button {
             padding: 10px 20px;
             background-color: var(--blue);
@@ -108,18 +109,11 @@
             cursor: pointer;
             margin-right: 10px;
         }
-
         .dropdown {
             position: relative;
             display: inline-block;
         }
-
         .dropdown-button {
-            /*padding: 10px 20px;*/
-            /*background-color: #f1f1f1;*/
-            /*color: #333;*/
-            /*border: 1px solid #ccc;*/
-            /*border-radius: 4px;*/
             cursor: pointer;
             padding: 8px 24px;
             border-width: 0;
@@ -127,7 +121,6 @@
             border-radius: 24px;
             color: white;
         }
-
         .dropdown-content {
             display: none;
             position: absolute;
@@ -135,70 +128,60 @@
             box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
             border-radius: 4px;
             z-index: 1;
-            min-width: 240px;
+            min-width: 190px;
             top: 27px;
         }
-
         .dropdown-content a {
             color: #333;
             padding: 10px 15px;
             text-decoration: none;
             display: block;
         }
-
         .dropdown-content a:hover {
             background-color: #ddd;
         }
-
         .dropdown:hover .dropdown-content {
             display: block;
         }
-
         .toolbox-ad {
             padding: 15px;
             background-color: #f9f9f9;
             border: 1px solid #ccc;
             border-radius: 4px;
             text-align: justify;
-            font-size: 16px;
+            font-size: 20px;
             color: #333;
             margin-bottom: 74px;
         }
-
-
         .toolbox-ad p{
             margin: 0;
             padding: 0;
             margin-bottom: 12px;
         }
-
         .toolbox-ad img{
             margin-bottom: 12px;
         }
-
         .wrapper {
             display: flex;
             gap: 32px;
+            justify-content: space-between;
         }
         .item {
             display: flex;
             flex-direction: column;
             align-items: center;
         }
-
         .logo-svg {
             margin-right: 12px;
         }
         .gth-svg path{
             fill: white;
         }
-
         .center-flex {
             display: flex;
             align-items: center;
             justify-content: center;
         }
-
         .top-margin {
             margin-top: 32px;
         }
@@ -211,18 +194,34 @@
             line-height: 60px;
             background-color: rgb(33, 37, 41);
         }
-
         .white {
             color: white!important;
         }
-
         .center {
             text-align: center;
         }
-
         .img-center {
             margin-left: auto;
             margin-right: auto;
+            display: block;
+        }
+        @media (max-width: 768px) {
+            .wrapper {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+        .language-ru {
+            display: none;
+        }
+        .language-en {
+            display: none;
+        }
+
+        .language-ru.active {
+            display: block;
+        }
+        .language-en.active {
             display: block;
         }
     </style>
@@ -231,17 +230,37 @@
 <header>
     <nav class="navbar navbar-expand-md navbar-dark bg-dark">
         <div class="container">
-            <div class="col col-lg-2 center-flex">
-                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="38" viewBox="0 0 40 38" fill="none">
-                    <path d="M25.1094 10.4316L24.5507 10.52L25.1085 10.4295C25.0525 10.1815 24.9574 10.1325 24.9174 10.0837C24.749 9.95077 24.6976 9.94925 24.5746 9.88869C23.814 9.56378 21.4048 8.74772 19.0696 7.581C17.5931 6.84215 16.1281 5.97915 14.9999 5.2948C14.4345 4.95384 13.9534 4.65497 13.5909 4.43756C13.408 4.32855 13.2575 4.24013 13.1315 4.1726C13.0231 4.12112 12.981 4.08267 12.8642 4.04512C12.7857 4.01453 12.7082 4 12.6352 4C12.5568 4 12.4793 4.01453 12.4063 4.04512C12.2897 4.08297 12.2483 4.12112 12.1398 4.1726C11.308 4.6259 8.79746 6.28377 6.2027 7.581C4.83068 8.26625 3.41869 8.83644 2.34403 9.25098C1.80564 9.4584 1.35537 9.62586 1.02803 9.75576C0.863001 9.81935 0.731582 9.87325 0.624086 9.9217C0.570186 9.94623 0.522645 9.96863 0.464204 10.0032C0.43574 10.0216 0.404248 10.0407 0.355193 10.0846C0.313708 10.1331 0.21681 10.183 0.163213 10.4319C0.0505688 11.1229 0 11.8267 0 12.5416C0.00757018 17.4419 2.40308 22.7426 5.11775 26.8632C6.47826 28.9219 7.92174 30.6816 9.21473 31.9455C9.86395 32.5759 10.4723 33.0855 11.0301 33.4504C11.5924 33.8068 12.0908 34.0451 12.628 34.0533H12.6355H12.6455C13.6948 34.0088 14.7619 33.1985 16.0833 31.9485C19.9526 28.1561 25.2447 19.8962 25.2726 12.5537C25.2723 11.8348 25.219 11.126 25.1094 10.4316ZM19.2334 26.2433C17.9174 28.24 16.5154 29.9476 15.2933 31.1367C14.0972 32.3376 12.9686 32.9665 12.6452 32.9205V32.9238H12.6277V32.9205C12.4923 32.9305 12.1105 32.8076 11.6475 32.4987C9.98658 31.4319 7.29311 28.4126 5.09322 24.6878C2.87909 20.9596 1.12705 16.502 1.1322 12.5416C1.1322 11.9787 1.16762 11.427 1.23969 10.8877C1.99792 10.5782 4.40766 9.74304 6.709 8.59238C8.23151 7.83021 9.7189 6.95358 10.8596 6.26409C11.4289 5.91828 11.9121 5.61972 12.264 5.40987C12.4145 5.31842 12.5414 5.24393 12.6364 5.19094C13.3998 5.61578 15.9598 7.29121 18.563 8.59268C19.9865 9.30488 21.4309 9.88869 22.5183 10.3087C23.063 10.5176 23.5187 10.6872 23.8312 10.8095C23.9063 10.838 23.9733 10.8655 24.0302 10.888C24.1038 11.4318 24.1374 11.9871 24.1374 12.554C24.1477 17.081 21.869 22.2517 19.2334 26.2433ZM17.9698 9.46204C15.3808 8.16905 12.8751 6.4591 12.6416 6.42821V6.42609C12.6401 6.42609 12.6371 6.42609 12.6371 6.42609C12.6365 6.42609 12.6325 6.42609 12.6325 6.42609V6.42821C12.3975 6.4591 9.89241 8.16905 7.30432 9.46204C4.88913 10.6696 2.37401 11.4524 2.35554 11.5629C1.80231 15.0198 3.11074 19.0368 4.97967 22.5636L18.0458 9.49959C18.0204 9.48747 17.9952 9.47597 17.9698 9.46204ZM21.9829 11.169L7.09811 26.0544C9.35674 29.3353 11.7365 31.6275 12.6292 31.6275C12.6316 31.6275 12.6337 31.6275 12.6368 31.6275C12.6392 31.6275 12.6413 31.6275 12.6437 31.6275C14.6447 31.6275 24.2612 19.9425 22.9174 11.5629C22.9107 11.5223 22.5543 11.3858 21.9829 11.169Z" fill="white"/>
-                </svg>
-                <a class="navbar-brand" href="/">Free VPN</a>
+            <div class="col col-lg-2 center-flex me-auto">
+                <a class="navbar-brand" href="/">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="38" viewBox="0 0 40 38" fill="none">
+                        <path d="M25.1094 10.4316L24.5507 10.52L25.1085 10.4295C25.0525 10.1815 24.9574 10.1325 24.9174 10.0837C24.749 9.95077 24.6976 9.94925 24.5746 9.88869C23.814 9.56378 21.4048 8.74772 19.0696 7.581C17.5931 6.84215 16.1281 5.97915 14.9999 5.2948C14.4345 4.95384 13.9534 4.65497 13.5909 4.43756C13.408 4.32855 13.2575 4.24013 13.1315 4.1726C13.0231 4.12112 12.981 4.08267 12.8642 4.04512C12.7857 4.01453 12.7082 4 12.6352 4C12.5568 4 12.4793 4.01453 12.4063 4.04512C12.2897 4.08297 12.2483 4.12112 12.1398 4.1726C11.308 4.6259 8.79746 6.28377 6.2027 7.581C4.83068 8.26625 3.41869 8.83644 2.34403 9.25098C1.80564 9.4584 1.35537 9.62586 1.02803 9.75576C0.863001 9.81935 0.731582 9.87325 0.624086 9.9217C0.570186 9.94623 0.522645 9.96863 0.464204 10.0032C0.43574 10.0216 0.404248 10.0407 0.355193 10.0846C0.313708 10.1331 0.21681 10.183 0.163213 10.4319C0.0505688 11.1229 0 11.8267 0 12.5416C0.00757018 17.4419 2.40308 22.7426 5.11775 26.8632C6.47826 28.9219 7.92174 30.6816 9.21473 31.9455C9.86395 32.5759 10.4723 33.0855 11.0301 33.4504C11.5924 33.8068 12.0908 34.0451 12.628 34.0533H12.6355H12.6455C13.6948 34.0088 14.7619 33.1985 16.0833 31.9485C19.9526 28.1561 25.2447 19.8962 25.2726 12.5537C25.2723 11.8348 25.219 11.126 25.1094 10.4316ZM19.2334 26.2433C17.9174 28.24 16.5154 29.9476 15.2933 31.1367C14.0972 32.3376 12.9686 32.9665 12.6452 32.9205V32.9238H12.6277V32.9205C12.4923 32.9305 12.1105 32.8076 11.6475 32.4987C9.98658 31.4319 7.29311 28.4126 5.09322 24.6878C2.87909 20.9596 1.12705 16.502 1.1322 12.5416C1.1322 11.9787 1.16762 11.427 1.23969 10.8877C1.99792 10.5782 4.40766 9.74304 6.709 8.59238C8.23151 7.83021 9.7189 6.95358 10.8596 6.26409C11.4289 5.91828 11.9121 5.61972 12.264 5.40987C12.4145 5.31842 12.5414 5.24393 12.6364 5.19094C13.3998 5.61578 15.9598 7.29121 18.563 8.59268C19.9865 9.30488 21.4309 9.88869 22.5183 10.3087C23.063 10.5176 23.5187 10.6872 23.8312 10.8095C23.9063 10.838 23.9733 10.8655 24.0302 10.888C24.1038 11.4318 24.1374 11.9871 24.1374 12.554C24.1477 17.081 21.869 22.2517 19.2334 26.2433ZM17.9698 9.46204C15.3808 8.16905 12.8751 6.4591 12.6416 6.42821V6.42609C12.6401 6.42609 12.6371 6.42609 12.6371 6.42609C12.6365 6.42609 12.6325 6.42609 12.6325 6.42609V6.42821C12.3975 6.4591 9.89241 8.16905 7.30432 9.46204C4.88913 10.6696 2.37401 11.4524 2.35554 11.5629C1.80231 15.0198 3.11074 19.0368 4.97967 22.5636L18.0458 9.49959C18.0204 9.48747 17.9952 9.47597 17.9698 9.46204ZM21.9829 11.169L7.09811 26.0544C9.35674 29.3353 11.7365 31.6275 12.6292 31.6275C12.6316 31.6275 12.6337 31.6275 12.6368 31.6275C12.6392 31.6275 12.6413 31.6275 12.6437 31.6275C14.6447 31.6275 24.2612 19.9425 22.9174 11.5629C22.9107 11.5223 22.5543 11.3858 21.9829 11.169Z" fill="white"/>
+                    </svg>
+                    FPTN Project
+                </a>
             </div>
-            <div class="col col-lg-2 center-flex" onclick="window.open('https://github.com/batchar2/fptn', '_blank').focus()">
-                <a class="navbar-brand" href="https://github.com/batchar2/fptn" target="_blank">Github</a>
-                <svg class="gth-svg" height="32" aria-hidden="true" viewBox="0 0 24 24" width="32" data-view-component="true" class="octicon octicon-mark-github">
-                    <path d="M12.5.75C6.146.75 1 5.896 1 12.25c0 5.089 3.292 9.387 7.863 10.91.575.101.79-.244.79-.546 0-.273-.014-1.178-.014-2.142-2.889.532-3.636-.704-3.866-1.35-.13-.331-.69-1.352-1.18-1.625-.402-.216-.977-.748-.014-.762.906-.014 1.553.834 1.769 1.179 1.035 1.74 2.688 1.25 3.349.948.1-.747.402-1.25.733-1.538-2.559-.287-5.232-1.279-5.232-5.678 0-1.25.445-2.285 1.178-3.09-.115-.288-.517-1.467.115-3.048 0 0 .963-.302 3.163 1.179.92-.259 1.897-.388 2.875-.388.977 0 1.955.13 2.875.388 2.2-1.495 3.162-1.179 3.162-1.179.633 1.581.23 2.76.115 3.048.733.805 1.179 1.825 1.179 3.09 0 4.413-2.688 5.39-5.247 5.678.417.36.776 1.05.776 2.128 0 1.538-.014 2.774-.014 3.162 0 .302.216.662.79.547C20.709 21.637 24 17.324 24 12.25 24 5.896 18.854.75 12.5.75Z"></path>
-                </svg>
+            <div class="col center-flex col-lg-1">
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavDarkDropdown" aria-controls="navbarNavDarkDropdown" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarNavDarkDropdown">
+                    <ul class="navbar-nav">
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="navbarDarkDropdownMenuLink" role="button" data-bs-toggle="dropdown" aria-expanded="false"></a>
+                            <ul class="dropdown-menu dropdown-menu-dark" aria-labelledby="navbarDarkDropdownMenuLink">
+                                <li><a class="dropdown-item" href="#" onclick="editLan('en')">English</a></li>
+                                <li><a class="dropdown-item" href="#" onclick="editLan('ru')">Русский</a></li>
+                            </ul>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="col col-lg-1 center-flex" onclick="window.open('https://github.com/batchar2/fptn', '_blank').focus()">
+                <a class="navbar-brand" href="https://github.com/batchar2/fptn" target="_blank">
+                    Github
+                    <svg class="gth-svg" height="32" aria-hidden="true" viewBox="0 0 24 24" width="32" data-view-component="true" class="octicon octicon-mark-github">
+                        <path d="M12.5.75C6.146.75 1 5.896 1 12.25c0 5.089 3.292 9.387 7.863 10.91.575.101.79-.244.79-.546 0-.273-.014-1.178-.014-2.142-2.889.532-3.636-.704-3.866-1.35-.13-.331-.69-1.352-1.18-1.625-.402-.216-.977-.748-.014-.762.906-.014 1.553.834 1.769 1.179 1.035 1.74 2.688 1.25 3.349.948.1-.747.402-1.25.733-1.538-2.559-.287-5.232-1.279-5.232-5.678 0-1.25.445-2.285 1.178-3.09-.115-.288-.517-1.467.115-3.048 0 0 .963-.302 3.163 1.179.92-.259 1.897-.388 2.875-.388.977 0 1.955.13 2.875.388 2.2-1.495 3.162-1.179 3.162-1.179.633 1.581.23 2.76.115 3.048.733.805 1.179 1.825 1.179 3.09 0 4.413-2.688 5.39-5.247 5.678.417.36.776 1.05.776 2.128 0 1.538-.014 2.774-.014 3.162 0 .302.216.662.79.547C20.709 21.637 24 17.324 24 12.25 24 5.896 18.854.75 12.5.75Z"></path>
+                    </svg>
+                </a>
             </div>
         </div>
     </nav>
@@ -250,100 +269,206 @@
     <div class="row">
         <div class="col col-lg-3">
             <aside class="sidebar">
-                <img src="./comp.png" alt="">
+                <img src="images/fptn.png" alt="" width="300">
                 <div class="version-info">
                     <p>Version: <span id="version">2024.2.0.1</span></p>
-<!--                    <p>Version: 2024.2.0.1</p>-->
                 </div>
                 <nav class="nav-links">
-                    <a href="/" onclick="downloadUrl('notes')">Release notes</a>
+                    <a href="/" onclick="downloadUrl('notes')">
+                        <span class="language-en">Release notes</span>
+                        <span class="language-ru">Описание релиза</span>
+                    </a>
                 </nav>
             </aside>
         </div>
         <div class="col col-9">
             <main class="content">
-                <div>
+                <div class="language-en">
+                    <h1>FPTN Project</h1>
+
+                    </br>
+
                     <p>
-                        <h3>FPTN - Fight for Free Internet!</h3>
-                        A secure and easy-to-use VPN client for accessing free internet.
-                        Quickly connect to your VPN server, manage settings from the system tray,
-                        and enjoy safe browsing with just a few clicks.
+                        FPTN is a VPN service specifically designed to bypass censorship.
+                        Initially launched as a research project, FPTN actively helps people gain access to a free internet.
+                    </p>
+
+                    </br>
+
+                    <p>
+                        Download the client and use the <a _blank="true" href="https://t.me/fptn_bot">Telegram bot</a> to gain access. It’s free.
+                    </p>
+
+                    </br>
+
+                    <p>
+                        FPTN works through the HTTPS protocol, effectively masking traffic and allowing you to bypass censorship restrictions.
+                        The entire project source code, including the Telegram bot code, is available on <a _blank="true" href="https://github.com/batchar2/fptn">Github</a>.
                     </p>
                 </div>
-                <h1>Download fptn</h1>
+
+                <div class="language-ru">
+                    <h1>FPTN Project</h1>
+
+                    </br>
+
+                    <p>
+                        FPTN — это VPN-сервис, специально разработанный для обхода цензуры.
+                        Изначально запущенный как исследовательский проект, FPTN активно помогает людям получать доступ к свободному интернету.
+                    </p>
+
+                    </br>
+
+                    <p>
+                        Скачайте клиент и воспользуйтесь <a _blank="true" href="https://t.me/fptn_bot">телеграм ботом</a> для получения доступа. Это бесплатно.
+                    </p>
+
+                    </br>
+
+                    <p>
+                        FPTN работает через протокол HTTPS, эффективно маскируя трафик и позволяя обходить ограничения цензуры.
+                        Весь исходный код проекта, включая код телеграм-бота, доступен на <a _blank="true" href="https://github.com/batchar2/fptn">Github</a>
+                    </p>
+                </div>
+
+                <br/>
+
+                <div class="language-en">
+                    <h1>Download FPTN</h1>
+                </div>
+                <div class="language-en">
+                    <h1 class="language-ru">Скачать FPTN</h1>
+                </div>
+
                 <div class="tabs">
                     <button class="tablink active" onclick="openTab('win')">Windows</button>
                     <button class="tablink" onclick="openTab('macos')">MacOS</button>
                     <button class="tablink" onclick="openTab('linux')">Linux</button>
                 </div>
                 <div class="download macos">
-                    <p>Download MacOS client</p>
-                    <br>
+                    <p>
+                        <span class="language-en">
+                            Download the macOS client and follow <a _blank="true" href="https://github.com/batchar2/fptn/blob/master/docs/macos/README.md">the installation guide</a>.
+                        </span>
+                        <span class="language-ru">
+                            При установке клиента на MacOS вам может понадобиться более детальная <a _blank="true" href="https://github.com/batchar2/fptn/blob/master/docs/macos/README.md">инструкция</a>. Это же Mac :)
+                        </span>
+                    </p>
                     <div class="dropdown">
                         <a class="dropdown-button download_2" onclick="downloadUrl('macos')">.dmg (Apple Silicon)</a>
-        <!--                <div class="dropdown-content">-->
-        <!--                    <a href="#" onclick="downloadUrl('client')">.tar.gz (Linux)</a>-->
-        <!--                    <a href="#" onclick="downloadUrl('server')">.tar.gz (Arch)</a>-->
-        <!--                </div>-->
                     </div>
                 </div>
                 <div class="download linux">
                     <div class="wrapper">
                         <div class="item">
-                            <p>Download client</p>
-                            <br>
+
+                            <p>
+                                <span class="language-en">Download Linux client</span>
+                                <span class="language-ru">Скачать Linux клиент</span>
+                            </p>
                             <div class="dropdown">
                                 <a class="dropdown-button download_2" onclick="downloadUrl('linux_l_server')">.deb (Linux amd)</a>
                                 <div class="dropdown-content">
-                                    <a href="#" onclick="downloadUrl('linux_l_server')">.deb (Linux x86_64)</a>
-                                    <a href="#" onclick="downloadUrl('linux_a_server')">.deb (Linux ARM)</a>
+                                    <a href="#" onclick="downloadUrl('linux_l_server')">.deb (x86_64)</a>
+                                    <a href="#" onclick="downloadUrl('linux_a_server')">.deb (ARM64)</a>
                                 </div>
                             </div>
                         </div>
                         <div class="item">
-                            <p>Download server</p>
-                            <br>
+                            <p>
+                                <span class="language-en">Commandline tools</span>
+                                <span class="language-ru">Серверные инструменты</span>
+                            </p>
                             <div class="dropdown">
                                 <a class="dropdown-button download_2" onclick="downloadUrl('linux_l_client')">.deb (Linux amd)</a>
                                 <div class="dropdown-content">
-                                    <a href="#" onclick="downloadUrl('linux_l_client')">Server .deb (Linux x86_64)</a>
-                                    <a href="#" onclick="downloadUrl('linux_a_client')">Server .deb (Linux ARM)</a>
-                                    <a href="#" onclick="downloadUrl('linux_l_client_cli')">Client (command line) .deb (Linux x86_64)</a>
-                                    <a href="#" onclick="downloadUrl('linux_a_client_cli')">Client (command line) .deb (Linux CLI ARM)</a>
+                                    <a href="#" onclick="downloadUrl('linux_l_client')">Server .deb (x86_64)</a>
+                                    <a href="#" onclick="downloadUrl('linux_a_client')">Server .deb (ARM)</a>
+                                    <a href="#" onclick="downloadUrl('linux_l_client_cli')">Client .deb (x86_64)</a>
+                                    <a href="#" onclick="downloadUrl('linux_a_client_cli')">Client .deb (ARM64)</a>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
                 <div class="download active win">
-                    <p>Download Windows client</p>
-                    <br>
+                    <p>
+                        <span class="language-en">Download Windows client</span>
+                        <span class="language-ru">Скачать Windows клиент</span>
+                    </p>
+
                     <div class="dropdown">
-                        <a class="dropdown-button download_2" onclick="downloadUrl('w_client')">.exe (Windows)</a>
-                        <!--                <div class="dropdown-content">-->
-                        <!--                    <a href="#" onclick="download('client')">.tar.gz (Linux)</a>-->
-                        <!--                    <a href="#" onclick="download('server')">.tar.gz (Arch)</a>-->
-                        <!--                </div>-->
+                        <a class="dropdown-button download_2" onclick="downloadUrl('w_client')">.exe (x86_64)</a>
                     </div>
                 </div>
-                <div class="toolbox-ad">
-                    <p>
-                        After installing the FPTN client, you can find its icon in the system tray.
-                        The tray icon provides quick access to all essential features of the VPN client.
-                        Simply click on the icon to open the context menu, where you can access the settings, add or manage servers, and connect or disconnect from the VPN server with ease.
-
-                        </p><img class="img-center" src="client.png" alt="Application" height="200"/>
-
+                <div>
+                    <div class="toolbox-ad language-ru">
                         <p>
-                            Registering for access to free internet through FPTN is very simple!
-                            Use our Telegram <a blank=True href="https://t.me/fptn_bot">@fptn_bot</a>,
-                            which will quickly provide you with server information as well as a login and password for free internet access.
+                            После установки клиента FPTN вы можете найти его значок в системном трее,
+                            Просто щелкните на значок, чтобы открыть контекстное меню, где вы можете получить доступ к настройкам,
+                            а также подключаться или отключаться от VPN-сервера.
                         </p>
 
-                        <p>Right-click on this icon to open a context menu where you can access the settings. In the settings window, you can configure the client by adding a new server.
+                            <img class="img-center" src="images/client.png" alt="Application" height="220"/>
 
-                        </p><img style="width: 100%" src="settings.png" alt="Settings"/>
-                    </p>
+                        <p>
+                            Регистрация для доступа к свободному интернету через FPTN очень проста!
+                            Используйте наш Telegram <a _blank="true" href="https://t.me/fptn_bot">@fptn_bot</a>,
+                            который быстро предоставит вам параметры для доступа в интернет.
+                        </p>
+
+                        <p>
+                            В окне настроек сохраните настройки, добавив новый сервер.
+                        </p>
+
+                        <img style="width: 100%" src="images/settings.png" alt="Settings"/>
+
+                        <p>
+                            Легко использовать
+                        </p>
+
+                        <img class="img-center" src="images/running-client.png" alt="Settings" height="220"/>
+
+                        <p>
+                            А еще, ты можешь легко превратить свою RaspberryPi/OrangePi в WiFi-точку доступа и установить на неё FPTN-клиент.
+                            В этом случае все устройства, подключённые к WiFi, получат доступ к интернету, обходя любые ограничения.
+                            <a _blank="true" href="https://github.com/batchar2/fptn/blob/master/deploy/linux/wifi/README.ru.md">Читай тут</a>
+                        </p>
+
+                        <img style="width: 100%" src="images/orangepi.jpg" alt="Settings"/>
+
+                    </div>
+
+                    <div class="toolbox-ad language-en">
+                        <p>
+                            After installing the FPTN client, you can find its icon in the system tray. Simply click on the icon to open the context menu, where you can access the settings and connect or disconnect from the VPN server.
+                        </p>
+
+                        <img class="img-center" src="images/client.png" alt="Application" height="220"/>
+
+                        <p>
+                            Registering for access to free internet through FPTN is very simple! Use our Telegram <a _blank="true" href="https://t.me/fptn_bot">@fptn_bot</a>, which will quickly provide you with the parameters for internet access.
+                        </p>
+
+                        <p>
+                            In the settings window, save the settings by adding a new server.
+                        </p>
+
+                        <img style="width: 100%" src="images/settings.png" alt="Settings"/>
+
+                        <p>
+                            Easy to use.
+                        </p>
+
+                        <img class="img-center" src="images/running-client.png" alt="Settings" height="220"/>
+
+                        <p>
+                            Additionally, you can easily turn your RaspberryPi/OrangePi into a WiFi access point and install the FPTN client on it. In this case, all devices connected to the WiFi will gain internet access, bypassing any restrictions.
+                            <a _blank="true" href="https://github.com/batchar2/fptn/blob/master/deploy/linux/wifi/README.md">Read more here</a>
+                        </p>
+
+                        <img style="width: 100%" src="images/orangepi.jpg" alt="Settings"/>
+                    </div>
                 </div>
             </main>
         </div>
@@ -367,11 +492,8 @@
   fetch(`https://api.github.com/repos/${owner}/${repo}/releases/latest`)
     .then(response => response.json())
     .then(data => {
-      console.log(data)
       const releaseInfo = document.getElementById('version');
-
       releaseInfo.innerHTML = data.tag_name;
-
       tag_name = data.tag_name
     })
     .catch(error => {
@@ -425,6 +547,39 @@
     window.open(url, '_blank').focus();
   }
 
+  let language = window.navigator.language;
+  let languageFistTwo = language.substr(0,2);
+  let lanDiv = document.querySelector('.dropdown-toggle');
+
+  function hideBlocks(lan) {
+    if (lan === 'ru'){
+      const elements = document.querySelectorAll('.language-ru')
+      elements.forEach(elem => {
+        elem.classList.add('active')
+      })
+      const elementsA = document.querySelectorAll('.language-en')
+      elementsA.forEach(elem => {
+        elem.classList.remove('active')
+      })
+      lanDiv.textContent = 'Русский'
+    } else {
+      const elements = document.querySelectorAll('.language-en')
+      elements.forEach(elem => {
+        elem.classList.add('active')
+      })
+      const elementsA = document.querySelectorAll('.language-ru')
+      elementsA.forEach(elem => {
+        elem.classList.remove('active')
+      })
+      lanDiv.textContent = 'English'
+    }
+  }
+
+  hideBlocks(languageFistTwo)
+
+  function editLan(lan) {
+    hideBlocks(lan)
+  }
 </script>
 </body>
 </html>

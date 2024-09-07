@@ -14,13 +14,15 @@ using namespace fptn::gui;
 
 
 SettingsWidget::SettingsWidget(SettingsModel *model, QWidget *parent)
-        : QWidget(parent), model_(model), editingRow(-1) {
+        : QWidget(parent), model_(model), editingRow(-1)
+{
     setupUi();
 }
 
 
 void SettingsWidget::setupUi() {
     tabWidget = new QTabWidget(this);
+    tabWidget->setContextMenuPolicy(Qt::ActionsContextMenu);
 
     // Settings tab
     settingsTab = new QWidget();
@@ -40,11 +42,13 @@ void SettingsWidget::setupUi() {
     QLabel *interfaceLabel = new QLabel("Network Interface:                                 ", this);
     interfaceComboBox = new QComboBox(this);
     interfaceComboBox->addItems(model_->getNetworkInterfaces());
+    interfaceComboBox->setCurrentText(model_->networkInterface());
     gridLayout->addWidget(interfaceLabel, 0, 0, Qt::AlignLeft);
     gridLayout->addWidget(interfaceComboBox, 0, 1, Qt::AlignLeft);
 
     QLabel *gatewayLabel = new QLabel("Gateway IP Address (typically your router's address):", this);
     gatewayLineEdit = new QLineEdit(this);
+    gatewayLineEdit->setText(model_->gatewayIp());
     gridLayout->addWidget(gatewayLabel, 1, 0, Qt::AlignLeft);
     gridLayout->addWidget(gatewayLineEdit, 1, 1, Qt::AlignLeft);
 
@@ -118,9 +122,6 @@ void SettingsWidget::setupUi() {
         buttonLayout->addWidget(deleteButton);
         serverTable->setCellWidget(i, 3, buttonContainer);
     }
-
-    interfaceComboBox->setCurrentText(model_->networkInterface());
-    gatewayLineEdit->setText(model_->gatewayIp());
 }
 
 void SettingsWidget::saveModel() {
@@ -228,25 +229,25 @@ void SettingsWidget::openEditDialog(int row)
     gridLayout->addWidget(new QLabel("Address:"), 0, 0);
     addressLineEdit = new QLineEdit();
     addressLineEdit->setEnabled(true);
-    addressLineEdit->setContextMenuPolicy(Qt::ActionsContextMenu);
+    addressLineEdit->setContextMenuPolicy(Qt::DefaultContextMenu);
     gridLayout->addWidget(addressLineEdit, 0, 1);
 
     gridLayout->addWidget(new QLabel("Port:"), 1, 0);
     portLineEdit = new QLineEdit();
     portLineEdit->setEnabled(true);
-    portLineEdit->setContextMenuPolicy(Qt::ActionsContextMenu);
+    portLineEdit->setContextMenuPolicy(Qt::DefaultContextMenu);
     gridLayout->addWidget(portLineEdit, 1, 1);
 
     gridLayout->addWidget(new QLabel("User:"), 2, 0);
     userLineEdit = new QLineEdit();
     userLineEdit->setEnabled(true);
-    userLineEdit->setContextMenuPolicy(Qt::ActionsContextMenu);
+    userLineEdit->setContextMenuPolicy(Qt::DefaultContextMenu);
     gridLayout->addWidget(userLineEdit, 2, 1);
 
     gridLayout->addWidget(new QLabel("Password:"), 3, 0);
     passwordLineEdit = new QLineEdit();
     passwordLineEdit->setEnabled(true);
-    passwordLineEdit->setContextMenuPolicy(Qt::ActionsContextMenu);
+    passwordLineEdit->setContextMenuPolicy(Qt::DefaultContextMenu);
     gridLayout->addWidget(passwordLineEdit, 3, 1);
 
     QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Cancel);
@@ -266,7 +267,6 @@ void SettingsWidget::openEditDialog(int row)
     } else {
         editingRow = -1;
     }
-
     editDialog->exec();
 }
 

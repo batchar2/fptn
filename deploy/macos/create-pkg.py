@@ -124,15 +124,19 @@ def create_app(
             "CFBundleName": APP_NAME,
             "CFBundleExecutable": "fptn-client-gui-wrapper.sh",
             "CFBundleIdentifier": "com.fptn.vpn",
+            "CFBundlePackageType": "APPL",
             "CFBundleVersion": version,
             "CFBundleIconFile": ICON.name,
             "LSUIElement": True,
             "LSApplicationCategoryType": "public.app-category.utilities",
             "LSRequiresNativeExecution": True,
+            "NSHighResolutionCapable": True,
             "LD_LIBRARY_PATH": "@executable_path/../Frameworks",
             "RunAtLoad": True,
             "KeepAlive": True,
             "UserName": "root",
+            "NSAllowsArbitraryLoads": True,
+            "NSClipboardUsageDescription": "Requires clipboard access to copy and paste data.",
         }
 
         with open(app_contents_path / "Info.plist", "wb") as plist_file:

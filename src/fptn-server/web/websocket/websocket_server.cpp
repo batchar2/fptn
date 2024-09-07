@@ -37,7 +37,6 @@ void WebsocketServer::onOpenHandle(const WebSocketChannelPtr& channel, const Htt
 
             std::string username;
             std::size_t bandwidthBitesSeconds = 0;
-            LOG(INFO) << "VALIDATE> " << token << "  " << username << bandwidthBitesSeconds;
             if(tokenManager_->validate(token, username, bandwidthBitesSeconds)) {
                 {
                     std::unique_lock<std::mutex> lock(mutex_);

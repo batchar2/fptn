@@ -1,4 +1,4 @@
-#  FPTN 
+#  FPTN
 
 [![Ubuntu](https://img.shields.io/badge/Ubuntu-E95420?style=for-the-badge\&logo=ubuntu\&logoColor=white)](https://github.com/batchar2/fptn/releases)
 [![Mac OS](https://img.shields.io/badge/mac%20os-000000?style=for-the-badge\&logo=macos\&logoColor=F0F0F0)](https://github.com/batchar2/fptn/releases)
@@ -7,9 +7,13 @@
 
 [![Build and Test](https://github.com/batchar2/fptn/actions/workflows/main.yml/badge.svg)](https://github.com/batchar2/fptn/actions/workflows/main.yml)
 
-FPTN is a VPN service designed to bypass censorship and access blocked content, particularly in ***heavily censored environments***.
 
-FPTN operates by securely routing network traffic from your device through a VPN server to bypass censorship and access restricted content. The process involves encapsulating your traffic within a secure WebSocket tunnel, which is then processed by the VPN server. Here's a high-level overview of the workflow:
+FPTN is a VPN service specifically designed to bypass censorship.
+Initially launched as a research project, FPTN actively helps people gain access to a free internet.
+
+
+FPTN operates by securely routing network traffic from your device through a VPN server to bypass censorship and access restricted content. 
+The process involves encapsulating your traffic within a secure WebSocket tunnel, which is then processed by the VPN server. Here's a high-level overview of the workflow:
 
 ```
 +--------------------+                      +--------------------+
@@ -40,9 +44,12 @@ FPTN can be seamlessly integrated with **NGINX**, allowing you to disguise the V
 
 
 
-### Install Client
+### FPTN Client Installation and Setup
+
+*🍏🍎For MacOS users, please refer to the [macOS installation guide](docs/macos/README.md) for detailed instructions, as macOS has additional security measures that may require special steps.*
 
 Download the FPTN client from [WebSite](http://batchar2.github.io/fptn/) or [GitHub](https://github.com/batchar2/fptn/releases). After downloading, install and run the client.
+
 
 FPTN Client is a straightforward application with an interface located in the system tray. 
 Once the client is running, find the VPN client icon in the system tray.
@@ -317,49 +324,6 @@ cmake --build . --config Release --target build-installer
 
 </details>
 
-
-<details>
-  <summary>Running server</summary>
-
-1. Generate sertificate
-
-```
-mkdir keys
-cd keys
-openssl genrsa -out server.key 2048
-openssl req -new -x509 -key server.key -out server.crt -days 365
-openssl rsa -in server.key -pubout -out server.pub
-cd ..
-```
-
-2. Create users
-
-To add a new user to the VPN server with a specified bandwidth limit, use the following command:
-
-```
-sudo fptn-passwd --add-user user10 --bandwidth 30
-```
-
-Options:
-- `--add-user`: The username for the new user. Example: user10.
-- `--bandwidth`: The bandwidth limit for the user in megabits per second (Mbps). Example: 30.
-
-3. Start the Server:
-    
-To start the server, use:
-
-```
-sudo fptn-server --server-crt=keys/server.crt --server-key=keys/server.key --out-network-interface=eth0 --server-pub=keys/server.pub
-``` 
-
-Options:
-- `--server-crt`: Path to the server certificate file. Example: keys/server.crt.
-- `--server-key`: Path to the server private key file. Example: keys/server.key.
-- `--out-network-interface`: The network interface to use for outbound traffic. Example: eth0.
-- `--server-pub`: Path to the server public key file. Example: keys/server.pub.
-</details>
-
-
 <details>
   <summary>Using CLion IDE</summary>
   
@@ -376,64 +340,3 @@ Open the project in CLion. After opening the project, the "Open Project Wizard" 
 ```
 
 </details>
-
-<details>
-  <summary>MacOS</summary>
-  
-Solution: https://github.com/ntop/n2n/issues/773
-
-- Download https://github.com/Tunnelblick/Tunnelblick/tree/master/third_party/tap-notarized.kext
-- Download https://github.com/Tunnelblick/Tunnelblick/tree/master/third_party/tun-notarized.kext
-- Change the name to tap.kext and tap.kext,
-- Copy to /Library/Extensions
-- add net.tunnelblick.tap.plist and net.tunnelblick.tun.plist to /Library/LaunchDaemons/
-
-``` 
-#net.tunnelblick.tap.plist
-<?xml version="1.0" encoding="UTF-8"?>
-  <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-  <plist version="1.0">
-  <dict>
-      <key>Label</key>
-      <string>net.tunnelblick.tap</string>
-      <key>ProgramArguments</key>
-      <array>
-          <string>/sbin/kextload</string>
-          <string>/Library/Extensions/tap.kext</string>
-      </array>
-      <key>KeepAlive</key>
-      <false/>
-      <key>RunAtLoad</key>
-      <true/>
-      <key>UserName</key>
-      <string>root</string>
-  </dict>
-  </plist>
-   #net.tunnelblick.tun.plist
-  <?xml version="1.0" encoding="UTF-8"?>
-  <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-  <plist version="1.0">
-  <dict>
-      <key>Label</key>
-      <string>net.tunnelblick.tun</string>
-      <key>ProgramArguments</key>
-      <array>
-          <string>/sbin/kextload</string>
-          <string>/Library/Extensions/tun.kext</string>
-      </array>
-      <key>KeepAlive</key>
-      <false/>
-      <key>RunAtLoad</key>
-      <true/>
-      <key>UserName</key>
-      <string>root</string>
-  </dict>
-</plist>
-````
-
-Run sudo kextload /Library/Extensions/tap.kext in the terminal
-restart Mac after allowing the security check.
-
-
-</details>
-
