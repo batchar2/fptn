@@ -117,8 +117,8 @@ namespace fptn::common::network
     protected:
         NewIPPacketCallback newIPPktCallback;
     private:
-        const std::string &name_;
-        const pcpp::IPv4Address &addr_;
+        const std::string name_;
+        const pcpp::IPv4Address addr_;
         const int netmask_;
     };
 

@@ -40,7 +40,7 @@ jobs:
       - name: Test
         run: |
           cd build
-          ctest
+          ctest -C Release
       - name: Build Debian package
         run: |
           cd build
@@ -81,7 +81,7 @@ jobs:
       - name: Test
         run: |
           cd build
-          ctest
+          ctest -C Release
       - name: Build Debian package
         run: |
           cd build
@@ -122,7 +122,7 @@ jobs:
       - name: Test
         run: |
           cd build
-          ctest
+          ctest -C Release
       - name: Build MacOS pkg
         run: |
           cd build
