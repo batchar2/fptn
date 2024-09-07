@@ -1,0 +1,35 @@
+volumes:
+  fptn_grafana_data: {}
+  fptn_prometheus_data: {}
+services:
+  fptn-grafana:
+    image: grafana/grafana:11.2.0
+    restart: unless-stopped
+    ports:
+      - ${GRAFANA_PORT}:3000
+    volumes:
+      - fptn_grafana_data:/var/lib/grafana
+      - ./configs/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./configs/grafana/datasources:/etc/grafana/provisioning/datasources
+  fptn-prometheus:
+    image: prom/prometheus:v2.54.1
+    restart: unless-stopped
+    environment:
+      - FPTN_HOST_PORT=${FPTN_HOST_PORT}
+      - PROMETHEUS_SECRET_ACCESS_KEY=${PROMETHEUS_SECRET_ACCESS_KEY}
+    entrypoint:
+      - sh
+      - -c
+      - |
+        sed -e "s|FPTN_HOST_PORT|${FPTN_HOST_PORT}|g" -e "s|PROMETHEUS_SECRET_ACCESS_KEY|${PROMETHEUS_SECRET_ACCESS_KEY}|g" /etc/prometheus/prometheus.yaml.template > /etc/prometheus/prometheus.yaml
+        exec prometheus --config.file=/etc/prometheus/prometheus.yaml --storage.tsdb.retention.time=30d
+    volumes:
+      - fptn_prometheus_data:/prometheus
+      - ./configs/prometheus/prometheus.yaml.template:/etc/prometheus/prometheus.yaml.template
+  fptn-node-exporter:
+    image: prom/node-exporter:v1.8.2
+    restart: unless-stopped
+    command: '--path.rootfs=/host'
+    pid: host
+    volumes:
+      - /:/host:ro,rslave

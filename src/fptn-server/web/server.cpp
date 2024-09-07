@@ -8,17 +8,19 @@ using namespace fptn::web;
 
 
 Server::Server(
-    const fptn::nat::TableSPtr& natTable,
-    std::uint16_t port,
-    const bool use_https,
-    const fptn::common::user::UserManagerSPtr& userManager,
-    const fptn::common::jwt_token::TokenManagerSPtr& tokenManager,
-    const int thread_number
+        const fptn::nat::TableSPtr& natTable,
+        std::uint16_t port,
+        bool use_https,
+        const fptn::common::user::UserManagerSPtr& userManager,
+        const fptn::common::jwt_token::TokenManagerSPtr& tokenManager,
+        const fptn::statistic::MetricsSPtr& prometheus,
+        const std::string& prometheusAccessKey,
+        int thread_number
 )
     : 
         running_(false), 
         natTable_(natTable),
-        http_(userManager, tokenManager),
+        http_(userManager, tokenManager, prometheus, prometheusAccessKey),
         ws_(
             tokenManager,
             std::bind(
@@ -37,13 +39,13 @@ Server::Server(
     if (use_https) {
         LOG(INFO) << std::endl
             << "  KEYS: " << std::endl
-            << "    CRT: " << tokenManager->serverCrt().c_str() << std::endl
-            << "    KEY: " << tokenManager->serverKey().c_str() << std::endl;
+            << "    CRT: " << tokenManager->serverCrtPath().c_str() << std::endl
+            << "    KEY: " << tokenManager->serverKeyPath().c_str() << std::endl;
         mainServer_.https_port = port;
         hssl_ctx_opt_t sslParam;
         std::memset(&sslParam, 0x00, sizeof(sslParam));
-        sslParam.crt_file = tokenManager->serverCrt().c_str();
-        sslParam.key_file = tokenManager->serverKey().c_str();
+        sslParam.crt_file = tokenManager->serverCrtPath().c_str();
+        sslParam.key_file = tokenManager->serverKeyPath().c_str();
         sslParam.endpoint = HSSL_SERVER;
         if (mainServer_.newSslCtx(&sslParam) != 0) {
             LOG(ERROR) << "new SSL_CTX failed!";
@@ -70,7 +72,7 @@ bool Server::check() noexcept
 bool Server::start() noexcept
 {
     running_ = true;
-    serverThread_ = std::thread(&Server::runServerthread, this);
+    serverThread_ = std::thread(&Server::runServerThread, this);
     senderThread_ = std::thread(&Server::runSenderThread, this);
     return serverThread_.joinable() && senderThread_.joinable();
 }
@@ -88,7 +90,7 @@ bool Server::stop() noexcept
     return true;
 }
 
-void Server::runServerthread() noexcept
+void Server::runServerThread() noexcept
 {
     mainServer_.run();
 }
@@ -104,10 +106,11 @@ void Server::runSenderThread() noexcept
     }
 }
 
-void Server::newVpnConnection(std::uint32_t clientId, const pcpp::IPv4Address& clientVpnIP, const pcpp::IPv4Address &clientIP, const std::string& username, int bandwidthBitesSeconds) noexcept
+void Server::newVpnConnection(std::uint32_t clientId, const pcpp::IPv4Address& clientVpnIP, const pcpp::IPv4Address &clientIP, const std::string& username, std::size_t bandwidthBitesSeconds) noexcept
 {
-    auto shaper = std::make_shared<fptn::traffic_shaper::LeakyBucket>(bandwidthBitesSeconds);
-    auto session = natTable_->createClientSession(clientId, clientVpnIP, shaper);
+    auto shaperToClient = std::make_shared<fptn::traffic_shaper::LeakyBucket>(bandwidthBitesSeconds);
+    auto shaperFromClient = std::make_shared<fptn::traffic_shaper::LeakyBucket>(bandwidthBitesSeconds);
+    auto session = natTable_->createClientSession(clientId, username, clientVpnIP, shaperToClient, shaperFromClient);
     LOG(INFO) << "NEW SESSION! Username=" << username << " ClientId=" << clientId << " Bandwidth=" << bandwidthBitesSeconds << " IP=" << clientIP.toString() << " VirtualIP=" << session->fakeClientIP().toString();
 }
 

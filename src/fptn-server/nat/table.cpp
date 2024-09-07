@@ -16,8 +16,10 @@ Table::Table(const pcpp::IPv4Address& tunInterfaceIP,
 }
 
 fptn::client::SessionSPtr Table::createClientSession(ClientID clientId,
+                                                     const std::string& userName,
                                                      const pcpp::IPv4Address& clientIP,
-                                                     fptn::traffic_shaper::LeakyBucketSPtr trafficShaper) noexcept
+                                                     const fptn::traffic_shaper::LeakyBucketSPtr& trafficShaperToClient,
+                                                     const fptn::traffic_shaper::LeakyBucketSPtr& trafficShaperFromClient) noexcept
 {
     std::unique_lock<std::mutex> lock(mutex_);
     if (clientIdToSessions_.find(clientId) == clientIdToSessions_.end()) {
@@ -27,9 +29,12 @@ fptn::client::SessionSPtr Table::createClientSession(ClientID clientId,
                 auto fakeIP = getUniqueIPAddress();
                 auto session = std::make_shared<fptn::client::Session>(
                         clientId,
+                        userName,
                         clientIP,
                         fakeIP,
-                        std::move(trafficShaper));
+                        trafficShaperToClient,
+                        trafficShaperFromClient
+                );
                 ipToSessions_.insert({fakeIP.toInt(), session});
                 clientIdToSessions_.insert({clientId, session});
                 return session;
@@ -91,4 +96,21 @@ pcpp::IPv4Address Table::getUniqueIPAddress()
         }
     }
     throw std::runtime_error("No available address");
+}
+
+void Table::updateStatistic(fptn::statistic::MetricsSPtr& prometheus) noexcept
+{
+    std::unique_lock<std::mutex> lock(mutex_);
+
+    prometheus->updateActiveSessions(clientIdToSessions_.size());
+    for (const auto &client: clientIdToSessions_) {
+        auto clientID = client.first;
+        auto& session = client.second;
+        prometheus->updateStatistics(
+                clientID,
+                session->userName(),
+                session->getTrafficShaperToClient()->fullDataAmount(),
+                session->getTrafficShaperFromClient()->fullDataAmount()
+        );
+    }
 }

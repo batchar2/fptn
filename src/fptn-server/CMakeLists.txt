@@ -10,6 +10,7 @@ find_package(fmt REQUIRED)
 find_package(PcapPlusPlus REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(jwt-cpp REQUIRED)
+find_package(prometheus-cpp REQUIRED)
 
 add_executable("${PROJECT_NAME}"
     fptn-server.cpp
@@ -26,6 +27,8 @@ add_executable("${PROJECT_NAME}"
     filter/packets/base.h
     filter/packets/bittorrent/bittorrent.h filter/packets/bittorrent/bittorrent.cpp
     vpn/manager.h vpn/manager.cpp
+
+    statistic/metrics.h statistic/metrics.cpp
 )
 
 target_link_libraries(
@@ -46,4 +49,5 @@ target_link_libraries(
     hv_static
 
     fptn_protocol
+    prometheus-cpp::prometheus-cpp
 )

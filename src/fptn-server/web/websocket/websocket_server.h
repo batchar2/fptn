@@ -22,7 +22,7 @@ namespace fptn::web
     class WebsocketServer
     {
     public:
-        using NewConnectionCallback = std::function<void(std::uint32_t clientId, const pcpp::IPv4Address& clientVpnIP, const pcpp::IPv4Address& clientIP, const std::string& username, int bandwidthBitesSeconds)>;
+        using NewConnectionCallback = std::function<void(std::uint32_t clientId, const pcpp::IPv4Address& clientVpnIP, const pcpp::IPv4Address& clientIP, const std::string& username, std::size_t bandwidthBitesSeconds)>;
         using CloseConnectionCallback = std::function<void(std::uint32_t client_id)>;
         using NewIPPacketCallback = std::function<void(fptn::common::network::IPPacketPtr packet)>;
     public:

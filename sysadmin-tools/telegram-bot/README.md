@@ -31,7 +31,7 @@ To configure your bot, you'll need to edit the .env file. This file contains sen
 -  Open the .env File:
     - Use a text editor to open the .env file. You can find this file in the root directory of your project.
   - Insert Your Bot's API Token:
-    - Set `TELEGRAM_API_TOKEN`  with your Telegram bot API token. This token allows the bot to connect to Telegram's servers.
+    - Set `TELEGRAM_API_TOKEN` environment variable with your Telegram bot API token. This token is required for the bot to connect to Telegram's servers. You can obtain your API token from Telegram by using the [BotFather](https://t.me/BotFather) bot.
   - Set the Welcome Message (Optional):
     - Modify the `FPTN_WELCOME_MESSAGE` variable to customize the greeting message that your bot will send to users.
   - Set Maximum User Speed Limit:

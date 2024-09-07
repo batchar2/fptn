@@ -15,12 +15,14 @@ namespace fptn::web
     {
     public:
         Server(
-            const fptn::nat::TableSPtr& natTable,
-            std::uint16_t port,
-            const bool use_https,
-            const fptn::common::user::UserManagerSPtr& userManager,
-            const fptn::common::jwt_token::TokenManagerSPtr& tokenManager,
-            const int thread_number = 4
+                const fptn::nat::TableSPtr& natTable,
+                std::uint16_t port,
+                bool use_https,
+                const fptn::common::user::UserManagerSPtr& userManager,
+                const fptn::common::jwt_token::TokenManagerSPtr& tokenManager,
+                const fptn::statistic::MetricsSPtr& prometheus,
+                const std::string& prometheusAccessKey,
+                int thread_number = 4
         );
         ~Server();
         bool check() noexcept;
@@ -30,11 +32,11 @@ namespace fptn::web
         void send(fptn::common::network::IPPacketPtr packet) noexcept;
         fptn::common::network::IPPacketPtr waitForPacket(const std::chrono::milliseconds& duration) noexcept;
     private:
-        void newVpnConnection(std::uint32_t clientId, const pcpp::IPv4Address& clientVpnIP, const pcpp::IPv4Address& clientIP, const std::string& username, int bandwidthBitesSeconds) noexcept;
+        void newVpnConnection(std::uint32_t clientId, const pcpp::IPv4Address& clientVpnIP, const pcpp::IPv4Address& clientIP, const std::string& username, std::size_t bandwidthBitesSeconds) noexcept;
         void closeVpnConnection(std::uint32_t clientId) noexcept;
         void newIPPacketFromVPN(fptn::common::network::IPPacketPtr packet) noexcept;
     private:
-        void runServerthread() noexcept;
+        void runServerThread() noexcept;
         void runSenderThread() noexcept;
     private:
         std::atomic<bool> running_; 
@@ -51,6 +53,6 @@ namespace fptn::web
         std::thread senderThread_;
     };
 
-    using ServerSPtr = std::unique_ptr<Server>;
+    using ServerPtr = std::unique_ptr<Server>;
     
 }

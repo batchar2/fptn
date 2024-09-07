@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 3.16)
 project(fptn VERSION "${FPTN_VERSION}" LANGUAGES CXX)
 
-add_compile_definitions(FPTN_VERSION=\"${FPTN_VERSION}\")
+set(FPTN_SERVER_PATH "${CMAKE_CURRENT_SOURCE_DIR}/src/fptn-server")
 
-enable_testing()
+add_compile_definitions(FPTN_VERSION=\"${FPTN_VERSION}\")
 
 # cmake_policy(SET CMP0077 NEW)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
@@ -56,15 +56,16 @@ if(APPLE OR UNIX)
 endif()
 add_subdirectory(src/fptn-client)
 
-# --- tests ---
-add_subdirectory(tests)
-
 # --- install ---
 install(TARGETS fptn-client-cli DESTINATION bin)
 if(APPLE OR UNIX)
     install(TARGETS fptn-server DESTINATION bin)
     install(TARGETS fptn-passwd DESTINATION bin)
 endif()
+
+# --- tests ---
+add_subdirectory(tests)
+enable_testing()
 
 # --- packaging ---
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")  # deb

@@ -46,7 +46,6 @@ if [ ! -f "$TUN_PLIST_PATH" ]; then
     fi
 fi
 
-
 # Check if the driver is loaded
 if ! kextstat | grep -q "$(basename "$KEXT_PATH" .kext)"; then
     echo "Driver not loaded. Attempting to load..."

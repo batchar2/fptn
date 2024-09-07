@@ -3,9 +3,18 @@
 using namespace fptn::traffic_shaper;
 
 
-LeakyBucket::LeakyBucket(std::size_t maxRateBitesPerSecond) :  
-    currentAmount_(0), maxRateBytesPerSecond_(maxRateBitesPerSecond/8), lastLeakTime_(std::chrono::steady_clock::now())
+LeakyBucket::LeakyBucket(std::size_t maxRateBitesPerSecond)
+    :
+        currentAmount_(0),
+        maxRateBytesPerSecond_(maxRateBitesPerSecond/8),
+        lastLeakTime_(std::chrono::steady_clock::now()),
+        fullDataAmount_(0)
 {
+}
+
+std::size_t LeakyBucket::fullDataAmount() const noexcept
+{
+    return fullDataAmount_;
 }
 
 bool LeakyBucket::checkSpeedLimit(std::size_t packetSize) noexcept
@@ -16,6 +25,7 @@ bool LeakyBucket::checkSpeedLimit(std::size_t packetSize) noexcept
     if (elapsed < 1000) {
         if (currentAmount_ + packetSize < maxRateBytesPerSecond_) {
             currentAmount_ += packetSize;
+            fullDataAmount_ += packetSize;
             return true;
         }
         return false;

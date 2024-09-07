@@ -16,7 +16,9 @@
 #include "vpn/manager.h"
 #include "filter/manager.h"
 #include "system/iptables.h"
+#include "statistic/metrics.h"
 #include "network/virtual_interface.h"
+
 
 
 inline void waitForSignal() 
@@ -92,6 +94,10 @@ int main(int argc, char* argv[])
     args.add_argument("--disable-bittorrent")
         .help("Disable BitTorrent traffic filtering. Use this flag to disable filtering.")
         .default_value("false");
+    // Allow prometheus metric
+    args.add_argument("--prometheus-access-key")
+        .help("Secret key required for accessing Prometheus metrics. Set this to a secret value if metrics is needed.")
+        .default_value("");
     try {
         args.parse_args(argc, argv);
     } catch (const std::runtime_error& err) {
@@ -117,6 +123,12 @@ int main(int argc, char* argv[])
     const auto tunInterfaceNetworkAddress = pcpp::IPv4Address(args.get<std::string>("--tun-interface-network-address"));
     const auto tunInterfaceNetworkMask = args.get<int>("--tun-interface-network-mask");
 
+    const bool useHttps = parseBoolean(args.get<std::string>("--use-https"));
+    const auto prometheusAccessKey = args.get<std::string>("--prometheus-access-key");
+
+    auto prometheus = std::make_shared<fptn::statistic::Metrics>();
+
+
     auto userManager = std::make_shared<fptn::common::user::UserManager>(
             userFilePath
     );
@@ -125,12 +137,11 @@ int main(int argc, char* argv[])
             tunInterfaceNetworkAddress,
             tunInterfaceNetworkMask
     );
-    const bool useHttps = parseBoolean(args.get<std::string>("--use-https"));
+
 
     // filters
     const bool disableBittorrent = parseBoolean(args.get<std::string>("--disable-bittorrent"));
     auto filterManager = std::make_shared<fptn::filter::FilterManager>(disableBittorrent);
-
 
 
     auto tokenManager = std::make_shared<fptn::common::jwt_token::TokenManager>(
@@ -151,14 +162,17 @@ int main(int argc, char* argv[])
         serverPort,
         useHttps,
         userManager,
-        tokenManager
+        tokenManager,
+        prometheus,
+        prometheusAccessKey
     );
 
     fptn::vpn::Manager manager(
         std::move(webServer), 
         std::move(virtualNetworkInterface),
         natTable,
-        filterManager
+        filterManager,
+        prometheus
     );
 
     LOG(INFO) << std::endl

@@ -5,21 +5,30 @@ using namespace fptn::client;
 
 
 Session::Session(
-    fptn::ClientID clientId, 
+    fptn::ClientID clientId,
+    const std::string& userName,
     const pcpp::IPv4Address& clientIP, 
     const pcpp::IPv4Address& fakeClientIP,
-    const fptn::traffic_shaper::LeakyBucketSPtr& trafficShaper
+    const fptn::traffic_shaper::LeakyBucketSPtr& trafficShaperToClient,
+    const fptn::traffic_shaper::LeakyBucketSPtr& trafficShaperFromClient
 ) :
     clientId_(clientId),
+    userName_(userName),
     clientIP_(clientIP),
     fakeClientIP_(fakeClientIP),
-    trafficShaper_(trafficShaper)
+    trafficShaperToClient_(trafficShaperToClient),
+    trafficShaperFromClient_(trafficShaperFromClient)
 {
 }
 
-const fptn::ClientID Session::clientId() const noexcept
+const fptn::ClientID& Session::clientId() const noexcept
 {
     return clientId_;
+}
+
+const std::string& Session::userName() const noexcept
+{
+    return userName_;
 }
 
 const pcpp::IPv4Address& Session::clientIP() const noexcept
@@ -32,9 +41,14 @@ const pcpp::IPv4Address& Session::fakeClientIP() const noexcept
     return fakeClientIP_;
 }
 
-fptn::traffic_shaper::LeakyBucketSPtr Session::getTrafficShaper() noexcept
+fptn::traffic_shaper::LeakyBucketSPtr Session::getTrafficShaperToClient() noexcept
 {
-    return trafficShaper_;
+    return trafficShaperToClient_;
+}
+
+fptn::traffic_shaper::LeakyBucketSPtr Session::getTrafficShaperFromClient() noexcept
+{
+    return trafficShaperFromClient_;
 }
 
 fptn::common::network::IPPacketPtr Session::changeIPAddressToCleintIP(fptn::common::network::IPPacketPtr packet) noexcept

@@ -51,6 +51,10 @@ USE_HTTPS=true
 # true or false
 DISABLE_BITTORRENT=true
 
+# Set a secret key to allow Prometheus to access the server's statistics.
+# This key must be alphanumeric (letters and numbers only) and must not include spaces or special characters.
+PROMETHEUS_SECRET_ACCESS_KEY=
+
 LOG_FILE=/var/log/fptn-server.log
 EOL
 
@@ -62,7 +66,7 @@ After=network.target
 
 [Service]
 EnvironmentFile=-/etc/fptn/server.conf
-ExecStart=/usr/bin/$(basename "$SERVER_BIN") --server-key=\${SERVER_KEY} --server-crt=\${SERVER_CRT} --server-pub=\${SERVER_PUB} --out-network-interface=\${OUT_NETWORK_INTERFACE} --server-port=\${PORT} --tun-interface-name=\${TUN_INTERFACE_NAME} --disable-bittorrent=\${DISABLE_BITTORRENT} --use-https=\${USE_HTTPS}
+ExecStart=/usr/bin/$(basename "$SERVER_BIN") --server-key=\${SERVER_KEY} --server-crt=\${SERVER_CRT} --server-pub=\${SERVER_PUB} --out-network-interface=\${OUT_NETWORK_INTERFACE} --server-port=\${PORT} --tun-interface-name=\${TUN_INTERFACE_NAME} --disable-bittorrent=\${DISABLE_BITTORRENT} --use-https=\${USE_HTTPS} --prometheus-access-key=\${PROMETHEUS_SECRET_ACCESS_KEY}
 Restart=always
 WorkingDirectory=/etc/fptn
 RestartSec=5

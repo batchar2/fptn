@@ -19,6 +19,7 @@ class FPTN(ConanFile):
         "protobuf/5.27.0",
         "pcapplusplus/23.09",
         "nlohmann_json/3.11.3",
+        "prometheus-cpp/1.1.0",
     )
     tool_requires = (
         "cmake/3.30.1",

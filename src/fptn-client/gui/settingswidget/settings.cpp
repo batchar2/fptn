@@ -220,25 +220,33 @@ void SettingsWidget::onItemDoubleClicked(QTableWidgetItem *item)
 void SettingsWidget::openEditDialog(int row)
 {
     editDialog = new QDialog(this);
-    editDialog->setFixedWidth(300);
+    editDialog->setFixedWidth(320);
     editDialog->setWindowTitle(row == -1 ? "Add Server" : "Edit Server");
 
     QGridLayout *gridLayout = new QGridLayout(editDialog);
 
     gridLayout->addWidget(new QLabel("Address:"), 0, 0);
     addressLineEdit = new QLineEdit();
+    addressLineEdit->setEnabled(true);
+    addressLineEdit->setContextMenuPolicy(Qt::ActionsContextMenu);
     gridLayout->addWidget(addressLineEdit, 0, 1);
 
     gridLayout->addWidget(new QLabel("Port:"), 1, 0);
     portLineEdit = new QLineEdit();
+    portLineEdit->setEnabled(true);
+    portLineEdit->setContextMenuPolicy(Qt::ActionsContextMenu);
     gridLayout->addWidget(portLineEdit, 1, 1);
 
     gridLayout->addWidget(new QLabel("User:"), 2, 0);
     userLineEdit = new QLineEdit();
+    userLineEdit->setEnabled(true);
+    userLineEdit->setContextMenuPolicy(Qt::ActionsContextMenu);
     gridLayout->addWidget(userLineEdit, 2, 1);
 
     gridLayout->addWidget(new QLabel("Password:"), 3, 0);
     passwordLineEdit = new QLineEdit();
+    passwordLineEdit->setEnabled(true);
+    passwordLineEdit->setContextMenuPolicy(Qt::ActionsContextMenu);
     gridLayout->addWidget(passwordLineEdit, 3, 1);
 
     QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Cancel);

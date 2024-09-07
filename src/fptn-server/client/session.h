@@ -22,24 +22,32 @@ namespace fptn::client
     {
     public:
         Session(
-            ClientID clientId, 
+            ClientID clientId,
+            const std::string& userName,
             const pcpp::IPv4Address& clientIP, 
             const pcpp::IPv4Address& fakeClientIP,
-            const fptn::traffic_shaper::LeakyBucketSPtr& trafficShaper
+            const fptn::traffic_shaper::LeakyBucketSPtr& trafficShaperToClient,
+            const fptn::traffic_shaper::LeakyBucketSPtr& trafficShaperFromClient
         );
-        const ClientID clientId() const noexcept;
+        const ClientID& clientId() const noexcept;
+        const std::string& userName() const noexcept;
         const pcpp::IPv4Address& clientIP() const noexcept;
         const pcpp::IPv4Address& fakeClientIP() const noexcept;
-        fptn::traffic_shaper::LeakyBucketSPtr getTrafficShaper() noexcept;
+
+        fptn::traffic_shaper::LeakyBucketSPtr getTrafficShaperToClient() noexcept;
+        fptn::traffic_shaper::LeakyBucketSPtr getTrafficShaperFromClient() noexcept;
+
         fptn::common::network::IPPacketPtr changeIPAddressToCleintIP(
                 fptn::common::network::IPPacketPtr packet) noexcept;
         fptn::common::network::IPPacketPtr changeIPAddressToFakeIP(
                 fptn::common::network::IPPacketPtr packet) noexcept;
     private:
         const ClientID clientId_;
+        const std::string userName_;
         const pcpp::IPv4Address clientIP_;
         const pcpp::IPv4Address fakeClientIP_;
-        fptn::traffic_shaper::LeakyBucketSPtr trafficShaper_;
+        fptn::traffic_shaper::LeakyBucketSPtr trafficShaperToClient_;
+        fptn::traffic_shaper::LeakyBucketSPtr trafficShaperFromClient_;
     };
 
     using SessionSPtr = std::shared_ptr<Session>;

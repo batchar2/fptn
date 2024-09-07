@@ -14,13 +14,11 @@
 
 namespace fptn::gui
 {
-
     class SettingsWidget : public QWidget
     {
     Q_OBJECT
     public:
         explicit SettingsWidget(SettingsModel *model, QWidget *parent = nullptr);
-
     protected:
         void closeEvent(QCloseEvent *event);
     private slots:

@@ -48,5 +48,5 @@ namespace fptn::network
         std::thread thread_;
     };
 
-    using VirtualInterfaceSPtr = std::unique_ptr<VirtualInterface>;
+    using VirtualInterfacePtr = std::unique_ptr<VirtualInterface>;
 }

@@ -139,6 +139,14 @@ Check the server status with:
 sudo systemctl status fptn-server
 ```
 
+##### Step 8. Telegram and Grafana
+
+Please follow the instructions for setting up both the [Telegram bot](sysadmin-tools/telegram-bot/README.md) and [Grafana](sysadmin-tools/grafana/README.md).
+With these tools, you can run your own bot and monitoring system.
+
+<img src="sysadmin-tools/grafana/images/grafana-1.jpg" alt="Grafana"/>
+
+
 </details>
 
 <details>

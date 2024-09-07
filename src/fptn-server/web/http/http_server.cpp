@@ -1,14 +1,9 @@
-#include "http_server.h"
-
-#include <chrono>
-
 #include <fmt/format.h>
 #include <glog/logging.h>
 
+#include "http_server.h"
 
 using namespace fptn::web;
-
-static std::string readFromFile(const std::string& path);
 
 
 static const std::string html_home_page = R"HTML(<!DOCTYPE html>
@@ -87,16 +82,25 @@ static const std::string html_home_page = R"HTML(<!DOCTYPE html>
 
 
 HttpServer::HttpServer(
-    const fptn::common::user::UserManagerSPtr& userManager,
-    const fptn::common::jwt_token::TokenManagerSPtr& tokenManager
+        const fptn::common::user::UserManagerSPtr& userManager,
+        const fptn::common::jwt_token::TokenManagerSPtr& tokenManager,
+        const fptn::statistic::MetricsSPtr& prometheus,
+        const std::string& prometheusAccessKey
 )
     : 
         userManager_(userManager),
-        tokenManager_(tokenManager)
+        tokenManager_(tokenManager),
+        prometheus_(prometheus)
 {
     using namespace std::placeholders;
     http_.GET(urlHome_.c_str(), std::bind(&HttpServer::onHomeHandle, this, _1, _2));
     http_.POST(urlLogin_.c_str(), std::bind(&HttpServer::onLoginHandle, this, _1, _2));
+    // prometheus statistics
+    if (!prometheusAccessKey.empty()) {
+        // Construct the URL for accessing Prometheus statistics by appending the access key
+        const std::string metrics = urlMetrics_ + '/' + prometheusAccessKey;
+        http_.GET(metrics.c_str(), std::bind(&HttpServer::onStatistics, this, _1, _2));
+    }
 }
 
 hv::HttpService* HttpServer::getService()
@@ -117,16 +121,20 @@ int HttpServer::onHomeHandle(HttpRequest* req, HttpResponse* resp) noexcept
     return resp->String(html_home_page);
 }
 
+int HttpServer::onStatistics(HttpRequest* req, HttpResponse* resp) noexcept
+{
+    return resp->String(prometheus_->collect());
+}
 
 int HttpServer::onLoginHandle(HttpRequest* req, HttpResponse* resp) noexcept
 {
     resp->SetHeader("Content-Type", "application/json; charset=utf-8");
     try {
         auto request = nlohmann::json::parse(req->Body());
-        const std::string username = request.at("username").get<std::string>();
-        const std::string password = request.at("password").get<std::string>();
+        const auto username = request.at("username").get<std::string>();
+        const auto password = request.at("password").get<std::string>();
         if (userManager_->authenticate(username, password) ) {
-            LOG(INFO) << "Sucessfull login for user " << username;
+            LOG(INFO) << "Successful login for user " << username;
             const int bandwidthBit = userManager_->getUserBandwidthBit(username);
             const auto tokens = tokenManager_->generate(username, bandwidthBit);
             resp->String(
@@ -149,27 +157,10 @@ int HttpServer::onLoginHandle(HttpRequest* req, HttpResponse* resp) noexcept
         LOG(ERROR) << "HTTP AUTH ERROR: " << e.what();
         resp->String(R"({"status": "error", "message": "An unexpected error occurred."})");
         return 500;
+    } catch(...) {
+        LOG(ERROR) << "UNDEFINED SERVER ERROR";
+        resp->String(R"({"status": "error", "message": "Undefined server error"})");
+        return 501;
     }
-    return 401;
-}
-
-static std::string readFromFile(const std::string& path)
-{
-    std::string contents;
-    std::ifstream is{path, std::ifstream::binary};
-    if (is) {
-        // get length of file:
-        is.seekg (0, is.end);
-        auto length = is.tellg();
-        is.seekg (0, is.beg);
-        contents.resize(length);
-
-        is.read(&contents[0], length);
-        if (!is) {
-            is.close();
-            return {};
-        }
-    }
-    is.close();
-    return contents;
+    return 402;
 }

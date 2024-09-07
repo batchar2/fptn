@@ -36,7 +36,8 @@ void WebsocketServer::onOpenHandle(const WebSocketChannelPtr& channel, const Htt
             const pcpp::IPv4Address clientIP(req->client_addr.ip);
 
             std::string username;
-            int bandwidthBitesSeconds = 0;
+            std::size_t bandwidthBitesSeconds = 0;
+            LOG(INFO) << "VALIDATE> " << token << "  " << username << bandwidthBitesSeconds;
             if(tokenManager_->validate(token, username, bandwidthBitesSeconds)) {
                 {
                     std::unique_lock<std::mutex> lock(mutex_);

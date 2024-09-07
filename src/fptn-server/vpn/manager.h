@@ -15,10 +15,11 @@ namespace fptn::vpn
     {
     public:
         Manager(
-            fptn::web::ServerSPtr webServer, 
-            fptn::network::VirtualInterfaceSPtr networkInterface,
-            fptn::nat::TableSPtr nat,
-            fptn::filter::FilterManagerSPtr filter
+            fptn::web::ServerPtr webServer,
+            fptn::network::VirtualInterfacePtr networkInterface,
+            const fptn::nat::TableSPtr& nat,
+            const fptn::filter::FilterManagerSPtr& filter,
+            const fptn::statistic::MetricsSPtr& prometheus
         );
         ~Manager();
         bool stop() noexcept;
@@ -26,14 +27,17 @@ namespace fptn::vpn
     private:
         void runToClient() noexcept;
         void runFromClient() noexcept;
+        void runCollectStatistics() noexcept;
     private:
         std::atomic<bool> running_ = false; 
-        fptn::web::ServerSPtr webServer_;
-        fptn::network::VirtualInterfaceSPtr networkInterface_;
+        fptn::web::ServerPtr webServer_;
+        fptn::network::VirtualInterfacePtr networkInterface_;
         fptn::nat::TableSPtr nat_;
         fptn::filter::FilterManagerSPtr filter_;
+        fptn::statistic::MetricsSPtr prometheus_;
 
         std::thread readToClientThread_;
         std::thread readFromClientThread_;
+        std::thread collectStatistics_;
     };
 }

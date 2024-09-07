@@ -1,0 +1,6 @@
+apiVersion: 1
+datasources:
+  - name: Prometheus
+    type: prometheus
+    url: http://fptn-prometheus:9090
+    access: proxy

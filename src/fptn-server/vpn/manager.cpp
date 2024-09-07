@@ -4,16 +4,18 @@ using namespace fptn::vpn;
 
 
 Manager::Manager(
-    fptn::web::ServerSPtr webServer, 
-    fptn::network::VirtualInterfaceSPtr networkInterface,
-    fptn::nat::TableSPtr nat,
-    fptn::filter::FilterManagerSPtr filter
+    fptn::web::ServerPtr webServer,
+    fptn::network::VirtualInterfacePtr networkInterface,
+    const fptn::nat::TableSPtr& nat,
+    const fptn::filter::FilterManagerSPtr& filter,
+    const fptn::statistic::MetricsSPtr& prometheus
 )
 :
     webServer_(std::move(webServer)),
     networkInterface_(std::move(networkInterface)),
-    nat_(std::move(nat)),
-    filter_(std::move(std::move(filter)))
+    nat_(nat),
+    filter_(filter),
+    prometheus_(prometheus)
 {
 }
 
@@ -33,6 +35,9 @@ bool Manager::stop() noexcept
     if (readFromClientThread_.joinable()) {
         readFromClientThread_.join();
     }
+    if (collectStatistics_.joinable()) {
+        collectStatistics_.join();
+    }
     return (networkInterface_->stop() && webServer_->stop());
 }
 
@@ -49,13 +54,14 @@ bool Manager::start() noexcept
     readFromClientThread_ = std::thread(&Manager::runFromClient, this);
     bool fromStatus = readFromClientThread_.joinable();
 
-    return (toStatus && fromStatus);
+    collectStatistics_ = std::thread(&Manager::runCollectStatistics, this);
+    bool collectStatisticStatus = collectStatistics_.joinable();
+    return (toStatus && fromStatus && collectStatisticStatus);
 }
 
 void Manager::runToClient() noexcept
 {
     const std::chrono::milliseconds timeout{300};
-
     while (running_) {
         auto packet = networkInterface_->waitForPacket(timeout);
         if (!packet) {
@@ -67,7 +73,7 @@ void Manager::runToClient() noexcept
             continue;
         }
         // check shaper
-        auto shaper = session->getTrafficShaper();
+        auto shaper = session->getTrafficShaperToClient();
         if (shaper && !shaper->checkSpeedLimit(packet->size())) {
             continue;
         }
@@ -96,7 +102,7 @@ void Manager::runFromClient() noexcept
             continue;
         }
         // check shaper
-        auto shaper = session->getTrafficShaper();
+        auto shaper = session->getTrafficShaperFromClient();
         if (shaper && !shaper->checkSpeedLimit(packet->size())) {
             continue;
         }
@@ -109,5 +115,21 @@ void Manager::runFromClient() noexcept
         networkInterface_->send(
             session->changeIPAddressToFakeIP(std::move(packet))
         );
+    }
+}
+
+void Manager::runCollectStatistics() noexcept
+{
+    constexpr std::chrono::milliseconds timeout{300};
+    constexpr std::chrono::seconds collectInterval{5};
+
+    std::chrono::steady_clock::time_point lastCollectionTime;
+    while (running_) {
+        auto now = std::chrono::steady_clock::now();
+        if (now - lastCollectionTime > collectInterval) {
+            nat_->updateStatistic(prometheus_);
+            lastCollectionTime = now;
+        }
+        std::this_thread::sleep_for(timeout);
     }
 }

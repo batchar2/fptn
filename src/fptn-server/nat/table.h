@@ -11,7 +11,9 @@
 #include <common/network/ip_generator.h>
 
 #include "client/session.h"
+#include "statistic/metrics.h"
 #include "traffic_shaper/leaky_bucket.h"
+
 
 
 namespace fptn::nat 
@@ -24,9 +26,13 @@ namespace fptn::nat
               const pcpp::IPv4Address& tunInterfaceNetworkAddress,
               std::uint32_t tunInterfaceNetworkMask);
         fptn::client::SessionSPtr createClientSession(ClientID clientId,
+                                                      const std::string& userName,
                                                       const pcpp::IPv4Address& clientIP,
-                                                      fptn::traffic_shaper::LeakyBucketSPtr trafficShaper) noexcept;
+                                                      const fptn::traffic_shaper::LeakyBucketSPtr& trafficShaperToClient,
+                                                      const fptn::traffic_shaper::LeakyBucketSPtr& trafficShaperFromClient) noexcept;
         bool delClientSession(ClientID clientId) noexcept;
+
+        void updateStatistic(fptn::statistic::MetricsSPtr& prometheus) noexcept;
     public:
         fptn::client::SessionSPtr getSessionByFakeIP(const pcpp::IPv4Address& ip) noexcept;
         fptn::client::SessionSPtr getSessionByClientId(ClientID clientId) noexcept;

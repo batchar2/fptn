@@ -14,11 +14,14 @@ namespace fptn::traffic_shaper
     public:
         LeakyBucket(std::size_t maxRateBitesPerSecond);
         bool checkSpeedLimit(std::size_t packetSize) noexcept;
+        std::size_t fullDataAmount() const noexcept;
     private:
         mutable std::mutex mutex_;
         std::size_t currentAmount_;
         std::size_t maxRateBytesPerSecond_;
         std::chrono::steady_clock::time_point lastLeakTime_;
+
+        std::size_t fullDataAmount_;
     };
 
     using LeakyBucketSPtr = std::shared_ptr<LeakyBucket>;
