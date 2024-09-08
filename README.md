@@ -54,13 +54,13 @@ Download the FPTN client from [WebSite](http://batchar2.github.io/fptn/) or [Git
 FPTN Client is a straightforward application with an interface located in the system tray. 
 Once the client is running, find the VPN client icon in the system tray.
 
-<img src="docs/client.png" alt="Application" height="220"/>
+<img src="docs/images/client.png" alt="Application" height="220"/>
 
 Click on this icon to open the context menu, then select "Settings" to configure your client. In the settings, you can add a new server.
 
 Use our Telegram [@fptn_bot](https://t.me/fptn_bot), which will quickly provide you with server information as well as a login and password for free internet access.
 
-<img src="docs/settings.png" alt="Settings"/>
+<img src="docs/images/settings.png" alt="Settings"/>
 
 After adding and saving the server, simply connect to it. It’s that easy!
 
