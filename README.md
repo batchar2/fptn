@@ -50,19 +50,49 @@ FPTN can be seamlessly integrated with **NGINX**, allowing you to disguise the V
 
 Download the FPTN client from [WebSite](http://batchar2.github.io/fptn/) or [GitHub](https://github.com/batchar2/fptn/releases). After downloading, install and run the client.
 
-
-FPTN Client is a straightforward application with an interface located in the system tray. 
+FPTN Client is a straightforward application with an interface located in the system tray.
 Once the client is running, find the VPN client icon in the system tray.
 
-<img src="docs/images/client.png" alt="Application" height="220"/>
+Simply click on the icon to open the context menu.
 
-Click on this icon to open the context menu, then select "Settings" to configure your client. In the settings, you can add a new server.
+<img style="max-height: 200px" class="img-center" src="docs/images/client.png" alt="Application"/>
 
-Use our Telegram [@fptn_bot](https://t.me/fptn_bot), which will quickly provide you with server information as well as a login and password for free internet access.
 
-<img src="docs/images/settings.png" alt="Settings"/>
+In the settings window, select *the Network interface (adapter)* used for internet access. 
+This could be a wired connection or WiFi, depending on your system.
+                        
+Also, specify the address of your router in *the local network (default gateway)*.
 
-After adding and saving the server, simply connect to it. It’s that easy!
+<img style="max-height: 350px" src="docs/images/settings-1.png" alt="Settings"/>
+
+Open "Settings" to configure your client.
+
+Registration for accessing the free internet via FPTN is very simple!
+Use our Telegram bot [@fptn_bot](https://t.me/fptn_bot),
+which will quickly provide you with the parameters for internet access.
+                        
+Add a new server with the parameters provided by the bot.
+
+<img style="max-height: 350px" src="docs/images/settings-2.png" alt="Settings"/>
+                       
+
+After that, save the settings.
+<img style="max-height: 350px" src="docs/images/settings-3.png" alt="Settings"/>
+                       
+Ease of use:
+<img style="max-height: 350px" class="img-center" src="docs/images/running-client.png" alt="Settings"/>
+
+You can also easily turn your Raspberry Pi or Orange Pi into a WiFi access point and install the FPTN client on it.
+In this case, all devices connected to the WiFi will be able to access the internet, bypassing any restrictions.
+[Read more here](https://github.com/batchar2/fptn/blob/master/deploy/linux/wifi/README.md)
+
+
+<img style="max-height: 350px" src="docs/images/orangepi.jpg" alt="Settings"/>
+
+
+
+
+
 
 
 <details>
