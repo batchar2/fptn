@@ -39,7 +39,7 @@
         }
         p {
             font-size: 20px;
-            text-align: justify;
+            text-align: left;
         }
         .sidebar {}
         .logo {
@@ -224,6 +224,15 @@
         .language-en.active {
             display: block;
         }
+
+        .navbar-expand-md .navbar-nav .dropdown-menu {
+            position: absolute;
+        }
+
+        .nav-link:focus-visible {
+            outline: 0;
+            box-shadow: none;
+        }
     </style>
 </head>
 <body>
@@ -239,10 +248,10 @@
                 </a>
             </div>
             <div class="col center-flex col-lg-1">
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavDarkDropdown" aria-controls="navbarNavDarkDropdown" aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="collapse navbar-collapse" id="navbarNavDarkDropdown">
+<!--                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavDarkDropdown" aria-controls="navbarNavDarkDropdown" aria-expanded="false" aria-label="Toggle navigation">-->
+<!--                    <span class="navbar-toggler-icon"></span>-->
+<!--                </button>-->
+                <div class="collapse navbar-collapse show" id="navbarNavDarkDropdown">
                     <ul class="navbar-nav">
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle" href="#" id="navbarDarkDropdownMenuLink" role="button" data-bs-toggle="dropdown" aria-expanded="false"></a>
@@ -281,7 +290,7 @@
                 </nav>
             </aside>
         </div>
-        <div class="col col-9">
+        <div class="col col-lg-9">
             <main class="content">
                 <div class="language-en">
                     <h1>FPTN Project</h1>
@@ -404,70 +413,94 @@
                 <div>
                     <div class="toolbox-ad language-ru">
                         <p>
-                            После установки клиента FPTN вы можете найти его значок в системном трее,
-                            Просто щелкните на значок, чтобы открыть контекстное меню, где вы можете получить доступ к настройкам,
+                            После установки клиента FPTN его значок появится в системном трее.
+                            Просто щелкните на значок, чтобы открыть контекстное меню, где можно получить доступ к настройкам,
                             а также подключаться или отключаться от VPN-сервера.
+                            <img style="width: 100%" class="img-center" src="images/client.png" alt="Application"/>
                         </p>
 
-                            <img class="img-center" src="images/client.png" alt="Application" height="220"/>
+                        <p>
+                            В окне настроек выберите <i>Network Interface</i> (сетевой интерфейс или адаптер), который используется для выхода в интернет.
+                            Это может быть проводное соединение или WiFi, в зависимости от вашей системы.
+                            <br/><br/>
+                            Также укажите адрес своего роутера в <i>локальной сети</i> (шлюз по умолчанию).
+                            <br/>
+                            <img style="width: 100%" src="images/settings-1.png" alt="Settings"/>
+                        </p>
 
                         <p>
                             Регистрация для доступа к свободному интернету через FPTN очень проста!
-                            Используйте наш Telegram <a _blank="true" href="https://t.me/fptn_bot">@fptn_bot</a>,
+                            Используйте нашего Telegram-бота <a _blank="true" href="https://t.me/fptn_bot">@fptn_bot</a>,
                             который быстро предоставит вам параметры для доступа в интернет.
+                            <br/><br/>
+                            Добавьте новый сервер с параметрами, предоставленными ботом.
+                            <img style="width: 100%" src="images/settings-2.png" alt="Settings"/>
                         </p>
 
                         <p>
-                            В окне настроек сохраните настройки, добавив новый сервер.
+                            После этого сохраните настройки.
+                            <img style="width: 100%" src="images/settings-3.png" alt="Settings"/>
                         </p>
-
-                        <img style="width: 100%" src="images/settings.png" alt="Settings"/>
 
                         <p>
-                            Легко использовать
+                            Удобство использования:
+                            <img style="width: 100%" class="img-center" src="images/running-client.png" alt="Settings"/>
                         </p>
-
-                        <img class="img-center" src="images/running-client.png" alt="Settings" height="220"/>
 
                         <p>
                             А еще, ты можешь легко превратить свою RaspberryPi/OrangePi в WiFi-точку доступа и установить на неё FPTN-клиент.
                             В этом случае все устройства, подключённые к WiFi, получат доступ к интернету, обходя любые ограничения.
                             <a _blank="true" href="https://github.com/batchar2/fptn/blob/master/deploy/linux/wifi/README.ru.md">Читай тут</a>
+
+                            <img style="width: 100%" src="images/orangepi.jpg" alt="Settings"/>
                         </p>
 
-                        <img style="width: 100%" src="images/orangepi.jpg" alt="Settings"/>
 
                     </div>
 
                     <div class="toolbox-ad language-en">
                         <p>
-                            After installing the FPTN client, you can find its icon in the system tray. Simply click on the icon to open the context menu, where you can access the settings and connect or disconnect from the VPN server.
-                        </p>
-
-                        <img class="img-center" src="images/client.png" alt="Application" height="220"/>
-
-                        <p>
-                            Registering for access to free internet through FPTN is very simple! Use our Telegram <a _blank="true" href="https://t.me/fptn_bot">@fptn_bot</a>, which will quickly provide you with the parameters for internet access.
+                            After installing the FPTN client, its icon will appear in the system tray.
+                            Simply click on the icon to open the context menu, where you can access settings,
+                            as well as connect or disconnect from the VPN server.
+                            <img style="width: 100%" class="img-center" src="images/client.png" alt="Application"/>
                         </p>
 
                         <p>
-                            In the settings window, save the settings by adding a new server.
+                            In the settings window, select <i>the Network interface (adapter)</i> used for internet access.
+                            This could be a wired connection or WiFi, depending on your system.
+                            <br/><br/>
+                            Also, specify the address of your router in <i>the local network (default gateway)</i>.
+                            <br/>
+                            <img style="width: 100%" src="images/settings-1.png" alt="Settings"/>
                         </p>
-
-                        <img style="width: 100%" src="images/settings.png" alt="Settings"/>
 
                         <p>
-                            Easy to use.
+                            Registration for accessing the free internet via FPTN is very simple!
+                            Use our Telegram bot <a _blank="true" href="https://t.me/fptn_bot">@fptn_bot</a>,
+                            which will quickly provide you with the parameters for internet access.
+                            <br/><br/>
+                            Add a new server with the parameters provided by the bot.
+                            <img style="width: 100%" src="images/settings-2.png" alt="Settings"/>
                         </p>
-
-                        <img class="img-center" src="images/running-client.png" alt="Settings" height="220"/>
 
                         <p>
-                            Additionally, you can easily turn your RaspberryPi/OrangePi into a WiFi access point and install the FPTN client on it. In this case, all devices connected to the WiFi will gain internet access, bypassing any restrictions.
-                            <a _blank="true" href="https://github.com/batchar2/fptn/blob/master/deploy/linux/wifi/README.md">Read more here</a>
+                            After that, save the settings.
+                            <img style="width: 100%" src="images/settings-3.png" alt="Settings"/>
                         </p>
 
-                        <img style="width: 100%" src="images/orangepi.jpg" alt="Settings"/>
+                        <p>
+                            Ease of use:
+                            <img style="width: 100%" class="img-center" src="images/running-client.png" alt="Settings"/>
+                        </p>
+
+                        <p>
+                            You can also easily turn your Raspberry Pi or Orange Pi into a WiFi access point and install the FPTN client on it.
+                            In this case, all devices connected to the WiFi will be able to access the internet, bypassing any restrictions.
+                            <a _blank="true" href="https://github.com/batchar2/fptn/blob/master/deploy/linux/wifi/README.ru.md">Read more here</a>
+
+                            <img style="width: 100%" src="images/orangepi.jpg" alt="Settings"/>
+                        </p>
                     </div>
                 </div>
             </main>
