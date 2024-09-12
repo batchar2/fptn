@@ -155,7 +155,6 @@ namespace fptn::common::network
                 tun_->name(name());
                 tun_->ip(addr().toString(), netmask());
                 tun_->mtu(mtu_);
-                tun_->nonblocking(true);
                 tun_->up();
 
                 running_ = true;
@@ -171,6 +170,7 @@ namespace fptn::common::network
         {
             if (thread_.joinable() && running_ && tun_) {
                 running_ = false;
+                tun_->nonblocking(true);
                 thread_.join();
                 tun_.reset();
                 return true;
@@ -210,8 +210,6 @@ namespace fptn::common::network
                         receiveRateCalculator_.update(packet->size()); // calculate rate
                         newIPPktCallback(std::move(packet));
                     }
-                } else {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
                 }
             }
         }

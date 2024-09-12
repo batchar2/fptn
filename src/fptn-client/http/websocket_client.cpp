@@ -119,8 +119,8 @@ void WebSocketClient::onOpenHandle() noexcept
 void WebSocketClient::onMessageHandle(const std::string& msg) noexcept
 {
     try {
-        const std::string rawIpPacket = fptn::common::protobuf::protocol::getPayload(msg);
-        auto packet = fptn::common::network::IPPacket::parse(rawIpPacket);
+        std::string rawIpPacket = fptn::common::protobuf::protocol::getPayload(msg);
+        auto packet = fptn::common::network::IPPacket::parse(std::move(rawIpPacket));
         if (packet != nullptr && newIPPktCallback_) {
             newIPPktCallback_(std::move(packet));
         }

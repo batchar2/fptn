@@ -65,8 +65,8 @@ void WebsocketServer::onMessageHandle(const WebSocketChannelPtr& channel, const 
 {
     const std::uint32_t channelId = channel->id();
     try {
-        const std::string rawIpPacket = fptn::common::protobuf::protocol::getPayload(msg);
-        auto packet = fptn::common::network::IPPacket::parse(rawIpPacket, channelId);
+        std::string rawIpPacket = fptn::common::protobuf::protocol::getPayload(msg);
+        auto packet = fptn::common::network::IPPacket::parse(std::move(rawIpPacket), channelId);
         if (packet != nullptr && newPacketCallback_) {
             newPacketCallback_(std::move(packet));
         }

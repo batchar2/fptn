@@ -31,43 +31,30 @@
 namespace fptn::common::network
 {
 
-    #define PACKET_UNDEFINED_CLIENT_ID        (static_cast<std::uint32_t>(-1))
-    
+    #define PACKET_UNDEFINED_CLIENT_ID   (static_cast<std::uint32_t>(-1))
 
     class IPPacket final
     {
     public:
-        // WARNING FIXME
-        static std::unique_ptr<IPPacket> parse(const std::uint8_t *data, std::size_t size, std::uint32_t clientId = PACKET_UNDEFINED_CLIENT_ID)
+
+        static std::unique_ptr<IPPacket> parse(std::string strdata, std::uint32_t clientId = PACKET_UNDEFINED_CLIENT_ID)
         {
-            std::string tmp((const char*)data, size);
-            return parse(tmp);
-        }
-        static std::unique_ptr<IPPacket> parse(const std::string &data, std::uint32_t clientId = PACKET_UNDEFINED_CLIENT_ID)
-        {
-            /* TODO REWRITE */         
-            pcpp::RawPacket rawPacket(
-                (const std::uint8_t*)data.c_str(),
-                (int)data.size(),
-                timeval { 0, 0 },
-                false,
-                pcpp::LINKTYPE_IPV4
-            );
-            pcpp::Packet parsedPacket(&rawPacket, false);
-            if (parsedPacket.isPacketOfType(pcpp::IPv4) || parsedPacket.isPacketOfType(pcpp::IP)) {
-                if (parsedPacket.getLayerOfType<pcpp::IPv4Layer>()) {
-                    return std::make_unique<IPPacket>(
-                        data,
-                        clientId
-                    );
-                }
+            auto packet =  std::make_unique<IPPacket>(std::move(strdata), clientId);
+            if (nullptr != packet->ipLayer()) {
+                return packet;
             }
             return nullptr;
         }
+
+        static std::unique_ptr<IPPacket> parse(const std::uint8_t *data, std::size_t size, std::uint32_t clientId = PACKET_UNDEFINED_CLIENT_ID)
+        {
+            std::string strdata((const char*)data, size);
+            return parse(std::move(strdata), clientId);
+        }
     public:
-        IPPacket(std::string packetData, std::uint32_t clientId = PACKET_UNDEFINED_CLIENT_ID)
-            : 
-                packetData_(std::move(packetData)), 
+        IPPacket(std::string data, std::uint32_t clientId)
+            :
+                packetData_(std::move(data)),
                 clientId_(clientId),
                 rawPacket_(
                     (const std::uint8_t*)packetData_.c_str(),
@@ -80,10 +67,9 @@ namespace fptn::common::network
                 ipLayer_(parsedPacket_.getLayerOfType<pcpp::IPv4Layer>())
         {
         }
-
         ~IPPacket() = default;
 
-        void computeCalculateFields()
+        void computeCalculateFields() noexcept
         {
             ipLayer_->computeCalculateFields();
             pcpp::TcpLayer* tcpLayer = parsedPacket_.getLayerOfType<pcpp::TcpLayer>();
@@ -115,26 +101,25 @@ namespace fptn::common::network
         std::vector<std::uint8_t> serialize() noexcept
         {
             const auto raw = parsedPacket_.getRawPacket();
-            return std::vector<std::uint8_t>(raw->getRawData(), raw->getRawData() + raw->getRawDataLen());
+            return {raw->getRawData(), raw->getRawData() + raw->getRawDataLen()};
         }
 
-        std::size_t size() const 
+        std::size_t size() const noexcept
         {
             return packetData_.size();
         }
 
-        std::string toString()
+        std::string toString() noexcept
         {
             const auto raw = parsedPacket_.getRawPacket();
-            return std::string((const char*)raw->getRawData(), raw->getRawDataLen());
+            return {reinterpret_cast<const char*>(raw->getRawData()), static_cast<std::size_t>(raw->getRawDataLen())};
         }
     private:
         std::string packetData_;
         std::uint32_t clientId_;
         pcpp::RawPacket rawPacket_;
         pcpp::Packet parsedPacket_;
-        
-        std::size_t size_;
+
         pcpp::IPv4Layer* ipLayer_;
     };
 
