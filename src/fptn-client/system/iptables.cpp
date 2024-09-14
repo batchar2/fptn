@@ -212,7 +212,7 @@ std::string fptn::system::getDefaultGatewayIPAddress() noexcept
 
         boost::process::ipstream pipe;
 #ifdef _WIN32
-        boost::process::child child(command, boost::process::std_out > pipe_stream, ::boost::process::windows::hide);
+        boost::process::child child(command, boost::process::std_out > pipe, ::boost::process::windows::hide);
 #else
         boost::process::child child(
                 boost::process::search_path("bash"), "-c", command,
@@ -223,7 +223,7 @@ std::string fptn::system::getDefaultGatewayIPAddress() noexcept
         child.wait();
         if (result.empty()) {
             LOG(ERROR)<< "Warning: Default gateway IP address not found.";
-            return "";
+            return {};
         }
         // Remove all characters except digits and dots
         result.erase(
@@ -258,7 +258,7 @@ std::string fptn::system::getDefaultNetworkInterfaceName() noexcept
 #endif
         boost::process::ipstream pipe;
 #ifdef _WIN32
-        boost::process::child child(command, boost::process::std_out > pipe_stream, ::boost::process::windows::hide);
+        boost::process::child child(command, boost::process::std_out > pipe, ::boost::process::windows::hide);
 #else
         boost::process::child child(
             boost::process::search_path("bash"), "-c", command,
@@ -268,7 +268,7 @@ std::string fptn::system::getDefaultNetworkInterfaceName() noexcept
         child.wait();
         if (result.empty()) {
             LOG(ERROR)<< "Warning: Default gateway IP address not found.";
-            return "";
+            return {};
         }
         result.erase(result.find_last_not_of(" \n\r\t") + 1);
         result.erase(0, result.find_first_not_of(" \n\r\t"));
@@ -293,7 +293,7 @@ std::string getWindowsInterfaceNumber(const std::string& interfaceName)
         // Check if result is empty
         if (result.empty()) {
             std::cerr << "Warning: Interface index not found." << std::endl;
-            return "";
+            return {};
         }
         result.erase(result.find_last_not_of(" \n\r\t") + 1);
         result.erase(0, result.find_first_not_of(" \n\r\t"));
