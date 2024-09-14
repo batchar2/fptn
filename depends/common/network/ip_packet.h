@@ -76,6 +76,10 @@ namespace fptn::common::network
             if (tcpLayer) {
                 tcpLayer->computeCalculateFields();
             }
+//            pcpp::UdpLayer* udp = parsedPacket_.getLayerOfType<pcpp::UdpLayer>();
+//            if (udp) {
+//                udp->computeCalculateFields();
+//            }
         }
 
         void setClientId(std::uint32_t clientId) noexcept
@@ -114,6 +118,26 @@ namespace fptn::common::network
             const auto raw = parsedPacket_.getRawPacket();
             return {reinterpret_cast<const char*>(raw->getRawData()), static_cast<std::size_t>(raw->getRawDataLen())};
         }
+
+        bool isDnsPacket() const noexcept
+        {
+            pcpp::UdpLayer* udp = parsedPacket_.getLayerOfType<pcpp::UdpLayer>();
+            if (udp != nullptr) {
+                if (udp->getUdpHeader()->portSrc == 53 || udp->getUdpHeader()->portDst == 53) {
+                    return true;
+                }
+                return false;
+            }
+
+            pcpp::TcpLayer *tcp = parsedPacket_.getLayerOfType<pcpp::TcpLayer>();
+            if (tcp != nullptr) {
+                if (tcp->getTcpHeader()->portSrc == 53 || tcp->getTcpHeader()->portDst == 53) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
     private:
         std::string packetData_;
         std::uint32_t clientId_;

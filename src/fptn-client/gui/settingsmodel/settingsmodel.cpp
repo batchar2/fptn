@@ -63,10 +63,10 @@ void SettingsModel::load() {
     }
 
     // Load network settings
-    networkInterface_ = jsonObject["networkInterface"].toString();
-    gatewayIp_ = jsonObject["gatewayIp"].toString();
+    networkInterface_ = jsonObject["manualNetworkInterface"].toString();
+    gatewayIp_ = jsonObject["manualGatewayIp"].toString();
     if (gatewayIp_.isEmpty()) {
-        gatewayIp_ = QString::fromStdString(fptn::system::getDefaultGatewayIPAddress());
+        gatewayIp_ = "auto";
     }
 }
 
@@ -93,8 +93,8 @@ bool SettingsModel::save()
     jsonObject["servers"] = serversArray;
 
     // Save network settings
-    jsonObject["networkInterface"] = networkInterface_;
-    jsonObject["gatewayIp"] = gatewayIp_;
+    jsonObject["manualNetworkInterface"] = networkInterface_;
+    jsonObject["manualGatewayIp"] = gatewayIp_;
 
     QJsonDocument document(jsonObject);
     auto len = file.write(document.toJson());
@@ -109,7 +109,7 @@ QString SettingsModel::networkInterface() const {
 }
 
 void SettingsModel::setNetworkInterface(const QString &interface) {
-    networkInterface_ = interface;
+    networkInterface_ = (interface.isEmpty() ? "auto" : interface);
 }
 
 QString SettingsModel::gatewayIp() const {
@@ -117,7 +117,7 @@ QString SettingsModel::gatewayIp() const {
 }
 
 void SettingsModel::setGatewayIp(const QString &ip) {
-    gatewayIp_ = ip;
+    gatewayIp_ = (ip.isEmpty() ? "auto" : ip);
 }
 
 const QVector<ServerConnectionInformation>& SettingsModel::servers() const {
@@ -141,6 +141,8 @@ void SettingsModel::clear() {
 QVector<QString> SettingsModel::getNetworkInterfaces() const
 {
     QVector<QString> interfaces;
+    interfaces.append("auto"); // default empty
+
     QList<QNetworkInterface> networkInterfaces = QNetworkInterface::allInterfaces();
 
     for (const QNetworkInterface& networkInterface : networkInterfaces) {

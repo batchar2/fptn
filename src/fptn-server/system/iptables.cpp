@@ -77,7 +77,7 @@ bool IPTables::clean() noexcept
     const std::vector<std::string> commands = {
         fmt::format("iptables -D FORWARD -i {} -o {} -j ACCEPT", tunInterfaceName_, outInterfaceName_),
         fmt::format("iptables -D FORWARD -i {} -o {} -j ACCEPT", outInterfaceName_, tunInterfaceName_),
-        fmt::format("iptables -t nat -D POSTROUTING -o {} -j MASQUERADE", outInterfaceName_),
+        fmt::format("iptables -t nat -D POSTROUTING -o {} -j MASQUERADE", outInterfaceName_)
     };
 #elif __APPLE__
     const std::vector<std::string> commands = {

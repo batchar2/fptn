@@ -1,5 +1,7 @@
 #include "session.h"
 
+#include <glog/logging.h>
+
 
 using namespace fptn::client;
 
@@ -55,7 +57,6 @@ fptn::common::network::IPPacketPtr Session::changeIPAddressToCleintIP(fptn::comm
 {
     packet->setClientId(clientId_);
     packet->ipLayer()->getIPv4Header()->timeToLive -= 1;
-    packet->ipLayer()->setDstIPv4Address(clientIP_);
     packet->computeCalculateFields();
     return packet;
 }
@@ -65,6 +66,9 @@ fptn::common::network::IPPacketPtr Session::changeIPAddressToFakeIP(fptn::common
     packet->setClientId(clientId_);
     packet->ipLayer()->getIPv4Header()->timeToLive -= 1;
     packet->ipLayer()->setSrcIPv4Address(fakeClientIP_);
+
+//    if (packet->isDnsPacket()) {
+//    }
     packet->computeCalculateFields();
     return packet;
 }

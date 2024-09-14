@@ -159,7 +159,13 @@ QTabWidget::pane {
     border-radius: 4px;
     background: #ffffff;
 }
-
+QMenu::item:disabled {
+    background-color: #ffffff;
+    color: #a0a0a0;
+}
+QAction:disabled {
+    color: #a0a0a0;
+}
 )";
 
 

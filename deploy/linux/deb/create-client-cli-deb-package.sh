@@ -65,7 +65,7 @@ Version: ${VERSION}
 Architecture: $(dpkg --print-architecture)
 Maintainer: ${MAINTAINER}
 Installed-Size: ${INSTALLED_SIZE}
-Depends: iptables, iproute2
+Depends: iptables, iproute2, net-tools
 Section: admin
 Priority: optional
 Description: fptn client
