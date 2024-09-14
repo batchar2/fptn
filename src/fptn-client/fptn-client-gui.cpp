@@ -37,12 +37,13 @@ int main(int argc, char *argv[])
     }
 #endif
     initLogger(argv);
-    
+
+    QApplication::setDesktopSettingsAware(true);
     QApplication app(argc, argv);
+
     fptn::gui::TrayApp trayApp;
 
     int retcode = app.exec();
-
     google::ShutdownGoogleLogging();
     return retcode;
 }

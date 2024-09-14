@@ -44,37 +44,76 @@ TrayApp::TrayApp(QObject *parent)
         speedWidget_(new SpeedWidget()),
         updateTimer_(new QTimer(this))
 {
-    if (isUbuntu()) { // Ubuntu
-        activeIconPath_ = ":/icons/white/active.ico";
-        inactiveIconPath_ = ":/icons/white/inactive.ico";
-        qApp->setStyleSheet(fptn::gui::ubuntuStyleSheet);
-    } if (isWindows()) { // Windows
+#ifdef __linux__
+    if (isDarkMode() || isUbuntu()) {
         activeIconPath_ = ":/icons/dark/active.ico";
         inactiveIconPath_ = ":/icons/dark/inactive.ico";
-        if (isDarkMode()) {
-            LOG(INFO) << "Set dark mode";
-            activeIconPath_ = ":/icons/dark/active.ico";
-            inactiveIconPath_ = ":/icons/dark/inactive.ico";
-            qApp->setStyleSheet(fptn::gui::darkStyleSheet);
-        } else {
-            LOG(INFO) << "Set white mode";
-            activeIconPath_ = ":/icons/white/active.ico";
-            inactiveIconPath_ = ":/icons/white/inactive.ico";
-        }
-        qApp->setStyleSheet(fptn::gui::windowsStyleSheet);
-    } else { // MacOS
-        if (isDarkMode()) {
-            LOG(INFO) << "Set dark mode";
-            activeIconPath_ = ":/icons/dark/active.ico";
-            inactiveIconPath_ = ":/icons/dark/inactive.ico";
-            qApp->setStyleSheet(fptn::gui::darkStyleSheet);
-        } else {
-            LOG(INFO) << "Set white mode";
-            activeIconPath_ = ":/icons/white/active.ico";
-            inactiveIconPath_ = ":/icons/white/inactive.ico";
-            qApp->setStyleSheet(fptn::gui::whiteStyleSheet);
-        }
+    } else {
+        activeIconPath_ = ":/icons/white/active.ico";
+        inactiveIconPath_ = ":/icons/white/inactive.ico";
     }
+    qApp->setStyleSheet(fptn::gui::ubuntuStyleSheet);
+#elif __APPLE__
+    if (isDarkMode()) {
+        LOG(INFO) << "Set dark mode";
+        activeIconPath_ = ":/icons/dark/active.ico";
+        inactiveIconPath_ = ":/icons/dark/inactive.ico";
+        qApp->setStyleSheet(fptn::gui::darkStyleSheet);
+    } else {
+        LOG(INFO) << "Set white mode";
+        activeIconPath_ = ":/icons/white/active.ico";
+        inactiveIconPath_ = ":/icons/white/inactive.ico";
+        qApp->setStyleSheet(fptn::gui::whiteStyleSheet);
+    }
+#elif _WIN32
+    if (isDarkMode()) {
+        LOG(INFO) << "Set dark mode";
+        activeIconPath_ = ":/icons/dark/active.ico";
+        inactiveIconPath_ = ":/icons/dark/inactive.ico";
+    } else {
+        LOG(INFO) << "Set white mode";
+        activeIconPath_ = ":/icons/white/active.ico";
+        inactiveIconPath_ = ":/icons/white/inactive.ico";
+    }
+    qApp->setStyleSheet(fptn::gui::windowsStyleSheet);
+#else
+    #error "Unsupported system!"
+#endif
+
+
+    LOG(INFO) << "activeIconPath: " << activeIconPath_.toStdString();
+    LOG(INFO) << "inactiveIconPath: " << inactiveIconPath_.toStdString();
+
+//    if (isUbuntu()) { // Ubuntu
+//        activeIconPath_ = ":/icons/white/active.ico";
+//        inactiveIconPath_ = ":/icons/white/inactive.ico";
+        //qApp->setStyleSheet(fptn::gui::ubuntuStyleSheet);
+//    } if (isWindows()) { // Windows
+//        activeIconPath_ = ":/icons/dark/active.ico";
+//        inactiveIconPath_ = ":/icons/dark/inactive.ico";
+//        if (isDarkMode()) {
+//            LOG(INFO) << "Set dark mode";
+//            activeIconPath_ = ":/icons/dark/active.ico";
+//            inactiveIconPath_ = ":/icons/dark/inactive.ico";
+//        } else {
+//            LOG(INFO) << "Set white mode";
+//            activeIconPath_ = ":/icons/white/active.ico";
+//            inactiveIconPath_ = ":/icons/white/inactive.ico";
+//        }
+//        qApp->setStyleSheet(fptn::gui::windowsStyleSheet);
+//    } else { // MacOS
+//        if (isDarkMode()) {
+//            LOG(INFO) << "Set dark mode";
+//            activeIconPath_ = ":/icons/dark/active.ico";
+//            inactiveIconPath_ = ":/icons/dark/inactive.ico";
+//            qApp->setStyleSheet(fptn::gui::darkStyleSheet);
+//        } else {
+//            LOG(INFO) << "Set white mode";
+//            activeIconPath_ = ":/icons/white/active.ico";
+//            inactiveIconPath_ = ":/icons/white/inactive.ico";
+//            qApp->setStyleSheet(fptn::gui::whiteStyleSheet);
+//        }
+//    }
 
     #if defined(_WIN32)
         if (trayIcon_ && trayMenu_) {
@@ -285,8 +324,16 @@ void TrayApp::handleConnecting()
     const std::string tunInterfaceAddress = "10.0.1.1";
     const std::string tunInterfaceName = "tun0";
 
-    const std::string gatewayIP = serverModel_.gatewayIp().toStdString();
-    const std::string usingGatewayIP = (!gatewayIP.empty() ? gatewayIP : fptn::system::getDefaultGatewayIPAddress());
+    const std::string gatewayIP = (
+            serverModel_.gatewayIp() == "auto"
+            ? ""
+            : serverModel_.gatewayIp().toStdString()
+    );
+    const std::string networkInterface = (
+            serverModel_.networkInterface() == "auto"
+            ? ""
+            : serverModel_.networkInterface().toStdString()
+    );
 
     auto webSocketClient = std::make_unique<fptn::http::WebSocketClient>(
             selectedServer_.address.toStdString(),
@@ -313,10 +360,10 @@ void TrayApp::handleConnecting()
     }
 
     ipTables_ = std::make_unique<fptn::system::IPTables>(
-            serverModel_.networkInterface().toStdString(),
+            networkInterface,
             tunInterfaceName,
             selectedServer_.address.toStdString(),
-            usingGatewayIP,
+            gatewayIP,
             tunInterfaceAddress // FIX IT
     );
     auto virtualNetworkInterface = std::make_unique<fptn::common::network::TunInterface>(

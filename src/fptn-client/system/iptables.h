@@ -7,7 +7,8 @@
 
 namespace fptn::system
 {
-    std::string getDefaultGatewayIPAddress();
+    std::string getDefaultGatewayIPAddress() noexcept;
+    std::string getDefaultNetworkInterfaceName() noexcept;
 
     class IPTables final
     {
@@ -30,6 +31,9 @@ namespace fptn::system
         std::string vpnServerIp_;
         std::string gatewayIp_;
         std::string tunInterfaceAddress_;
+    private:
+        std::string findOutInterfaceName_;
+        std::string findOutGatewayIp_;
     };
 
     using IPTablesPtr = std::unique_ptr<IPTables>;

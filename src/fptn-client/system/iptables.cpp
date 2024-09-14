@@ -52,44 +52,47 @@ bool IPTables::check() noexcept
     return true;
 }
 
-
 bool IPTables::apply() noexcept
 {
     const std::string vpnServerIP = resolveDomain(vpnServerIp_);
-
-    LOG(INFO) << "Resolve: " << vpnServerIp_ << " --> " << vpnServerIP;
+    findOutInterfaceName_ = outInterfaceName_.empty() ? getDefaultNetworkInterfaceName() : outInterfaceName_;
+    findOutGatewayIp_ = gatewayIp_.empty() ? getDefaultGatewayIPAddress() : gatewayIp_;
+    LOG(INFO) << "VPN SERVER IP: " << vpnServerIp_ << " --> " << vpnServerIP;
+    LOG(INFO) << "OUT NETWORK INTERFACE: " << findOutInterfaceName_;
+    LOG(INFO) << "GATEWAY IP: " << findOutGatewayIp_;
     LOG(INFO)<< "=== Setting up routing ===";
 #ifdef __linux__ 
     const std::vector<std::string> commands = {
         fmt::format("sysctl -w net.inet.ip.forwarding=1"),
-        fmt::format("iptables -t nat -A POSTROUTING -o {} -j MASQUERADE", outInterfaceName_),
-        fmt::format("iptables -A FORWARD -i {} -o {} -m state --state RELATED,ESTABLISHED -j ACCEPT", outInterfaceName_, tunInterfaceName_),
-        fmt::format("iptables -A FORWARD -i {} -o {} -j ACCEPT", tunInterfaceName_, outInterfaceName_),
-        fmt::format("iptables -A OUTPUT -o {} -d {} -j ACCEPT", outInterfaceName_, vpnServerIP),
-        fmt::format("iptables -A INPUT -i {} -s {} -j ACCEPT", outInterfaceName_, vpnServerIP),
+        fmt::format("sysctl -p"),
+        fmt::format("iptables -t nat -A POSTROUTING -o {} -j MASQUERADE", findOutInterfaceName_),
+        fmt::format("iptables -A FORWARD -i {} -o {} -m state --state RELATED,ESTABLISHED -j ACCEPT", findOutInterfaceName_, tunInterfaceName_),
+        fmt::format("iptables -A FORWARD -i {} -o {} -j ACCEPT", tunInterfaceName_, findOutInterfaceName_),
+        fmt::format("iptables -A OUTPUT -o {} -d {} -j ACCEPT", findOutInterfaceName_, vpnServerIP),
+        fmt::format("iptables -A INPUT -i {} -s {} -j ACCEPT", findOutInterfaceName_, vpnServerIP),
         fmt::format("ip route add default dev {}", tunInterfaceName_),
-        fmt::format("ip route add {} via {} dev {}", vpnServerIP, gatewayIp_, outInterfaceName_),
+        fmt::format("ip route add {} via {} dev {}", vpnServerIP, findOutGatewayIp_, findOutInterfaceName_),
         fmt::format("resolvectl dns {} 8.8.8.8 8.8.4.4", tunInterfaceName_)
     };
 #elif __APPLE__
     const std::vector<std::string> commands = {
         fmt::format("sysctl -w net.inet.ip.forwarding=1"),
-        fmt::format("sh -c \"echo 'nat on {} from {}:network to any -> ({})' > /tmp/pf.conf\"", outInterfaceName_, tunInterfaceName_, outInterfaceName_),
-        fmt::format("sh -c \"echo 'pass out on {} proto tcp from any to {}' >> /tmp/pf.conf\"", outInterfaceName_, vpnServerIP),
-        fmt::format("sh -c \"echo 'pass in on {} proto tcp from {} to any' >> /tmp/pf.conf\"", outInterfaceName_, vpnServerIP),
+        fmt::format("sh -c \"echo 'nat on {} from {}:network to any -> ({})' > /tmp/pf.conf\"", findOutInterfaceName_, tunInterfaceName_, findOutInterfaceName_),
+        fmt::format("sh -c \"echo 'pass out on {} proto tcp from any to {}' >> /tmp/pf.conf\"", findOutInterfaceName_, vpnServerIP),
+        fmt::format("sh -c \"echo 'pass in on {} proto tcp from {} to any' >> /tmp/pf.conf\"", findOutInterfaceName_, vpnServerIP),
         fmt::format("sh -c \"echo 'pass in on {} proto tcp from any to any' >> /tmp/pf.conf\"", tunInterfaceName_),
         fmt::format("sh -c \"echo 'pass out on {} proto tcp from any to any' >> /tmp/pf.conf\"", tunInterfaceName_),
         fmt::format("pfctl -ef /tmp/pf.conf"),
         fmt::format("route add -net 0.0.0.0/1 -interface {}", tunInterfaceName_),
         fmt::format("route add -net 128.0.0.0/1 -interface {}", tunInterfaceName_),
-        fmt::format("route add {} {}", vpnServerIP, gatewayIp_),
+        fmt::format("route add {} {}", vpnServerIP, findOutGatewayIp_),
         fmt::format("networksetup -setdnsservers \"{}\" 8.8.8.8 8.8.4.4", tunInterfaceName_)
     };
 #elif _WIN32
     const std::string winInterfaceNumber = getWindowsInterfaceNumber(tunInterfaceName_);
     const std::string interfaceInfo = winInterfaceNumber.empty() ? "" : " if " + winInterfaceNumber;
     const std::vector<std::string> commands = {
-        fmt::format("route add {} mask 255.255.255.255 {} METRIC 2", vpnServerIP, gatewayIp_),
+        fmt::format("route add {} mask 255.255.255.255 {} METRIC 2", vpnServerIP, findOutGatewayIp_),
         fmt::format("route add 0.0.0.0 mask 0.0.0.0 {} METRIC 1 {}", tunInterfaceAddress_, interfaceInfo),
         fmt::format("netsh interface ip set dns name=\"{}\" static 8.8.8.8", tunInterfaceName_),
         fmt::format("route add 8.8.8.8 mask 255.255.255.255 {}", vpnServerIP)
@@ -114,13 +117,13 @@ bool IPTables::clean() noexcept
     const std::string vpnServerIP = resolveDomain(vpnServerIp_);
 #ifdef __linux__
     const std::vector<std::string> commands = {
-        fmt::format("iptables -t nat -D POSTROUTING -o {} -j MASQUERADE", outInterfaceName_),
-        fmt::format("iptables -D FORWARD -i {} -o {} -m state --state RELATED,ESTABLISHED -j ACCEPT", outInterfaceName_, tunInterfaceName_),
-        fmt::format("iptables -D FORWARD -i {} -o {} -j ACCEPT", tunInterfaceName_, outInterfaceName_),
-        fmt::format("iptables -D OUTPUT -o {} -d {} -j ACCEPT", outInterfaceName_, vpnServerIP),
-        fmt::format("iptables -D INPUT -i {} -s {} -j ACCEPT", outInterfaceName_, vpnServerIP),
+        fmt::format("iptables -t nat -D POSTROUTING -o {} -j MASQUERADE", findOutInterfaceName_),
+        fmt::format("iptables -D FORWARD -i {} -o {} -m state --state RELATED,ESTABLISHED -j ACCEPT", findOutInterfaceName_, tunInterfaceName_),
+        fmt::format("iptables -D FORWARD -i {} -o {} -j ACCEPT", tunInterfaceName_, findOutInterfaceName_),
+        fmt::format("iptables -D OUTPUT -o {} -d {} -j ACCEPT", findOutInterfaceName_, vpnServerIP),
+        fmt::format("iptables -D INPUT -i {} -s {} -j ACCEPT", findOutInterfaceName_, vpnServerIP),
         fmt::format("ip route del default dev {}", tunInterfaceName_),
-        fmt::format("ip route del {} via {} dev {}", vpnServerIP, gatewayIp_, outInterfaceName_),
+        fmt::format("ip route del {} via {} dev {}", vpnServerIP, findOutGatewayIp_, findOutInterfaceName_),
         fmt::format("resolvectl revert {}", tunInterfaceName_)
     };
 #elif __APPLE__
@@ -128,12 +131,12 @@ bool IPTables::clean() noexcept
         fmt::format("pfctl -F all -f /etc/pf.conf"),
         fmt::format("route delete -net 0.0.0.0/1 -interface {}", tunInterfaceName_),
         fmt::format("route delete -net 128.0.0.0/1 -interface {}", tunInterfaceName_),
-        fmt::format("route delete {} {}", vpnServerIP, gatewayIp_),
+        fmt::format("route delete {} {}", vpnServerIP, findOutGatewayIp_),
         fmt::format("networksetup -setdnsservers \"{}\" empty", tunInterfaceName_)
     };
 #elif _WIN32
     const std::vector<std::string> commands = {
-        fmt::format("route delete {} mask 255.255.255.255 {}", vpnServerIP, gatewayIp_),
+        fmt::format("route delete {} mask 255.255.255.255 {}", vpnServerIP, findOutGatewayIp_),
         fmt::format("route delete 0.0.0.0 mask 0.0.0.0 {}", tunInterfaceAddress_),
         fmt::format("netsh interface ip set dns name=\"{}\" dhcp", tunInterfaceName_),
         fmt::format("route delete 8.8.8.8 mask 255.255.255.255 {}", vpnServerIP)
@@ -192,28 +195,31 @@ static std::string resolveDomain(const std::string& domain)
     return domain;
 }
 
-std::string fptn::system::getDefaultGatewayIPAddress() 
+std::string fptn::system::getDefaultGatewayIPAddress() noexcept
 {
     std::string result;
     try 
     {
-#ifdef __linux__ 
-        const std::string command = R"(ip route | grep default | awk '{print $3}')";
+#ifdef __linux__
+        const std::string command = "ip route get 8.8.8.8 | awk '{print $3; exit}'";
 #elif __APPLE__
-        const std::string command = R"(netstat -rn | grep default | awk '{print $2}')";
+        const std::string command = "route get 8.8.8.8 | grep gateway | awk '{print $2}' ";
 #elif _WIN32
         const std::string command = R"(cmd.exe /c FOR /F "tokens=13" %x IN ('ipconfig ^| findstr "Default Gateway" ^| findstr /R "[0-9]*\.[0-9]*\.[0-9]*\.[0-9]*"') DO @echo %x)";
 #else
     #error "Unsupported system!"
 #endif
-        boost::process::ipstream pipe_stream;
 
+        boost::process::ipstream pipe;
 #ifdef _WIN32
         boost::process::child child(command, boost::process::std_out > pipe_stream, ::boost::process::windows::hide);
 #else
-        boost::process::child child(command, boost::process::std_out > pipe_stream);
+        boost::process::child child(
+                boost::process::search_path("bash"), "-c", command,
+                boost::process::std_out > pipe
+        );
 #endif
-        std::getline(pipe_stream, result);
+        std::getline(pipe, result);
         child.wait();
         if (result.empty()) {
             LOG(ERROR)<< "Warning: Default gateway IP address not found.";
@@ -230,6 +236,43 @@ std::string fptn::system::getDefaultGatewayIPAddress()
         );
         result.erase(result.find_last_not_of(" \n\r\t") + 1);
         result.erase(0, result.find_first_not_of(" \n\r\t"));
+    } catch (const std::exception& ex) {
+        LOG(ERROR) << "Error: Failed to retrieve the default gateway IP address. " << ex.what();
+    }
+    return result;
+}
+
+std::string fptn::system::getDefaultNetworkInterfaceName() noexcept
+{
+    std::string result;
+    try
+    {
+#ifdef __linux__
+        const std::string command = "ip route get 8.8.8.8 | awk '{print $5; exit}' ";
+#elif __APPLE__
+        const std::string command = "route get 8.8.8.8 | grep interface | awk '{print $2}' ";
+#elif _WIN32
+        const std::string command = R"(cmd.exe /c "FOR /F "tokens=1,2,3" %i IN ('route print ^| findstr /R /C:"0.0.0.0"') DO @echo %i")";
+#else
+    #error "Unsupported system!"
+#endif
+        boost::process::ipstream pipe;
+#ifdef _WIN32
+        boost::process::child child(command, boost::process::std_out > pipe_stream, ::boost::process::windows::hide);
+#else
+        boost::process::child child(
+            boost::process::search_path("bash"), "-c", command,
+            boost::process::std_out > pipe
+        );
+        std::getline(pipe, result);
+        child.wait();
+        if (result.empty()) {
+            LOG(ERROR)<< "Warning: Default gateway IP address not found.";
+            return "";
+        }
+        result.erase(result.find_last_not_of(" \n\r\t") + 1);
+        result.erase(0, result.find_first_not_of(" \n\r\t"));
+#endif
     } catch (const std::exception& ex) {
         LOG(ERROR) << "Error: Failed to retrieve the default gateway IP address. " << ex.what();
     }
@@ -279,7 +322,6 @@ static bool isWindows11() {
             return true;
         }
     }
-
     return false;
 }
 #endif

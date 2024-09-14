@@ -53,13 +53,6 @@ int main(int argc, char* argv[])
         .default_value(8080)
         .help("Port number")
         .scan<'i', int>();
-    args.add_argument("--out-network-interface")
-#if defined(__APPLE__) || defined(__linux__)
-        .required()
-#elif _WIN32
-        .default_value("NoneForWindows")
-#endif
-        .help("Network out interface");
     args.add_argument("--username")
         .required()
         .help("Username");
@@ -67,6 +60,9 @@ int main(int argc, char* argv[])
         .required()
         .help("Username");
     // Optional arguments
+    args.add_argument("--out-network-interface")
+        .default_value("")
+        .help("Network out interface");
     args.add_argument("--gateway-ip")
         .default_value("")
         .help("Your default gateway ip");
@@ -95,7 +91,7 @@ int main(int argc, char* argv[])
     const auto tunInterfaceName = args.get<std::string>("--tun-interface-name");
     const auto tunInterfaceAddress = pcpp::IPv4Address(args.get<std::string>("--tun-interface-ip"));
 
-    const std::string usingGatewayIP = (!gatewayIP.empty() ? gatewayIP : fptn::system::getDefaultGatewayIPAddress());
+    const std::string usingGatewayIP = (gatewayIP.empty() ? fptn::system::getDefaultGatewayIPAddress() : gatewayIP);
     if (usingGatewayIP.empty()) {
         LOG(ERROR) << "Error: Unable to find the default gateway IP address. Please specify it using the \"--gateway-ip\" option." << std::endl;
         return EXIT_FAILURE;
