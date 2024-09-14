@@ -176,7 +176,79 @@ Check the server status with:
 sudo systemctl status fptn-server
 ```
 
-##### Step 8. Telegram and Grafana
+##### Step 8: DNS
+
+To configure a `DNS server` using `dnsmasq`, follow these steps:
+
+1. Install dnsmasq
+
+Install the dnsmasq package using the following command:
+
+
+```bash
+sudo apt update
+sudo apt install dnsmasq
+```
+
+
+<details>
+<summary>Additional Settings for Ubuntu 24.04</summary>
+
+If you are using Ubuntu 24.04, follow these additional steps:
+
+Open the file `/etc/systemd/resolved.conf`
+
+
+Find the DNSStubListener parameter, uncomment it, and change the value to no:
+
+```bash
+DNSStubListener=no
+``` 
+
+Restart the systemd-resolved service:
+
+```bash
+sudo systemctl restart systemd-resolved
+```
+
+</details>
+
+
+2. Configure dnsmasq
+
+Open the dnsmasq configuration file `/etc/dnsmasq.conf`
+
+Add or modify the following line to set up DNS forwarding to Google's public DNS server:
+
+```bash
+server=8.8.8.8
+```
+
+3. Restart dnsmasq
+
+Apply the changes by restarting the dnsmasq service:
+
+
+```
+sudo systemctl restart dnsmasq
+```
+
+4. Verify the Configuration
+
+Check the status of dnsmasq to ensure it is running correctly:
+
+```
+sudo systemctl status dnsmasq
+```
+
+You can also test DNS resolution to confirm that the server is working:
+
+```
+dig @127.0.0.1 google.com
+```
+
+
+##### Step 9. Telegram and Grafana
 
 Please follow the instructions for setting up both the [Telegram bot](sysadmin-tools/telegram-bot/README.md) and [Grafana](sysadmin-tools/grafana/README.md).
 With these tools, you can run your own bot and monitoring system.
