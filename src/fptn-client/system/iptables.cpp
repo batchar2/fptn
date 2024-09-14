@@ -68,7 +68,8 @@ bool IPTables::apply() noexcept
         fmt::format("iptables -A OUTPUT -o {} -d {} -j ACCEPT", outInterfaceName_, vpnServerIP),
         fmt::format("iptables -A INPUT -i {} -s {} -j ACCEPT", outInterfaceName_, vpnServerIP),
         fmt::format("ip route add default dev {}", tunInterfaceName_),
-        fmt::format("ip route add {} via {} dev {}", vpnServerIP, gatewayIp_, outInterfaceName_)
+        fmt::format("ip route add {} via {} dev {}", vpnServerIP, gatewayIp_, outInterfaceName_),
+        fmt::format("resolvectl dns {} 8.8.8.8 8.8.4.4", tunInterfaceName_)
     };
 #elif __APPLE__
     const std::vector<std::string> commands = {
@@ -81,17 +82,17 @@ bool IPTables::apply() noexcept
         fmt::format("pfctl -ef /tmp/pf.conf"),
         fmt::format("route add -net 0.0.0.0/1 -interface {}", tunInterfaceName_),
         fmt::format("route add -net 128.0.0.0/1 -interface {}", tunInterfaceName_),
-        fmt::format("route add {} {}", vpnServerIP, gatewayIp_)
+        fmt::format("route add {} {}", vpnServerIP, gatewayIp_),
+        fmt::format("networksetup -setdnsservers \"{}\" 8.8.8.8 8.8.4.4", tunInterfaceName_)
     };
 #elif _WIN32
     const std::string winInterfaceNumber = getWindowsInterfaceNumber(tunInterfaceName_);
     const std::string interfaceInfo = winInterfaceNumber.empty() ? "" : " if " + winInterfaceNumber;
-    // const std::string win11Route = isWindows11() ? "netsh interface ipv4 set global forwarding=enabled" : "dir";
-    const std::string win11Route = "netsh interface ipv4 set global forwarding=enabled";
     const std::vector<std::string> commands = {
-        win11Route,
         fmt::format("route add {} mask 255.255.255.255 {} METRIC 2", vpnServerIP, gatewayIp_),
         fmt::format("route add 0.0.0.0 mask 0.0.0.0 {} METRIC 1 {}", tunInterfaceAddress_, interfaceInfo),
+        fmt::format("netsh interface ip set dns name=\"{}\" static 8.8.8.8", tunInterfaceName_),
+        fmt::format("route add 8.8.8.8 mask 255.255.255.255 {}", vpnServerIP)
     };
 #else
     #error "Unsupported system!"
@@ -119,19 +120,23 @@ bool IPTables::clean() noexcept
         fmt::format("iptables -D OUTPUT -o {} -d {} -j ACCEPT", outInterfaceName_, vpnServerIP),
         fmt::format("iptables -D INPUT -i {} -s {} -j ACCEPT", outInterfaceName_, vpnServerIP),
         fmt::format("ip route del default dev {}", tunInterfaceName_),
-        fmt::format("ip route del {} via {} dev {}", vpnServerIP, gatewayIp_, outInterfaceName_)
+        fmt::format("ip route del {} via {} dev {}", vpnServerIP, gatewayIp_, outInterfaceName_),
+        fmt::format("resolvectl revert {}", tunInterfaceName_)
     };
 #elif __APPLE__
     const std::vector<std::string> commands = {
         fmt::format("pfctl -F all -f /etc/pf.conf"),
         fmt::format("route delete -net 0.0.0.0/1 -interface {}", tunInterfaceName_),
         fmt::format("route delete -net 128.0.0.0/1 -interface {}", tunInterfaceName_),
-        fmt::format("route delete {} {}", vpnServerIP, gatewayIp_)
+        fmt::format("route delete {} {}", vpnServerIP, gatewayIp_),
+        fmt::format("networksetup -setdnsservers \"{}\" empty", tunInterfaceName_)
     };
 #elif _WIN32
     const std::vector<std::string> commands = {
         fmt::format("route delete {} mask 255.255.255.255 {}", vpnServerIP, gatewayIp_),
-        fmt::format("route delete 0.0.0.0 mask 0.0.0.0 {}", tunInterfaceAddress_)
+        fmt::format("route delete 0.0.0.0 mask 0.0.0.0 {}", tunInterfaceAddress_),
+        fmt::format("netsh interface ip set dns name=\"{}\" dhcp", tunInterfaceName_),
+        fmt::format("route delete 8.8.8.8 mask 255.255.255.255 {}", vpnServerIP)
     };
 #else
     #error "Unsupported system!"
