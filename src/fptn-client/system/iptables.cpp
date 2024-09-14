@@ -72,7 +72,7 @@ bool IPTables::apply() noexcept
         fmt::format("iptables -A INPUT -i {} -s {} -j ACCEPT", findOutInterfaceName_, vpnServerIP),
         fmt::format("ip route add default dev {}", tunInterfaceName_),
         fmt::format("ip route add {} via {} dev {}", vpnServerIP, findOutGatewayIp_, findOutInterfaceName_),
-        fmt::format("resolvectl dns {} 8.8.8.8 8.8.4.4", tunInterfaceName_)
+        fmt::format("resolvectl dns {} {}", tunInterfaceName_, vpnServerIP)
     };
 #elif __APPLE__
     const std::vector<std::string> commands = {
@@ -86,7 +86,7 @@ bool IPTables::apply() noexcept
         fmt::format("route add -net 0.0.0.0/1 -interface {}", tunInterfaceName_),
         fmt::format("route add -net 128.0.0.0/1 -interface {}", tunInterfaceName_),
         fmt::format("route add {} {}", vpnServerIP, findOutGatewayIp_),
-        fmt::format("networksetup -setdnsservers \"{}\" 8.8.8.8 8.8.4.4", tunInterfaceName_)
+        fmt::format("networksetup -setdnsservers \"{}\" {}", tunInterfaceName_, vpnServerIP)
     };
 #elif _WIN32
     const std::string winInterfaceNumber = getWindowsInterfaceNumber(tunInterfaceName_);
@@ -94,8 +94,7 @@ bool IPTables::apply() noexcept
     const std::vector<std::string> commands = {
         fmt::format("route add {} mask 255.255.255.255 {} METRIC 2", vpnServerIP, findOutGatewayIp_),
         fmt::format("route add 0.0.0.0 mask 0.0.0.0 {} METRIC 1 {}", tunInterfaceAddress_, interfaceInfo),
-        fmt::format("netsh interface ip set dns name=\"{}\" static 8.8.8.8", tunInterfaceName_),
-        fmt::format("route add 8.8.8.8 mask 255.255.255.255 {}", vpnServerIP)
+        fmt::format("netsh interface ip set dns name=\"{}\" static {}", tunInterfaceName_, vpnServerIP)
     };
 #else
     #error "Unsupported system!"
@@ -138,8 +137,7 @@ bool IPTables::clean() noexcept
     const std::vector<std::string> commands = {
         fmt::format("route delete {} mask 255.255.255.255 {}", vpnServerIP, findOutGatewayIp_),
         fmt::format("route delete 0.0.0.0 mask 0.0.0.0 {}", tunInterfaceAddress_),
-        fmt::format("netsh interface ip set dns name=\"{}\" dhcp", tunInterfaceName_),
-        fmt::format("route delete 8.8.8.8 mask 255.255.255.255 {}", vpnServerIP)
+        fmt::format("netsh interface ip set dns name=\"{}\" dhcp", tunInterfaceName_, vpnServerIP)
     };
 #else
     #error "Unsupported system!"
