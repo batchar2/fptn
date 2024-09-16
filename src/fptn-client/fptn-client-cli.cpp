@@ -117,11 +117,17 @@ int main(int argc, char* argv[])
         LOG(ERROR) << "The username or password you entered is incorrect" << std::endl;
         return EXIT_FAILURE;
     }
+    const std::string dnsServer = webSocketClient->getDns();
+    if (dnsServer.empty()) {
+        LOG(ERROR) << "DNS server error! Check your connection!" << std::endl;
+        return EXIT_FAILURE;
+    }
 
     auto iptables = std::make_unique<fptn::system::IPTables>(
         outNetworkInterfaceName,
         tunInterfaceName,
         vpnServerIP,
+        dnsServer,
         usingGatewayIP,
         tunInterfaceAddress.toString() // FIX IT
     );
@@ -132,7 +138,8 @@ int main(int argc, char* argv[])
 
     fptn::vpn::VpnClient vpnClient(
         std::move(webSocketClient),
-        std::move(virtualNetworkInterface)
+        std::move(virtualNetworkInterface),
+        dnsServer
     );
 
     vpnClient.start();

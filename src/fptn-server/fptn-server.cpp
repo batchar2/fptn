@@ -164,7 +164,8 @@ int main(int argc, char* argv[])
         userManager,
         tokenManager,
         prometheus,
-        prometheusAccessKey
+        prometheusAccessKey,
+        tunInterfaceIP
     );
 
     fptn::vpn::Manager manager(

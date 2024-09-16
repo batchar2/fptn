@@ -55,23 +55,19 @@ TrayApp::TrayApp(QObject *parent)
     qApp->setStyleSheet(fptn::gui::ubuntuStyleSheet);
 #elif __APPLE__
     if (isDarkMode()) {
-        LOG(INFO) << "Set dark mode";
         activeIconPath_ = ":/icons/dark/active.ico";
         inactiveIconPath_ = ":/icons/dark/inactive.ico";
         qApp->setStyleSheet(fptn::gui::darkStyleSheet);
     } else {
-        LOG(INFO) << "Set white mode";
         activeIconPath_ = ":/icons/white/active.ico";
         inactiveIconPath_ = ":/icons/white/inactive.ico";
         qApp->setStyleSheet(fptn::gui::whiteStyleSheet);
     }
 #elif _WIN32
     if (isDarkMode()) {
-        LOG(INFO) << "Set dark mode";
         activeIconPath_ = ":/icons/dark/active.ico";
         inactiveIconPath_ = ":/icons/dark/inactive.ico";
     } else {
-        LOG(INFO) << "Set white mode";
         activeIconPath_ = ":/icons/white/active.ico";
         inactiveIconPath_ = ":/icons/white/inactive.ico";
     }
@@ -80,54 +76,18 @@ TrayApp::TrayApp(QObject *parent)
     #error "Unsupported system!"
 #endif
 
-
-    LOG(INFO) << "activeIconPath: " << activeIconPath_.toStdString();
-    LOG(INFO) << "inactiveIconPath: " << inactiveIconPath_.toStdString();
-
-//    if (isUbuntu()) { // Ubuntu
-//        activeIconPath_ = ":/icons/white/active.ico";
-//        inactiveIconPath_ = ":/icons/white/inactive.ico";
-        //qApp->setStyleSheet(fptn::gui::ubuntuStyleSheet);
-//    } if (isWindows()) { // Windows
-//        activeIconPath_ = ":/icons/dark/active.ico";
-//        inactiveIconPath_ = ":/icons/dark/inactive.ico";
-//        if (isDarkMode()) {
-//            LOG(INFO) << "Set dark mode";
-//            activeIconPath_ = ":/icons/dark/active.ico";
-//            inactiveIconPath_ = ":/icons/dark/inactive.ico";
-//        } else {
-//            LOG(INFO) << "Set white mode";
-//            activeIconPath_ = ":/icons/white/active.ico";
-//            inactiveIconPath_ = ":/icons/white/inactive.ico";
-//        }
-//        qApp->setStyleSheet(fptn::gui::windowsStyleSheet);
-//    } else { // MacOS
-//        if (isDarkMode()) {
-//            LOG(INFO) << "Set dark mode";
-//            activeIconPath_ = ":/icons/dark/active.ico";
-//            inactiveIconPath_ = ":/icons/dark/inactive.ico";
-//            qApp->setStyleSheet(fptn::gui::darkStyleSheet);
-//        } else {
-//            LOG(INFO) << "Set white mode";
-//            activeIconPath_ = ":/icons/white/active.ico";
-//            inactiveIconPath_ = ":/icons/white/inactive.ico";
-//            qApp->setStyleSheet(fptn::gui::whiteStyleSheet);
-//        }
-//    }
-
-    #if defined(_WIN32)
-        if (trayIcon_ && trayMenu_) {
-            QObject::connect(trayIcon_, &QSystemTrayIcon::activated, [this](QSystemTrayIcon::ActivationReason reason) {
-                if (trayMenu_->isVisible()) {
-                    trayMenu_->close(); // Hide the menu if it's visible
-                } else {
-                    trayMenu_->show();
-                    trayMenu_->exec(QCursor::pos()); // Show the menu if it's not visible
-                }
-            });
-        }
-    #endif
-
+#if defined(_WIN32)
+    if (trayIcon_ && trayMenu_) {
+        QObject::connect(trayIcon_, &QSystemTrayIcon::activated, [this](QSystemTrayIcon::ActivationReason reason) {
+            if (trayMenu_->isVisible()) {
+                trayMenu_->close(); // Hide the menu if it's visible
+            } else {
+                trayMenu_->show();
+                trayMenu_->exec(QCursor::pos()); // Show the menu if it's not visible
+            }
+        });
+    }
+#endif
     connect(this, &TrayApp::defaultState, this, &TrayApp::handleDefaultState);
     connect(this, &TrayApp::connecting, this, &TrayApp::handleConnecting);
     connect(this, &TrayApp::connected, this, &TrayApp::handleConnected);
@@ -359,10 +319,24 @@ void TrayApp::handleConnecting()
         return;
     }
 
+    const std::string dnsServer = webSocketClient->getDns();
+    if (dnsServer.empty()) {
+        QWidget tempWidget;
+        QMessageBox::critical(
+                &tempWidget,
+                "Connection Error",
+                "DNS server error! Check your connection!"
+        );
+        connectionState_ = ConnectionState::None;
+        updateTrayMenu();
+        return;
+    }
+
     ipTables_ = std::make_unique<fptn::system::IPTables>(
             networkInterface,
             tunInterfaceName,
             selectedServer_.address.toStdString(),
+            dnsServer,
             gatewayIP,
             tunInterfaceAddress // FIX IT
     );
@@ -371,7 +345,8 @@ void TrayApp::handleConnecting()
     );
     vpnClient_ = std::make_unique<fptn::vpn::VpnClient>(
             std::move(webSocketClient),
-            std::move(virtualNetworkInterface)
+            std::move(virtualNetworkInterface),
+            dnsServer
     );
     vpnClient_->start();
     std::this_thread::sleep_for(std::chrono::seconds(2)); // FIX IT!

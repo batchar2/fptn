@@ -15,12 +15,13 @@ Server::Server(
         const fptn::common::jwt_token::TokenManagerSPtr& tokenManager,
         const fptn::statistic::MetricsSPtr& prometheus,
         const std::string& prometheusAccessKey,
+        const pcpp::IPv4Address& dnsServer,
         int thread_number
 )
     : 
         running_(false), 
         natTable_(natTable),
-        http_(userManager, tokenManager, prometheus, prometheusAccessKey),
+        http_(userManager, tokenManager, prometheus, prometheusAccessKey, dnsServer),
         ws_(
             tokenManager,
             std::bind(

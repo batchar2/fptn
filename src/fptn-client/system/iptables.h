@@ -17,6 +17,7 @@ namespace fptn::system
             const std::string& outInterfaceName,
             const std::string& tunInterfaceName,
             const std::string& vpnServerIP,
+            const std::string& dnsServer,
             const std::string& gatewayIp="",
             const std::string& tunInterfaceAddress="10.10.10.1"
         );
@@ -29,6 +30,7 @@ namespace fptn::system
         std::string outInterfaceName_;
         std::string tunInterfaceName_;
         std::string vpnServerIp_;
+        std::string dnsServer_;
         std::string gatewayIp_;
         std::string tunInterfaceAddress_;
     private:

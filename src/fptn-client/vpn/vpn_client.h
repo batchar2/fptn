@@ -14,7 +14,8 @@ namespace fptn::vpn
     public:
         VpnClient(
             fptn::http::WebSocketClientPtr webSocket,
-            fptn::common::network::BaseNetInterfacePtr virtualNetworkInterface
+            fptn::common::network::BaseNetInterfacePtr virtualNetworkInterface,
+            const std::string& dnsServer  // FIX THIS
         );
         ~VpnClient();
         void start() noexcept;
@@ -27,6 +28,7 @@ namespace fptn::vpn
     private:
         fptn::http::WebSocketClientPtr webSocket_;
         fptn::common::network::BaseNetInterfacePtr virtualNetworkInterface_;
+        pcpp::IPv4Address dnsServer_;
     };
 
     using VpnClientPtr = std::unique_ptr<fptn::vpn::VpnClient>;

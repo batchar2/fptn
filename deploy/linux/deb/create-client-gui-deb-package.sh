@@ -58,6 +58,14 @@ export QT_PLUGIN_PATH=\$FPTN_QT_DIR/plugins
 export QT_QPA_PLATFORM_PLUGIN_PATH=\$FPTN_QT_DIR/plugins/platforms
 export LD_LIBRARY_PATH=\$FPTN_QT_DIR:\$QT_QPA_PLATFORM_PLUGIN_PATH
 
+
+# Function to clean DNS settings
+cleanup_dns() {
+    echo "Cleaning up DNS settings..."
+    resolvectl revert tun0
+}
+
+
 declare -a VARS
 VARS+=(
     "QT_PLUGIN_PATH=\$QT_PLUGIN_PATH"
@@ -71,6 +79,8 @@ for VAR in \$(env | sed 's/=/\t/g' | awk '{ print \$1 }' | tr '\n' ' '); do
         VARS+=("\$VAR=\${!VAR}")
     fi
 done
+
+trap cleanup_dns EXIT
 
 exec pkexec env -u PKEXEC_UID "SUDO_USER=\$USER" "SUDO_UID=\$(id -u)" "SUDO_GID=\$(id -g)" "\${VARS[@]}" "/bin/sh" -c "exec /opt/fptn/fptn-client-gui \"\$@\"" "\$@"
 

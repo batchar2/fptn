@@ -22,6 +22,7 @@ namespace fptn::web
                 const fptn::common::jwt_token::TokenManagerSPtr& tokenManager,
                 const fptn::statistic::MetricsSPtr& prometheus,
                 const std::string& prometheusAccessKey,
+                const pcpp::IPv4Address& dnsServer,
                 int thread_number = 4
         );
         ~Server();

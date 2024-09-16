@@ -8,6 +8,14 @@ display dialog "$message" buttons {"OK"} default button "OK" with icon stop
 EOF
 }
 
+
+# Function to clean DNS settings
+cleanup_dns() {
+    echo "Cleaning up DNS settings..."
+    networksetup -listallnetworkservices | grep -v '^An asterisk' | xargs -I {} networksetup -setdnsservers "{}" empty
+}
+
+
 # Check for root privileges
 if [ "$(id -u)" -ne 0 ]; then
     echo "This operation requires root privileges."
@@ -66,3 +74,6 @@ export QT_QPA_PLATFORM_PLUGIN_PATH=/Applications/FptnClient.app/Contents/Framewo
 export LD_LIBRARY_PATH=/Applications/FptnClient.app/Contents/Frameworks
 
 exec /Applications/FptnClient.app/Contents/MacOS/fptn-client-gui "$@" &
+
+trap cleanup_dns EXIT
+networksetup -listallnetworkservices | grep -v '^An asterisk' | xargs -I {} networksetup -setdnsservers "{}" empty

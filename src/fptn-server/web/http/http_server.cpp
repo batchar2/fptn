@@ -85,15 +85,20 @@ HttpServer::HttpServer(
         const fptn::common::user::UserManagerSPtr& userManager,
         const fptn::common::jwt_token::TokenManagerSPtr& tokenManager,
         const fptn::statistic::MetricsSPtr& prometheus,
-        const std::string& prometheusAccessKey
+        const std::string& prometheusAccessKey,
+        const pcpp::IPv4Address& dnsServer
 )
     : 
         userManager_(userManager),
         tokenManager_(tokenManager),
-        prometheus_(prometheus)
+        prometheus_(prometheus),
+        dnsServer_(dnsServer)
 {
     using namespace std::placeholders;
     http_.GET(urlHome_.c_str(), std::bind(&HttpServer::onHomeHandle, this, _1, _2));
+    http_.GET(urlDns_.c_str(), std::bind(&HttpServer::onDnsHandle, this, _1, _2));
+
+
     http_.POST(urlLogin_.c_str(), std::bind(&HttpServer::onLoginHandle, this, _1, _2));
     // prometheus statistics
     if (!prometheusAccessKey.empty()) {
@@ -119,6 +124,15 @@ int HttpServer::onHomeHandle(HttpRequest* req, HttpResponse* resp) noexcept
     resp->SetHeader("Expires", "Fri, 07 Jun 1974 04:00:00 GMT");
     resp->SetHeader("x-bitrix-composite", "Cache (200)");
     return resp->String(html_home_page);
+}
+
+int HttpServer::onDnsHandle(HttpRequest* req, HttpResponse* resp) noexcept
+{
+    resp->SetHeader("Content-Type", "application/json; charset=utf-8");
+    resp->String(
+        fmt::format(R"({{"dns": "{}"}})", dnsServer_.toString())
+    );
+    return 200;
 }
 
 int HttpServer::onStatistics(HttpRequest* req, HttpResponse* resp) noexcept

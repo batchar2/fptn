@@ -11,11 +11,13 @@ using namespace fptn::vpn;
 
 VpnClient::VpnClient(
     fptn::http::WebSocketClientPtr webSocket,
-    fptn::common::network::BaseNetInterfacePtr virtualNetworkInterface
+    fptn::common::network::BaseNetInterfacePtr virtualNetworkInterface,
+    const std::string& dnsServer
 )
     : 
         webSocket_(std::move(webSocket)),
-        virtualNetworkInterface_(std::move(virtualNetworkInterface))
+        virtualNetworkInterface_(std::move(virtualNetworkInterface)),
+        dnsServer_(pcpp::IPv4Address(dnsServer))
 {
 }
 

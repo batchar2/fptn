@@ -25,6 +25,7 @@ namespace fptn::http
             const NewIPPacketCallback& newIPPktCallback = nullptr
         );
         bool login(const std::string& username, const std::string& password) noexcept;
+        std::string getDns() noexcept;
         bool start() noexcept;
         bool stop() noexcept;
         bool send(fptn::common::network::IPPacketPtr packet) noexcept;

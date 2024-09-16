@@ -5,7 +5,15 @@
 #include <vector>
 #include <cstdint>
 
+#if _WIN32
+#include <Winsock2.h>
+#else
+#include <arpa/inet.h>
+#endif
+
 #include <iostream>
+
+#include <glog/logging.h>
 
 #include <pcapplusplus/MacAddress.h>
 
@@ -71,15 +79,16 @@ namespace fptn::common::network
 
         void computeCalculateFields() noexcept
         {
-            ipLayer_->computeCalculateFields();
-            pcpp::TcpLayer* tcpLayer = parsedPacket_.getLayerOfType<pcpp::TcpLayer>();
-            if (tcpLayer) {
-                tcpLayer->computeCalculateFields();
+            auto tcp = parsedPacket_.getLayerOfType<pcpp::TcpLayer>();
+            if (tcp) {
+                tcp->computeCalculateFields();
+            } else {
+                auto udp = parsedPacket_.getLayerOfType<pcpp::UdpLayer>();
+                if (udp) {
+                    udp->computeCalculateFields();
+                }
             }
-//            pcpp::UdpLayer* udp = parsedPacket_.getLayerOfType<pcpp::UdpLayer>();
-//            if (udp) {
-//                udp->computeCalculateFields();
-//            }
+            ipLayer_->computeCalculateFields();
         }
 
         void setClientId(std::uint32_t clientId) noexcept
@@ -101,7 +110,7 @@ namespace fptn::common::network
         {
             return ipLayer_;
         }
-        
+
         std::vector<std::uint8_t> serialize() noexcept
         {
             const auto raw = parsedPacket_.getRawPacket();
@@ -121,23 +130,21 @@ namespace fptn::common::network
 
         bool isDnsPacket() const noexcept
         {
-            pcpp::UdpLayer* udp = parsedPacket_.getLayerOfType<pcpp::UdpLayer>();
-            if (udp != nullptr) {
-                if (udp->getUdpHeader()->portSrc == 53 || udp->getUdpHeader()->portDst == 53) {
+            auto udp = parsedPacket_.getLayerOfType<pcpp::UdpLayer>();
+            if (udp) {
+                if (ntohs(udp->getUdpHeader()->portSrc) == 53 || ntohs(udp->getUdpHeader()->portDst) == 53) {
                     return true;
                 }
                 return false;
             }
-
-            pcpp::TcpLayer *tcp = parsedPacket_.getLayerOfType<pcpp::TcpLayer>();
-            if (tcp != nullptr) {
-                if (tcp->getTcpHeader()->portSrc == 53 || tcp->getTcpHeader()->portDst == 53) {
+            auto tcp = parsedPacket_.getLayerOfType<pcpp::TcpLayer>();
+            if (tcp) {
+                if (ntohs(tcp->getTcpHeader()->portSrc) == 53 || ntohs(tcp->getTcpHeader()->portDst) == 53) {
                     return true;
                 }
             }
             return false;
         }
-
     private:
         std::string packetData_;
         std::uint32_t clientId_;

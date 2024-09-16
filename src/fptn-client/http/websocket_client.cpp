@@ -61,6 +61,29 @@ bool WebSocketClient::login(const std::string& username, const std::string& pass
     return false;
 }
 
+std::string WebSocketClient::getDns() noexcept
+{
+    const std::string url = fmt::format("https://{}:{}/api/v1/dns", vpnServerIP_, vpnServerPort_);
+    auto resp = requests::get(url.c_str());
+    if (resp != nullptr) {
+        try {
+            auto response = nlohmann::json::parse(resp->body);
+            if (response.contains("dns")) {
+                const std::string dnsServer = response["dns"];
+                return dnsServer;
+            } else {
+                LOG(ERROR) << "Error: dns not found in the response. Check your conection";
+            }
+        } catch (const nlohmann::json::parse_error& e) {
+            LOG(ERROR) << "Error parsing JSON response: " << e.what() << std::endl << resp->body;
+            LOG(ERROR) << "URL: " << url;
+        }
+    } else {
+        LOG(ERROR) << "Error: Request failed or response is null.";
+    }
+    return {};
+}
+
 bool WebSocketClient::start() noexcept
 {
     const std::string url = fmt::format("wss://{}:{}/fptn", vpnServerIP_, vpnServerPort_);

@@ -6,6 +6,14 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
+
+# Function to clean DNS settings
+cleanup_dns() {
+    echo "Cleaning up DNS settings..."
+    networksetup -listallnetworkservices | grep -v '^An asterisk' | xargs -I {} networksetup -setdnsservers "{}" empty
+}
+
+
 # Define paths
 KEXT_LIBRARY_EXTENSION="/Library/Extensions"
 KEXT_PATH_INSIDE_APPLICATION="/Applications/FptnClient.app/Contents/Resources/tun.kext"
@@ -43,4 +51,5 @@ fi
 
 cd /tmp/
 
+trap cleanup_dns EXIT
 /Applications/FptnClient.app/Contents/MacOS/fptn-client-cli "$@"
