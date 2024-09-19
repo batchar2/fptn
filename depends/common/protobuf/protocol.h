@@ -125,6 +125,4 @@ namespace fptn::common::protobuf::protocol
         }
         return serializedData;
     }
-
-
 }

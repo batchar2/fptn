@@ -32,6 +32,7 @@ namespace fptn::http
         void setNewIPPacketCallback(const NewIPPacketCallback& callback) noexcept;
     private:
         void run() noexcept;
+        http_headers getRealBrowserHeaders() noexcept;
     private:
         void onOpenHandle() noexcept;
         void onMessageHandle(const std::string& msg) noexcept;
