@@ -79,13 +79,13 @@ namespace fptn::common::network
 
         void computeCalculateFields() noexcept
         {
-            auto tcp = parsedPacket_.getLayerOfType<pcpp::TcpLayer>();
-            if (tcp) {
-                tcp->computeCalculateFields();
+            auto tcpLayer = parsedPacket_.getLayerOfType<pcpp::TcpLayer>();
+            if (tcpLayer) {
+                tcpLayer->computeCalculateFields();
             } else {
-                auto udp = parsedPacket_.getLayerOfType<pcpp::UdpLayer>();
-                if (udp) {
-                    udp->computeCalculateFields();
+                auto udpLayer = parsedPacket_.getLayerOfType<pcpp::UdpLayer>();
+                if (udpLayer) {
+                    udpLayer->computeCalculateFields();
                 }
             }
             ipLayer_->computeCalculateFields();

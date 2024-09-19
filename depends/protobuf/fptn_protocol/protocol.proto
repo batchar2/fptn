@@ -21,7 +21,8 @@ message ErrorMessage {
 }
 
 message IPPacket {
-    bytes payload = 1; 
+    bytes payload = 1;
+    bytes padding_data = 2;
 }
 
 message Message {

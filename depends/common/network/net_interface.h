@@ -138,7 +138,7 @@ namespace fptn::common::network
         )
             :
                 BaseNetInterface(name, addr, netmask, callback),
-                mtu_(1500),
+                mtu_(FPTN_MTU_SIZE),
                 running_(false)
         {
         }
@@ -154,9 +154,9 @@ namespace fptn::common::network
                 tun_ = std::make_unique<tuntap::tun>();
                 tun_->name(name());
                 tun_->ip(addr().toString(), netmask());
+                tun_->nonblocking(true);
                 tun_->mtu(mtu_);
                 tun_->up();
-
                 running_ = true;
                 thread_ = std::thread(&PosixTunInterface::run, this);
                 return thread_.joinable();
@@ -170,7 +170,6 @@ namespace fptn::common::network
         {
             if (thread_.joinable() && running_ && tun_) {
                 running_ = false;
-                tun_->nonblocking(true);
                 thread_.join();
                 tun_.reset();
                 return true;
@@ -205,11 +204,13 @@ namespace fptn::common::network
             while(running_) {
                 const int size = tun_->read(static_cast<void*>(buffer), mtu_);
                 if (size > 0 && running_) {
-                    auto packet = IPPacket::parse(buffer, size);;
+                    auto packet = IPPacket::parse(buffer, size);
                     if (packet != nullptr && newIPPktCallback) {
                         receiveRateCalculator_.update(packet->size()); // calculate rate
                         newIPPktCallback(std::move(packet));
                     }
+                } else {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
                 }
             }
         }
@@ -441,7 +442,6 @@ namespace fptn::common::network
         DataRateCalculator sendRateCalculator_;
         DataRateCalculator receiveRateCalculator_;
     };
-
 
     using TunInterface = WindowsTunInterface;
 #endif

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <ctime>
+#include <random>
 #include <string>
 #include <stdexcept>
 
@@ -35,7 +37,6 @@ namespace fptn::common::protobuf::protocol
             : std::runtime_error(message) {}
     };
 
-
     inline std::string getPayload(const std::string& raw)
     {
         fptn::protocol::Message message;
@@ -60,6 +61,20 @@ namespace fptn::common::protobuf::protocol
         throw ProcessingError("Unknown message type.");
     }
 
+    inline std::string generateRandomString(int length)
+    {
+        const std::string characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+        std::mt19937 gen{std::random_device{}()};
+        std::uniform_int_distribution<std::size_t> dist(0, characters.size() - 1);
+
+        std::string result;
+        for (int i = 0; i < length; i++) {
+            result += characters[dist(gen)];
+        }
+        return result;
+    }
+
     inline std::string createPacket(fptn::common::network::IPPacketPtr packet) 
     {
         fptn::protocol::Message message;
@@ -69,7 +84,22 @@ namespace fptn::common::protobuf::protocol
 
         fptn::protocol::IPPacket* ipPacketPayload = message.mutable_packet();
         ipPacketPayload->set_payload(packet->toString());
+#ifdef FPTN_ENABLE_PACKET_PADDING
+        /**
+         * Fill with random data to prevent issues related to TLS-inside-TLS.
+         */
+        static const std::string randomdata = generateRandomString(FPTN_IP_PACKET_MAX_SIZE);
+        const std::size_t currentPayloadSize = ipPacketPayload->payload().size();
+        if (currentPayloadSize < FPTN_IP_PACKET_MAX_SIZE) {
+            static std::mt19937 gen{std::random_device{}()};
+            std::uniform_int_distribution<std::size_t> dist(currentPayloadSize, FPTN_IP_PACKET_MAX_SIZE);
 
+            const std::size_t randomLength = dist(gen);
+            const std::size_t paddingSize = randomLength - currentPayloadSize;
+
+            ipPacketPayload->set_padding_data(randomdata.substr(currentPayloadSize, paddingSize));
+        }
+#endif
         std::string serializedData;
         if (!message.SerializeToString(&serializedData)) {
             throw std::runtime_error("Failed to serialize Message.");
