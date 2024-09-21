@@ -31,6 +31,7 @@ static const char *chromeCiphers = "ECDHE-ECDSA-AES128-GCM-SHA256:"
     "RSA-AES256-CBC-SHA:"
     "RSA-3DES-EDE-CBC-SHA";
 
+
 WebSocketClient::WebSocketClient(
     const std::string& vpnServerIP, 
     int vpnServerPort,
@@ -58,12 +59,12 @@ WebSocketClient::WebSocketClient(
     ws_.init_asio();
     ws_.set_tls_init_handler(std::bind(&WebSocketClient::onTlsInit, this));
     ws_.set_message_handler(
-            std::bind(
-                    &WebSocketClient::onMessage,
-                    this,
-                    std::placeholders::_1,
-                    std::placeholders::_2
-            )
+        std::bind(
+            &WebSocketClient::onMessage,
+            this,
+            std::placeholders::_1,
+            std::placeholders::_2
+        )
     );
 }
 

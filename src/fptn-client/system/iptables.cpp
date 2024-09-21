@@ -43,12 +43,10 @@ IPTables::IPTables(
     resolvedServerIp_ = resolveDomain(vpnServerIp_);
 }
 
-
 IPTables::~IPTables()
 {
     clean();
 }
-
 
 bool IPTables::check() noexcept
 {
