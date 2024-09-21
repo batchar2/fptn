@@ -8,12 +8,12 @@ else()
     set(TUNTAP_LIB Wintun rpcrt4 iphlpapi Kernel32.lib)
 endif()
 
-find_package(Boost REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_package(argparse REQUIRED)
 find_package(glog REQUIRED)
 find_package(fmt REQUIRED)
 find_package(PcapPlusPlus REQUIRED)
+find_package(Boost REQUIRED COMPONENTS random filesystem)
 
 find_package(httplib REQUIRED)
 find_package(websocketpp REQUIRED)
@@ -34,6 +34,7 @@ add_executable(
 target_link_libraries(
     "${PROJECT_NAME}-cli"
     Boost::boost
+    Boost::random
     Boost::filesystem
 
     OpenSSL::SSL
@@ -87,6 +88,7 @@ if("${FPTN_BUILD_WITH_GUI_CLIENT}")
     target_link_libraries(
         "${PROJECT_NAME}-gui"
         Boost::boost
+        Boost::random
         Boost::filesystem
 
         OpenSSL::SSL
