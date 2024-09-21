@@ -14,8 +14,6 @@
 #include "websocket_client.h"
 
 
-using namespace fptn::http;
-
 /* Google Chrome 56, Windows 10, April 2017 */
 static const char *chromeCiphers = "ECDHE-ECDSA-AES128-GCM-SHA256:"
     "ECDHE-RSA-AES128-GCM-SHA256:"
@@ -30,6 +28,9 @@ static const char *chromeCiphers = "ECDHE-ECDSA-AES128-GCM-SHA256:"
     "RSA-AES128-CBC-SHA:"
     "RSA-AES256-CBC-SHA:"
     "RSA-3DES-EDE-CBC-SHA";
+
+
+using namespace fptn::http;
 
 
 WebSocketClient::WebSocketClient(
@@ -255,25 +256,18 @@ bool WebSocketClient::start() noexcept
 
 bool WebSocketClient::stop() noexcept
 {
-    LOG(ERROR) << "STOP1-";
     if (running_ && th_.joinable()) {
         {
-            LOG(ERROR) << "STOP2";
             std::unique_lock<std::mutex> lock(mutex_);
             if (connection_) {
-                LOG(ERROR) << "STOP3";
                 connection_.reset();
             }
         }
-        LOG(ERROR) << "STOP4";
         running_ = false;
         if (!ws_.stopped()) {
-            LOG(ERROR) << "STOP5";
             ws_.stop();
         }
-        LOG(ERROR) << "STOP6";
         th_.join();
-        LOG(ERROR) << "STOP7";
         return true;
     }
     return false;
