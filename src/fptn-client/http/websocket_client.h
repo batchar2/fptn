@@ -6,12 +6,19 @@
 #include <iostream>
 #include <functional>
 
-#include <hv/WebSocketClient.h>
+#include <httplib/httplib.h>
+#include <websocketpp/client.hpp>
+#include <websocketpp/config/asio_client.hpp>
+
 #include <common/network/ip_packet.h>
 
 
 namespace fptn::http
 {
+    using AsioSslContextPtr = std::shared_ptr<boost::asio::ssl::context>;
+    using AsioMessagePtr = websocketpp::config::asio_client::message_type::ptr;
+    using AsioClient = websocketpp::client<websocketpp::config::asio_tls_client>;
+
     class WebSocketClient final
     {
     public:
@@ -32,17 +39,20 @@ namespace fptn::http
         void setNewIPPacketCallback(const NewIPPacketCallback& callback) noexcept;
     private:
         void run() noexcept;
-        http_headers getRealBrowserHeaders() noexcept;
+        httplib::Headers getRealBrowserHeaders() noexcept;
     private:
-        void onOpenHandle() noexcept;
-        void onMessageHandle(const std::string& msg) noexcept;
-        void onCloseHandle() noexcept;
+        AsioSslContextPtr onTlsInit() noexcept;
+        void onMessage(websocketpp::connection_hdl hdl, AsioMessagePtr msg) noexcept;
     private:
         std::thread th_;
-        hv::WebSocketClient ws_;
+        mutable std::mutex mutex_;
 
-        const std::string vpnServerIP_; 
-        int vpnServerPort_;
+        AsioClient ws_;
+        mutable AsioClient::connection_ptr connection_;
+        std::atomic<bool> running_;
+
+        const std::string vpnServerIP_;
+        const int vpnServerPort_;
 
         std::string token_;
         std::string tunInterfaceAddress_;

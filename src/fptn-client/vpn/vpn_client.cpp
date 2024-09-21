@@ -42,13 +42,13 @@ void VpnClient::start() noexcept
 
 void VpnClient::stop() noexcept
 {
-    if (virtualNetworkInterface_) {
-        virtualNetworkInterface_->stop();
-        virtualNetworkInterface_.reset();
-    }
     if (webSocket_) {
         webSocket_->stop();
         webSocket_.reset();
+    }
+    if (virtualNetworkInterface_) {
+        virtualNetworkInterface_->stop();
+        virtualNetworkInterface_.reset();
     }
 }
 

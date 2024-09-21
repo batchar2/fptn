@@ -12,7 +12,7 @@ class FPTN(ConanFile):
     requires = (
         "fmt/11.0.1",
         "glog/0.7.1",
-        "boost/1.85.0",
+        "boost/1.83.0",
         "argparse/3.0",
         "openssl/3.2.2",
         "jwt-cpp/0.7.0",
@@ -20,6 +20,9 @@ class FPTN(ConanFile):
         "pcapplusplus/23.09",
         "nlohmann_json/3.11.3",
         "prometheus-cpp/1.1.0",
+
+        "websocketpp/0.8.2",
+        "cpp-httplib/0.17.3",
     )
     tool_requires = (
         "cmake/3.30.1",

@@ -9,6 +9,7 @@ namespace fptn::system
 {
     std::string getDefaultGatewayIPAddress() noexcept;
     std::string getDefaultNetworkInterfaceName() noexcept;
+    std::string resolveDomain(const std::string& domain) noexcept;
 
     class IPTables final
     {
@@ -33,6 +34,7 @@ namespace fptn::system
         std::string dnsServer_;
         std::string gatewayIp_;
         std::string tunInterfaceAddress_;
+        std::string resolvedServerIp_;
     private:
         std::string findOutInterfaceName_;
         std::string findOutGatewayIp_;

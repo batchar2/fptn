@@ -1,6 +1,7 @@
 #include "websocket_server.h"
 
 #include <glog/logging.h>
+#include <boost/algorithm/string/replace.hpp>
 
 #include <common/protobuf/protocol.h>
 
@@ -30,7 +31,9 @@ void WebsocketServer::onOpenHandle(const WebSocketChannelPtr& channel, const Htt
 {
     if (websocket_uri_ == req->Path()) {
         if (req->headers.find("Authorization") != req->headers.end() && req->headers.find("ClientIP") != req->headers.end()) {
-            const std::string token = req->headers["Authorization"];
+            std::string token = req->headers["Authorization"];
+            boost::replace_first(token, "Bearer ", ""); // clean token string
+
             const std::uint32_t channelId = channel->id();
             const pcpp::IPv4Address clientVpnIP(req->headers["ClientIP"]);
             const pcpp::IPv4Address clientIP(req->client_addr.ip);
@@ -51,9 +54,9 @@ void WebsocketServer::onOpenHandle(const WebSocketChannelPtr& channel, const Htt
                 LOG(WARNING) << "WRONG TOKEN: " << username << std::endl;
                 channel->close();
             }
-        
         } else {
             LOG(WARNING) << "CHECK: Authorization or ClientIP" << std::endl;
+            channel->close();
         }
     } else {
         LOG(WARNING) << "WRONG PATH: " << req->Path() << ", but the real path is: " << websocket_uri_ << std::endl;
@@ -111,7 +114,7 @@ void WebsocketServer::send(fptn::common::network::IPPacketPtr packet)
                 const std::string msg = fptn::common::protobuf::protocol::createPacket(
                     std::move(packet)
                 );
-                it->second->send(msg);
+                it->second->send(msg, WS_OPCODE_BINARY);
             } catch (const std::runtime_error &err) {
                 LOG(ERROR) << "Websockwt.send" << err.what();
             }

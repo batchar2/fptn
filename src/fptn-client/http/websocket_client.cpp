@@ -1,16 +1,35 @@
-#include "websocket_client.h"
+#include <future>
+#include <variant>
 
 #include <fmt/format.h>
 #include <hv/requests.h>
 #include <glog/logging.h>
 
 #include <openssl/ssl.h>
-#include <openssl/err.h>
 
 #include <common/protobuf/protocol.h>
 
+#include "system/iptables.h"
+
+#include "websocket_client.h"
+
+
 using namespace fptn::http;
 
+/* Google Chrome 56, Windows 10, April 2017 */
+static const char *chromeCiphers = "ECDHE-ECDSA-AES128-GCM-SHA256:"
+    "ECDHE-RSA-AES128-GCM-SHA256:"
+    "ECDHE-ECDSA-AES256-GCM-SHA384:"
+    "ECDHE-RSA-AES256-GCM-SHA384:"
+    "ECDHE-ECDSA-CHACHA20-POLY1305:"
+    "ECDHE-RSA-CHACHA20-POLY1305:"
+    "ECDHE-RSA-AES128-CBC-SHA:"
+    "ECDHE-RSA-AES256-CBC-SHA:"
+    "RSA-AES128-GCM-SHA256:"
+    "RSA-AES256-GCM-SHA384:"
+    "RSA-AES128-CBC-SHA:"
+    "RSA-AES256-CBC-SHA:"
+    "RSA-3DES-EDE-CBC-SHA";
 
 WebSocketClient::WebSocketClient(
     const std::string& vpnServerIP, 
@@ -20,44 +39,65 @@ WebSocketClient::WebSocketClient(
     const NewIPPacketCallback& newIPPktCallback 
 )
     :
-        vpnServerIP_(vpnServerIP), 
+        connection_(nullptr),
+        running_(false),
+        vpnServerIP_(vpnServerIP),
         vpnServerPort_(vpnServerPort),
         token_(""),
         tunInterfaceAddress_(tunInterfaceAddress),
         newIPPktCallback_(newIPPktCallback)
 {
-    reconn_setting_t reconn;
-    reconn_setting_init(&reconn);
-    reconn.min_delay = 1000;
-    reconn.max_delay = 10000;
-    reconn.delay_policy = 2;
+    // Set logging
+    // ws_.set_access_channels(websocketpp::log::alevel::all);
+    ws_.set_access_channels(websocketpp::log::alevel::none);
 
-    hlog_disable();
-    ws_.setReconnect(&reconn);
-    ws_.onopen = std::bind(&WebSocketClient::onOpenHandle, this);
-    ws_.onmessage = std::bind(&WebSocketClient::onMessageHandle, this, std::placeholders::_1);
-    ws_.onclose = std::bind(&WebSocketClient::onCloseHandle, this);
+    ws_.clear_access_channels(websocketpp::log::alevel::frame_payload);
+    ws_.set_open_handshake_timeout(10000);
+    ws_.set_close_handshake_timeout(10000);
+
+    ws_.init_asio();
+    ws_.set_tls_init_handler(std::bind(&WebSocketClient::onTlsInit, this));
+    ws_.set_message_handler(
+            std::bind(
+                    &WebSocketClient::onMessage,
+                    this,
+                    std::placeholders::_1,
+                    std::placeholders::_2
+            )
+    );
 }
 
 bool WebSocketClient::login(const std::string& username, const std::string& password) noexcept
 {
-    const std::string url = fmt::format("https://{}:{}/api/v1/login", vpnServerIP_, vpnServerPort_);
-    const std::string request = fmt::format(R"({{ "username": "{}", "password": "{}" }})", username, password);
+    httplib::SSLClient cli(vpnServerIP_, vpnServerPort_);
+    {
+        cli.enable_server_certificate_verification(false); // NEED TO FIX
+        cli.set_connection_timeout(0, 300000); // 300 milliseconds
+        cli.set_read_timeout(3, 0); // 3 seconds
+        cli.set_write_timeout(3, 0); // 3 seconds
+        if (SSL_CTX_set_cipher_list(cli.ssl_context(), chromeCiphers) != 1) {
+            LOG(ERROR) << "Failed to set cipher list" << std::endl;
+            return false;
+        }
+    }
 
-    auto resp = requests::post(url.c_str(), request, getRealBrowserHeaders());
-    if (resp != nullptr) {
-        try {
-            auto response = nlohmann::json::parse(resp->body);
-            if (response.contains("access_token")) {
-                token_ = response["access_token"];
-                LOG(INFO) << "Login successful.";
-                return true;
-            } else {
-                LOG(ERROR) << "Error: Access token not found in the response. Check your conection";
+    const std::string request = fmt::format(R"({{ "username": "{}", "password": "{}" }})", username, password);
+    if (auto res = cli.Post("/api/v1/login", getRealBrowserHeaders(), request, "application/json" )){
+        if (res->status == httplib::StatusCode::OK_200) {
+            try {
+                auto response = nlohmann::json::parse(res->body);
+                if (response.contains("access_token")) {
+                    token_ = response["access_token"];
+                    LOG(INFO) << "Login successful.";
+                    return true;
+                } else {
+                    LOG(ERROR) << "Error: Access token not found in the response. Check your conection";
+                }
+            } catch (const nlohmann::json::parse_error& e) {
+                LOG(ERROR) << "Error parsing JSON response: " << e.what() << std::endl << res->body;
             }
-        } catch (const nlohmann::json::parse_error& e) {
-            LOG(ERROR) << "Error parsing JSON response: " << e.what() << std::endl << resp->body;
-            LOG(ERROR) << "URL: " << url;
+        } else {
+            LOG(ERROR) << "Error: " << res->body;
         }
     } else {
         LOG(ERROR) << "Error: Request failed or response is null.";
@@ -67,20 +107,32 @@ bool WebSocketClient::login(const std::string& username, const std::string& pass
 
 std::string WebSocketClient::getDns() noexcept
 {
-    const std::string url = fmt::format("https://{}:{}/api/v1/dns", vpnServerIP_, vpnServerPort_);
-    auto resp = requests::get(url.c_str(), getRealBrowserHeaders());
-    if (resp != nullptr) {
-        try {
-            auto response = nlohmann::json::parse(resp->body);
-            if (response.contains("dns")) {
-                const std::string dnsServer = response["dns"];
-                return dnsServer;
-            } else {
-                LOG(ERROR) << "Error: dns not found in the response. Check your conection";
+    httplib::SSLClient cli(vpnServerIP_, vpnServerPort_);
+    {
+        cli.enable_server_certificate_verification(false); // NEED TO FIX
+        cli.set_connection_timeout(0, 300000); // 300 milliseconds
+        cli.set_read_timeout(3, 0); // 3 seconds
+        cli.set_write_timeout(3, 0); // 3 seconds
+        if (SSL_CTX_set_cipher_list(cli.ssl_context(), chromeCiphers) != 1) {
+            LOG(ERROR) << "Failed to set cipher list" << std::endl;
+            return {};
+        }
+    }
+    if (auto res = cli.Get("/api/v1/dns", getRealBrowserHeaders())) {
+        if (res->status == httplib::StatusCode::OK_200) {
+            try {
+                auto response = nlohmann::json::parse(res->body);
+                if (response.contains("dns")) {
+                    const std::string dnsServer = response["dns"];
+                    return dnsServer;
+                } else {
+                    LOG(ERROR) << "Error: dns not found in the response. Check your conection";
+                }
+            } catch (const nlohmann::json::parse_error& e) {
+                LOG(ERROR) << "Error parsing JSON response: " << e.what() << std::endl << res->body;
             }
-        } catch (const nlohmann::json::parse_error& e) {
-            LOG(ERROR) << "Error parsing JSON response: " << e.what() << std::endl << resp->body;
-            LOG(ERROR) << "URL: " << url;
+        } else {
+            LOG(ERROR) << "Error: " << res->body;
         }
     } else {
         LOG(ERROR) << "Error: Request failed or response is null.";
@@ -88,29 +140,48 @@ std::string WebSocketClient::getDns() noexcept
     return {};
 }
 
-bool WebSocketClient::start() noexcept
+AsioSslContextPtr WebSocketClient::onTlsInit() noexcept
 {
-    const std::string url = fmt::format("wss://{}:{}/fptn", vpnServerIP_, vpnServerPort_);
-
-    http_headers headers = getRealBrowserHeaders();
-    headers["Authorization"] = token_;
-    headers["ClientIP"] = tunInterfaceAddress_;
-
-    if (ws_.open(url.c_str(), headers) != 0) {
-        LOG(ERROR) << "Failed to open WebSocket connection" << std::endl;
+    LOG(INFO) << "INIT TLS";
+    AsioSslContextPtr ctx = std::make_shared<boost::asio::ssl::context>(boost::asio::ssl::context::sslv23);
+    try {
+        ctx->set_options(boost::asio::ssl::context::default_workarounds |
+                         boost::asio::ssl::context::single_dh_use |
+                         boost::asio::ssl::context::no_sslv2 |
+                         boost::asio::ssl::context::no_sslv3
+        );
+        if (SSL_CTX_set_cipher_list(ctx->native_handle(), chromeCiphers) != 1) {
+            LOG(ERROR) << "Failed to set cipher list" << std::endl;
+        }
+        ctx->set_verify_mode(boost::asio::ssl::verify_none);
+        // to trust
+        // ctx->load_verify_file("path_to_your_cert.pem");
+        // ctx->set_verify_mode(boost::asio::ssl::verify_peer);
+    } catch (std::exception &e) {
+        LOG(ERROR) << "Error in context pointer: " << e.what() << std::endl;
     }
-    th_ = std::thread(&WebSocketClient::run, this);
-    return th_.joinable();
+    return ctx;
 }
 
-bool WebSocketClient::stop() noexcept
+void WebSocketClient::onMessage(websocketpp::connection_hdl hdl, AsioMessagePtr msg) noexcept
 {
-    if (th_.joinable()) {
-        ws_.stop();
-        th_.join();
-        return true;
+    try {
+        std::string rawIpPacket = fptn::common::protobuf::protocol::getPayload(msg->get_payload());
+        auto packet = fptn::common::network::IPPacket::parse(std::move(rawIpPacket));
+        if (packet != nullptr && newIPPktCallback_) {
+            newIPPktCallback_(std::move(packet));
+        }
+    } catch (const fptn::common::protobuf::protocol::ProcessingError &err) {
+        LOG(ERROR) << "Processing error: " << err.what();
+        //const std::string msg = fptn::common::protobuf::protocol::createError(err.what(), fptn::protocol::ERROR_DEFAULT);
+    } catch (const fptn::common::protobuf::protocol::MessageError &err) {
+        LOG(ERROR) << "Message error: " << err.what();
+    } catch (const fptn::common::protobuf::protocol::UnsoportedProtocolVersion &err) {
+        LOG(ERROR) << "Unsupported protocol version: " << err.what();
+        //const std::string msg = fptn::common::protobuf::protocol::createError(err.what(), fptn::protocol::ERROR_WRONG_VERSION);
+    } catch(...) {
+        LOG(ERROR) << "Unexpected error: ";
     }
-    return false;
 }
 
 void WebSocketClient::setNewIPPacketCallback(const NewIPPacketCallback& callback) noexcept
@@ -122,23 +193,94 @@ bool WebSocketClient::send(fptn::common::network::IPPacketPtr packet) noexcept
 {
     try {
         const std::string msg = fptn::common::protobuf::protocol::createPacket(
-            std::move(packet)
+                std::move(packet)
         );
-        ws_.send(msg);
-        return true;
+        if (connection_ && running_) {
+            std::unique_lock<std::mutex> lock(mutex_);
+            websocketpp::lib::error_code ec  = connection_->send(msg, websocketpp::frame::opcode::binary);
+            if (ec) {
+                return false;
+            }
+            return true;
+        }
     } catch (const std::runtime_error &err) {
-        LOG(ERROR) << "send error: " << err.what();
+        LOG(ERROR) << "Send error: " << err.what();
+    } catch (const std::exception &e) {
+        LOG(ERROR) << "Exception occurred: " << e.what();
     }
     return false;
 }
 
 void WebSocketClient::run() noexcept
 {
-    // pass
+    const std::string url = fmt::format("wss://{}:{}/fptn", vpnServerIP_, vpnServerPort_);
+    while (running_)
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        {
+            /* init connection */
+            std::unique_lock<std::mutex> lock(mutex_);
+
+            websocketpp::lib::error_code ec;
+            connection_ = ws_.get_connection(url, ec);
+            if (ec) {
+                LOG(ERROR) << "Could not create connection because: " << ec.message() << std::endl;
+            }
+            connection_->append_header("Authorization", "Bearer " + token_);
+            connection_->append_header("ClientIP", tunInterfaceAddress_);
+        }
+        {
+            /* loop */
+            ws_.connect(connection_);
+            ws_.run();
+        }
+        {
+            /* deinit */
+            std::unique_lock<std::mutex> lock(mutex_);
+
+            connection_.reset();
+            ws_.reset();
+        }
+        LOG(ERROR) << "Connection closed";
+    }
 }
 
-http_headers WebSocketClient::getRealBrowserHeaders() noexcept
+bool WebSocketClient::start() noexcept
 {
+    running_ = true;
+    th_ = std::thread(&WebSocketClient::run, this);
+    return th_.joinable();
+}
+
+bool WebSocketClient::stop() noexcept
+{
+    LOG(ERROR) << "STOP1-";
+    if (running_ && th_.joinable()) {
+        {
+            LOG(ERROR) << "STOP2";
+            std::unique_lock<std::mutex> lock(mutex_);
+            if (connection_) {
+                LOG(ERROR) << "STOP3";
+                connection_.reset();
+            }
+        }
+        LOG(ERROR) << "STOP4";
+        running_ = false;
+        if (!ws_.stopped()) {
+            LOG(ERROR) << "STOP5";
+            ws_.stop();
+        }
+        LOG(ERROR) << "STOP6";
+        th_.join();
+        LOG(ERROR) << "STOP7";
+        return true;
+    }
+    return false;
+}
+
+httplib::Headers WebSocketClient::getRealBrowserHeaders() noexcept
+{
+    /* Just to ensure that FPTN is as similar to a web browser as possible. */
 #ifdef __linux__
     // firefox ubuntu arm
     return {
@@ -196,35 +338,4 @@ http_headers WebSocketClient::getRealBrowserHeaders() noexcept
 #else
     #error "Unsupported system!"
 #endif
-}
-
-void WebSocketClient::onOpenHandle() noexcept
-{
-    LOG(INFO) << "WebSocket connection opened";
-}
-
-void WebSocketClient::onMessageHandle(const std::string& msg) noexcept
-{
-    try {
-        std::string rawIpPacket = fptn::common::protobuf::protocol::getPayload(msg);
-        auto packet = fptn::common::network::IPPacket::parse(std::move(rawIpPacket));
-        if (packet != nullptr && newIPPktCallback_) {
-            newIPPktCallback_(std::move(packet));
-        }
-    } catch (const fptn::common::protobuf::protocol::ProcessingError &err) {
-        LOG(ERROR) << "Processing error: " << err.what();
-        const std::string msg = fptn::common::protobuf::protocol::createError(err.what(), fptn::protocol::ERROR_DEFAULT);
-    } catch (const fptn::common::protobuf::protocol::MessageError &err) {
-        LOG(ERROR) << "Message error: " << err.what();
-    } catch (const fptn::common::protobuf::protocol::UnsoportedProtocolVersion &err) {
-        LOG(ERROR) << "Unsupported protocol version: " << err.what();
-        const std::string msg = fptn::common::protobuf::protocol::createError(err.what(), fptn::protocol::ERROR_WRONG_VERSION);
-    } catch(...) {
-        LOG(ERROR) << "Unexpected error: ";
-    }
-}
-
-void WebSocketClient::onCloseHandle() noexcept
-{
-    LOG(INFO) << "WebSocket connection closed";
 }

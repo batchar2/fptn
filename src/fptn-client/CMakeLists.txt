@@ -15,6 +15,12 @@ find_package(glog REQUIRED)
 find_package(fmt REQUIRED)
 find_package(PcapPlusPlus REQUIRED)
 
+find_package(httplib REQUIRED)
+find_package(websocketpp REQUIRED)
+
+include_directories(${httplib_INCLUDE_DIRS})
+include_directories(${websocketpp_INCLUDE_DIRS})
+
 #### fptn-client-cli
 add_executable(
     "${PROJECT_NAME}-cli"
@@ -31,6 +37,8 @@ target_link_libraries(
     OpenSSL::SSL
     OpenSSL::Crypto
     argparse::argparse
+    websocketpp::websocketpp
+    httplib::httplib
 
     glog::glog
     fmt::fmt
@@ -81,6 +89,8 @@ if("${FPTN_BUILD_WITH_GUI_CLIENT}")
         OpenSSL::SSL
         OpenSSL::Crypto
         argparse::argparse
+        websocketpp::websocketpp
+        httplib::httplib
 
         glog::glog
         fmt::fmt

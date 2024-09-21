@@ -106,7 +106,7 @@ int main(int argc, char* argv[])
         << std::endl;
 
     auto webSocketClient = std::make_unique<fptn::http::WebSocketClient>(
-        vpnServerIP, 
+        fptn::system::resolveDomain(vpnServerIP),
         vpnServerPort,
         tunInterfaceAddress.toString(), // FIX IT
         true
@@ -148,7 +148,6 @@ int main(int argc, char* argv[])
     iptables->apply();
 
     waitForSignal();
-
     iptables->clean();
     vpnClient.stop();
 

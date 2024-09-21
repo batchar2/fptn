@@ -3,6 +3,9 @@ project(fptn VERSION "${FPTN_VERSION}" LANGUAGES CXX)
 
 set(FPTN_SERVER_PATH "${CMAKE_CURRENT_SOURCE_DIR}/src/fptn-server")
 
+# enable ssl for cpphttp-lib
+add_compile_definitions(CPPHTTPLIB_OPENSSL_SUPPORT)
+
 add_compile_definitions(FPTN_VERSION=\"${FPTN_VERSION}\")
 add_compile_definitions(FPTN_MTU_SIZE=1500)
 add_compile_definitions(FPTN_IP_PACKET_MAX_SIZE=1450)
