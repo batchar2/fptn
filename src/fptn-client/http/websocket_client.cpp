@@ -1,11 +1,7 @@
-#include <future>
-#include <variant>
-
 #include <fmt/format.h>
-#include <hv/requests.h>
-#include <glog/logging.h>
-
 #include <openssl/ssl.h>
+#include <glog/logging.h>
+#include <nlohmann/json.hpp>
 
 #include <common/protobuf/protocol.h>
 
@@ -144,7 +140,6 @@ std::string WebSocketClient::getDns() noexcept
 
 AsioSslContextPtr WebSocketClient::onTlsInit() noexcept
 {
-    LOG(INFO) << "INIT TLS";
     AsioSslContextPtr ctx = std::make_shared<boost::asio::ssl::context>(boost::asio::ssl::context::sslv23);
     try {
         ctx->set_options(boost::asio::ssl::context::default_workarounds |
@@ -228,6 +223,12 @@ void WebSocketClient::run() noexcept
             if (ec) {
                 LOG(ERROR) << "Could not create connection because: " << ec.message() << std::endl;
             }
+            /* adding a real headers */
+            httplib::Headers headers = getRealBrowserHeaders();
+            for (const auto& [header_name, header_value] : headers) {
+                connection_->append_header(header_name, header_value);
+            }
+            /* need to provide auth and local vpn address */
             connection_->append_header("Authorization", "Bearer " + token_);
             connection_->append_header("ClientIP", tunInterfaceAddress_);
         }

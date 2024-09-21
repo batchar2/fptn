@@ -1,6 +1,8 @@
 #include "server.h"
 
 #include <functional>
+
+#include <hv/hlog.h>
 #include <glog/logging.h>
 
 
@@ -37,6 +39,7 @@ Server::Server(
             std::bind(&Server::newIPPacketFromVPN, this, std::placeholders::_1)
         )
 {
+    hlog_disable();
     if (use_https) {
         LOG(INFO) << std::endl
             << "  KEYS: " << std::endl

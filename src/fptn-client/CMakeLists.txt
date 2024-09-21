@@ -17,9 +17,11 @@ find_package(PcapPlusPlus REQUIRED)
 
 find_package(httplib REQUIRED)
 find_package(websocketpp REQUIRED)
+find_package(nlohmann_json REQUIRED)
 
 include_directories(${httplib_INCLUDE_DIRS})
 include_directories(${websocketpp_INCLUDE_DIRS})
+include_directories(${nlohmann_json_INCLUDE_DIRS})
 
 #### fptn-client-cli
 add_executable(
@@ -39,6 +41,7 @@ target_link_libraries(
     argparse::argparse
     websocketpp::websocketpp
     httplib::httplib
+    nlohmann_json::nlohmann_json
 
     glog::glog
     fmt::fmt
