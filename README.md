@@ -58,13 +58,6 @@ Simply click on the icon to open the context menu.
 <img style="max-height: 200px" class="img-center" src="docs/images/client.png" alt="Application"/>
 
 
-In the settings window, select *the Network interface (adapter)* used for internet access. 
-This could be a wired connection or WiFi, depending on your system.
-                        
-Also, specify the address of your router in *the local network (default gateway)*.
-
-<img style="max-height: 350px" src="docs/images/settings-1.png" alt="Settings"/>
-
 Open "Settings" to configure your client.
 
 Registration for accessing the free internet via FPTN is very simple!
