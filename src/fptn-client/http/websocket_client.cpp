@@ -70,17 +70,17 @@ bool WebSocketClient::login(const std::string& username, const std::string& pass
     httplib::SSLClient cli(vpnServerIP_, vpnServerPort_);
     {
         cli.enable_server_certificate_verification(false); // NEED TO FIX
-        cli.set_connection_timeout(0, 300000); // 300 milliseconds
-        cli.set_read_timeout(3, 0); // 3 seconds
-        cli.set_write_timeout(3, 0); // 3 seconds
+        cli.set_connection_timeout(5, 0); // 5 seconds
+        cli.set_read_timeout(5, 0);  // 5 seconds
+        cli.set_write_timeout(5, 0); // 5 seconds
         if (SSL_CTX_set_cipher_list(cli.ssl_context(), chromeCiphers) != 1) {
             LOG(ERROR) << "Failed to set cipher list" << std::endl;
             return false;
         }
     }
-
+    LOG(INFO) << "Login. Connect to " << vpnServerIP_ << ":" << vpnServerPort_;
     const std::string request = fmt::format(R"({{ "username": "{}", "password": "{}" }})", username, password);
-    if (auto res = cli.Post("/api/v1/login", getRealBrowserHeaders(), request, "application/json" )){
+    if (auto res = cli.Post("/api/v1/login", getRealBrowserHeaders(), request, "application/json")) {
         if (res->status == httplib::StatusCode::OK_200) {
             try {
                 auto response = nlohmann::json::parse(res->body);
@@ -98,19 +98,21 @@ bool WebSocketClient::login(const std::string& username, const std::string& pass
             LOG(ERROR) << "Error: " << res->body;
         }
     } else {
-        LOG(ERROR) << "Error: Request failed or response is null.";
+        auto error = res.error();
+        LOG(ERROR) << "Error: Request failed or response is null." << to_string(error);
     }
     return false;
 }
 
 std::string WebSocketClient::getDns() noexcept
 {
+    LOG(INFO) << "DNS. Connect to " << vpnServerIP_ << ":" << vpnServerPort_;
     httplib::SSLClient cli(vpnServerIP_, vpnServerPort_);
     {
         cli.enable_server_certificate_verification(false); // NEED TO FIX
-        cli.set_connection_timeout(0, 300000); // 300 milliseconds
-        cli.set_read_timeout(3, 0); // 3 seconds
-        cli.set_write_timeout(3, 0); // 3 seconds
+        cli.set_connection_timeout(5, 0); // 5 seconds
+        cli.set_read_timeout(5, 0);  // 5 seconds
+        cli.set_write_timeout(5, 0); // 5 seconds
         if (SSL_CTX_set_cipher_list(cli.ssl_context(), chromeCiphers) != 1) {
             LOG(ERROR) << "Failed to set cipher list" << std::endl;
             return {};
