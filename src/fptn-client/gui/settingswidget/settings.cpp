@@ -152,12 +152,24 @@ void SettingsWidget::closeEvent(QCloseEvent *event)
 
 void SettingsWidget::loadNewConfig()
 {
+#if __APPLE__
+    // PROBLEM WITH MACOS, NEED TO USE THIS DIALOG
     QString filePath = QFileDialog::getOpenFileName(
         this,
-        tr("Open FPTN Service File"),
-        QString(),
-        tr("FPTN Files (*.fptn)")
+        "Open FPTN Service File",
+        QDir::homePath(),
+        "FPTN Files (*.fptn);;All files (*)",
+        nullptr,
+        QFileDialog::DontUseNativeDialog
     );
+#elif
+    QString filePath = QFileDialog::getOpenFileName(
+        this,
+        "Open FPTN Service File",
+        QDir::homePath(),
+        "FPTN Files (*.fptn);;All files (*)",
+    );
+#endif
     // Check if a file was selected
     if (!filePath.isEmpty()) {
         try {

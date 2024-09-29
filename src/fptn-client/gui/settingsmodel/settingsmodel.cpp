@@ -56,13 +56,9 @@ void SettingsModel::load()
     QJsonDocument document = QJsonDocument::fromJson(data);
     QJsonObject serviceObj = document.object();
 
-    LOG(INFO) << "LOAD";
-
     if (serviceObj.contains("services")) {
-        LOG(INFO) << "+1";
         QJsonArray servicesArray = serviceObj["services"].toArray();
         for (const QJsonValue& serviceValue : servicesArray) {
-            LOG(INFO) << "+2";
             QJsonObject serviceObj = serviceValue.toObject();
             ServiceConfig service;
 
@@ -72,7 +68,6 @@ void SettingsModel::load()
 
             QJsonArray serversArray = serviceObj["servers"].toArray();
             for (const QJsonValue& serverValue : serversArray) {
-                LOG(INFO) << "+3";
                 QJsonObject serverObj = serverValue.toObject();
                 ServerConfig server;
                 server.name = serverObj["name"].toString();
@@ -84,7 +79,6 @@ void SettingsModel::load()
             services_.push_back(service);
         }
     }
-
     // Load network settings
     if (serviceObj.contains("network_interface")) {
         networkInterface_ = serviceObj["network_interface"].toString();
@@ -189,40 +183,6 @@ ServiceConfig SettingsModel::parseFile(const QString& filepath)
     }
     return service;
 }
-
-//bool SettingsModel::save()
-//{
-//    QString filePath = getFilePath();
-//    QFile file(filePath);
-//    if (!file.open(QIODevice::WriteOnly)) {
-//        qWarning() << "Failed to open file for writing:" << filePath;
-//        return false;
-//    }
-//
-//    QJsonObject jsonObject;
-//    // Save servers
-//    QJsonArray serversArray;
-//    for (const ServerConnectionInformation &server : servers_) {
-//        QJsonObject obj;
-//        obj["address"] = server.address;
-//        obj["port"] = server.port;
-//        obj["username"] = server.username;
-//        obj["password"] = server.password;
-//        serversArray.append(obj);
-//    }
-//    jsonObject["servers"] = serversArray;
-//
-//    // Save network settings
-//    jsonObject["manualNetworkInterface"] = networkInterface_;
-//    jsonObject["manualGatewayIp"] = gatewayIp_;
-//
-//    QJsonDocument document(jsonObject);
-//    auto len = file.write(document.toJson());
-//    file.close();
-//
-//    emit dataChanged();
-//    return len > 0;
-//}
 
 QString SettingsModel::networkInterface() const {
     return networkInterface_;

@@ -8,10 +8,10 @@ services:
       - FPTN_WELCOME_MESSAGE=${FPTN_WELCOME_MESSAGE}
       - MAX_USER_SPEED_LIMIT=${MAX_USER_SPEED_LIMIT}
       - USERS_FILE=${USERS_FILE}
-      - SERVERS_LIST_FILE=/etc/fptn/servers.list
+      - SERVERS_LIST_FILE=/etc/fptn/servers.json
       - SERVICE_NAME=${SERVICE_NAME}
     volumes:
       - /etc/fptn/:/etc/fptn/:rw
       - ./logs:/var/log/fptn_bot:rw
-      - ${SERVERS_LIST_FILE}:/etc/fptn/servers.list
+      - ${SERVERS_LIST_FILE}:/etc/fptn/servers.json:rw
     restart: unless-stopped
