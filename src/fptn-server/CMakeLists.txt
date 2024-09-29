@@ -11,6 +11,7 @@ find_package(PcapPlusPlus REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(jwt-cpp REQUIRED)
 find_package(prometheus-cpp REQUIRED)
+find_package(httplib REQUIRED)
 
 add_executable("${PROJECT_NAME}"
     fptn-server.cpp
@@ -29,6 +30,8 @@ add_executable("${PROJECT_NAME}"
     vpn/manager.h vpn/manager.cpp
 
     statistic/metrics.h statistic/metrics.cpp
+    cmd/cmd_option.cpp cmd/cmd_option.h
+    user/user_manager.cpp user/user_manager.h
 )
 
 target_link_libraries(
@@ -44,6 +47,7 @@ target_link_libraries(
     glog::glog
     fmt::fmt
     PcapPlusPlus::PcapPlusPlus
+    httplib::httplib
 
     tuntap++
     hv_static

@@ -20,21 +20,13 @@ namespace fptn::gui
     public:
         explicit SettingsWidget(SettingsModel *model, QWidget *parent = nullptr);
     protected:
+        void setupUi();
         void closeEvent(QCloseEvent *event);
     private slots:
         void saveModel();
-        void addServer();
-        void editServer();
-        void deleteServer();
-        void saveServer();
-        void cancelEditing();
-        void onItemDoubleClicked(QTableWidgetItem *item);
+        void loadNewConfig();
         void removeServer(int row);
     private:
-        void setupUi();
-        void openEditDialog(int row);
-        QString sanitizeString(const QString& input) const noexcept;
-
         SettingsModel *model_;
         QTabWidget *tabWidget;
         QWidget *settingsTab;
@@ -43,13 +35,5 @@ namespace fptn::gui
         QComboBox *interfaceComboBox;
         QLineEdit *gatewayLineEdit;
         QPushButton *saveButton;
-
-        QDialog *editDialog;
-        QLineEdit *addressLineEdit;
-        QLineEdit *portLineEdit;
-        QLineEdit *userLineEdit;
-        QLineEdit *passwordLineEdit;
-
-        int editingRow;
     };
 }

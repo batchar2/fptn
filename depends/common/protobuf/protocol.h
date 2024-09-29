@@ -7,6 +7,7 @@
 
 #include <protocol.pb.h>
 
+#include <common/utils/utils.h>
 #include <common/network/ip_packet.h>
 
 
@@ -61,20 +62,6 @@ namespace fptn::common::protobuf::protocol
         throw ProcessingError("Unknown message type.");
     }
 
-    inline std::string generateRandomString(int length)
-    {
-        const std::string characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-
-        std::mt19937 gen{std::random_device{}()};
-        std::uniform_int_distribution<std::size_t> dist(0, characters.size() - 1);
-
-        std::string result;
-        for (int i = 0; i < length; i++) {
-            result += characters[dist(gen)];
-        }
-        return result;
-    }
-
     inline std::string createPacket(fptn::common::network::IPPacketPtr packet) 
     {
         fptn::protocol::Message message;
@@ -88,7 +75,7 @@ namespace fptn::common::protobuf::protocol
         /**
          * Fill with random data to prevent issues related to TLS-inside-TLS.
          */
-        static const std::string randomdata = generateRandomString(FPTN_IP_PACKET_MAX_SIZE);
+        static const std::string randomdata = fptn::common::utils::generateRandomString(FPTN_IP_PACKET_MAX_SIZE);
         const std::size_t currentPayloadSize = ipPacketPayload->payload().size();
         if (currentPayloadSize < FPTN_IP_PACKET_MAX_SIZE) {
             static std::mt19937 gen{std::random_device{}()};

@@ -16,7 +16,7 @@
 using namespace fptn::system;
 
 
-static std::string getDefaultGatewayIPAddress();
+static pcpp::IPv4Address getDefaultGatewayIPAddress();
 static bool runCommand(const std::string& command);
 
 #if _WIN32
@@ -27,20 +27,19 @@ static bool isWindows11();
 IPTables::IPTables(
     const std::string& outInterfaceName,
     const std::string& tunInterfaceName,
-    const std::string& vpnServerIp,
-    const std::string& dnsServer,
-    const std::string& gatewayIp,
-    const std::string& tunInterfaceAddress
+    const pcpp::IPv4Address& vpnServerIP,
+    const pcpp::IPv4Address& dnsServer,
+    const pcpp::IPv4Address& gatewayIp,
+    const pcpp::IPv4Address tunInterfaceAddress
 ) :
     init_(false),
     outInterfaceName_(outInterfaceName),
     tunInterfaceName_(tunInterfaceName),
-    vpnServerIp_(vpnServerIp),
+    vpnServerIP_(vpnServerIP),
     dnsServer_(dnsServer),
     gatewayIp_(gatewayIp),
     tunInterfaceAddress_(tunInterfaceAddress)
 {
-    resolvedServerIp_ = resolveDomain(vpnServerIp_);
 }
 
 IPTables::~IPTables()
@@ -55,14 +54,14 @@ bool IPTables::check() noexcept
 
 bool IPTables::apply() noexcept
 {
-    const std::string vpnServerIP = resolveDomain(vpnServerIp_);
-    findOutInterfaceName_ = outInterfaceName_.empty() ? getDefaultNetworkInterfaceName() : outInterfaceName_;
-    findOutGatewayIp_ = gatewayIp_.empty() ? getDefaultGatewayIPAddress() : gatewayIp_;
+    findOutInterfaceName_ = (outInterfaceName_.empty() ? getDefaultNetworkInterfaceName() : outInterfaceName_);
+    findOutGatewayIp_ = (gatewayIp_ == pcpp::IPv4Address("0.0.0.0") ? getDefaultGatewayIPAddress() : gatewayIp_);
+
     LOG(INFO)<< "=== Setting up routing ===";
-    LOG(INFO) << "VPN SERVER IP:         " << vpnServerIp_ << " --> " << resolvedServerIp_;
-    LOG(INFO) << "OUT NETWORK INTERFACE: " << findOutInterfaceName_;
-    LOG(INFO) << "GATEWAY IP:            " << findOutGatewayIp_;
-    LOG(INFO) << "DNS SERVER:            " << dnsServer_;
+    LOG(INFO) << "IPTABLES VPN SERVER IP:         " << vpnServerIP_.toString();
+    LOG(INFO) << "IPTABLES OUT NETWORK INTERFACE: " << findOutInterfaceName_;
+    LOG(INFO) << "IPTABLES GATEWAY IP:            " << findOutGatewayIp_;
+    LOG(INFO) << "IPTABLES DNS SERVER:            " << dnsServer_;
 #ifdef __linux__
     const std::vector<std::string> commands = {
         fmt::format("sysctl -w net.inet.ip.forwarding=1"),
@@ -70,12 +69,12 @@ bool IPTables::apply() noexcept
         fmt::format("iptables -t nat -A POSTROUTING -o {} -j MASQUERADE", findOutInterfaceName_),
         fmt::format("iptables -A FORWARD -i {} -o {} -m state --state RELATED,ESTABLISHED -j ACCEPT", findOutInterfaceName_, tunInterfaceName_),
         fmt::format("iptables -A FORWARD -i {} -o {} -j ACCEPT", tunInterfaceName_, findOutInterfaceName_),
-        fmt::format("iptables -A OUTPUT -o {} -d {} -j ACCEPT", findOutInterfaceName_, resolvedServerIp_),
-        fmt::format("iptables -A INPUT -i {} -s {} -j ACCEPT", findOutInterfaceName_, resolvedServerIp_),
+        fmt::format("iptables -A OUTPUT -o {} -d {} -j ACCEPT", findOutInterfaceName_, vpnServerIP_.toString()),
+        fmt::format("iptables -A INPUT -i {} -s {} -j ACCEPT", findOutInterfaceName_, vpnServerIP_.toString()),
         fmt::format("ip route add default dev {}", tunInterfaceName_),
-        fmt::format("ip route add {} via {} dev {}", resolvedServerIp_, findOutGatewayIp_, findOutInterfaceName_),
+        fmt::format("ip route add {} via {} dev {}", vpnServerIP_.toString(), findOutGatewayIp_.toString(), findOutInterfaceName_),
         // DNS
-        fmt::format("resolvectl dns {} {}", tunInterfaceName_, dnsServer_),
+        fmt::format("resolvectl dns {} {}", tunInterfaceName_, dnsServer_.toString()),
         fmt::format("resolvectl domain {} \"~.\" ", tunInterfaceName_),
         fmt::format("resolvectl default-route {} yes", tunInterfaceName_)
     };
@@ -90,22 +89,22 @@ bool IPTables::apply() noexcept
             )",
             fmt::arg("findOutInterfaceName", findOutInterfaceName_),
             fmt::arg("tunInterfaceName", tunInterfaceName_),
-            fmt::arg("vpnServerIP", resolvedServerIp_)
+            fmt::arg("vpnServerIP", vpnServerIP_.toString())
         ),
         fmt::format("pfctl -ef /tmp/pf.conf"),
         fmt::format("route add -net 0.0.0.0/1 -interface {}", tunInterfaceName_),
         fmt::format("route add -net 128.0.0.0/1 -interface {}", tunInterfaceName_),
-        fmt::format("route add {} {}", resolvedServerIp_, findOutGatewayIp_),
+        fmt::format("route add {} {}", vpnServerIP_.toString(), findOutGatewayIp_.toString()),
         fmt::format("dscacheutil -flushcache"),
-        fmt::format(R"(bash -c "networksetup -listallnetworkservices | grep -v '^\* ' | xargs -I {{}} networksetup -setdnsservers '{{}}' {}")", dnsServer_)
+        fmt::format(R"(bash -c "networksetup -listallnetworkservices | grep -v '^\* ' | xargs -I {{}} networksetup -setdnsservers '{{}}' {}")", dnsServer_.toString())
     };
 #elif _WIN32
     const std::string winInterfaceNumber = getWindowsInterfaceNumber(tunInterfaceName_);
     const std::string interfaceInfo = winInterfaceNumber.empty() ? "" : " if " + winInterfaceNumber;
     const std::vector<std::string> commands = {
-        fmt::format("route add {} mask 255.255.255.255 {} METRIC 2", resolvedServerIp_, findOutGatewayIp_),
-        fmt::format("route add 0.0.0.0 mask 0.0.0.0 {} METRIC 1 {}", tunInterfaceAddress_, interfaceInfo),
-        fmt::format("netsh interface ip set dns name=\"{}\" static {}", tunInterfaceName_, dnsServer_)
+        fmt::format("route add {} mask 255.255.255.255 {} METRIC 2", vpnServerIP_.toString(), findOutGatewayIp_.toString()),
+        fmt::format("route add 0.0.0.0 mask 0.0.0.0 {} METRIC 1 {}", tunInterfaceAddress_.toString(), interfaceInfo),
+        fmt::format("netsh interface ip set dns name=\"{}\" static {}", tunInterfaceName_, dnsServer_.toString())
     };
 #else
     #error "Unsupported system!"
@@ -129,10 +128,10 @@ bool IPTables::clean() noexcept
         fmt::format("iptables -t nat -D POSTROUTING -o {} -j MASQUERADE", findOutInterfaceName_),
         fmt::format("iptables -D FORWARD -i {} -o {} -m state --state RELATED,ESTABLISHED -j ACCEPT", findOutInterfaceName_, tunInterfaceName_),
         fmt::format("iptables -D FORWARD -i {} -o {} -j ACCEPT", tunInterfaceName_, findOutInterfaceName_),
-        fmt::format("iptables -D OUTPUT -o {} -d {} -j ACCEPT", findOutInterfaceName_, resolvedServerIp_),
-        fmt::format("iptables -D INPUT -i {} -s {} -j ACCEPT", findOutInterfaceName_, resolvedServerIp_),
+        fmt::format("iptables -D OUTPUT -o {} -d {} -j ACCEPT", findOutInterfaceName_, vpnServerIP_.toString()),
+        fmt::format("iptables -D INPUT -i {} -s {} -j ACCEPT", findOutInterfaceName_, vpnServerIP_.toString()),
         fmt::format("ip route del default dev {}", tunInterfaceName_),
-        fmt::format("ip route del {} via {} dev {}", resolvedServerIp_, findOutGatewayIp_, findOutInterfaceName_),
+        fmt::format("ip route del {} via {} dev {}", vpnServerIP_.toString(), findOutGatewayIp_.toString(), findOutInterfaceName_),
         fmt::format("resolvectl dns {} '' ", tunInterfaceName_),
         fmt::format("resolvectl domain {} '' ", findOutInterfaceName_),
         fmt::format("resolvectl default-route {} no '' ", findOutInterfaceName_)
@@ -143,14 +142,14 @@ bool IPTables::clean() noexcept
         fmt::format("pfctl -F all -f /etc/pf.conf"),
         fmt::format("route delete -net 0.0.0.0/1 -interface {}", tunInterfaceName_),
         fmt::format("route delete -net 128.0.0.0/1 -interface {}", tunInterfaceName_),
-        fmt::format("route delete {} {}", resolvedServerIp_, findOutGatewayIp_),
+        fmt::format("route delete {} {}", vpnServerIP_.toString(), findOutGatewayIp_.toString()),
         fmt::format(R"(bash -c "networksetup -listallnetworkservices | grep -v '^An asterisk' | xargs -I {{}} networksetup -setdnsservers '{{}}' empty")")
     };
 #elif _WIN32
     const std::vector<std::string> commands = {
-        fmt::format("route delete {} mask 255.255.255.255 {}", resolvedServerIp_, findOutGatewayIp_),
-        fmt::format("route delete 0.0.0.0 mask 0.0.0.0 {}", tunInterfaceAddress_),
-        fmt::format("netsh interface ip set dns name=\"{}\" dhcp", tunInterfaceName_, dnsServer_)
+        fmt::format("route delete {} mask 255.255.255.255 {}", vpnServerIP_.toString(), findOutGatewayIp_.toString()),
+        fmt::format("route delete 0.0.0.0 mask 0.0.0.0 {}", tunInterfaceAddress_.toString()),
+        fmt::format("netsh interface ip set dns name=\"{}\" dhcp", tunInterfaceName_, dnsServer_.toString())
     };
 #else
     #error "Unsupported system!"
@@ -184,30 +183,31 @@ static bool runCommand(const std::string& command)
     return false;
 }
 
-std::string fptn::system::resolveDomain(const std::string& domain) noexcept
+pcpp::IPv4Address fptn::system::resolveDomain(const std::string& domain) noexcept
 {
     try {
         // Check if the domain is already an IP address
         boost::asio::ip::address ip_address;
         try {
             ip_address = boost::asio::ip::make_address(domain);
-            return ip_address.to_string();
+            return pcpp::IPv4Address(domain);
         } catch (const std::exception&) {
             // Not a valid IP address, proceed with domain name resolution
         }
+        LOG(INFO) << "+2";
         boost::asio::io_context io_context;
         boost::asio::ip::tcp::resolver resolver(io_context);
         boost::asio::ip::tcp::resolver::results_type endpoints = resolver.resolve(domain, "");
         for (const auto& endpoint : endpoints) {
-            return endpoint.endpoint().address().to_string();
+            return pcpp::IPv4Address(endpoint.endpoint().address().to_string());
         }
     } catch (const std::exception& e) {
         LOG(ERROR) << "Error resolving domain: " << e.what() << std::endl;
     }
-    return domain;
+    return pcpp::IPv4Address(domain);
 }
 
-std::string fptn::system::getDefaultGatewayIPAddress() noexcept
+pcpp::IPv4Address fptn::system::getDefaultGatewayIPAddress() noexcept
 {
     std::string result;
     try
@@ -219,7 +219,7 @@ std::string fptn::system::getDefaultGatewayIPAddress() noexcept
 #elif _WIN32
         const std::string command = R"(cmd.exe /c FOR /F "tokens=13" %x IN ('ipconfig ^| findstr "Default Gateway" ^| findstr /R "[0-9]*\.[0-9]*\.[0-9]*\.[0-9]*"') DO @echo %x)";
 #else
-    #error "Unsupported system!"
+        #error "Unsupported system!"
 #endif
 
         boost::process::ipstream pipe;
@@ -235,7 +235,7 @@ std::string fptn::system::getDefaultGatewayIPAddress() noexcept
         child.wait();
         if (result.empty()) {
             LOG(ERROR)<< "Warning: Default gateway IP address not found.";
-            return {};
+            return pcpp::IPv4Address("0.0.0.0");
         }
         // Remove all characters except digits and dots
         result.erase(
@@ -251,7 +251,7 @@ std::string fptn::system::getDefaultGatewayIPAddress() noexcept
     } catch (const std::exception& ex) {
         LOG(ERROR) << "Error: Failed to retrieve the default gateway IP address. " << ex.what();
     }
-    return result;
+    return pcpp::IPv4Address(result);
 }
 
 std::string fptn::system::getDefaultNetworkInterfaceName() noexcept
@@ -266,7 +266,7 @@ std::string fptn::system::getDefaultNetworkInterfaceName() noexcept
 #elif _WIN32
         const std::string command = R"(cmd.exe /c "FOR /F "tokens=1,2,3" %i IN ('route print ^| findstr /R /C:"0.0.0.0"') DO @echo %i")";
 #else
-    #error "Unsupported system!"
+        #error "Unsupported system!"
 #endif
         boost::process::ipstream pipe;
 #ifdef _WIN32
@@ -319,8 +319,8 @@ std::string getWindowsInterfaceNumber(const std::string& interfaceName)
     return result;
 }
 
-
-static bool isWindows11() {
+static bool isWindows11()
+{
     OSVERSIONINFOEXW osvi;
     ZeroMemory(&osvi, sizeof(OSVERSIONINFOEXW));
     osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEXW);

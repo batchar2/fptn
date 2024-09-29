@@ -10,12 +10,11 @@
 #include <boost/process.hpp>
 #include <argparse/argparse.hpp>
 
-#include <common/data/channel.h>
-#include <common/network/ip_packet.h>
 #include <common/network/net_interface.h>
 
 #include "vpn/vpn_client.h"
 #include "system/iptables.h"
+#include "config/config_file.h"
 #include "http/websocket_client.h"
 
 
@@ -46,25 +45,15 @@ int main(int argc, char* argv[])
 
     argparse::ArgumentParser args("fptn-client");
     // Required arguments
-    args.add_argument("--vpn-server-ip")
+    args.add_argument("--vpn-server-config")
         .required()
-        .help("Host address");
-    args.add_argument("--vpn-server-port")
-        .default_value(8080)
-        .help("Port number")
-        .scan<'i', int>();
-    args.add_argument("--username")
-        .required()
-        .help("Username");
-    args.add_argument("--password")
-        .required()
-        .help("Username");
+        .help("Config path");
     // Optional arguments
     args.add_argument("--out-network-interface")
         .default_value("")
         .help("Network out interface");
     args.add_argument("--gateway-ip")
-        .default_value("")
+        .default_value("0.0.0.0")
         .help("Your default gateway ip");
     args.add_argument("--tun-interface-name")
         .default_value("tun0")
@@ -79,78 +68,104 @@ int main(int argc, char* argv[])
         std::cerr << args;
         return EXIT_FAILURE;
     }
-
-    const auto vpnServerIP = args.get<std::string>("--vpn-server-ip");
-    const auto vpnServerPort = args.get<int>("--vpn-server-port");
+    /* parse cmd args */
     const auto outNetworkInterfaceName = args.get<std::string>("--out-network-interface");
-
-    const auto username = args.get<std::string>("--username");
-    const auto password = args.get<std::string>("--password");
-
-    const auto gatewayIP = args.get<std::string>("--gateway-ip");    
+    const auto gatewayIP = pcpp::IPv4Address(args.get<std::string>("--gateway-ip"));
     const auto tunInterfaceName = args.get<std::string>("--tun-interface-name");
     const auto tunInterfaceAddress = pcpp::IPv4Address(args.get<std::string>("--tun-interface-ip"));
 
-    const std::string usingGatewayIP = (gatewayIP.empty() ? fptn::system::getDefaultGatewayIPAddress() : gatewayIP);
-    if (usingGatewayIP.empty()) {
+    /* check gateway address */
+    const auto usingGatewayIP = (
+        gatewayIP == pcpp::IPv4Address("0.0.0.0")
+        ? fptn::system::getDefaultGatewayIPAddress()
+        : pcpp::IPv4Address(gatewayIP)
+    );
+    if (usingGatewayIP == pcpp::IPv4Address("0.0.0.0")) {
         LOG(ERROR) << "Error: Unable to find the default gateway IP address. Please specify it using the \"--gateway-ip\" option." << std::endl;
         return EXIT_FAILURE;
     }
-    LOG(INFO) << std::endl
-        << "VERSION:           " << FPTN_VERSION << std::endl
-        << "GATEWAY IP:        " << usingGatewayIP << std::endl
-        << "NETWORK INTERFACE: " << outNetworkInterfaceName << std::endl
-        << "VPN SERVER IP:     " << vpnServerIP << std::endl
-        << "VPN SERVER PORT:   " << vpnServerPort << std::endl
-        << "TUN INTERFACE IP:  " << tunInterfaceAddress.toString() << std::endl
-        << std::endl;
 
+    /* check config */
+    const std::filesystem::path configPath = args.get<std::string>("--vpn-server-config");
+    if (!std::filesystem::exists(configPath)) {
+        LOG(ERROR) << "Config file '"  << configPath << "' not found!";
+        return EXIT_FAILURE;
+    }
+    fptn::config::ConfigFile config(configPath);
+    fptn::config::ConfigFile::Server selectedServer;
+    try{
+        config.parse();
+        selectedServer = config.findFastestServer();
+    } catch (std::runtime_error &err) {
+        LOG(ERROR) << "Config error: " << err.what();
+        return EXIT_FAILURE;
+    }
+    const int serverPort = selectedServer.port;
+    const auto serverIP = fptn::system::resolveDomain(selectedServer.host);
+    if (serverIP == pcpp::IPv4Address("0.0.0.0")) {
+        LOG(ERROR) << "DNS resolve error: " << selectedServer.host;
+        return EXIT_FAILURE;
+    }
+
+    /* auth & dns */
     auto webSocketClient = std::make_unique<fptn::http::WebSocketClient>(
-        fptn::system::resolveDomain(vpnServerIP),
-        vpnServerPort,
-        tunInterfaceAddress.toString(), // FIX IT
+        serverIP,
+        serverPort,
+        tunInterfaceAddress,
         true
     );
-
-    bool status = webSocketClient->login(username, password);
+    const bool status = webSocketClient->login(config.getUsername(), config.getPassword());
     if (!status) {
         LOG(ERROR) << "The username or password you entered is incorrect" << std::endl;
         return EXIT_FAILURE;
     }
-    const std::string dnsServer = webSocketClient->getDns();
-    if (dnsServer.empty()) {
+    const auto dnsServer = webSocketClient->getDns();
+    if (dnsServer == pcpp::IPv4Address("0.0.0.0")) {
         LOG(ERROR) << "DNS server error! Check your connection!" << std::endl;
         return EXIT_FAILURE;
     }
 
+    /* tun interface */
+    auto virtualNetworkInterface = std::make_unique<fptn::common::network::TunInterface>(
+        tunInterfaceName, tunInterfaceAddress, 30
+    );
+
+    /* iptables */
     auto iptables = std::make_unique<fptn::system::IPTables>(
         outNetworkInterfaceName,
         tunInterfaceName,
-        vpnServerIP,
+        serverIP,
         dnsServer,
         usingGatewayIP,
-        tunInterfaceAddress.toString() // FIX IT
+        tunInterfaceAddress
     );
 
-    auto virtualNetworkInterface = std::make_unique<fptn::common::network::TunInterface>(
-            tunInterfaceName, tunInterfaceAddress, 30
-    );
-
+    /* vpn client */
     fptn::vpn::VpnClient vpnClient(
         std::move(webSocketClient),
         std::move(virtualNetworkInterface),
         dnsServer
     );
 
-    vpnClient.start();
+    /* loop */
+    LOG(INFO) << std::endl
+        << "VERSION:           " << FPTN_VERSION << std::endl
+        << "GATEWAY IP:        " << usingGatewayIP << std::endl
+        << "NETWORK INTERFACE: " << outNetworkInterfaceName << std::endl
+        << "VPN SERVER NAME:   " << selectedServer.name << std::endl
+        << "VPN SERVER IP:     " << selectedServer.host << std::endl
+        << "VPN SERVER PORT:   " << selectedServer.port << std::endl
+        << "TUN INTERFACE IP:  " << tunInterfaceAddress.toString() << std::endl;
 
+    vpnClient.start();
     std::this_thread::sleep_for(std::chrono::seconds(2)); // FIX IT!
     iptables->apply();
 
     waitForSignal();
+
+    /* clean */
     iptables->clean();
     vpnClient.stop();
-
     google::ShutdownGoogleLogging();
 
     return EXIT_SUCCESS;

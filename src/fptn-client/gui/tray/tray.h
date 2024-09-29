@@ -23,6 +23,7 @@
 #include "gui/tray/tray.h"
 #include "vpn/vpn_client.h"
 #include "system/iptables.h"
+#include "config/config_file.h"
 #include "http/websocket_client.h"
 
 namespace fptn::gui
@@ -46,7 +47,7 @@ namespace fptn::gui
         void connected();
         void disconnecting();
     private slots:
-        void onConnectToServer(const ServerConnectionInformation &server);
+        void onConnectToServer(const ServiceConfig &service);
         void onDisconnectFromServer();
         void onShowSettings();
         void handleDefaultState();
@@ -77,7 +78,10 @@ namespace fptn::gui
         QString inactiveIconPath_;
 
         SettingsModel serverModel_;
-        ServerConnectionInformation selectedServer_;
+
+        ServiceConfig selectedService_;
+        fptn::config::ConfigFile::Server selectedServer_;
+
         fptn::vpn::VpnClientPtr vpnClient_;
         fptn::system::IPTablesPtr ipTables_;
     };

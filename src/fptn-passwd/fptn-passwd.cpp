@@ -4,7 +4,7 @@
 #include <iostream>
 
 #include <argparse/argparse.hpp>
-#include <common/user/manager.h>
+#include <common/user/common_user_manager.h>
 
 
 inline std::string getPassword(const std::string& prompt) 
@@ -64,7 +64,7 @@ int main(int argc, char* argv[])
     const bool list = parser.get<bool>("--list");
     const auto getBandwidthUser = parser.present<std::string>("--get-bandwidth").value_or("");
 
-    fptn::common::user::UserManager userManager(filePath);
+    fptn::common::user::CommonUserManager userManager(filePath);
 
     if (!addUser.empty()) {
         std::string password = getPassword("Type password: ");

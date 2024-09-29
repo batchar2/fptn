@@ -40,4 +40,6 @@ namespace fptn::vpn
         std::thread readFromClientThread_;
         std::thread collectStatistics_;
     };
+
+    using UserManagerSPtr = std::shared_ptr<fptn::user::UserManager>;
 }

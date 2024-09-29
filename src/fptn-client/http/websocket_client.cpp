@@ -30,9 +30,9 @@ using namespace fptn::http;
 
 
 WebSocketClient::WebSocketClient(
-    const std::string& vpnServerIP, 
+    const pcpp::IPv4Address& vpnServerIP,
     int vpnServerPort,
-    const std::string& tunInterfaceAddress,
+    const pcpp::IPv4Address& tunInterfaceAddress,
     bool useSsl,
     const NewIPPacketCallback& newIPPktCallback 
 )
@@ -67,7 +67,7 @@ WebSocketClient::WebSocketClient(
 
 bool WebSocketClient::login(const std::string& username, const std::string& password) noexcept
 {
-    httplib::SSLClient cli(vpnServerIP_, vpnServerPort_);
+    httplib::SSLClient cli(vpnServerIP_.toString(), vpnServerPort_);
     {
         cli.enable_server_certificate_verification(false); // NEED TO FIX
         cli.set_connection_timeout(5, 0); // 5 seconds
@@ -78,7 +78,7 @@ bool WebSocketClient::login(const std::string& username, const std::string& pass
             return false;
         }
     }
-    LOG(INFO) << "Login. Connect to " << vpnServerIP_ << ":" << vpnServerPort_;
+    LOG(INFO) << "Login. Connect to " << vpnServerIP_.toString() << ":" << vpnServerPort_;
     const std::string request = fmt::format(R"({{ "username": "{}", "password": "{}" }})", username, password);
     if (auto res = cli.Post("/api/v1/login", getRealBrowserHeaders(), request, "application/json")) {
         if (res->status == httplib::StatusCode::OK_200) {
@@ -104,10 +104,10 @@ bool WebSocketClient::login(const std::string& username, const std::string& pass
     return false;
 }
 
-std::string WebSocketClient::getDns() noexcept
+pcpp::IPv4Address WebSocketClient::getDns() noexcept
 {
-    LOG(INFO) << "DNS. Connect to " << vpnServerIP_ << ":" << vpnServerPort_;
-    httplib::SSLClient cli(vpnServerIP_, vpnServerPort_);
+    LOG(INFO) << "DNS. Connect to " << vpnServerIP_.toString() << ":" << vpnServerPort_;
+    httplib::SSLClient cli(vpnServerIP_.toString(), vpnServerPort_);
     {
         cli.enable_server_certificate_verification(false); // NEED TO FIX
         cli.set_connection_timeout(5, 0); // 5 seconds
@@ -115,7 +115,7 @@ std::string WebSocketClient::getDns() noexcept
         cli.set_write_timeout(5, 0); // 5 seconds
         if (SSL_CTX_set_cipher_list(cli.ssl_context(), chromeCiphers) != 1) {
             LOG(ERROR) << "Failed to set cipher list" << std::endl;
-            return {};
+            return pcpp::IPv4Address("0.0.0.0");
         }
     }
     if (auto res = cli.Get("/api/v1/dns", getRealBrowserHeaders())) {
@@ -124,7 +124,7 @@ std::string WebSocketClient::getDns() noexcept
                 auto response = nlohmann::json::parse(res->body);
                 if (response.contains("dns")) {
                     const std::string dnsServer = response["dns"];
-                    return dnsServer;
+                    return pcpp::IPv4Address(dnsServer);
                 } else {
                     LOG(ERROR) << "Error: dns not found in the response. Check your conection";
                 }
@@ -137,7 +137,7 @@ std::string WebSocketClient::getDns() noexcept
     } else {
         LOG(ERROR) << "Error: Request failed or response is null.";
     }
-    return {};
+    return pcpp::IPv4Address("0.0.0.0");
 }
 
 AsioSslContextPtr WebSocketClient::onTlsInit() noexcept
@@ -212,7 +212,7 @@ bool WebSocketClient::send(fptn::common::network::IPPacketPtr packet) noexcept
 
 void WebSocketClient::run() noexcept
 {
-    const std::string url = fmt::format("wss://{}:{}/fptn", vpnServerIP_, vpnServerPort_);
+    const std::string url = fmt::format("wss://{}:{}/fptn", vpnServerIP_.toString(), vpnServerPort_);
     while (running_)
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
@@ -232,7 +232,7 @@ void WebSocketClient::run() noexcept
             }
             /* need to provide auth and local vpn address */
             connection_->append_header("Authorization", "Bearer " + token_);
-            connection_->append_header("ClientIP", tunInterfaceAddress_);
+            connection_->append_header("ClientIP", tunInterfaceAddress_.toString());
         }
         {
             /* loop */
@@ -282,7 +282,7 @@ httplib::Headers WebSocketClient::getRealBrowserHeaders() noexcept
 #ifdef __linux__
     // firefox ubuntu arm
     return {
-        {"Host", (vpnServerPort_ == 443 ? vpnServerIP_ : fmt::format("{}:{}", vpnServerIP_, vpnServerPort_))},
+        {"Host", (vpnServerPort_ == 443 ? vpnServerIP_.toString() : fmt::format("{}:{}", vpnServerIP_.toString(), vpnServerPort_))},
         {"User-Agent", "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0"},
         {"Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/png,image/svg+xml,*/*;q=0.8"},
         {"Accept-Language", "en-US,en;q=0.5"},
@@ -299,7 +299,7 @@ httplib::Headers WebSocketClient::getRealBrowserHeaders() noexcept
 #elif __APPLE__
     // apple silicon chrome
     return {
-        {"Host", (vpnServerPort_ == 443 ? vpnServerIP_ : fmt::format("{}:{}", vpnServerIP_, vpnServerPort_))},
+        {"Host", (vpnServerPort_ == 443 ? vpnServerIP_.toString() : fmt::format("{}:{}", vpnServerIP_.toString(), vpnServerPort_))},
         {"sec-ch-ua", R"("Chromium";v="128", "Not;A=Brand";v="24", "Google Chrome";v="128")"},
         {"sec-ch-ua-platform", "\"macOS\""},
         {"sec-ch-ua-mobile", "?0"},
@@ -317,7 +317,7 @@ httplib::Headers WebSocketClient::getRealBrowserHeaders() noexcept
 #elif _WIN32
     // chrome windows amd64
     return {
-        {"Host", (vpnServerPort_ == 443 ? vpnServerIP_ : fmt::format("{}:{}", vpnServerIP_, vpnServerPort_))},
+        {"Host", (vpnServerPort_ == 443 ? vpnServerIP_.toString() : fmt::format("{}:{}", vpnServerIP_.toString(), vpnServerPort_))},
         {"sec-ch-ua", R"("Chromium";v="128", "Not;A=Brand";v="24", "Google Chrome";v="128")"},
         {"sec-ch-ua-mobile", "?0"},
         {"sec-ch-ua-platform", "\"Windows\""},

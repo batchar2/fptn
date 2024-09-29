@@ -1,12 +1,10 @@
-#include <algorithm>
 #include <filesystem>
 
 #include <glog/logging.h>
 #include <boost/asio.hpp>
-#include <argparse/argparse.hpp>
 
 #include <common/data/channel.h>
-#include <common/user/manager.h>
+
 #include <common/network/ip_packet.h>
 #include <common/network/net_interface.h>
 #include <common/jwt_token/token_manager.h>
@@ -14,11 +12,12 @@
 #include "nat/table.h"
 #include "web/server.h"
 #include "vpn/manager.h"
+#include "cmd/cmd_option.h"
 #include "filter/manager.h"
 #include "system/iptables.h"
 #include "statistic/metrics.h"
+#include "user/user_manager.h"
 #include "network/virtual_interface.h"
-
 
 
 inline void waitForSignal() 
@@ -34,13 +33,6 @@ inline void waitForSignal()
 }
 
 
-bool parseBoolean(const std::string& value) {
-    std::string lowercasedValue = value;
-    std::transform(lowercasedValue.begin(), lowercasedValue.end(), lowercasedValue.begin(), ::tolower);
-    return lowercasedValue == "true";
-}
-
-
 int main(int argc, char* argv[]) 
 {
     google::InitGoogleLogging(argv[0]);
@@ -52,124 +44,62 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
 
-    argparse::ArgumentParser args("fptn-server");
-    // Required arguments
-    args.add_argument("--server-crt")
-        .required()
-        .help("Path to server.crt file");
-    args.add_argument("--server-key")
-        .required()
-        .help("Path to server.key file");
-    args.add_argument("--server-pub")
-        .required()
-        .help("Path to server.pub file");
-    args.add_argument("--out-network-interface")
-        .required()
-        .help("Network out interface");
-    // Optional arguments
-    args.add_argument("--server-port")
-        .default_value(8080)
-        .help("Port number")
-        .scan<'i', int>();
-    args.add_argument("--tun-interface-name")
-        .default_value("tun0")
-        .help("Network interface name");
-    args.add_argument("--tun-interface-ip")
-        .default_value("172.20.0.1")
-        .help("IP address of the virtual interface");
-    args.add_argument("--tun-interface-network-address")
-            .default_value("172.20.0.0")
-            .help("IP network of the virtual interface");
-    args.add_argument("--tun-interface-network-mask")
-        .default_value(24)
-        .help("Network mask")
-        .scan<'i', int>();
-    args.add_argument("--userfile")
-        .help("Path to users file (default: /etc/fptn/users.list)")
-        .default_value("/etc/fptn/users.list");
-    args.add_argument("--use-https")
-        .help("Use https")
-        .default_value("true");
-    // Packet filters
-    args.add_argument("--disable-bittorrent")
-        .help("Disable BitTorrent traffic filtering. Use this flag to disable filtering.")
-        .default_value("false");
-    // Allow prometheus metric
-    args.add_argument("--prometheus-access-key")
-        .help("Secret key required for accessing Prometheus metrics. Set this to a secret value if metrics is needed.")
-        .default_value("");
-    try {
-        args.parse_args(argc, argv);
-    } catch (const std::runtime_error& err) {
-        LOG(ERROR) << "Argument parsing error: " << err.what() << std::endl;
-        LOG(ERROR) << args;
+    /* Check options */
+    auto options = std::make_shared<fptn::cmd::CmdOptions>(argc, argv);
+    if(!options->parse()) {
         return EXIT_FAILURE;
     }
-
-    const auto serverCrt = args.get<std::string>("--server-crt");
-    const auto serverKey = args.get<std::string>("--server-key");
-    const auto serverPub = args.get<std::string>("--server-pub");
-    if (!std::filesystem::exists(serverCrt) || !std::filesystem::exists(serverKey) || !std::filesystem::exists(serverPub)) {
+    if (!std::filesystem::exists(options->getServerCrt())
+        || !std::filesystem::exists(options->getServerKey())
+        || !std::filesystem::exists(options->getServerPub())
+    ) {
         LOG(ERROR) << "SSL certificate or key file does not exist!";
         return EXIT_FAILURE;
     }
 
-    const auto outNetworkInterfaceName = args.get<std::string>("--out-network-interface");
-    const auto userFilePath = args.get<std::string>("--userfile");
-
-    const auto serverPort = args.get<int>("--server-port");
-    const auto tunInterfaceName = args.get<std::string>("--tun-interface-name");
-    const auto tunInterfaceIP = pcpp::IPv4Address(args.get<std::string>("--tun-interface-ip"));
-    const auto tunInterfaceNetworkAddress = pcpp::IPv4Address(args.get<std::string>("--tun-interface-network-address"));
-    const auto tunInterfaceNetworkMask = args.get<int>("--tun-interface-network-mask");
-
-    const bool useHttps = parseBoolean(args.get<std::string>("--use-https"));
-    const auto prometheusAccessKey = args.get<std::string>("--prometheus-access-key");
-
-    auto prometheus = std::make_shared<fptn::statistic::Metrics>();
-
-
-    auto userManager = std::make_shared<fptn::common::user::UserManager>(
-            userFilePath
-    );
-    auto natTable = std::make_shared<fptn::nat::Table>(
-            tunInterfaceIP,
-            tunInterfaceNetworkAddress,
-            tunInterfaceNetworkMask
-    );
-
-
-    // filters
-    const bool disableBittorrent = parseBoolean(args.get<std::string>("--disable-bittorrent"));
-    auto filterManager = std::make_shared<fptn::filter::FilterManager>(disableBittorrent);
-
-
-    auto tokenManager = std::make_shared<fptn::common::jwt_token::TokenManager>(
-        serverCrt, serverKey, serverPub
-    );
+    /* Init virtual network interface */
     auto iptables = std::make_unique<fptn::system::IPTables>(
-        outNetworkInterfaceName, 
-        tunInterfaceName
+        options->getOutNetworkInterface(),
+        options->getTunInterfaceName()
     );
     auto virtualNetworkInterface = std::make_unique<fptn::network::VirtualInterface>(
-        tunInterfaceName,
-        tunInterfaceIP,
-        tunInterfaceNetworkMask, 
+        options->getTunInterfaceName(),
+        options->getTunInterfaceIP(),
+        options->getTunInterfaceNetworkMask(),
         std::move(iptables)
     );
+
+    /* Init web server */
+    auto tokenManager = std::make_shared<fptn::common::jwt_token::TokenManager>(
+        options->getServerCrt(), options->getServerKey(), options->getServerPub()
+    );
+    auto userManager = std::make_shared<fptn::user::UserManager>(
+        options->getUserFile(),
+        options->useRemoteServerAuth(),
+        options->getRemoteServerAuthHost(),
+        options->getRemoteServerAuthPort()
+    );
+    auto natTable = std::make_shared<fptn::nat::Table>(
+        options->getTunInterfaceIP(),
+        options->getTunInterfaceNetworkAddress(),
+        options->getTunInterfaceNetworkMask()
+    );
+    auto prometheus = std::make_shared<fptn::statistic::Metrics>();
     auto webServer = std::make_unique<fptn::web::Server>(
         natTable,
-        serverPort,
-        useHttps,
+        options->getServerPort(),
+        options->useHttps(),
         userManager,
         tokenManager,
         prometheus,
-        prometheusAccessKey,
-        tunInterfaceIP
+        options->getPrometheusAccessKey(),
+        options->getTunInterfaceIP()
     );
 
+    /* init vpn manager */
+    auto filterManager = std::make_shared<fptn::filter::FilterManager>(options->disableBittorrent());
     fptn::vpn::Manager manager(
-        std::move(webServer), 
+        std::move(webServer),
         std::move(virtualNetworkInterface),
         natTable,
         filterManager,
@@ -179,16 +109,16 @@ int main(int argc, char* argv[])
     LOG(INFO) << std::endl
         << "Starting server"     << std::endl
         << "VERSION:           " << FPTN_VERSION << std::endl
-        << "NETWORK INTERFACE: " << outNetworkInterfaceName << std::endl
-        << "VPN SERVER IP:     " << tunInterfaceIP << std::endl
-        << "VPN SERVER PORT:   " << serverPort << std::endl
+        << "NETWORK INTERFACE: " << options->getOutNetworkInterface() << std::endl
+        << "VPN SERVER IP:     " << options->getTunInterfaceIP().toString() << std::endl
+        << "VPN SERVER PORT:   " << options->getServerPort() << std::endl
         << std::endl;
 
+    /* start/wait/stop */
     manager.start();
-
     waitForSignal();
-
     manager.stop();
+    google::ShutdownGoogleLogging();
 
     return EXIT_SUCCESS;
 }

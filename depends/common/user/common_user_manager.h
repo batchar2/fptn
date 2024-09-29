@@ -14,10 +14,10 @@
 
 namespace fptn::common::user
 {
-    class UserManager 
+    class CommonUserManager final
     {
     public:
-        UserManager(const std::string& filePath) : filePath_(filePath) 
+        explicit CommonUserManager(const std::string& filePath) : filePath_(filePath)
         {
             createFileIfNotExists(filePath_);
             loadUsers();
@@ -211,5 +211,6 @@ namespace fptn::common::user
         std::string filePath_;
     };
 
-    using UserManagerSPtr = std::shared_ptr<UserManager>;
+    using CommonUserManagerPtr = std::unique_ptr<CommonUserManager>;
+    using CommonUserManagerSPtr = std::shared_ptr<CommonUserManager>;
 }

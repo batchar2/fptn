@@ -4,12 +4,14 @@
 #include <memory>
 #include <iostream>
 
+#include <pcapplusplus/IpAddress.h>
+
 
 namespace fptn::system
 {
-    std::string getDefaultGatewayIPAddress() noexcept;
     std::string getDefaultNetworkInterfaceName() noexcept;
-    std::string resolveDomain(const std::string& domain) noexcept;
+    pcpp::IPv4Address getDefaultGatewayIPAddress() noexcept;
+    pcpp::IPv4Address resolveDomain(const std::string& domain) noexcept;
 
     class IPTables final
     {
@@ -17,10 +19,10 @@ namespace fptn::system
         IPTables(
             const std::string& outInterfaceName,
             const std::string& tunInterfaceName,
-            const std::string& vpnServerIP,
-            const std::string& dnsServer,
-            const std::string& gatewayIp="",
-            const std::string& tunInterfaceAddress="10.10.10.1"
+            const pcpp::IPv4Address& vpnServerIP,
+            const pcpp::IPv4Address& dnsServer,
+            const pcpp::IPv4Address& gatewayIp,
+            const pcpp::IPv4Address tunInterfaceAddress=pcpp::IPv4Address("10.10.10.1")
         );
         ~IPTables();
         bool check() noexcept;
@@ -28,16 +30,15 @@ namespace fptn::system
         bool clean() noexcept;
     private:
         bool init_;
-        std::string outInterfaceName_;
-        std::string tunInterfaceName_;
-        std::string vpnServerIp_;
-        std::string dnsServer_;
-        std::string gatewayIp_;
-        std::string tunInterfaceAddress_;
-        std::string resolvedServerIp_;
+        const std::string outInterfaceName_;
+        const std::string tunInterfaceName_;
+        const pcpp::IPv4Address vpnServerIP_;
+        const pcpp::IPv4Address dnsServer_;
+        const pcpp::IPv4Address gatewayIp_;
+        const pcpp::IPv4Address tunInterfaceAddress_;
     private:
         std::string findOutInterfaceName_;
-        std::string findOutGatewayIp_;
+        pcpp::IPv4Address findOutGatewayIp_;
     };
 
     using IPTablesPtr = std::unique_ptr<IPTables>;

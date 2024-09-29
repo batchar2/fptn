@@ -1,5 +1,3 @@
-// server_model.cpp
-#include "settingsmodel.h"
 #include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -18,23 +16,32 @@
 
 #include "system/iptables.h"
 
+#include "settingsmodel.h"
+
+
 using namespace fptn::gui;
 
 
-SettingsModel::SettingsModel(QObject *parent) : QObject(parent) {
+SettingsModel::SettingsModel(QObject *parent) : QObject(parent)
+{
     load();
 }
 
-QString SettingsModel::getFilePath() const {
+QString SettingsModel::getFilePath() const
+{
     QString directory = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
     QDir dir(directory);
     if (!dir.exists()) {
         dir.mkpath(directory);
     }
-    return directory + "/settings.json";
+    return directory + "/fptn-settings.json";
 }
 
-void SettingsModel::load() {
+void SettingsModel::load()
+{
+    // Load servers
+    services_.clear();
+
     QString filePath = getFilePath();
     QFile file(filePath);
     if (!file.open(QIODevice::ReadOnly)) {
@@ -47,24 +54,48 @@ void SettingsModel::load() {
     file.close();
 
     QJsonDocument document = QJsonDocument::fromJson(data);
-    QJsonObject jsonObject = document.object();
+    QJsonObject serviceObj = document.object();
 
-    // Load servers
-    servers_.clear();
-    QJsonArray serversArray = jsonObject["servers"].toArray();
-    for (const QJsonValue &value : serversArray) {
-        QJsonObject obj = value.toObject();
-        ServerConnectionInformation server;
-        server.address = obj["address"].toString();
-        server.port = obj["port"].toInt();
-        server.username = obj["username"].toString();
-        server.password = obj["password"].toString();
-        servers_.append(server);
+    LOG(INFO) << "LOAD";
+
+    if (serviceObj.contains("services")) {
+        LOG(INFO) << "+1";
+        QJsonArray servicesArray = serviceObj["services"].toArray();
+        for (const QJsonValue& serviceValue : servicesArray) {
+            LOG(INFO) << "+2";
+            QJsonObject serviceObj = serviceValue.toObject();
+            ServiceConfig service;
+
+            service.serviceName = serviceObj["service_name"].toString();
+            service.username = serviceObj["username"].toString();
+            service.password = serviceObj["password"].toString();
+
+            QJsonArray serversArray = serviceObj["servers"].toArray();
+            for (const QJsonValue& serverValue : serversArray) {
+                LOG(INFO) << "+3";
+                QJsonObject serverObj = serverValue.toObject();
+                ServerConfig server;
+                server.name = serverObj["name"].toString();
+                server.host = serverObj["host"].toString();
+                server.port = serverObj["port"].toInt();
+                server.isUsing = serverObj["is_using"].toBool();
+                service.servers.push_back(server);
+            }
+            services_.push_back(service);
+        }
     }
 
     // Load network settings
-    networkInterface_ = jsonObject["manualNetworkInterface"].toString();
-    gatewayIp_ = jsonObject["manualGatewayIp"].toString();
+    if (serviceObj.contains("network_interface")) {
+        networkInterface_ = serviceObj["network_interface"].toString();
+    }
+    if (networkInterface_.isEmpty()) {
+        networkInterface_ = "auto";
+    }
+
+    if (serviceObj.contains("gateway_ip")) {
+        gatewayIp_ = serviceObj["gateway_ip"].toString();
+    }
     if (gatewayIp_.isEmpty()) {
         gatewayIp_ = "auto";
     }
@@ -75,34 +106,123 @@ bool SettingsModel::save()
     QString filePath = getFilePath();
     QFile file(filePath);
     if (!file.open(QIODevice::WriteOnly)) {
-        qWarning() << "Failed to open file for writing:" << filePath;
+        LOG(ERROR) << "Failed to open file for writing:" << filePath.toStdString();
         return false;
     }
 
     QJsonObject jsonObject;
-    // Save servers
-    QJsonArray serversArray;
-    for (const ServerConnectionInformation &server : servers_) {
-        QJsonObject obj;
-        obj["address"] = server.address;
-        obj["port"] = server.port;
-        obj["username"] = server.username;
-        obj["password"] = server.password;
-        serversArray.append(obj);
+    QJsonArray servicesArray;
+    for (const ServiceConfig& service : services_) {
+        QJsonObject serviceObj;
+        serviceObj["service_name"] = service.serviceName;
+        serviceObj["username"] = service.username;
+        serviceObj["password"] = service.password;
+        QJsonArray serversArray;
+        for (const ServerConfig& server : service.servers) {
+            QJsonObject serverObj;
+            serverObj["name"] = server.name;
+            serverObj["host"] = server.host;
+            serverObj["port"] = server.port;
+            serviceObj["is_using"] = server.isUsing;
+            serversArray.append(serverObj);
+        }
+        serviceObj["servers"] = serversArray;
+        servicesArray.append(serviceObj);
     }
-    jsonObject["servers"] = serversArray;
 
-    // Save network settings
-    jsonObject["manualNetworkInterface"] = networkInterface_;
-    jsonObject["manualGatewayIp"] = gatewayIp_;
-
+    jsonObject["services"] = servicesArray;
+    jsonObject["network_interface"] = networkInterface_;
+    jsonObject["gateway_ip"] = gatewayIp_;
     QJsonDocument document(jsonObject);
     auto len = file.write(document.toJson());
     file.close();
 
     emit dataChanged();
+
+    if (len > 0) {
+        LOG(INFO) << "Success save:" << filePath.toStdString();
+    }
+
     return len > 0;
 }
+
+ServiceConfig SettingsModel::parseFile(const QString& filepath)
+{
+    QFile file(filepath);
+    if (!file.open(QIODevice::ReadOnly)) {
+        throw std::runtime_error("Failed to open file: " + filepath.toStdString());
+    }
+
+    QByteArray fileData = file.readAll();
+    file.close();
+
+    QJsonParseError parseError;
+    QJsonDocument jsonDoc = QJsonDocument::fromJson(fileData, &parseError);
+
+    if (parseError.error != QJsonParseError::NoError) {
+        throw std::runtime_error("JSON parsing error: " + parseError.errorString().toStdString());
+    }
+
+    QJsonObject jsonObject = jsonDoc.object();
+    if (!jsonObject.contains("service_name") || !jsonObject.contains("username") || !jsonObject.contains("password") || !jsonObject.contains("servers")) {
+        throw std::runtime_error("Missing required fields in JSON.");
+    }
+    ServiceConfig service;
+    service.serviceName = jsonObject["service_name"].toString();
+    service.username = jsonObject["username"].toString();
+    service.password = jsonObject["password"].toString();
+
+    QJsonArray serversArray = jsonObject["servers"].toArray();
+    for (const QJsonValue& serverValue : serversArray) {
+        QJsonObject serverObj = serverValue.toObject();
+        if (!serverObj.contains("name") || !serverObj.contains("host") || !serverObj.contains("port")) {
+            throw std::runtime_error("Missing required fields in server object.");
+        }
+
+        ServerConfig server;
+        server.name = serverObj["name"].toString();
+        server.host = serverObj["host"].toString();
+        server.port = serverObj["port"].toInt();
+        server.isUsing = true;
+
+        service.servers.push_back(server);
+    }
+    return service;
+}
+
+//bool SettingsModel::save()
+//{
+//    QString filePath = getFilePath();
+//    QFile file(filePath);
+//    if (!file.open(QIODevice::WriteOnly)) {
+//        qWarning() << "Failed to open file for writing:" << filePath;
+//        return false;
+//    }
+//
+//    QJsonObject jsonObject;
+//    // Save servers
+//    QJsonArray serversArray;
+//    for (const ServerConnectionInformation &server : servers_) {
+//        QJsonObject obj;
+//        obj["address"] = server.address;
+//        obj["port"] = server.port;
+//        obj["username"] = server.username;
+//        obj["password"] = server.password;
+//        serversArray.append(obj);
+//    }
+//    jsonObject["servers"] = serversArray;
+//
+//    // Save network settings
+//    jsonObject["manualNetworkInterface"] = networkInterface_;
+//    jsonObject["manualGatewayIp"] = gatewayIp_;
+//
+//    QJsonDocument document(jsonObject);
+//    auto len = file.write(document.toJson());
+//    file.close();
+//
+//    emit dataChanged();
+//    return len > 0;
+//}
 
 QString SettingsModel::networkInterface() const {
     return networkInterface_;
@@ -113,29 +233,29 @@ void SettingsModel::setNetworkInterface(const QString &interface) {
 }
 
 QString SettingsModel::gatewayIp() const {
-    return gatewayIp_;
+    return (gatewayIp_.isEmpty() ? "auto" : gatewayIp_);
 }
 
 void SettingsModel::setGatewayIp(const QString &ip) {
     gatewayIp_ = (ip.isEmpty() ? "auto" : ip);
 }
 
-const QVector<ServerConnectionInformation>& SettingsModel::servers() const {
-    return servers_;
+const QVector<ServiceConfig>& SettingsModel::services() const {
+    return services_;
 }
 
-void SettingsModel::addServer(const ServerConnectionInformation &server) {
-    servers_.append(server);
+void SettingsModel::addService(const ServiceConfig &server) {
+    services_.append(server);
 }
 
 void SettingsModel::removeServer(int index) {
-    if (index >= 0 && index < servers_.size()) {
-        servers_.removeAt(index);
+    if (index >= 0 && index < services_.size()) {
+        services_.removeAt(index);
     }
 }
 
 void SettingsModel::clear() {
-    servers_.clear();
+    services_.clear();
 }
 
 QVector<QString> SettingsModel::getNetworkInterfaces() const
@@ -157,4 +277,14 @@ QVector<QString> SettingsModel::getNetworkInterfaces() const
         }
     }
     return interfaces;
+}
+
+int SettingsModel::getExistServiceIndex(const QString& name) const
+{
+    for (int i = 0; i < services_.size(); i++) {
+        if (services_[i].serviceName == name) {
+            return i;
+        }
+    }
+    return -1;
 }

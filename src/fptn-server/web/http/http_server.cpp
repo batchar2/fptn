@@ -1,7 +1,10 @@
 #include <fmt/format.h>
 #include <glog/logging.h>
 
+#include <common/utils/utils.h>
+
 #include "http_server.h"
+
 
 using namespace fptn::web;
 
@@ -82,7 +85,7 @@ static const std::string html_home_page = R"HTML(<!DOCTYPE html>
 
 
 HttpServer::HttpServer(
-        const fptn::common::user::UserManagerSPtr& userManager,
+        const fptn::user::UserManagerSPtr& userManager,
         const fptn::common::jwt_token::TokenManagerSPtr& tokenManager,
         const fptn::statistic::MetricsSPtr& prometheus,
         const std::string& prometheusAccessKey,
@@ -97,7 +100,7 @@ HttpServer::HttpServer(
     using namespace std::placeholders;
     http_.GET(urlHome_.c_str(), std::bind(&HttpServer::onHomeHandle, this, _1, _2));
     http_.GET(urlDns_.c_str(), std::bind(&HttpServer::onDnsHandle, this, _1, _2));
-
+    http_.GET(urlTestFileBin_.c_str(), std::bind(&HttpServer::onTestFileBin, this, _1, _2));
 
     http_.POST(urlLogin_.c_str(), std::bind(&HttpServer::onLoginHandle, this, _1, _2));
     // prometheus statistics
@@ -128,6 +131,7 @@ int HttpServer::onHomeHandle(HttpRequest* req, HttpResponse* resp) noexcept
 
 int HttpServer::onDnsHandle(HttpRequest* req, HttpResponse* resp) noexcept
 {
+    LOG(INFO) << urlDns_;
     resp->SetHeader("Content-Type", "application/json; charset=utf-8");
     resp->String(
         fmt::format(R"({{"dns": "{}"}})", dnsServer_.toString())
@@ -137,32 +141,36 @@ int HttpServer::onDnsHandle(HttpRequest* req, HttpResponse* resp) noexcept
 
 int HttpServer::onStatistics(HttpRequest* req, HttpResponse* resp) noexcept
 {
+
     return resp->String(prometheus_->collect());
 }
 
 int HttpServer::onLoginHandle(HttpRequest* req, HttpResponse* resp) noexcept
 {
+    LOG(INFO) << urlLogin_;
     resp->SetHeader("Content-Type", "application/json; charset=utf-8");
     try {
         auto request = nlohmann::json::parse(req->Body());
         const auto username = request.at("username").get<std::string>();
         const auto password = request.at("password").get<std::string>();
-        if (userManager_->authenticate(username, password) ) {
+        int bandwidthBit = 0;
+        if (false) {
+            // pass
+        } else if (userManager_->login(username, password, bandwidthBit)) {
             LOG(INFO) << "Successful login for user " << username;
-            const int bandwidthBit = userManager_->getUserBandwidthBit(username);
             const auto tokens = tokenManager_->generate(username, bandwidthBit);
             resp->String(
                 fmt::format(
-                    R"({{"access_token": "{}", "refresh_token": "{}"}})", 
-                    tokens.first, 
-                    tokens.second
+                    R"({{ "access_token": "{}", "refresh_token": "{}", "bandwidth_bit": {} }})",
+                    tokens.first,
+                    tokens.second,
+                    std::to_string(bandwidthBit)
                 )
             );
             return 200;
         }
         LOG(WARNING) << "Wrong password for user: \"" << username << "\"";
         resp->String(R"({"status": "error", "message": "Invalid login or password."})");
-        return 401;
     } catch (const nlohmann::json::exception& e) {
         LOG(ERROR) << "HTTP JSON AUTH ERROR: " << e.what();
         resp->String(R"({"status": "error", "message": "Invalid JSON format."})");
@@ -176,5 +184,12 @@ int HttpServer::onLoginHandle(HttpRequest* req, HttpResponse* resp) noexcept
         resp->String(R"({"status": "error", "message": "Undefined server error"})");
         return 501;
     }
-    return 402;
+    return 401;
+}
+
+int HttpServer::onTestFileBin(HttpRequest* req, HttpResponse* resp) noexcept
+{
+    LOG(INFO) << urlTestFileBin_;
+    static const std::string data = fptn::common::utils::generateRandomString(100*1024);  // 100KB
+    return resp->String(data);
 }

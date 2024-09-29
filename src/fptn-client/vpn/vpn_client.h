@@ -12,10 +12,10 @@ namespace fptn::vpn
     class VpnClient final
     {
     public:
-        VpnClient(
+        explicit VpnClient(
             fptn::http::WebSocketClientPtr webSocket,
             fptn::common::network::BaseNetInterfacePtr virtualNetworkInterface,
-            const std::string& dnsServer  // FIX THIS
+            const pcpp::IPv4Address& dnsServer
         );
         ~VpnClient();
         void start() noexcept;

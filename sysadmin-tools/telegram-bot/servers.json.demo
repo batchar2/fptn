@@ -1,0 +1,12 @@
+[
+    {
+        "name": "ServerName1",
+        "host": "127.0.0.1",
+        "port": 443
+    },
+    {
+        "name": "ServerName2",
+        "host": "127.0.0.1",
+        "port": 443
+    }
+]

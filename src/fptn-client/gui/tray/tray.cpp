@@ -35,6 +35,15 @@ inline bool isWindows()
     return osName.contains("windows", Qt::CaseInsensitive);
 }
 
+inline void showError(const QString& title, const QString& msg)
+{
+    QWidget tempWidget;
+    QMessageBox::critical(
+            &tempWidget,
+            title,
+            msg
+    );
+}
 
 TrayApp::TrayApp(QObject *parent)
     : QObject(parent),
@@ -72,11 +81,6 @@ TrayApp::TrayApp(QObject *parent)
         inactiveIconPath_ = ":/icons/white/inactive.ico";
     }
     qApp->setStyleSheet(fptn::gui::windowsStyleSheet);
-#else
-    #error "Unsupported system!"
-#endif
-
-#if defined(_WIN32)
     if (trayIcon_ && trayMenu_) {
         QObject::connect(trayIcon_, &QSystemTrayIcon::activated, [this](QSystemTrayIcon::ActivationReason reason) {
             if (trayMenu_->isVisible()) {
@@ -87,6 +91,8 @@ TrayApp::TrayApp(QObject *parent)
             }
         });
     }
+#else
+    #error "Unsupported system!"
 #endif
     connect(this, &TrayApp::defaultState, this, &TrayApp::handleDefaultState);
     connect(this, &TrayApp::connecting, this, &TrayApp::handleConnecting);
@@ -127,13 +133,16 @@ void TrayApp::updateTrayMenu()
     if (trayMenu_ && connectMenu_) {
         trayMenu_->removeAction(connectMenu_->menuAction());
     }
+
     switch (connectionState_) {
         case ConnectionState::None: {
             trayIcon_->setIcon(QIcon(inactiveIconPath_));
-            for (const auto &server : serverModel_.servers()) {
-                QAction *serverAction = new QAction(QString("%1:%2").arg(server.address).arg(server.port), this);
-                connect(serverAction, &QAction::triggered, [this, server]() {
-                    onConnectToServer(server);
+            for (const auto &service : serverModel_.services()) {
+                QAction *serverAction = new QAction(
+                    QString("%1").arg(service.serviceName), this
+                );
+                connect(serverAction, &QAction::triggered, [this, service]() {
+                    onConnectToServer(service);
                 });
                 connectMenu_->addAction(serverAction);
             }
@@ -181,7 +190,10 @@ void TrayApp::updateTrayMenu()
             }
             if (disconnectAction_) {
                 disconnectAction_->setText(
-                        QString("Disconnect: %1:%2").arg(selectedServer_.address).arg(selectedServer_.port));
+                    QString("Disconnect: %1 (%2)")
+                        .arg(selectedService_.serviceName)
+                        .arg(QString::fromStdString(selectedServer_.name))
+                );
                 disconnectAction_->setVisible(true);
             }
             if (connectingAction_) {
@@ -226,9 +238,9 @@ void TrayApp::updateTrayMenu()
     }
 }
 
-void TrayApp::onConnectToServer(const ServerConnectionInformation &server)
+void TrayApp::onConnectToServer(const ServiceConfig &service)
 {
-    selectedServer_ = server;
+    selectedService_ = service;
     connectionState_ = ConnectionState::Connecting;
     updateTrayMenu();
     emit connecting();
@@ -281,52 +293,86 @@ void TrayApp::handleConnecting()
     updateTrayMenu();
     trayIcon_->setIcon(QIcon(inactiveIconPath_));
 
-    const std::string tunInterfaceAddress = "10.0.1.1";
+    const pcpp::IPv4Address tunInterfaceAddress("10.0.1.1");
     const std::string tunInterfaceName = "tun0";
 
-    const std::string gatewayIP = (
+    /* check gateway address */
+    const auto usingGatewayIP = (
             serverModel_.gatewayIp() == "auto"
-            ? ""
-            : serverModel_.gatewayIp().toStdString()
+            ? fptn::system::getDefaultGatewayIPAddress()
+            : pcpp::IPv4Address(serverModel_.gatewayIp().toStdString())
     );
+    if (usingGatewayIP == pcpp::IPv4Address("0.0.0.0")) {
+        showError(
+            "Connection Error",
+            "Unable to find the default gateway IP address. Please set gateway address in the settings."
+        );
+        connectionState_ = ConnectionState::None;
+        updateTrayMenu();
+        return;
+    }
+    /* config */
     const std::string networkInterface = (
-            serverModel_.networkInterface() == "auto"
-            ? ""
-            : serverModel_.networkInterface().toStdString()
+        serverModel_.networkInterface() == "auto"
+        ? ""
+        : serverModel_.networkInterface().toStdString()
     );
 
+    // find the best server
+    fptn::config::ConfigFile config;
+    selectedServer_ = fptn::config::ConfigFile::Server();
+    {
+        for (const auto &s: selectedService_.servers) {
+            fptn::config::ConfigFile::Server cfgServer;
+            cfgServer.name = s.name.toStdString();
+            cfgServer.host = s.host.toStdString();
+            cfgServer.port = s.port;
+            cfgServer.isUsing = s.isUsing;
+            config.addServer(cfgServer);
+        }
+        try{
+            selectedServer_ = config.findFastestServer();
+        } catch (std::runtime_error &err) {
+            showError("Config error", err.what());
+            connectionState_ = ConnectionState::None;
+            updateTrayMenu();
+            return;
+        }
+    }
+    const int serverPort = selectedServer_.port;
+    const auto serverIP = fptn::system::resolveDomain(selectedServer_.host);
+    if (serverIP == pcpp::IPv4Address("0.0.0.0")) {
+        showError("DNS resolve error", QString("DNS resolve error: %1").arg(QString::fromStdString(selectedServer_.host)));
+        connectionState_ = ConnectionState::None;
+        updateTrayMenu();
+        return;
+    }
+
+
     auto webSocketClient = std::make_unique<fptn::http::WebSocketClient>(
-            selectedServer_.address.toStdString(),
-            selectedServer_.port,
-            tunInterfaceAddress,
-            true
+        serverIP,
+        serverPort,
+        tunInterfaceAddress,
+        true
     );
 
     bool loginStatus = webSocketClient->login(
-            selectedServer_.username.toStdString(),
-            selectedServer_.password.toStdString()
+        selectedService_.username.toStdString(),
+        selectedService_.password.toStdString()
     );
 
     if (!loginStatus) {
-        QWidget tempWidget;
-        QMessageBox::critical(
-                &tempWidget,
-                "Connection Error",
-                "Failed to connect to the server. Please check your credentials and try again."
+        showError("Connection Error",
+            "Failed to connect to the server. Please check your credentials and try again."
         );
         connectionState_ = ConnectionState::None;
         updateTrayMenu();
         return;
     }
 
-    const std::string dnsServer = webSocketClient->getDns();
-    if (dnsServer.empty()) {
-        QWidget tempWidget;
-        QMessageBox::critical(
-                &tempWidget,
-                "Connection Error",
-                "DNS server error! Check your connection!"
-        );
+    const auto dnsServer = webSocketClient->getDns();
+    if (dnsServer == pcpp::IPv4Address("0.0.0.0")) {
+        showError("Connection Error", "DNS server error! Check your connection!");
         connectionState_ = ConnectionState::None;
         updateTrayMenu();
         return;
@@ -335,13 +381,13 @@ void TrayApp::handleConnecting()
     ipTables_ = std::make_unique<fptn::system::IPTables>(
             networkInterface,
             tunInterfaceName,
-            selectedServer_.address.toStdString(),
+            serverIP,
             dnsServer,
-            gatewayIP,
-            tunInterfaceAddress // FIX IT
+            usingGatewayIP,
+            tunInterfaceAddress
     );
     auto virtualNetworkInterface = std::make_unique<fptn::common::network::TunInterface>(
-            tunInterfaceName, pcpp::IPv4Address(tunInterfaceAddress), 30, nullptr
+            tunInterfaceName, tunInterfaceAddress, 30
     );
     vpnClient_ = std::make_unique<fptn::vpn::VpnClient>(
             std::move(webSocketClient),

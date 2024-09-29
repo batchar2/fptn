@@ -13,7 +13,7 @@ Server::Server(
         const fptn::nat::TableSPtr& natTable,
         std::uint16_t port,
         bool use_https,
-        const fptn::common::user::UserManagerSPtr& userManager,
+        const fptn::user::UserManagerSPtr& userManager,
         const fptn::common::jwt_token::TokenManagerSPtr& tokenManager,
         const fptn::statistic::MetricsSPtr& prometheus,
         const std::string& prometheusAccessKey,

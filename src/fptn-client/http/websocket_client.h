@@ -25,14 +25,14 @@ namespace fptn::http
         using NewIPPacketCallback = std::function<void(fptn::common::network::IPPacketPtr packet)>;
     public:
         WebSocketClient(
-            const std::string& vpnServerIP, 
+            const pcpp::IPv4Address& vpnServerIP,
             int vpnServerPort,
-            const std::string& tunInterfaceAddress,
+            const pcpp::IPv4Address& tunInterfaceAddress,
             bool useSsl = true,
             const NewIPPacketCallback& newIPPktCallback = nullptr
         );
         bool login(const std::string& username, const std::string& password) noexcept;
-        std::string getDns() noexcept;
+        pcpp::IPv4Address getDns() noexcept;
         bool start() noexcept;
         bool stop() noexcept;
         bool send(fptn::common::network::IPPacketPtr packet) noexcept;
@@ -51,11 +51,11 @@ namespace fptn::http
         mutable AsioClient::connection_ptr connection_;
         std::atomic<bool> running_;
 
-        const std::string vpnServerIP_;
+        const pcpp::IPv4Address vpnServerIP_;
         const int vpnServerPort_;
 
         std::string token_;
-        std::string tunInterfaceAddress_;
+        pcpp::IPv4Address tunInterfaceAddress_;
         NewIPPacketCallback newIPPktCallback_;
     };
 
