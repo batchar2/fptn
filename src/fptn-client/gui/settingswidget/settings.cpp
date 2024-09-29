@@ -167,7 +167,7 @@ void SettingsWidget::loadNewConfig()
         this,
         "Open FPTN Service File",
         QDir::homePath(),
-        "FPTN Files (*.fptn);;All files (*)",
+        "FPTN Files (*.fptn);;All files (*)"
     );
 #endif
     // Check if a file was selected
