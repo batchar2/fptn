@@ -162,7 +162,7 @@ void SettingsWidget::loadNewConfig()
         nullptr,
         QFileDialog::DontUseNativeDialog
     );
-#elif
+#else
     QString filePath = QFileDialog::getOpenFileName(
         this,
         "Open FPTN Service File",
