@@ -63,8 +63,9 @@ Open "Settings" to configure your client.
 Registration for accessing the free internet via FPTN is very simple!
 Use our Telegram bot [@fptn_bot](https://t.me/fptn_bot),
 which will quickly provide you with the parameters for internet access.
-                        
-Add a new server with the parameters provided by the bot.
+
+Open the settings to add a new connection. To do this, download the file provided by
+the bot and simply upload it in your client's settings by clicking the "Load config" button.
 
 <img style="max-height: 350px" src="docs/images/settings-2.png" alt="Settings"/>
                        
