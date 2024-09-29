@@ -129,6 +129,7 @@ rm -rf /opt/fptn || true
 rm -f /usr/bin/fptn-client || true
 rm -f /usr/share/icons/hicolor/512x512/apps/fptn-client.png || true
 EOL
+
 chmod 755 "$CLIENT_TMP_DIR/DEBIAN/postrm"
 
 

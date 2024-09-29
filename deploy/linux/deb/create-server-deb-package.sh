@@ -51,6 +51,17 @@ USE_HTTPS=true
 # true or false
 DISABLE_BITTORRENT=true
 
+# Set the USE_REMOTE_SERVER_AUTH variable to true if you need to
+# redirect requests to a master FPTN server for authorization.
+# This is used for cluster operations.
+USE_REMOTE_SERVER_AUTH=false
+# Specify the remote FPTN server's host address for authorization.
+# This should be the IP address or domain name of the server.
+REMOTE_SERVER_AUTH_HOST=
+# Specify the port of the remote FPTN server for authorization.
+# The default is port 443 for secure HTTPS connections.
+REMOTE_SERVER_AUTH_PORT=443
+
 # Set a secret key to allow Prometheus to access the server's statistics.
 # This key must be alphanumeric (letters and numbers only) and must not include spaces or special characters.
 PROMETHEUS_SECRET_ACCESS_KEY=
@@ -66,7 +77,19 @@ After=network.target
 
 [Service]
 EnvironmentFile=-/etc/fptn/server.conf
-ExecStart=/usr/bin/$(basename "$SERVER_BIN") --server-key=\${SERVER_KEY} --server-crt=\${SERVER_CRT} --server-pub=\${SERVER_PUB} --out-network-interface=\${OUT_NETWORK_INTERFACE} --server-port=\${PORT} --tun-interface-name=\${TUN_INTERFACE_NAME} --disable-bittorrent=\${DISABLE_BITTORRENT} --use-https=\${USE_HTTPS} --prometheus-access-key=\${PROMETHEUS_SECRET_ACCESS_KEY}
+ExecStart=/usr/bin/$(basename "$SERVER_BIN") \
+  --server-key=\${SERVER_KEY} \
+  --server-crt=\${SERVER_CRT} \
+  --server-pub=\${SERVER_PUB} \
+  --out-network-interface=\${OUT_NETWORK_INTERFACE} \
+  --server-port=\${PORT} \
+  --tun-interface-name=\${TUN_INTERFACE_NAME} \
+  --disable-bittorrent=\${DISABLE_BITTORRENT} \
+  --use-https=\${USE_HTTPS} \
+  --prometheus-access-key=\${PROMETHEUS_SECRET_ACCESS_KEY} \
+  --use-remote-server-auth=\${USE_REMOTE_SERVER_AUTH} \
+  --remote-server-auth-host=\${REMOTE_SERVER_AUTH_HOST} \
+  --remote-server-auth-port=\${REMOTE_SERVER_AUTH_PORT}
 Restart=always
 WorkingDirectory=/etc/fptn
 RestartSec=5
@@ -98,7 +121,6 @@ set -e
 systemctl stop fptn-server || true
 systemctl disable fptn-server.service || true
 systemctl daemon-reload || true
-rm -rf /etc/fptn || true
 rm -f /lib/systemd/system/fptn-server.service || true
 EOL
 
