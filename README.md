@@ -255,9 +255,9 @@ With these tools, you can run your own bot and monitoring system.
 <details>
   <summary>FPTN Console Client Installation and Configuration</summary>  
 
-##### Step 1. Download the FPTN client-cli from [GitHub](https://github.com/batchar2/fptn/releases)
+##### Step 1. Download the FPTN client-cli
 
-Download the FPTN client DEB package for your architecture (x86_64 or arm64) from [GitHub](https://github.com/batchar2/fptn/releases).
+Download the FPTN client cli DEB package for your architecture (x86_64 or arm64) from [WebSite](http://batchar2.github.io/fptn/) or [GitHub](https://github.com/batchar2/fptn/releases).
 
 ##### Step 3. Get access file
 
