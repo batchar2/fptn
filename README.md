@@ -255,52 +255,52 @@ With these tools, you can run your own bot and monitoring system.
 <details>
   <summary>FPTN Console Client Installation and Configuration</summary>  
 
-### Step 1. Download the FPTN client-cli from [GitHub](https://github.com/batchar2/fptn/releases)
+##### Step 1. Download the FPTN client-cli from [GitHub](https://github.com/batchar2/fptn/releases)
 
 Download the FPTN client DEB package for your architecture (x86_64 or arm64) from [GitHub](https://github.com/batchar2/fptn/releases).
 
+##### Step 3. Get access file
 
-##### Step 2: Install the DEB Package
+Use our [Telegram bot](https://t.me/fptn_bot), to quickly obtain your access file for internet connectivity.
+
+##### Step 3: Install the DEB Package
 
 To install the FPTN client DEB package, run the following command in the terminal:
 ```bash
 sudo apt install -f /path/to/fptn-client-cli.deb 
 ```
 
-##### Step 3. Run in Command Line
+##### Step 4. Run in Command Line
 Using the user credentials created in the previous step, try to connect via the command line:
 
 ```bash
-fptn-client-cli  --vpn-server-ip=<server-ip> --vpn-server-port=443 --out-network-interface=<network-interface-e.g.-eth0> --username=<username> --password=<password>
+fptn-client-cli --access-config=/path/to/config.fptn
 ```
 
-Replace `<server-ip>`, `<network-interface-e.g.-eth0>`, `<username>`, and `<password>` with your specific values.
+*In some situations, you may need to specify your network gateway IP (e.g., router IP) using the `--gateway-ip` option when the client cannot automatically detect it 
+or `--out-network-interface` option to set the specific network interface to be used.*
 
-*In some situations, you may need to specify your network gateway IP (e.g., router IP) using the `--gateway-ip` option when the client cannot automatically detect it.*
-
-##### Step 4 (Optional): Configure the Client
+##### Step 5 (Optional): Configure the Client
 
 You can run fptn-client as a systemd service. To do this, open the client configuration file at `/etc/fptn-client/client.conf` and set it up as follows:
 
 ```bash
-# Configuration for fptn client
-USERNAME=
-PASSWORD=
+# Configuration for FPTN client (required)
+ACCESS_CONFIG=
+
+# Optional: Specify the network interface
 NETWORK_INTERFACE=
-VPN_SERVER_IP=
-VPN_SERVER_PORT=443
+
+# Optional: Specify the gateway IP (e.g., router IP)
 GATEWAY_IP=
 ```
 
 Configuration File Fields:
-- `USERNAME` The username for authentication with the VPN server.
-- `PASSWORD` The password associated with the username for VPN authentication.
-NETWORK_INTERFACE The network interface on the client device to be used for VPN connections (e.g., eth0 or wlan0).
-- `VPN_SERVER_IP` The IP address of the VPN server to connect to.
-- `VPN_SERVER_PORT` The port number for the VPN server connection (default is 443).
-- `GATEWAY_IP` The IP address of the gateway for the VPN connection (your router's address)
+- `ACCESS_CONFIG` Path to access file.
+- `NETWORK_INTERFACE` (Optional) The network interface on the client device to be used for VPN connections (e.g., eth0 or wlan0).
+- `GATEWAY_IP` (Optional) The IP address of the gateway for the VPN connection (your router's address)
 
-##### Step 4: Start the Client Service
+##### Step 6 (Optional): Start the Client Service
 
 To start the FPTN client service, use the following command:
 ```bash

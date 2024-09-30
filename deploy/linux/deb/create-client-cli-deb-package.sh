@@ -31,13 +31,16 @@ chmod 755 "$CLIENT_TMP_DIR/usr/bin/$(basename "$CLIENT_CLI")"
 
 # Create client configuration file
 cat <<EOL > "$CLIENT_TMP_DIR/etc/fptn-client/client.conf"
-# Configuration for fptn client
-USERNAME=
-PASSWORD=
+# Configuration for FPTN client (required)
+ACCESS_CONFIG=
+
+
+
+# Optional: Specify the network interface
 NETWORK_INTERFACE=
-VPN_SERVER_IP=
+# Optional: Specify the gateway IP (e.g., router IP)
 GATEWAY_IP=
-VPN_SERVER_PORT=443
+
 EOL
 
 # Create systemd service file for client
@@ -48,7 +51,7 @@ After=network.target
 
 [Service]
 EnvironmentFile=/etc/fptn-client/client.conf
-ExecStart=/usr/bin/$(basename "$CLIENT_CLI") --vpn-server-ip=\${VPN_SERVER_IP} --vpn-server-port=\${VPN_SERVER_PORT} --out-network-interface=\${NETWORK_INTERFACE} --username=\${USERNAME} --password=\${PASSWORD} --gateway-ip=\${GATEWAY_IP}
+ExecStart=/usr/bin/$(basename "$CLIENT_CLI") --access-config=\${ACCESS_CONFIG} --out-network-interface=\${NETWORK_INTERFACE} --gateway-ip=\${GATEWAY_IP}
 Restart=always
 RestartSec=5
 User=root
@@ -79,7 +82,6 @@ set -e
 systemctl stop fptn-client || true
 systemctl disable fptn-client.service || true
 systemctl daemon-reload || true
-rm -rf /etc/fptn-client || true
 rm -f /lib/systemd/system/fptn-client.service || true
 EOL
 

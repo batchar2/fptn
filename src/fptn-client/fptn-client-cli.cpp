@@ -45,7 +45,7 @@ int main(int argc, char* argv[])
 
     argparse::ArgumentParser args("fptn-client");
     // Required arguments
-    args.add_argument("--vpn-server-config")
+    args.add_argument("--access-config")
         .required()
         .help("Config path");
     // Optional arguments
@@ -86,7 +86,7 @@ int main(int argc, char* argv[])
     }
 
     /* check config */
-    const std::filesystem::path configPath = args.get<std::string>("--vpn-server-config");
+    const std::filesystem::path configPath = args.get<std::string>("--access-config");
     if (!std::filesystem::exists(configPath)) {
         LOG(ERROR) << "Config file '"  << configPath << "' not found!";
         return EXIT_FAILURE;

@@ -111,7 +111,7 @@ bool IPTables::apply() noexcept
 #endif
     init_ = true;
     for (const auto& cmd : commands) {
-        LOG(INFO) << "cmd: " << cmd;
+        /*LOG(INFO) << "cmd: " << cmd; */
         if (!runCommand(cmd)) {
             LOG(WARNING) << "COMMAND ERORR: " << cmd;
         }
@@ -119,7 +119,6 @@ bool IPTables::apply() noexcept
     LOG(INFO)<< "=== Routing setup completed successfully ===";
     return true;
 }
-
 
 bool IPTables::clean() noexcept
 {
@@ -156,7 +155,7 @@ bool IPTables::clean() noexcept
 #endif
     if (init_) {
         for (const auto& cmd : commands) {
-            LOG(INFO) << "CLEAN: " << cmd;
+            /*LOG(INFO) << "CLEAN: " << cmd;*/
             runCommand(cmd);
         }
     }
@@ -194,7 +193,6 @@ pcpp::IPv4Address fptn::system::resolveDomain(const std::string& domain) noexcep
         } catch (const std::exception&) {
             // Not a valid IP address, proceed with domain name resolution
         }
-        LOG(INFO) << "+2";
         boost::asio::io_context io_context;
         boost::asio::ip::tcp::resolver resolver(io_context);
         boost::asio::ip::tcp::resolver::results_type endpoints = resolver.resolve(domain, "");
