@@ -18,7 +18,6 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
-  "id": 3,
   "links": [],
   "panels": [
     {
@@ -619,7 +618,7 @@
     },
     {
       "datasource": {
-        "default": true,
+        "default": false,
         "type": "prometheus",
         "uid": "PBFA97CFB590B2093"
       },
@@ -715,19 +714,6 @@
           "range": true,
           "refId": "A",
           "useBackend": false
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "editorMode": "code",
-          "expr": "sum(rate(fptn_user_outgoing_traffic_bytes[$__rate_interval])*8) ",
-          "hide": false,
-          "instant": false,
-          "legendFormat": "TOTAL",
-          "range": true,
-          "refId": "B"
         }
       ],
       "title": "User outgoing Traffic Rate ",
@@ -735,7 +721,7 @@
     },
     {
       "datasource": {
-        "default": true,
+        "default": false,
         "type": "prometheus",
         "uid": "PBFA97CFB590B2093"
       },
@@ -831,19 +817,6 @@
           "range": true,
           "refId": "A",
           "useBackend": false
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "editorMode": "code",
-          "expr": "sum(rate(fptn_user_incoming_traffic_bytes[$__rate_interval])*8) ",
-          "hide": false,
-          "instant": false,
-          "legendFormat": "TOTAL",
-          "range": true,
-          "refId": "B"
         }
       ],
       "title": "User Incoming Traffic Rate",
@@ -1088,6 +1061,6 @@
   "timezone": "browser",
   "title": "FPTN Metrics Dashboard",
   "uid": "fptn-metrics-dashboard",
-  "version": 64,
+  "version": 1,
   "weekStart": ""
 }
