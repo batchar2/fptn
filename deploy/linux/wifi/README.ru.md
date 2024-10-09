@@ -26,10 +26,9 @@ sudo systemctl stop dnsmasq
 sudo systemctl disable dnsmasq
 ```
 
-<details>
-<summary>Дополнительные настройки для Ubuntu 24.04</summary>
+#### Шаг 4: Дополнительные настройки для systemd
 
-Если вы используете Ubuntu 24.04, выполните следующие дополнительные шаги:
+Если вы используете Ubuntu 24.04/22.04, выполните следующие дополнительные шаги:
 
 Откройте файл `/etc/systemd/resolved.conf`
 
@@ -51,9 +50,6 @@ sudo systemctl restart systemd-resolved
 ```bash
 sudo reboot
 ```
-
-</details>
-
 
 
 #### Шаг 5: Настройка Hostapd

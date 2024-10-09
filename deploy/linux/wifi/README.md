@@ -26,10 +26,9 @@ sudo systemctl disable dnsmasq
 ```
 
 
-<details>
-<summary>Additional Settings for Ubuntu 24.04</summary>
+#### Step 4: Additional settings for systemd
 
-If you are using Ubuntu 24.04, follow these additional steps:
+If you are using Ubuntu 24.04/22.04, follow these additional steps:
 
 Open the file `/etc/systemd/resolved.conf`
 
@@ -52,12 +51,11 @@ Reboot your system:
 sudo reboot
 ```
 
-</details>
 
 
 
 
-#### Step 4: Configure Hostapd
+#### Step 5: Configure Hostapd
 
 Hostapd is a utility that creates a WiFi access point. Copy the hostapd configuration file:
 
@@ -84,7 +82,7 @@ ssid=VPN-FPTN
 wpa_passphrase=1passwordpassword
 ```
 
-#### Step 5: Configure Dnsmasq
+#### Step 6: Configure Dnsmasq
 
 Dnsmasq is a tool that automatically assigns IP addresses to all clients connected to the WiFi. Copy the dnsmasq configuration file:
 
@@ -99,7 +97,7 @@ Copy the dnsmasq service file:
 sudo cp hostapd/fptn-dnsmasq.service /etc/systemd/system/
 ```
 
-### Step 6: Traffic Routing Setup
+### Step 7: Traffic Routing Setup
 
 To route packets from the WiFi interface through the VPN, perform the following steps:
 Copy the network setup service file:
@@ -125,7 +123,7 @@ WIFI_INTERFACE=wlan0
 ETH_INTERFACE=eth0
 ```
 
-### Step 7: Restart and Enable Services
+### Step 8: Restart and Enable Services
 
 Reload the systemd daemon:
 

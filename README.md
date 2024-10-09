@@ -185,13 +185,11 @@ sudo apt install dnsmasq
 ```
 
 
-<details>
-<summary>Additional Settings for Ubuntu 24.04</summary>
+2. Additional settings for systemd
 
-If you are using Ubuntu 24.04, follow these additional steps:
+If you are using Ubuntu 24.04/22.04, follow these additional steps:
 
 Open the file `/etc/systemd/resolved.conf`
-
 
 Find the DNSStubListener parameter, uncomment it, and change the value to no:
 
@@ -205,10 +203,9 @@ Restart the systemd-resolved service:
 sudo systemctl restart systemd-resolved
 ```
 
-</details>
 
 
-2. Configure dnsmasq
+3. Configure dnsmasq
 
 Open the dnsmasq configuration file `/etc/dnsmasq.conf`
 
@@ -218,7 +215,7 @@ Add or modify the following line to set up DNS forwarding to Google's public DNS
 server=8.8.8.8
 ```
 
-3. Restart dnsmasq
+4. Restart dnsmasq
 
 Apply the changes by restarting the dnsmasq service:
 
@@ -227,7 +224,7 @@ Apply the changes by restarting the dnsmasq service:
 sudo systemctl restart dnsmasq
 ```
 
-4. Verify the Configuration
+5. Verify the Configuration
 
 Check the status of dnsmasq to ensure it is running correctly:
 
