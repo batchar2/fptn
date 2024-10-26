@@ -152,4 +152,11 @@ sudo systemctl enable fptn-setup-network.service
 sudo systemctl start fptn-setup-network.service
 ```
 
+Enable and start FPNT
+
+```bash
+sudo systemctl enable fptn-client.service
+sudo systemctl start fptn-client.service
+```
+
 After completing these steps, your Raspberry Pi will be configured as a WiFi access point with VPN functionality.

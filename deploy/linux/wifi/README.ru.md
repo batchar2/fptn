@@ -119,7 +119,7 @@ WIFI_INTERFACE=wlan0
 ETH_INTERFACE=eth0
 ```
 
-### Шаг 7: Перезапустите и включите службы
+### Шаг 8: Перезапустите и включите службы
 
 Перезагрузите демон systemd:
 
@@ -145,6 +145,12 @@ sudo systemctl restart fptn-dnsmasq.service
 ```bash
 sudo systemctl enable fptn-setup-network.service
 sudo systemctl start fptn-setup-network.service
+```
+
+Включите и запустите FPTN
+```bash
+sudo systemctl enable fptn-client.service
+sudo systemctl start fptn-client.service
 ```
 
 После выполнения этих шагов ваш Raspberry Pi будет настроен как точка доступа WiFi с функцией VPN.

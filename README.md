@@ -161,6 +161,7 @@ This command adds a user named user10 and sets a bandwidth limit of 30 MB for th
 
 To start the server, use the following command:
 ```bash
+sudo systemctl enable fptn-server
 sudo systemctl start fptn-server
 ```
 
@@ -301,6 +302,7 @@ Configuration File Fields:
 
 To start the FPTN client service, use the following command:
 ```bash
+sudo systemctl enable fptn-client
 sudo systemctl start fptn-client
 ```
 
