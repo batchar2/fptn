@@ -21,10 +21,10 @@ iptables -t nat -A POSTROUTING -o tun0 -j MASQUERADE
 
 ip addr add 192.168.180.1/24 dev $WIFI_INTERFACE
 
-# fix route wifi -> tun
-IP_TUN0=$(ip -o -4 addr list tun0 | awk '{print $4}' | cut -d/ -f1)
-ip route add default via $IP_TUN0 dev tun0 table 100
-ip rule add from 192.168.1.180 lookup 100
+## fix route wifi -> tun
+#IP_TUN0=$(ip -o -4 addr list tun0 | awk '{print $4}' | cut -d/ -f1)
+#ip route add default via $IP_TUN0 dev tun0 table 100
+#ip rule add from 192.168.1.180 lookup 100
 
 sleep 60
 echo "Done setting up iptables rules. Forwarding enabled"
