@@ -84,7 +84,7 @@ namespace fptn::common::protobuf::protocol
             const std::size_t randomLength = dist(gen);
             const std::size_t paddingSize = randomLength - currentPayloadSize;
 
-            ipPacketPayload->set_padding_data(randomdata.substr(currentPayloadSize, paddingSize));
+            ipPacketPayload->set_padding_data(randomdata.substr(currentPayloadSize, paddingSize-1));
         }
 #endif
         std::string serializedData;

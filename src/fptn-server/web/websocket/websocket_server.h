@@ -1,6 +1,9 @@
 #pragma once
 
 #include <mutex>
+#include <atomic>
+#include <chrono>
+#include <thread>
 #include <string>
 #include <functional>
 #include <unordered_map>
@@ -18,8 +21,9 @@
 
 namespace fptn::web
 {
+    #define WEBSOCKET_IDLE_TIMEOUT_SECONDS (60)
 
-    class WebsocketServer
+    class WebsocketServer final
     {
     public:
         using NewConnectionCallback = std::function<void(std::uint32_t clientId, const pcpp::IPv4Address& clientVpnIP, const pcpp::IPv4Address& clientIP, const std::string& username, std::size_t bandwidthBitesSeconds)>;
@@ -32,20 +36,22 @@ namespace fptn::web
             const CloseConnectionCallback &closeConnection,
             const NewIPPacketCallback &newPacket
         );
-        inline hv::WebSocketService* getService() noexcept
-        {
-            return &ws_;
-        }
-        void send(fptn::common::network::IPPacketPtr packet);
+        ~WebsocketServer();
+        hv::WebSocketService* getService() noexcept;
+        void send(fptn::common::network::IPPacketPtr packet) noexcept;
     private:
+        void run() noexcept;
         void onOpenHandle(const WebSocketChannelPtr& channel, const HttpRequestPtr& req) noexcept;
         void onMessageHandle(const WebSocketChannelPtr& channel, const std::string& msg) noexcept;
         void onCloseHandle(const WebSocketChannelPtr& channel) noexcept;
     private:
+        const std::string websocket_uri_ = "/fptn";
+
+        std::atomic<bool> running_;
+
+        std::thread thread_;
         mutable std::mutex mutex_;
         hv::WebSocketService ws_;
-
-        const std::string websocket_uri_ = "/fptn";
 
         fptn::common::jwt_token::TokenManagerSPtr tokenManager_;
         NewConnectionCallback newConnectionCallback_;
@@ -53,5 +59,6 @@ namespace fptn::web
         NewIPPacketCallback newPacketCallback_;
 
         std::unordered_map<std::uint32_t, WebSocketChannelPtr> channels_;
+        std::unordered_map<std::uint32_t, std::chrono::steady_clock::time_point> channelsLastActive_;
     };
 }

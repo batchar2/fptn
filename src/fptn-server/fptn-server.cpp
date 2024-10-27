@@ -1,7 +1,7 @@
 #include <filesystem>
 
-#include <glog/logging.h>
 #include <boost/asio.hpp>
+#include <glog/logging.h>
 
 #include <common/data/channel.h>
 
