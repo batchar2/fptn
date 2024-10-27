@@ -154,9 +154,7 @@ int HttpServer::onLoginHandle(HttpRequest* req, HttpResponse* resp) noexcept
         const auto username = request.at("username").get<std::string>();
         const auto password = request.at("password").get<std::string>();
         int bandwidthBit = 0;
-        if (false) {
-            // pass
-        } else if (userManager_->login(username, password, bandwidthBit)) {
+        if (userManager_->login(username, password, bandwidthBit)) {
             LOG(INFO) << "Successful login for user " << username;
             const auto tokens = tokenManager_->generate(username, bandwidthBit);
             resp->String(
@@ -169,7 +167,7 @@ int HttpServer::onLoginHandle(HttpRequest* req, HttpResponse* resp) noexcept
             );
             return 200;
         }
-        LOG(WARNING) << "Wrong password for user: \"" << username << "\"";
+        LOG(WARNING) << "Wrong password for user: \"" << username << "\"" ;
         resp->String(R"({"status": "error", "message": "Invalid login or password."})");
     } catch (const nlohmann::json::exception& e) {
         LOG(ERROR) << "HTTP JSON AUTH ERROR: " << e.what();
