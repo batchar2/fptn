@@ -12,7 +12,7 @@ FPTN is a VPN service specifically designed to bypass censorship.
 Initially launched as a research project, FPTN actively helps people gain access to a free internet.
 
 
-FPTN operates by securely routing network traffic from your device through a VPN server to bypass censorship and access restricted content. 
+FPTN operates by securely routing network traffic from your device through a VPN server to bypass censorship and access restricted content.
 The process involves encapsulating your traffic within a secure WebSocket tunnel, which is then processed by the VPN server. Here's a high-level overview of the workflow:
 
 ```
@@ -68,11 +68,11 @@ Open the settings to add a new connection. To do this, download the file provide
 the bot and simply upload it in your client's settings by clicking the "Load config" button.
 
 <img style="max-height: 350px" src="docs/images/settings-2.png" alt="Settings"/>
-                       
+
 
 After that, save the settings.
 <img style="max-height: 350px" src="docs/images/settings-3.png" alt="Settings"/>
-                       
+
 Ease of use:
 <img style="max-height: 350px" class="img-center" src="docs/images/running-client.png" alt="Settings"/>
 
@@ -100,7 +100,7 @@ Download the FPTN server DEB package for your architecture (x86_64 or arm64) fro
 To install the FPTN server DEB package, consider your processor architecture (ADM or ARM). Run the following command in the terminal:
 
 ```bash
-sudo apt install -f /path/to/fptn-server.deb 
+sudo apt install -f /path/to/fptn-server.deb
 ```
 
 ##### Step 3: Generate sertificate
@@ -196,7 +196,7 @@ Find the DNSStubListener parameter, uncomment it, and change the value to no:
 
 ```bash
 DNSStubListener=no
-``` 
+```
 
 Restart the systemd-resolved service:
 
@@ -251,7 +251,7 @@ With these tools, you can run your own bot and monitoring system.
 </details>
 
 <details>
-  <summary>FPTN Console Client Installation and Configuration</summary>  
+  <summary>FPTN Console Client Installation and Configuration</summary>
 
 ##### Step 1. Download the FPTN client-cli
 
@@ -265,7 +265,7 @@ Use our [Telegram bot](https://t.me/fptn_bot), to quickly obtain your access fil
 
 To install the FPTN client DEB package, run the following command in the terminal:
 ```bash
-sudo apt install -f /path/to/fptn-client-cli.deb 
+sudo apt install -f /path/to/fptn-client-cli.deb
 ```
 
 ##### Step 4. Run in Command Line
@@ -275,7 +275,7 @@ Using the user credentials created in the previous step, try to connect via the 
 fptn-client-cli --access-config=/path/to/config.fptn
 ```
 
-*In some situations, you may need to specify your network gateway IP (e.g., router IP) using the `--gateway-ip` option when the client cannot automatically detect it 
+*In some situations, you may need to specify your network gateway IP (e.g., router IP) using the `--gateway-ip` option when the client cannot automatically detect it
 or `--out-network-interface` option to set the specific network interface to be used.*
 
 ##### Step 5 (Optional): Configure the Client
@@ -322,7 +322,7 @@ journalctl -u fptn-client
 
 
 
-  
+
 <details>
   <summary>How to build</summary>
 1. Install Conan (version 2.3.2):
@@ -332,7 +332,7 @@ pip install conan==2.3.2
 sudo apt install gcc g++ cmake pkg-config
 ```
 
-  
+
 
 2. Detect and configure Conan profile:
 
@@ -340,19 +340,19 @@ sudo apt install gcc g++ cmake pkg-config
 conan profile detect --force
 ```
 
-  
+
 3. Install dependencies, build and install:
 
 
 Console version
 
 ```bash
-git submodule update --init --recursive 
+git submodule update --init --recursive
 conan install . --output-folder=build --build=missing  -s compiler.cppstd=17 --settings build_type=Release
 cd build
 # only linux & macos
 cmake .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release
-# only windows 
+# only windows
 cmake .. -G "Visual Studio 17 2022" -DCMAKE_TOOLCHAIN_FILE="conan_toolchain.cmake" -DCMAKE_BUILD_TYPE=Release
 cmake --build . --config Release
 ctest
@@ -387,10 +387,14 @@ git submodule update --init --recursive
 conan install . --output-folder=build --build=missing  -s compiler.cppstd=17 -o with_gui_client=True --settings build_type=Release
 
 cd build
+
+
 # only linux & macos
 cmake .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release
-# only windows 
+# OR  windows
 cmake .. -G "Visual Studio 17 2022" -DCMAKE_TOOLCHAIN_FILE="conan_toolchain.cmake" -DCMAKE_BUILD_TYPE=Release
+
+
 cmake --build . --config Release
 ctest
 # to install in system
@@ -421,7 +425,7 @@ cmake --build . --config Release --target build-installer
 
 <details>
   <summary>Using CLion IDE</summary>
-  
+
 Run the following command in the project folder:
 
 ```

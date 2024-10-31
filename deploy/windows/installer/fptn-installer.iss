@@ -83,6 +83,13 @@ Type: filesandordirs; Name: "{app}\logs"
 Type: filesandordirs; Name: "{app}\plugins"
 Type: files; Name: "{app}\*"
 
+[Languages]
+Name: "en"; MessagesFile: "compiler:Default.isl"
+// "English" seems to always break the default language detection with unknown reasons.
+Name: "polish"; MessagesFile: "compiler:Languages\Polish.isl"
+Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"
+Name: "ukrainian"; MessagesFile: "compiler:Languages\Ukrainian.isl"
+
 
 [Code]
 

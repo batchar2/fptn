@@ -63,6 +63,8 @@ if("${FPTN_BUILD_WITH_GUI_CLIENT}")
     set(CMAKE_AUTOUIC ON)
     set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
+    qt_standard_project_setup()
+
     set(QRC_FILES gui/resources/resources.qrc)
     qt6_add_resources(PROJECT_RESOURCES ${QRC_FILES})
 
@@ -70,6 +72,12 @@ if("${FPTN_BUILD_WITH_GUI_CLIENT}")
     if(WIN32)
         set(QT_ADDITIONAL_PARAMS WIN32)
     endif()
+
+    # translations
+    file(GLOB TRANSLATIONS gui/resources/translations/*.ts)
+    set_source_files_properties(${TRANSLATIONS} PROPERTIES OUTPUT_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/gui/resources/translations/")
+    qt6_add_translation(TRANSLATIONS_OUT ${TRANSLATIONS})
+
 
     add_executable("${PROJECT_NAME}-gui" ${QT_ADDITIONAL_PARAMS}
         fptn-client-gui.cpp
@@ -86,6 +94,7 @@ if("${FPTN_BUILD_WITH_GUI_CLIENT}")
 
         gui/style/style.h gui/style/style.cpp
         ${PROJECT_RESOURCES}
+        ${TRANSLATIONS_OUT}
     )
     target_link_libraries(
         "${PROJECT_NAME}-gui"
@@ -106,7 +115,7 @@ if("${FPTN_BUILD_WITH_GUI_CLIENT}")
         hv_static
         fptn_protocol
 
-        Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Network
+        Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Network Qt6::LinguistTools
 
         ${TUNTAP_LIB}
     )

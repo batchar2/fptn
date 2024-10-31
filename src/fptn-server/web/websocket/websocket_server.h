@@ -21,7 +21,7 @@
 
 namespace fptn::web
 {
-    #define WEBSOCKET_IDLE_TIMEOUT_SECONDS (60)
+    #define WEBSOCKET_IDLE_TIMEOUT_SECONDS (120)
 
     class WebsocketServer final
     {

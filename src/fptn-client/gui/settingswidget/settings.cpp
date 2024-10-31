@@ -41,14 +41,14 @@ void SettingsWidget::setupUi()
     gridLayout->setColumnStretch(0, 1); // Label column
     gridLayout->setColumnStretch(1, 4); // Field column
 
-    QLabel *interfaceLabel = new QLabel("Network Interface:                                 ", this);
+    QLabel *interfaceLabel = new QLabel(QObject::tr("Network Interface (adapter)") + ":                         ", this);
     interfaceComboBox = new QComboBox(this);
     interfaceComboBox->addItems(model_->getNetworkInterfaces());
     interfaceComboBox->setCurrentText(model_->networkInterface());
     gridLayout->addWidget(interfaceLabel, 0, 0, Qt::AlignLeft);
     gridLayout->addWidget(interfaceComboBox, 0, 1, Qt::AlignLeft);
 
-    QLabel *gatewayLabel = new QLabel("Gateway IP Address (typically your router's address):", this);
+    QLabel *gatewayLabel = new QLabel(QObject::tr("Gateway IP Address (typically your router's address)") + ":", this);
     gatewayLineEdit = new QLineEdit(this);
     gatewayLineEdit->setText(model_->gatewayIp());
     gridLayout->addWidget(gatewayLabel, 1, 0, Qt::AlignLeft);
@@ -58,7 +58,12 @@ void SettingsWidget::setupUi()
 
     // Server Table
     serverTable = new QTableWidget(0, 4, this);
-    serverTable->setHorizontalHeaderLabels({"Name", "User", "Servers", "Action"});
+    serverTable->setHorizontalHeaderLabels({
+        QObject::tr("Name"),
+        QObject::tr("User"),
+        QObject::tr("Servers"),
+        QObject::tr("Action")
+    });
     serverTable->horizontalHeader()->setStretchLastSection(true);
     serverTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     serverTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -71,17 +76,17 @@ void SettingsWidget::setupUi()
     QHBoxLayout *buttonLayout = new QHBoxLayout();
     buttonLayout->addStretch();
 
-    QPushButton *loadNewConfigButton = new QPushButton("Load config", this);
+    QPushButton *loadNewConfigButton = new QPushButton(QObject::tr("Load config"), this);
     connect(loadNewConfigButton, &QPushButton::clicked, this, &SettingsWidget::loadNewConfig);
     buttonLayout->addWidget(loadNewConfigButton);
 
-    saveButton = new QPushButton("Save", this);
+    saveButton = new QPushButton(QObject::tr("Save"), this);
     connect(saveButton, &QPushButton::clicked, this, &SettingsWidget::saveModel);
     buttonLayout->addWidget(saveButton);
 
     settingsLayout->addLayout(buttonLayout);
 
-    tabWidget->addTab(settingsTab, "Settings");
+    tabWidget->addTab(settingsTab, QObject::tr("Settings"));
 
     // About tab
     aboutTab = new QWidget();
@@ -89,10 +94,10 @@ void SettingsWidget::setupUi()
     aboutLayout->setContentsMargins(10, 10, 10, 10);
     aboutLayout->setSpacing(10);
 
-    QLabel *versionLabel = new QLabel(QString("App Version: %1").arg(FPTN_VERSION), this);
+    QLabel *versionLabel = new QLabel(QString(QObject::tr("Application Version") + ": %1").arg(FPTN_VERSION), this);
     versionLabel->setAlignment(Qt::AlignCenter);
     aboutLayout->addWidget(versionLabel);
-    tabWidget->addTab(aboutTab, "About");
+    tabWidget->addTab(aboutTab, QObject::tr("About"));
 
     // Main Layout
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
@@ -120,7 +125,7 @@ void SettingsWidget::setupUi()
         item->setData(Qt::DisplayRole, serversTextList);
         serverTable->setItem(i, 2, item);
 
-        QPushButton *deleteButton = new QPushButton("Delete", this);
+        QPushButton *deleteButton = new QPushButton(QObject::tr("Delete"), this);
         connect(deleteButton, &QPushButton::clicked, [this, i]() { removeServer(i); });
 
         QWidget *buttonContainer = new QWidget();
@@ -137,10 +142,18 @@ void SettingsWidget::saveModel()
     model_->setNetworkInterface(interfaceComboBox->currentText());
     model_->setGatewayIp(gatewayLineEdit->text());
     if (model_->save() ) {
-        QMessageBox::information(this, "Save Successful", "Data has been successfully saved.");
+        QMessageBox::information(
+            this,
+            QObject::tr("Save Successful"),
+            QObject::tr("Data has been successfully saved.")
+        );
         this->hide();  // Hide the widget instead of closing the application
     } else {
-        QMessageBox::critical(this, "Save Failed", "An error occurred while saving the data.");
+        QMessageBox::critical(
+            this,
+            QObject::tr("Save Failed"),
+            QObject::tr("An error occurred while saving the data.")
+        );
     }
 }
 
@@ -156,7 +169,7 @@ void SettingsWidget::loadNewConfig()
     // PROBLEM WITH MACOS, NEED TO USE THIS DIALOG
     QString filePath = QFileDialog::getOpenFileName(
         this,
-        "Open FPTN Service File",
+        QObject::tr("Open FPTN Service File"),
         QDir::homePath(),
         "FPTN Files (*.fptn);;All files (*)",
         nullptr,
@@ -177,16 +190,16 @@ void SettingsWidget::loadNewConfig()
             int existsIndex = model_->getExistServiceIndex(config.serviceName);
             if (existsIndex != -1) {
                 QMessageBox::StandardButton reply;
-                reply = QMessageBox::question(this, "Replace Model",
-                    "A model already exists. Do you want to replace it?",
+                reply = QMessageBox::question(
+                    this,
+                    QObject::tr("Replace settings"),
+                    QObject::tr("Settings file already exists. Do you want to replace it?"),
                     QMessageBox::Yes | QMessageBox::No,
                     QMessageBox::Yes
                 );
                 if (reply == QMessageBox::Yes) {
                     model_->removeServer(existsIndex);
                     serverTable->removeRow(existsIndex);
-                } else {
-                    QMessageBox::information(this, "Cancelled", "The server was not replaced.");
                 }
             }
             model_->addService(config);
@@ -209,7 +222,7 @@ void SettingsWidget::loadNewConfig()
             item->setData(Qt::DisplayRole, serversTextList);
             serverTable->setItem(newRow, 2, item);
 
-            QPushButton *deleteButton = new QPushButton("Delete", this);
+            QPushButton *deleteButton = new QPushButton(QObject::tr("Delete"), this);
             connect(deleteButton, &QPushButton::clicked, [this, newRow]() { removeServer(newRow); });
 
             QWidget *buttonContainer = new QWidget();
@@ -220,7 +233,7 @@ void SettingsWidget::loadNewConfig()
             serverTable->setCellWidget(newRow, 3, buttonContainer);
 
         } catch(const std::exception &err) {
-            QMessageBox::critical(this, "Error!", err.what());
+            QMessageBox::critical(this, QObject::tr("Error!"), err.what());
         }
     }
 }
@@ -230,6 +243,10 @@ void SettingsWidget::removeServer(int row)
     if (row >= 0 && row < serverTable->rowCount()) {
         serverTable->removeRow(row);
         model_->removeServer(row);
-        QMessageBox::information(this, "Delete Successful", "Server has been successfully deleted.");
+        QMessageBox::information(
+            this,
+            QObject::tr("Delete Successful"),
+            QObject::tr("Server has been successfully deleted.")
+        );
     }
 }

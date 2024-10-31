@@ -1,5 +1,7 @@
 #include <filesystem>
 
+#include <QLocale>
+#include <QTranslator>
 #include <QApplication>
 #include <QStyleFactory>
 
@@ -20,11 +22,38 @@ inline void initLogger(char *argv[])
     }
     ::FLAGS_log_dir = "./logs/";
     ::FLAGS_logbuflevel = -1;
-    ::FLAGS_alsologtostderr = 1;
+    ::FLAGS_alsologtostderr = true;
     google::InitGoogleLogging(argv[0]);
     google::SetStderrLogging(google::GLOG_INFO);
     google::SetLogDestination(google::GLOG_INFO, "");
     google::SetLogDestination(google::GLOG_INFO, "logs/fptn.log.txt");
+}
+
+
+inline void setTranslation(QApplication& app, QTranslator& translator)
+{
+    // debug
+    QLocale curLocale(QLocale("ru_RU.UTF-8"));
+    QLocale::setDefault(curLocale);
+
+    const QLocale locale;
+    const QString localeName = locale.name();
+    LOG(INFO) << "LOCALE NAME: " << localeName.toStdString();
+    if (localeName.contains('_')) {
+        const QString languageCode = locale.name().split('_').first(); // Split on underscore and take the first part
+        const QString translationFile = QString("fptn_%1.qm").arg(languageCode);
+        if (translator.load(translationFile, ":/translations")) {
+            if (app.installTranslator(&translator)) {
+                LOG(INFO) << "Successfully loaded language: " << languageCode.toStdString();
+            } else {
+                LOG(WARNING) << "Failed to install translator for language: " << languageCode.toStdString();
+            }
+        } else {
+            LOG(WARNING) << "Translation file not found: " << translationFile.toStdString();
+        }
+    } else {
+        LOG(WARNING) << "No translation will be loaded.";
+    }
 }
 
 
@@ -37,13 +66,18 @@ int main(int argc, char *argv[])
     }
 #endif
     initLogger(argv);
-
+    // init app
     QApplication::setDesktopSettingsAware(true);
     QApplication app(argc, argv);
 
+    // load translations
+    QTranslator translator;
+    setTranslation(app, translator);
+
+    // start gui app
     fptn::gui::TrayApp trayApp;
 
-    int retcode = app.exec();
+    const int retcode = app.exec();
     google::ShutdownGoogleLogging();
     return retcode;
 }

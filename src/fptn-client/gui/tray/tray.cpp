@@ -49,7 +49,7 @@ TrayApp::TrayApp(QObject *parent)
     : QObject(parent),
         trayIcon_(new QSystemTrayIcon(this)),
         trayMenu_(new QMenu()),
-        connectMenu_(new QMenu("Connect to    ", trayMenu_)),
+        connectMenu_(new QMenu(QObject::tr("Connect") + "    ", trayMenu_)),
         speedWidget_(new SpeedWidget()),
         updateTimer_(new QTimer(this))
 {
@@ -63,13 +63,12 @@ TrayApp::TrayApp(QObject *parent)
     }
     qApp->setStyleSheet(fptn::gui::ubuntuStyleSheet);
 #elif __APPLE__
+    // hot fix: for mac always dark
+    activeIconPath_ = ":/icons/dark/active.ico";
+    inactiveIconPath_ = ":/icons/dark/inactive.ico";
     if (isDarkMode()) {
-        activeIconPath_ = ":/icons/dark/active.ico";
-        inactiveIconPath_ = ":/icons/dark/inactive.ico";
         qApp->setStyleSheet(fptn::gui::darkStyleSheet);
     } else {
-        activeIconPath_ = ":/icons/white/active.ico";
-        inactiveIconPath_ = ":/icons/white/inactive.ico";
         qApp->setStyleSheet(fptn::gui::whiteStyleSheet);
     }
 #elif _WIN32
@@ -105,10 +104,10 @@ TrayApp::TrayApp(QObject *parent)
 
     setUpTrayIcon();
 
-    settingsAction_ = new QAction("Settings", this);
+    settingsAction_ = new QAction(QObject::tr("Settings"), this);
     connect(settingsAction_, &QAction::triggered, this, &TrayApp::onShowSettings);
 
-    quitAction_ = new QAction("Quit", this);
+    quitAction_ = new QAction(QObject::tr("Quit"), this);
     connect(quitAction_, &QAction::triggered, this, &TrayApp::handleQuit);
 
     trayMenu_->addSeparator();
@@ -167,7 +166,7 @@ void TrayApp::updateTrayMenu()
         case ConnectionState::Connecting: {
             trayIcon_->setIcon(QIcon(inactiveIconPath_));
             if (!connectingAction_) {
-                connectingAction_ = new QAction("Connecting...", this);
+                connectingAction_ = new QAction(QObject::tr("Connecting..."), this);
                 trayMenu_->insertAction(settingsAction_, connectingAction_);
             }
             if (disconnectAction_) {
@@ -221,10 +220,10 @@ void TrayApp::updateTrayMenu()
                 disconnectAction_->setVisible(false);
             }
             if (!connectingAction_) {
-                connectingAction_ = new QAction("Disconnecting... ", this);
+                connectingAction_ = new QAction(QObject::tr("Disconnecting..."), this);
                 trayMenu_->insertAction(settingsAction_, connectingAction_);
             } else {
-                connectingAction_->setText("Disconnecting... ");
+                connectingAction_->setText(QObject::tr("Disconnecting... "));
             }
             connectingAction_->setVisible(true);
             if (speedWidgetAction_) {
@@ -298,14 +297,14 @@ void TrayApp::handleConnecting()
 
     /* check gateway address */
     const auto usingGatewayIP = (
-            serverModel_.gatewayIp() == "auto"
-            ? fptn::system::getDefaultGatewayIPAddress()
-            : pcpp::IPv4Address(serverModel_.gatewayIp().toStdString())
+        serverModel_.gatewayIp() == "auto"
+        ? fptn::system::getDefaultGatewayIPAddress()
+        : pcpp::IPv4Address(serverModel_.gatewayIp().toStdString())
     );
     if (usingGatewayIP == pcpp::IPv4Address("0.0.0.0")) {
         showError(
-            "Connection Error",
-            "Unable to find the default gateway IP address. Please set gateway address in the settings."
+            QObject::tr("Connection Error"),
+            QObject::tr("Unable to find the default gateway IP address. Please specify the gateway address in the FPTN settings using your router's IP address, and ensure that an active internet interface (adapter) is selected. If the error persists, please contact the developer via Telegram @fptn_chat.")
         );
         connectionState_ = ConnectionState::None;
         updateTrayMenu();
@@ -333,7 +332,7 @@ void TrayApp::handleConnecting()
         try{
             selectedServer_ = config.findFastestServer();
         } catch (std::runtime_error &err) {
-            showError("Config error", err.what());
+            showError(QObject::tr("Config error"), err.what());
             connectionState_ = ConnectionState::None;
             updateTrayMenu();
             return;
@@ -342,7 +341,9 @@ void TrayApp::handleConnecting()
     const int serverPort = selectedServer_.port;
     const auto serverIP = fptn::system::resolveDomain(selectedServer_.host);
     if (serverIP == pcpp::IPv4Address("0.0.0.0")) {
-        showError("DNS resolve error", QString("DNS resolve error: %1").arg(QString::fromStdString(selectedServer_.host)));
+        showError(
+            QObject::tr("DNS resolution error"),
+            QString(QObject::tr("DNS resolution error") + ": %1").arg(QString::fromStdString(selectedServer_.host)));
         connectionState_ = ConnectionState::None;
         updateTrayMenu();
         return;
@@ -362,8 +363,9 @@ void TrayApp::handleConnecting()
     );
 
     if (!loginStatus) {
-        showError("Connection Error",
-            "Failed to connect to the server. Please check your credentials and try again."
+        showError(
+            QObject::tr("Connection Error"),
+            QObject::tr("Connection error to the server! Please download the latest file with your personal settings through the Telegram bot and try again.")
         );
         connectionState_ = ConnectionState::None;
         updateTrayMenu();
@@ -372,27 +374,30 @@ void TrayApp::handleConnecting()
 
     const auto dnsServer = webSocketClient->getDns();
     if (dnsServer == pcpp::IPv4Address("0.0.0.0")) {
-        showError("Connection Error", "DNS server error! Check your connection!");
+        showError(
+            QObject::tr("Connection error"),
+            QObject::tr("DNS server error! Check your connection!")
+        );
         connectionState_ = ConnectionState::None;
         updateTrayMenu();
         return;
     }
 
     ipTables_ = std::make_unique<fptn::system::IPTables>(
-            networkInterface,
-            tunInterfaceName,
-            serverIP,
-            dnsServer,
-            usingGatewayIP,
-            tunInterfaceAddress
+        networkInterface,
+        tunInterfaceName,
+        serverIP,
+        dnsServer,
+        usingGatewayIP,
+        tunInterfaceAddress
     );
     auto virtualNetworkInterface = std::make_unique<fptn::common::network::TunInterface>(
-            tunInterfaceName, tunInterfaceAddress, 30
+        tunInterfaceName, tunInterfaceAddress, 30
     );
     vpnClient_ = std::make_unique<fptn::vpn::VpnClient>(
-            std::move(webSocketClient),
-            std::move(virtualNetworkInterface),
-            dnsServer
+        std::move(webSocketClient),
+        std::move(virtualNetworkInterface),
+        dnsServer
     );
     vpnClient_->start();
     std::this_thread::sleep_for(std::chrono::seconds(2)); // FIX IT!

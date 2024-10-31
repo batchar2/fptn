@@ -6,5 +6,7 @@
 
         <file>icons/white/active.ico</file>
         <file>icons/white/inactive.ico</file>
+
+        <file>translations/fptn_ru.qm</file>
     </qresource>
 </RCC>

@@ -9,7 +9,7 @@
 #include <boost/process.hpp>
 #if _WIN32
 #include <VersionHelpers.h>
-    #include <boost/process/windows.hpp>
+#include <boost/process/windows.hpp>
 #endif
 
 
@@ -25,20 +25,20 @@ static bool isWindows11();
 #endif
 
 IPTables::IPTables(
-        const std::string& outInterfaceName,
-        const std::string& tunInterfaceName,
-        const pcpp::IPv4Address& vpnServerIP,
-        const pcpp::IPv4Address& dnsServer,
-        const pcpp::IPv4Address& gatewayIp,
-        const pcpp::IPv4Address tunInterfaceAddress
+    const std::string& outInterfaceName,
+    const std::string& tunInterfaceName,
+    const pcpp::IPv4Address& vpnServerIP,
+    const pcpp::IPv4Address& dnsServer,
+    const pcpp::IPv4Address& gatewayIp,
+    const pcpp::IPv4Address& tunInterfaceAddress
 ) :
-        init_(false),
-        outInterfaceName_(outInterfaceName),
-        tunInterfaceName_(tunInterfaceName),
-        vpnServerIP_(vpnServerIP),
-        dnsServer_(dnsServer),
-        gatewayIp_(gatewayIp),
-        tunInterfaceAddress_(tunInterfaceAddress)
+    init_(false),
+    outInterfaceName_(outInterfaceName),
+    tunInterfaceName_(tunInterfaceName),
+    vpnServerIP_(vpnServerIP),
+    dnsServer_(dnsServer),
+    gatewayIp_(gatewayIp),
+    tunInterfaceAddress_(tunInterfaceAddress)
 {
 }
 
@@ -80,23 +80,24 @@ bool IPTables::apply() noexcept
     };
 #elif __APPLE__
     const std::vector<std::string> commands = {
-            fmt::format("sysctl -w net.inet.ip.forwarding=1"),
-            fmt::format(R"(sh -c "echo 'nat on {findOutInterfaceName} from {tunInterfaceName}:network to any -> ({findOutInterfaceName})
+        fmt::format("sysctl -w net.inet.ip.forwarding=1"),
+        fmt::format(
+            R"(sh -c "echo 'nat on {findOutInterfaceName} from {tunInterfaceName}:network to any -> ({findOutInterfaceName})
                 pass out on {findOutInterfaceName} proto tcp from any to {vpnServerIP}
                 pass in on {findOutInterfaceName} proto tcp from {vpnServerIP} to any
                 pass in on {tunInterfaceName} proto tcp from any to any
                 pass out on {tunInterfaceName} proto tcp from any to any' > /tmp/pf.conf"
             )",
-                        fmt::arg("findOutInterfaceName", findOutInterfaceName_),
-                        fmt::arg("tunInterfaceName", tunInterfaceName_),
-                        fmt::arg("vpnServerIP", vpnServerIP_.toString())
-            ),
-            fmt::format("pfctl -ef /tmp/pf.conf"),
-            fmt::format("route add -net 0.0.0.0/1 -interface {}", tunInterfaceName_),
-            fmt::format("route add -net 128.0.0.0/1 -interface {}", tunInterfaceName_),
-            fmt::format("route add {} {}", vpnServerIP_.toString(), findOutGatewayIp_.toString()),
-            fmt::format("dscacheutil -flushcache"),
-            fmt::format(R"(bash -c "networksetup -listallnetworkservices | grep -v '^\* ' | xargs -I {{}} networksetup -setdnsservers '{{}}' {}")", dnsServer_.toString())
+            fmt::arg("findOutInterfaceName", findOutInterfaceName_),
+            fmt::arg("tunInterfaceName", tunInterfaceName_),
+            fmt::arg("vpnServerIP", vpnServerIP_.toString())
+        ),
+        fmt::format("pfctl -ef /tmp/pf.conf"),
+        fmt::format("route add -net 0.0.0.0/1 -interface {}", tunInterfaceName_),
+        fmt::format("route add -net 128.0.0.0/1 -interface {}", tunInterfaceName_),
+        fmt::format("route add {} {}", vpnServerIP_.toString(), findOutGatewayIp_.toString()),
+        fmt::format("dscacheutil -flushcache"),
+        fmt::format(R"(bash -c "networksetup -listallnetworkservices | grep -v '^\* ' | xargs -I {{}} networksetup -setdnsservers '{{}}' {}")", dnsServer_.toString())
     };
 #elif _WIN32
     const std::string winInterfaceNumber = getWindowsInterfaceNumber(tunInterfaceName_);
@@ -137,12 +138,12 @@ bool IPTables::clean() noexcept
     };
 #elif __APPLE__
     const std::vector<std::string> commands = {
-            fmt::format(R"(bash -c "networksetup -listallnetworkservices | grep -v '^An asterisk' | xargs -I {{}} networksetup -setdnsservers '{{}}' empty")"),
-            fmt::format("pfctl -F all -f /etc/pf.conf"),
-            fmt::format("route delete -net 0.0.0.0/1 -interface {}", tunInterfaceName_),
-            fmt::format("route delete -net 128.0.0.0/1 -interface {}", tunInterfaceName_),
-            fmt::format("route delete {} {}", vpnServerIP_.toString(), findOutGatewayIp_.toString()),
-            fmt::format(R"(bash -c "networksetup -listallnetworkservices | grep -v '^An asterisk' | xargs -I {{}} networksetup -setdnsservers '{{}}' empty")")
+        fmt::format(R"(bash -c "networksetup -listallnetworkservices | grep -v '^An asterisk' | xargs -I {{}} networksetup -setdnsservers '{{}}' empty")"),
+        fmt::format("pfctl -F all -f /etc/pf.conf"),
+        fmt::format("route delete -net 0.0.0.0/1 -interface {}", tunInterfaceName_),
+        fmt::format("route delete -net 128.0.0.0/1 -interface {}", tunInterfaceName_),
+        fmt::format("route delete {} {}", vpnServerIP_.toString(), findOutGatewayIp_.toString()),
+        fmt::format(R"(bash -c "networksetup -listallnetworkservices | grep -v '^An asterisk' | xargs -I {{}} networksetup -setdnsservers '{{}}' empty")")
     };
 #elif _WIN32
     const std::vector<std::string> commands = {
@@ -215,7 +216,7 @@ pcpp::IPv4Address fptn::system::getDefaultGatewayIPAddress() noexcept
 #elif __APPLE__
         const std::string command = "route get 8.8.8.8 | grep gateway | awk '{print $2}' ";
 #elif _WIN32
-        const std::string command = R"(cmd.exe /c FOR /F "tokens=13" %x IN ('ipconfig ^| findstr "Default Gateway" ^| findstr /R "[0-9]*\.[0-9]*\.[0-9]*\.[0-9]*"') DO @echo %x)";
+        const std::string command = R"(cmd.exe /c chcp 437 >nul && FOR /F "tokens=13" %x IN ('ipconfig ^| findstr "Default Gateway" ^| findstr /R "[0-9]*\.[0-9]*\.[0-9]*\.[0-9]*"') DO @echo %x)";
 #else
         #error "Unsupported system!"
 #endif
@@ -225,8 +226,8 @@ pcpp::IPv4Address fptn::system::getDefaultGatewayIPAddress() noexcept
         boost::process::child child(command, boost::process::std_out > pipe, ::boost::process::windows::hide);
 #else
         boost::process::child child(
-                boost::process::search_path("bash"), "-c", command,
-                boost::process::std_out > pipe
+            boost::process::search_path("bash"), "-c", command,
+            boost::process::std_out > pipe
         );
 #endif
         std::getline(pipe, result);
@@ -237,12 +238,12 @@ pcpp::IPv4Address fptn::system::getDefaultGatewayIPAddress() noexcept
         }
         // Remove all characters except digits and dots
         result.erase(
-                std::remove_if(
-                        result.begin(), result.end(), [](char c) {
-                            return !std::isdigit(c) && c != '.';
-                        }
-                ),
-                result.end()
+            std::remove_if(
+                result.begin(), result.end(), [](char c) {
+                    return !std::isdigit(c) && c != '.';
+                }
+            ),
+            result.end()
         );
         result.erase(result.find_last_not_of(" \n\r\t") + 1);
         result.erase(0, result.find_first_not_of(" \n\r\t"));
@@ -262,7 +263,7 @@ std::string fptn::system::getDefaultNetworkInterfaceName() noexcept
 #elif __APPLE__
         const std::string command = "route get 8.8.8.8 | grep interface | awk '{print $2}' ";
 #elif _WIN32
-        const std::string command = R"(cmd.exe /c "FOR /F "tokens=1,2,3" %i IN ('route print ^| findstr /R /C:"0.0.0.0"') DO @echo %i")";
+        const std::string command = R"(cmd.exe /c "chcp 437 >nul && FOR /F "tokens=1,2,3" %i IN ('route print ^| findstr /R /C:"0.0.0.0"') DO @echo %i")";
 #else
         #error "Unsupported system!"
 #endif
@@ -271,8 +272,8 @@ std::string fptn::system::getDefaultNetworkInterfaceName() noexcept
         boost::process::child child(command, boost::process::std_out > pipe, ::boost::process::windows::hide);
 #else
         boost::process::child child(
-                boost::process::search_path("bash"), "-c", command,
-                boost::process::std_out > pipe
+            boost::process::search_path("bash"), "-c", command,
+            boost::process::std_out > pipe
         );
         std::getline(pipe, result);
         child.wait();

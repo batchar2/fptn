@@ -17,12 +17,12 @@ namespace fptn::system
     {
     public:
         IPTables(
-                const std::string& outInterfaceName,
-                const std::string& tunInterfaceName,
-                const pcpp::IPv4Address& vpnServerIP,
-                const pcpp::IPv4Address& dnsServer,
-                const pcpp::IPv4Address& gatewayIp,
-                const pcpp::IPv4Address tunInterfaceAddress=pcpp::IPv4Address("10.10.10.1")
+            const std::string& outInterfaceName,
+            const std::string& tunInterfaceName,
+            const pcpp::IPv4Address& vpnServerIP,
+            const pcpp::IPv4Address& dnsServer,
+            const pcpp::IPv4Address& gatewayIp,
+            const pcpp::IPv4Address& tunInterfaceAddress=pcpp::IPv4Address("10.10.10.1")
         );
         ~IPTables();
         bool check() noexcept;

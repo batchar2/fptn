@@ -45,7 +45,7 @@ void SettingsModel::load()
     QString filePath = getFilePath();
     QFile file(filePath);
     if (!file.open(QIODevice::ReadOnly)) {
-        qWarning() << "Failed to open file for reading:" << filePath;
+        LOG(WARNING) << "Failed to open file for reading:" << filePath.toStdString();
         return;
     }
     LOG(INFO) << "Settings: " << filePath.toStdString();
