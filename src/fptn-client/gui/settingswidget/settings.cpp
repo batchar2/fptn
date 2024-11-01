@@ -76,11 +76,11 @@ void SettingsWidget::setupUi()
     QHBoxLayout *buttonLayout = new QHBoxLayout();
     buttonLayout->addStretch();
 
-    QPushButton *loadNewConfigButton = new QPushButton(QObject::tr("Load config"), this);
+    QPushButton *loadNewConfigButton = new QPushButton("  " + QObject::tr("Load config") + "  ", this);
     connect(loadNewConfigButton, &QPushButton::clicked, this, &SettingsWidget::loadNewConfig);
     buttonLayout->addWidget(loadNewConfigButton);
 
-    saveButton = new QPushButton(QObject::tr("Save"), this);
+    saveButton = new QPushButton("  " + QObject::tr("Save") + "  ", this);
     connect(saveButton, &QPushButton::clicked, this, &SettingsWidget::saveModel);
     buttonLayout->addWidget(saveButton);
 
@@ -117,7 +117,7 @@ void SettingsWidget::setupUi()
 
         QString serversTextList = "";
         for (const auto& s : service.servers) {
-            serversTextList += QString("%1").arg(s.name);
+            serversTextList += QString("%1\n").arg(s.name);
         }
         QTableWidgetItem* item = new QTableWidgetItem(serversTextList);
         item->setTextAlignment(Qt::AlignLeft | Qt::AlignVCenter);

@@ -18,6 +18,7 @@ AppId={{#APP_ID}
 AppName={#APP_NAME}
 AppVersion={#APP_VERSION_NAME}
 
+MinVersion=10.0.10240
 AppPublisher={#APP_PUBLISHER}
 AppPublisherURL={#APP_URL}
 AppSupportURL={#APP_URL}
@@ -47,13 +48,13 @@ Name: "{app}\logs";
 Name: "{app}\plugins";
 
 [Files]
-Source: "depends/qt/*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "depends/wintun.dll"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "depends/fptn-client.exe"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "depends/fptn-client-cli.exe"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "depends/qt/*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs uninsneveruninstall
+Source: "depends/wintun.dll"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs uninsneveruninstall
+Source: "depends/fptn-client.exe"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs uninsneveruninstall
+Source: "depends/fptn-client-cli.exe"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs uninsneveruninstall
 Source: "depends/vc_redist.exe"; DestDir: "{tmp}"; AfterInstall: InstallVCRedist(); Flags: ignoreversion recursesubdirs createallsubdirs
 // ------- generate bat files -------
-Source: "depends/fptn-client.exe"; DestDir: "{tmp}"; AfterInstall: GenerateBatFile('{app}\fptn-client.exe','{app}\FptnClient.bat'); Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "depends/wintun.dll"; DestDir: "{app}"; AfterInstall: GenerateBatFile('{app}\fptn-client.exe','{app}\FptnClient.bat'); Flags: ignoreversion recursesubdirs createallsubdirs uninsneveruninstall
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}";
@@ -62,6 +63,10 @@ Name: "startup"; Description: {cm:AutoStartProgram,{#APP_NAME}};
 [Run]
 Filename: "cmd.exe"; Parameters: "/c reg add ""HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters"" /v IPEnableRouter /t REG_DWORD /d 1 /f"; Flags: runhidden
 Filename: "{app}\FptnClient.bat"; Description: "{cm:LaunchProgram,{#APP_NAME}}"; Flags: nowait postinstall skipifdoesntexist
+
+[UninstallRun]
+Filename: "taskkill"; Parameters: "/F /IM fptn-client.exe"; Flags: runhidden waituntilterminated
+Filename: "taskkill"; Parameters: "/F /IM fptn-client-cli.exe"; Flags: runhidden waituntilterminated
 
 [Icons]
 Name: "{group}\{#APP_NAME}"; Filename: "{app}\fptn-client.exe"
@@ -108,10 +113,10 @@ procedure InstallVCRedist();
 var
     ExitCode: Integer;
 begin 
-    ExitCode := cmd(ExpandConstant(CurrentFileName) + ' /quiet /norestart');
+    ExitCode := cmd(ExpandConstant(CurrentFileName) + '/install /quiet /norestart');
     if ExitCode <> 0 then
     begin
-        MsgBox('Failed to install Visual C++ Redistributable.', mbError, MB_OK);
+        //MsgBox('Failed to install Visual C++ Redistributable.', mbError, MB_OK);
     end;
 end;
 
@@ -131,9 +136,9 @@ procedure CurStepChanged(CurStep: TSetupStep);
 begin
   	if CurStep = ssPostInstall then
   	begin
-		if MsgBox('The installation has completed. For changes to take effect, please restart your computer. Do you want to restart now?', mbConfirmation, MB_YESNO) = IDYES then
-        begin
-            cmd('shutdown /r /t 0');
-        end;
+		//if MsgBox('The installation has completed. For changes to take effect, please restart your computer. Do you want to restart now?', mbConfirmation, MB_YESNO) = IDYES then
+        //begin
+        //    cmd('shutdown /r /t 0');
+        //end;
   	end;
 end;

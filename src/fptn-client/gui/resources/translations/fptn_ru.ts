@@ -24,6 +24,22 @@
             <translation>Отключение...</translation>
         </message>
         <message>
+            <source>Disconnect</source>
+            <translation>Отключить</translation>
+        </message>
+
+
+        <message>
+            <source>Upload speed</source>
+            <translation>Скорость загрузки</translation>
+        </message>
+        <message>
+            <source>Download speed</source>
+            <translation>Скорость скачивания</translation>
+        </message>
+        
+
+        <message>
             <source>Unable to find the default gateway IP address. Please specify the gateway address in the FPTN settings using your router's IP address, and ensure that an active internet interface (adapter) is selected. If the error persists, please contact the developer via Telegram @fptn_chat.</source>
             <translation>Не удалось найти IP-адрес шлюза по умолчанию. Пожалуйста, укажите адрес шлюза в настройках FPTN, используя IP-адрес вашего роутера, и убедитесь, что выбран активный интернет-интерфейс (адаптер). Если ошибка повторяется, обратитесь к разработчику через Telegram @fptn_chat</translation>
         </message>

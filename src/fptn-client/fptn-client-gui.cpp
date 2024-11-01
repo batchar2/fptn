@@ -33,8 +33,7 @@ inline void initLogger(char *argv[])
 inline void setTranslation(QApplication& app, QTranslator& translator)
 {
     // debug
-    QLocale curLocale(QLocale("ru_RU.UTF-8"));
-    QLocale::setDefault(curLocale);
+    // QLocale::setDefault(QLocale("ru_RU.UTF-8"));
 
     const QLocale locale;
     const QString localeName = locale.name();

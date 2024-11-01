@@ -189,7 +189,7 @@ void TrayApp::updateTrayMenu()
             }
             if (disconnectAction_) {
                 disconnectAction_->setText(
-                    QString("Disconnect: %1 (%2)")
+                    QString(QObject::tr("Disconnect") + ": %1 (%2)")
                         .arg(selectedService_.serviceName)
                         .arg(QString::fromStdString(selectedServer_.name))
                 );

@@ -9,8 +9,8 @@ static QString formatSpeed(std::size_t bytesPerSec);
 SpeedWidget::SpeedWidget(QWidget *parent)
     :
         QWidget(parent),
-        uploadSpeedText_("      Upload Speed: "),
-        downloadSpeedText_("      Download Speed: "),
+        uploadSpeedText_("      " + QObject::tr("Upload speed") + ": "),
+        downloadSpeedText_("      " + QObject::tr("Download speed") + ": "),
         uploadSpeedLabel_(new QLabel(uploadSpeedText_ + "0 MB/s", this)),
         downloadSpeedLabel_(new QLabel(downloadSpeedText_ + "0 MB/s", this))
 {
