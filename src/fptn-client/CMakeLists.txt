@@ -78,7 +78,6 @@ if("${FPTN_BUILD_WITH_GUI_CLIENT}")
     set_source_files_properties(${TRANSLATIONS} PROPERTIES OUTPUT_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/gui/resources/translations/")
     qt6_add_translation(TRANSLATIONS_OUT ${TRANSLATIONS})
 
-
     add_executable("${PROJECT_NAME}-gui" ${QT_ADDITIONAL_PARAMS}
         fptn-client-gui.cpp
         vpn/vpn_client.h vpn/vpn_client.cpp

@@ -16,12 +16,10 @@
 using namespace fptn::system;
 
 
-static pcpp::IPv4Address getDefaultGatewayIPAddress();
 static bool runCommand(const std::string& command);
 
 #if _WIN32
 static std::string getWindowsInterfaceNumber(const std::string& interfaceName);
-static bool isWindows11();
 #endif
 
 IPTables::IPTables(
@@ -208,7 +206,6 @@ pcpp::IPv4Address fptn::system::resolveDomain(const std::string& domain) noexcep
 
 pcpp::IPv4Address fptn::system::getDefaultGatewayIPAddress() noexcept
 {
-    std::string result;
     try
     {
 #ifdef __linux__
@@ -216,11 +213,10 @@ pcpp::IPv4Address fptn::system::getDefaultGatewayIPAddress() noexcept
 #elif __APPLE__
         const std::string command = "route get 8.8.8.8 | grep gateway | awk '{print $2}' ";
 #elif _WIN32
-        const std::string command = R"(cmd.exe /c chcp 437 >nul && FOR /F "tokens=13" %x IN ('ipconfig ^| findstr "Default Gateway" ^| findstr /R "[0-9]*\.[0-9]*\.[0-9]*\.[0-9]*"') DO @echo %x)";
+        const std::string command = R"(cmd.exe /c FOR /f "tokens=3" %i in ('route print ^| find "0.0.0.0"') do @echo %i)";
 #else
         #error "Unsupported system!"
 #endif
-
         boost::process::ipstream pipe;
 #ifdef _WIN32
         boost::process::child child(command, boost::process::std_out > pipe, ::boost::process::windows::hide);
@@ -230,27 +226,25 @@ pcpp::IPv4Address fptn::system::getDefaultGatewayIPAddress() noexcept
             boost::process::std_out > pipe
         );
 #endif
-        std::getline(pipe, result);
-        child.wait();
-        if (result.empty()) {
-            LOG(ERROR)<< "Warning: Default gateway IP address not found.";
-            return pcpp::IPv4Address("0.0.0.0");
+        std::string result;
+        while (std::getline(pipe, result)) {
+            result.erase(
+                std::remove_if(
+                    result.begin(), result.end(), [](char c) {
+                        return !std::isdigit(c) && c != '.';
+                    }
+                ),
+                result.end()
+            );
+            if (!result.empty() && pcpp::IPv4Address(result) != pcpp::IPv4Address("0.0.0.0")) {  
+                return pcpp::IPv4Address(result);
+            }
         }
-        // Remove all characters except digits and dots
-        result.erase(
-            std::remove_if(
-                result.begin(), result.end(), [](char c) {
-                    return !std::isdigit(c) && c != '.';
-                }
-            ),
-            result.end()
-        );
-        result.erase(result.find_last_not_of(" \n\r\t") + 1);
-        result.erase(0, result.find_first_not_of(" \n\r\t"));
+        child.wait();
     } catch (const std::exception& ex) {
         LOG(ERROR) << "Error: Failed to retrieve the default gateway IP address. " << ex.what();
     }
-    return pcpp::IPv4Address(result);
+    return {};
 }
 
 std::string fptn::system::getDefaultNetworkInterfaceName() noexcept
@@ -263,7 +257,7 @@ std::string fptn::system::getDefaultNetworkInterfaceName() noexcept
 #elif __APPLE__
         const std::string command = "route get 8.8.8.8 | grep interface | awk '{print $2}' ";
 #elif _WIN32
-        const std::string command = R"(cmd.exe /c "chcp 437 >nul && FOR /F "tokens=1,2,3" %i IN ('route print ^| findstr /R /C:"0.0.0.0"') DO @echo %i")";
+        const std::string command = R"(cmd.exe /c "FOR /F "tokens=1,2,3" %i IN ('route print ^| findstr /R /C:"0.0.0.0"') DO @echo %i")";
 #else
         #error "Unsupported system!"
 #endif
@@ -316,23 +310,5 @@ std::string getWindowsInterfaceNumber(const std::string& interfaceName)
         std::cerr << "Error: Failed to retrieve the interface index. " << ex.what() << std::endl;
     }
     return result;
-}
-
-static bool isWindows11()
-{
-    OSVERSIONINFOEXW osvi;
-    ZeroMemory(&osvi, sizeof(OSVERSIONINFOEXW));
-    osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEXW);
-    osvi.dwMajorVersion = 10; // Windows 10 and later
-    osvi.dwMinorVersion = 0;
-
-    // Get the version information
-    if (GetVersionExW(reinterpret_cast<OSVERSIONINFOW*>(&osvi))) {
-        // Windows 11 has a major version of 10 and a build number of 22000 or higher
-        if (osvi.dwMajorVersion == 10 && osvi.dwBuildNumber >= 22000) {
-            return true;
-        }
-    }
-    return false;
 }
 #endif
