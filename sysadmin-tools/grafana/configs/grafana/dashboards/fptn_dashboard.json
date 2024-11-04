@@ -706,7 +706,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "sum(rate(fptn_user_outgoing_traffic_bytes[$__rate_interval])*8) by (username)",
+          "expr": "sum(rate(fptn_user_outgoing_traffic_bytes[$__rate_interval])*8) by (username) > 0",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
@@ -809,7 +809,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "sum(rate(fptn_user_incoming_traffic_bytes[$__rate_interval])*8) by (username)",
+          "expr": "sum(rate(fptn_user_incoming_traffic_bytes[$__rate_interval])*8) by (username) > 0",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
@@ -824,7 +824,7 @@
     },
     {
       "datasource": {
-        "default": true,
+        "default": false,
         "type": "prometheus",
         "uid": "PBFA97CFB590B2093"
       },
@@ -914,7 +914,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "sum(increase(fptn_user_outgoing_traffic_bytes[$__rate_interval])) by (username)",
+          "expr": "sum(increase(fptn_user_outgoing_traffic_bytes[$__rate_interval])) by (username) > 0",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
@@ -929,7 +929,7 @@
     },
     {
       "datasource": {
-        "default": true,
+        "default": false,
         "type": "prometheus",
         "uid": "PBFA97CFB590B2093"
       },
@@ -1018,7 +1018,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "sum(increase(fptn_user_incoming_traffic_bytes[$__rate_interval])) by (username)",
+          "expr": "sum(increase(fptn_user_incoming_traffic_bytes[$__rate_interval])) by (username) > 0 ",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
@@ -1039,7 +1039,7 @@
     "list": []
   },
   "time": {
-    "from": "now-15m",
+    "from": "now-6h",
     "to": "now"
   },
   "timepicker": {
