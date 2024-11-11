@@ -18,7 +18,7 @@ namespace fptn::gui
     {
     Q_OBJECT
     public:
-        explicit SettingsWidget(SettingsModel *model, QWidget *parent = nullptr);
+        explicit SettingsWidget(const SettingsModelPtr& settings, QWidget *parent = nullptr);
     protected:
         void setupUi();
         void closeEvent(QCloseEvent *event);
@@ -27,11 +27,15 @@ namespace fptn::gui
         void loadNewConfig();
         void removeServer(int row);
     private:
-        SettingsModel *model_;
+        SettingsModelPtr settings_;
+
         QTabWidget *tabWidget;
         QWidget *settingsTab;
         QWidget *aboutTab;
         QTableWidget *serverTable;
+
+        QComboBox *languageComboBox;
+
         QComboBox *interfaceComboBox;
         QLineEdit *gatewayLineEdit;
         QPushButton *saveButton;

@@ -5,17 +5,15 @@
 #include <QHeaderView>
 #include <QPushButton>
 #include <QMessageBox>
-#include <QFormLayout>
 #include <QTableWidgetItem>
-
 
 #include "settings.h"
 
 using namespace fptn::gui;
 
 
-SettingsWidget::SettingsWidget(SettingsModel *model, QWidget *parent)
-        : QWidget(parent), model_(model)
+SettingsWidget::SettingsWidget(const SettingsModelPtr& settings, QWidget *parent)
+        : QWidget(parent), settings_(settings)
 {
     setupUi();
 }
@@ -41,18 +39,25 @@ void SettingsWidget::setupUi()
     gridLayout->setColumnStretch(0, 1); // Label column
     gridLayout->setColumnStretch(1, 4); // Field column
 
-    QLabel *interfaceLabel = new QLabel(QObject::tr("Network Interface (adapter)") + ":                         ", this);
+    QLabel *languageLabel = new QLabel(QObject::tr("Language"), this);
+    languageComboBox = new QComboBox(this);
+    languageComboBox->addItems(settings_->getLanguages());
+    languageComboBox->setCurrentText(settings_->languageName());
+    gridLayout->addWidget(languageLabel, 0, 0, Qt::AlignLeft);
+    gridLayout->addWidget(languageComboBox, 0, 1, Qt::AlignLeft);
+
+    QLabel *interfaceLabel = new QLabel(QObject::tr("Network Interface (adapter)") + ":  ", this);
     interfaceComboBox = new QComboBox(this);
-    interfaceComboBox->addItems(model_->getNetworkInterfaces());
-    interfaceComboBox->setCurrentText(model_->networkInterface());
-    gridLayout->addWidget(interfaceLabel, 0, 0, Qt::AlignLeft);
-    gridLayout->addWidget(interfaceComboBox, 0, 1, Qt::AlignLeft);
+    interfaceComboBox->addItems(settings_->getNetworkInterfaces());
+    interfaceComboBox->setCurrentText(settings_->networkInterface());
+    gridLayout->addWidget(interfaceLabel, 1, 0, Qt::AlignLeft);
+    gridLayout->addWidget(interfaceComboBox, 1, 1, Qt::AlignLeft);
 
     QLabel *gatewayLabel = new QLabel(QObject::tr("Gateway IP Address (typically your router's address)") + ":", this);
     gatewayLineEdit = new QLineEdit(this);
-    gatewayLineEdit->setText(model_->gatewayIp());
-    gridLayout->addWidget(gatewayLabel, 1, 0, Qt::AlignLeft);
-    gridLayout->addWidget(gatewayLineEdit, 1, 1, Qt::AlignLeft);
+    gatewayLineEdit->setText(settings_->gatewayIp());
+    gridLayout->addWidget(gatewayLabel, 2, 0, Qt::AlignLeft);
+    gridLayout->addWidget(gatewayLineEdit, 2, 1, Qt::AlignLeft);
 
     settingsLayout->addLayout(gridLayout);
 
@@ -106,9 +111,8 @@ void SettingsWidget::setupUi()
     setMinimumSize(600, 400);
     setLayout(mainLayout);
 
-
     // Populate server table with data
-    const QVector<ServiceConfig> &services = model_->services();
+    const QVector<ServiceConfig> &services = settings_->services();
     serverTable->setRowCount(services.size());
     for (int i = 0; i < services.size(); ++i) {
         const ServiceConfig &service = services[i];
@@ -139,9 +143,9 @@ void SettingsWidget::setupUi()
 
 void SettingsWidget::saveModel()
 {
-    model_->setNetworkInterface(interfaceComboBox->currentText());
-    model_->setGatewayIp(gatewayLineEdit->text());
-    if (model_->save() ) {
+    settings_->setNetworkInterface(interfaceComboBox->currentText());
+    settings_->setGatewayIp(gatewayLineEdit->text());
+    if (settings_->save() ) {
         QMessageBox::information(
             this,
             QObject::tr("Save Successful"),
@@ -186,8 +190,8 @@ void SettingsWidget::loadNewConfig()
     // Check if a file was selected
     if (!filePath.isEmpty()) {
         try {
-            ServiceConfig config = model_->parseFile(filePath);
-            int existsIndex = model_->getExistServiceIndex(config.serviceName);
+            ServiceConfig config = settings_->parseFile(filePath);
+            int existsIndex = settings_->getExistServiceIndex(config.serviceName);
             if (existsIndex != -1) {
                 QMessageBox::StandardButton reply;
                 reply = QMessageBox::question(
@@ -198,12 +202,12 @@ void SettingsWidget::loadNewConfig()
                     QMessageBox::Yes
                 );
                 if (reply == QMessageBox::Yes) {
-                    model_->removeServer(existsIndex);
+                    settings_->removeServer(existsIndex);
                     serverTable->removeRow(existsIndex);
                 }
             }
-            model_->addService(config);
-            model_->save();
+            settings_->addService(config);
+            settings_->save();
 
             // visualite table
             int newRow = serverTable->rowCount();
@@ -242,7 +246,7 @@ void SettingsWidget::removeServer(int row)
 {
     if (row >= 0 && row < serverTable->rowCount()) {
         serverTable->removeRow(row);
-        model_->removeServer(row);
+        settings_->removeServer(row);
         QMessageBox::information(
             this,
             QObject::tr("Delete Successful"),

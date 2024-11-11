@@ -39,7 +39,7 @@ namespace fptn::gui
             Disconnecting
         };
     public:
-        TrayApp(QObject *parent = nullptr);
+        TrayApp(const SettingsModelPtr &settings, QObject *parent = nullptr);
         virtual ~TrayApp() = default;
     signals:
         void defaultState();
@@ -60,6 +60,8 @@ namespace fptn::gui
         void setUpTrayIcon();
         void updateTrayMenu();
     private:
+        SettingsModelPtr settings_;
+
         QSystemTrayIcon *trayIcon_ = nullptr;
         QMenu *trayMenu_ = nullptr;
         QMenu *connectMenu_ = nullptr;
@@ -76,8 +78,6 @@ namespace fptn::gui
 
         QString activeIconPath_;
         QString inactiveIconPath_;
-
-        SettingsModel serverModel_;
 
         ServiceConfig selectedService_;
         fptn::config::ConfigFile::Server selectedServer_;

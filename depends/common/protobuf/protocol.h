@@ -11,27 +11,23 @@
 #include <common/network/ip_packet.h>
 
 
-#define FPTN_PROTOBUF_PROTOCOL_VERSION          (0x01)
-
-
 namespace fptn::common::protobuf::protocol
 {
-
-    class ProcessingError : public std::runtime_error 
+    class ProcessingError : public std::runtime_error
     {
     public:
         explicit ProcessingError(const std::string& message)
             : std::runtime_error(message) {}
     };
 
-    class MessageError : public std::runtime_error 
+    class MessageError : public std::runtime_error
     {
     public:
         explicit MessageError(const std::string& message)
             : std::runtime_error(message) {}
     };
 
-    class UnsoportedProtocolVersion : public std::runtime_error 
+    class UnsoportedProtocolVersion : public std::runtime_error
     {
     public:
         explicit UnsoportedProtocolVersion(const std::string& message)
@@ -62,7 +58,7 @@ namespace fptn::common::protobuf::protocol
         throw ProcessingError("Unknown message type.");
     }
 
-    inline std::string createPacket(fptn::common::network::IPPacketPtr packet) 
+    inline std::string createPacket(fptn::common::network::IPPacketPtr packet)
     {
         fptn::protocol::Message message;
 
@@ -95,7 +91,7 @@ namespace fptn::common::protobuf::protocol
     }
 
     inline std::string createError(const std::string& errorMsg,
-                            fptn::protocol::ErrorType errorType = fptn::protocol::ERROR_WRONG_VERSION) 
+                            fptn::protocol::ErrorType errorType = fptn::protocol::ERROR_WRONG_VERSION)
     {
         fptn::protocol::Message message;
 

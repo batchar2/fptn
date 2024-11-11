@@ -39,14 +39,16 @@ inline void showError(const QString& title, const QString& msg)
 {
     QWidget tempWidget;
     QMessageBox::critical(
-            &tempWidget,
-            title,
-            msg
+        &tempWidget,
+        title,
+        msg
     );
 }
 
-TrayApp::TrayApp(QObject *parent)
-    : QObject(parent),
+TrayApp::TrayApp(const SettingsModelPtr &settings, QObject *parent)
+    :
+        settings_(settings),
+        QObject(parent),
         trayIcon_(new QSystemTrayIcon(this)),
         trayMenu_(new QMenu()),
         connectMenu_(new QMenu(QObject::tr("Connect") + "    ", trayMenu_)),
@@ -98,7 +100,7 @@ TrayApp::TrayApp(QObject *parent)
     connect(this, &TrayApp::connected, this, &TrayApp::handleConnected);
     connect(this, &TrayApp::disconnecting, this, &TrayApp::handleDisconnecting);
 
-    connect(&serverModel_, &SettingsModel::dataChanged, this, &TrayApp::updateTrayMenu);
+    connect(settings_.get(), &SettingsModel::dataChanged, this, &TrayApp::updateTrayMenu);
     connect(updateTimer_, &QTimer::timeout, this, &TrayApp::updateSpeedWidget);
     updateTimer_->start(1000);
 
@@ -136,7 +138,7 @@ void TrayApp::updateTrayMenu()
     switch (connectionState_) {
         case ConnectionState::None: {
             trayIcon_->setIcon(QIcon(inactiveIconPath_));
-            for (const auto &service : serverModel_.services()) {
+            for (const auto &service : settings_->services()) {
                 QAction *serverAction = new QAction(
                     QString("%1").arg(service.serviceName), this
                 );
@@ -262,7 +264,7 @@ void TrayApp::onDisconnectFromServer()
 void TrayApp::onShowSettings()
 {
     if (!settingsWidget_) {
-        settingsWidget_ = new SettingsWidget(&serverModel_, nullptr);
+        settingsWidget_ = new SettingsWidget(settings_, nullptr);
     }
     if (!settingsWidget_->isVisible()) {
         settingsWidget_->show();
@@ -297,9 +299,9 @@ void TrayApp::handleConnecting()
 
     /* check gateway address */
     const auto usingGatewayIP = (
-        serverModel_.gatewayIp() == "auto"
+        settings_->gatewayIp() == "auto"
         ? fptn::system::getDefaultGatewayIPAddress()
-        : pcpp::IPv4Address(serverModel_.gatewayIp().toStdString())
+        : pcpp::IPv4Address(settings_->gatewayIp().toStdString())
     );
     if (usingGatewayIP == pcpp::IPv4Address("0.0.0.0")) {
         showError(
@@ -312,9 +314,9 @@ void TrayApp::handleConnecting()
     }
     /* config */
     const std::string networkInterface = (
-        serverModel_.networkInterface() == "auto"
+        settings_->networkInterface() == "auto"
         ? ""
-        : serverModel_.networkInterface().toStdString()
+        : settings_->networkInterface().toStdString()
     );
 
     // find the best server

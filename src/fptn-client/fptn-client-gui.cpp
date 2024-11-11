@@ -1,5 +1,7 @@
+#include <memory>
 #include <filesystem>
 
+#include <QMap>
 #include <QLocale>
 #include <QTranslator>
 #include <QApplication>
@@ -73,11 +75,16 @@ int main(int argc, char *argv[])
     QTranslator translator;
     setTranslation(app, translator);
 
+    auto settings = std::make_shared<fptn::gui::SettingsModel>(
+        QMap<QString, QString>{
+            {"en", "English"},
+            {"ru", "Русский"}
+        }
+    );
     // start gui app
-    fptn::gui::TrayApp trayApp;
+    fptn::gui::TrayApp trayApp(settings);
 
     const int retcode = app.exec();
     google::ShutdownGoogleLogging();
     return retcode;
 }
-

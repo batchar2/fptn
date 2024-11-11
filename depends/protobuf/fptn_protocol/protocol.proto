@@ -1,7 +1,7 @@
 syntax = "proto3";
 
-
 package fptn.protocol;
+option java_package = "org.fptn.protocol";
 
 
 enum MessageType {
@@ -16,7 +16,7 @@ enum ErrorType {
 }
 
 message ErrorMessage {
-    ErrorType error_type = 1; 
+    ErrorType error_type = 1;
     string error_msg = 2;
 }
 
@@ -26,11 +26,11 @@ message IPPacket {
 }
 
 message Message {
-    int32 protocol_version = 1; 
+    int32 protocol_version = 1;
     MessageType msg_type = 2;
 
-    oneof message_content { 
-        ErrorMessage error = 3; 
+    oneof message_content {
+        ErrorMessage error = 3;
         IPPacket packet = 4;
     }
 }
