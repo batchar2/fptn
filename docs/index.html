@@ -115,7 +115,7 @@
         }
         .dropdown-button {
             cursor: pointer;
-            padding: 8px 24px;
+            padding: 8px 36px;
             border-width: 0;
             background: var(--blue);
             border-radius: 24px;
@@ -214,10 +214,16 @@
 
         .language-ru.active {
             display: block;
+            text-align: justify;
         }
         .language-en.active {
             display: block;
+            text-align: justify;
         }
+        .top-text.active p{
+            text-align: justify!important;
+        }
+
         span.language-ru.active {
             display: inline;
         }
@@ -325,7 +331,7 @@
         </div>
         <div class="col col-lg-9">
             <main class="content">
-                <div class="language-en">
+                <div class="language-en top-text">
                     <h1>FPTN Project</h1>
 
                     </br>
@@ -349,7 +355,7 @@
                     </p>
                 </div>
 
-                <div class="language-ru">
+                <div class="language-ru top-text">
                     <h1>FPTN Project</h1>
 
                     </br>
@@ -419,15 +425,15 @@
                         <div class="item">
                             <p>
                                 <span class="language-en">Commandline tools</span>
-                                <span class="language-ru">Серверные инструменты</span>
+                                <span class="language-ru">Инструменты командной строки</span>
                             </p>
                             <div class="dropdown">
                                 <a class="dropdown-button download_2" onclick="downloadUrl('linux_l_client')">.deb (Linux x86_64)</a>
                                 <div class="dropdown-content">
                                     <a href="#" onclick="downloadUrl('linux_l_server')">Server .deb (x86_64)</a>
                                     <a href="#" onclick="downloadUrl('linux_a_server')">Server .deb (ARM)</a>
-                                    <a href="#" onclick="downloadUrl('linux_l_client_cli')">Client .deb (x86_64)</a>
-                                    <a href="#" onclick="downloadUrl('linux_a_client_cli')">Client .deb (ARM64)</a>
+                                    <a href="#" onclick="downloadUrl('linux_l_client_cli')">CmdClient .deb (x86_64)</a>
+                                    <a href="#" onclick="downloadUrl('linux_a_client_cli')">CmdClient .deb (ARM64)</a>
                                 </div>
                             </div>
                         </div>
@@ -435,12 +441,11 @@
                 </div>
                 <div class="download active win">
                     <p>
-                        <span class="language-en">Download Windows client</span>
-                        <span class="language-ru">Скачать Windows клиент</span>
+                        <span class="language-en">Download the Windows client (supports Windows 10 and Windows 11)</span>
+                        <span class="language-ru">Скачать клиент для Windows (поддерживаются Windows 10 и Windows 11)</span>
                     </p>
-
                     <div class="dropdown">
-                        <a class="dropdown-button download_2" onclick="downloadUrl('w_client')">.exe (x86_64)</a>
+                        <a class="dropdown-button download_2" onclick="downloadUrl('w_client')">Installer (x86_64)</a>
                     </div>
                 </div>
                 <div>
