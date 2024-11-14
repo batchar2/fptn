@@ -113,10 +113,11 @@ procedure InstallVCRedist();
 var
     ExitCode: Integer;
 begin 
-    ExitCode := cmd(ExpandConstant(CurrentFileName) + ' /install /quiet /norestart');
+    ExitCode := cmd(ExpandConstant(CurrentFileName) + ' /install /quiet /norestart ');
     if ExitCode <> 0 then
     begin
-        MsgBox('Failed to install Visual C++ Redistributable.', mbError, MB_OK);
+        ExitCode := cmd(ExpandConstant(CurrentFileName) + ' /repair /quiet /norestart ');
+        //MsgBox('Failed to install Visual C++ Redistributable.', mbError, MB_OK);
     end;
 end;
 
