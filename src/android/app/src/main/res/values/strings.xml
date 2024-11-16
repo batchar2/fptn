@@ -1,8 +1,0 @@
-<resources>
-    <string name="vpn_server_address_label">Address</string>
-    <string name="vpn_server_username_label">Username</string>
-    <string name="vpn_server_username_password">Password</string>
-    <string name="app_name">FptnClient</string>
-    <string name="start_service">Start</string>
-    <string name="stop_service">Stop</string>
-</resources>
