@@ -1,22 +1,16 @@
 #pragma once
 
+#include <QMap>
+#include <QFile>
 #include <QObject>
 #include <QVector>
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QJsonDocument>
-#include <QFile>
 
-namespace fptn::gui {
 
-//    struct ServerConnectionInformation
-//    {
-//        QString address;
-//        int port;
-//        QString username;
-//        QString password;
-//    };
-
+namespace fptn::gui
+{
     /*
     {
      "services":
@@ -57,14 +51,14 @@ namespace fptn::gui {
         QString username;
         QString password;
         QVector<ServerConfig> servers;
+        QString language;
     };
-
 
     class SettingsModel : public QObject
     {
     Q_OBJECT
     public:
-        explicit SettingsModel(QObject *parent = nullptr);
+        explicit SettingsModel(QMap<QString, QString> languages, QString selectedLanguage="en", QObject *parent = nullptr);
 
         void load();
         bool save();
@@ -83,14 +77,23 @@ namespace fptn::gui {
         int getExistServiceIndex(const QString& name) const;
         ServiceConfig parseFile(const QString& filepath);
         void clear();
+
+        const QString languageName() const;
+        void setLanguage(const QString& language);
+
+        const QVector<QString> getLanguages() const;
     signals:
         void dataChanged();
     private:
+        QMap<QString, QString> languages_;
+
+        QString selectedLanguage_;
+
         QVector<ServiceConfig> services_;
         QString networkInterface_;
         QString gatewayIp_;
         QString getFilePath() const;
     };
 
-
+    using SettingsModelPtr = std::shared_ptr<SettingsModel>;
 }

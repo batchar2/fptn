@@ -10,6 +10,7 @@ add_compile_definitions(FPTN_VERSION=\"${FPTN_VERSION}\")
 add_compile_definitions(FPTN_MTU_SIZE=1500)
 add_compile_definitions(FPTN_IP_PACKET_MAX_SIZE=1450)
 add_compile_definitions(FPTN_ENABLE_PACKET_PADDING=1)
+add_compile_definitions(FPTN_PROTOBUF_PROTOCOL_VERSION=0x01)
 
 # cmake_policy(SET CMP0077 NEW)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
@@ -49,7 +50,9 @@ link_directories(${CMAKE_BINARY_DIR}/lib/)
 add_subdirectory(depends/libs/libhv EXCLUDE_FROM_ALL)
 
 # --- protobuf ---
-add_subdirectory(depends/protobuf/fptn_protocol)
+include_directories(${CMAKE_BINARY_DIR}/depends/protobuf/fptn_protocol/)
+add_subdirectory(depends/protobuf)
+
 
 # --- include ---
 include_directories(src/)
@@ -108,7 +111,7 @@ elseif(WIN32)
         add_custom_target(build-installer
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             COMMAND ${CMAKE_COMMAND} -E echo "Building installer for Windows..."
-            COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/deploy/windows/create-installer.py 
+            COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/deploy/windows/create-installer.py
                     --wintun-dll=${CMAKE_BINARY_DIR}/wintun/wintun.dll
                     --fptn-client=${CMAKE_BINARY_DIR}/src/fptn-client/Release/fptn-client-gui.exe
                     --fptn-client-cli=${CMAKE_BINARY_DIR}/src/fptn-client/Release/fptn-client-cli.exe

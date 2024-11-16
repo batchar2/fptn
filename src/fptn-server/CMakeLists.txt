@@ -1,6 +1,7 @@
 project(fptn-server)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
+include_directories("${CMAKE_CURRENT_BINARY_DIR}/depends/protobuf/fptn_protocol/")
 
 find_package(Boost REQUIRED)
 find_package(OpenSSL REQUIRED)

@@ -22,7 +22,11 @@
 using namespace fptn::gui;
 
 
-SettingsModel::SettingsModel(QObject *parent) : QObject(parent)
+SettingsModel::SettingsModel(QMap<QString, QString> languages, QString selectedLanguage, QObject *parent)
+    :
+        languages_(std::move(languages)),
+        selectedLanguage_(std::move(selectedLanguage)),
+        QObject(parent)
 {
     load();
 }
@@ -83,6 +87,9 @@ void SettingsModel::load()
     if (serviceObj.contains("network_interface")) {
         networkInterface_ = serviceObj["network_interface"].toString();
     }
+    if (serviceObj.contains("language")) {
+        selectedLanguage_ = serviceObj["language"].toString();
+    }
     if (networkInterface_.isEmpty()) {
         networkInterface_ = "auto";
     }
@@ -93,6 +100,31 @@ void SettingsModel::load()
     if (gatewayIp_.isEmpty()) {
         gatewayIp_ = "auto";
     }
+}
+
+const QString SettingsModel::languageName() const
+{
+    for (auto it = languages_.begin(); it != languages_.end(); ++it) {
+        if (it.key() == selectedLanguage_) {
+            return it.value();
+        }
+    }
+    return "English";
+}
+
+void SettingsModel::setLanguage(const QString& language)
+{
+    selectedLanguage_ = language;
+    save();
+}
+
+const QVector<QString> SettingsModel::getLanguages() const
+{
+    QVector<QString> languages;
+    for (auto it = languages_.begin(); it != languages_.end(); ++it) {
+        languages.push_back(it.value());
+    }
+    return languages;
 }
 
 bool SettingsModel::save()
@@ -111,6 +143,8 @@ bool SettingsModel::save()
         serviceObj["service_name"] = service.serviceName;
         serviceObj["username"] = service.username;
         serviceObj["password"] = service.password;
+
+        serviceObj["language"] = selectedLanguage_;
         QJsonArray serversArray;
         for (const ServerConfig& server : service.servers) {
             QJsonObject serverObj;
