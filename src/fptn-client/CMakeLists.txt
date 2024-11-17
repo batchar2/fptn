@@ -10,7 +10,7 @@ endif()
 
 find_package(OpenSSL REQUIRED)
 find_package(argparse REQUIRED)
-find_package(glog REQUIRED)
+find_package(spdlog REQUIRED)
 find_package(fmt REQUIRED)
 find_package(PcapPlusPlus REQUIRED)
 find_package(Boost REQUIRED COMPONENTS random filesystem)
@@ -45,7 +45,7 @@ target_link_libraries(
     httplib::httplib
     nlohmann_json::nlohmann_json
 
-    glog::glog
+    spdlog::spdlog
     fmt::fmt
     PcapPlusPlus::PcapPlusPlus
     hv_static
@@ -107,7 +107,7 @@ if("${FPTN_BUILD_WITH_GUI_CLIENT}")
         websocketpp::websocketpp
         httplib::httplib
 
-        glog::glog
+        spdlog::spdlog
         fmt::fmt
         PcapPlusPlus::PcapPlusPlus
 

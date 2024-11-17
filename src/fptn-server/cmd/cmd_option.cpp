@@ -1,6 +1,10 @@
+#include <memory>
 #include <algorithm>
 
+#include <spdlog/spdlog.h>
+
 #include "cmd_option.h"
+
 
 using namespace fptn::cmd;
 
@@ -82,8 +86,8 @@ bool CmdOptions::parse() noexcept
         args_.parse_args(argc_, argv_);
         return true;
     } catch (const std::runtime_error& err) {
-        LOG(ERROR) << "Argument parsing error: " << err.what() << std::endl;
-        LOG(ERROR) << args_;
+        const std::string help = args_.help().str();
+        spdlog::error("Argument parsing error: {}\n{}", err.what(), help);
     }
     return false;
 }

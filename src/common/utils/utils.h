@@ -10,9 +10,6 @@
 #include <common/network/ip_packet.h>
 
 
-#define FPTN_PROTOBUF_PROTOCOL_VERSION          (0x01)
-
-
 namespace fptn::common::utils
 {
     inline std::string generateRandomString(int length)

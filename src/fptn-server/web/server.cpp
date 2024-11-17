@@ -3,7 +3,7 @@
 #include <functional>
 
 #include <hv/hlog.h>
-#include <glog/logging.h>
+#include <spdlog/spdlog.h>
 
 
 using namespace fptn::web;
@@ -41,10 +41,13 @@ Server::Server(
 {
     hlog_disable();
     if (use_https) {
-        LOG(INFO) << std::endl
-            << "  KEYS: " << std::endl
-            << "    CRT: " << tokenManager->serverCrtPath().c_str() << std::endl
-            << "    KEY: " << tokenManager->serverKeyPath().c_str() << std::endl;
+        spdlog::info("\n"
+            "KEYS:\n"
+            "    CRT: {}\n"
+            "    KEY: {}\n",
+            tokenManager->serverCrtPath().c_str(),
+            tokenManager->serverKeyPath().c_str()
+        );
         mainServer_.https_port = port;
         hssl_ctx_opt_t sslParam;
         std::memset(&sslParam, 0x00, sizeof(sslParam));
@@ -52,7 +55,7 @@ Server::Server(
         sslParam.key_file = tokenManager->serverKeyPath().c_str();
         sslParam.endpoint = HSSL_SERVER;
         if (mainServer_.newSslCtx(&sslParam) != 0) {
-            LOG(ERROR) << "new SSL_CTX failed!";
+            spdlog::error("new SSL_CTX failed!");
         }
     } else {
         mainServer_.port = port;
@@ -115,12 +118,18 @@ void Server::newVpnConnection(std::uint32_t clientId, const pcpp::IPv4Address& c
     auto shaperToClient = std::make_shared<fptn::traffic_shaper::LeakyBucket>(bandwidthBitesSeconds);
     auto shaperFromClient = std::make_shared<fptn::traffic_shaper::LeakyBucket>(bandwidthBitesSeconds);
     auto session = natTable_->createClientSession(clientId, username, clientVpnIP, shaperToClient, shaperFromClient);
-    LOG(INFO) << "NEW SESSION! Username=" << username << " ClientId=" << clientId << " Bandwidth=" << bandwidthBitesSeconds << " IP=" << clientIP.toString() << " VirtualIP=" << session->fakeClientIP().toString();
+    spdlog::info("NEW SESSION! Username={} ClientId={} Bandwidth={} IP={} VirtualIP={}",
+        username,
+        clientId,
+        bandwidthBitesSeconds,
+        clientIP.toString(),
+        session->fakeClientIP().toString()
+    );
 }
 
 void Server::closeVpnConnection(std::uint32_t clientId) noexcept
 {
-    LOG(INFO) << "DEL SESSION! clientId=" << clientId;
+    spdlog::info("DEL SESSION! clientId={}", clientId);
     natTable_->delClientSession(clientId);
 }
 

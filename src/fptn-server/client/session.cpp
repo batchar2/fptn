@@ -1,7 +1,5 @@
 #include "session.h"
 
-#include <glog/logging.h>
-
 
 using namespace fptn::client;
 

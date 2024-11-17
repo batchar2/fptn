@@ -1,7 +1,7 @@
 find_package(GTest REQUIRED)
 find_package(Boost REQUIRED)
 find_package(OpenSSL REQUIRED)
-find_package(glog REQUIRED)
+find_package(spdlog REQUIRED)
 find_package(fmt REQUIRED)
 find_package(PcapPlusPlus REQUIRED)
 find_package(nlohmann_json REQUIRED)
@@ -16,7 +16,7 @@ endif()
 set(LIBS
     GTest::gtest GTest::gtest_main
     Boost::boost OpenSSL::SSL OpenSSL::Crypto nlohmann_json::nlohmann_json jwt-cpp::jwt-cpp
-    glog::glog fmt::fmt PcapPlusPlus::PcapPlusPlus hv_static fptn_protocol
+    spdlog::spdlog fmt::fmt PcapPlusPlus::PcapPlusPlus hv_static fptn_protocol
     ${TUNTAP_LIB}
 )
 

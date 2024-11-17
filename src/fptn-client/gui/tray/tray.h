@@ -7,6 +7,7 @@
 #include <QObject>
 #include <QString>
 #include <QAction>
+#include <QTranslator>
 #include <QMouseEvent>
 #include <QApplication>
 #include <QWidgetAction>
@@ -41,6 +42,10 @@ namespace fptn::gui
     public:
         TrayApp(const SettingsModelPtr &settings, QObject *parent = nullptr);
         virtual ~TrayApp() = default;
+    private:
+        bool setTranslation(const QString& languageCode);
+        QString getSystemLanguageCode() const;
+        void retranslateUi();
     signals:
         void defaultState();
         void connecting();
@@ -60,6 +65,8 @@ namespace fptn::gui
         void setUpTrayIcon();
         void updateTrayMenu();
     private:
+        QTranslator translator_;
+
         SettingsModelPtr settings_;
 
         QSystemTrayIcon *trayIcon_ = nullptr;
@@ -68,7 +75,6 @@ namespace fptn::gui
         QAction *disconnectAction_ = nullptr;
         QAction *settingsAction_ = nullptr;
         QAction *quitAction_ = nullptr;
-        SettingsWidget *settingsWidget_ = nullptr;
         QAction *connectingAction_ = nullptr;
         QWidgetAction *speedWidgetAction_ = nullptr;
         SpeedWidget *speedWidget_ = nullptr;

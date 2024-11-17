@@ -13,7 +13,7 @@
 
 #include <iostream>
 
-#include <glog/logging.h>
+#include <spdlog/spdlog.h>
 
 #include <pcapplusplus/MacAddress.h>
 

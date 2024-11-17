@@ -7,55 +7,13 @@
 #include <QApplication>
 #include <QStyleFactory>
 
-#include <glog/logging.h>
-
 #if defined(__linux__) || defined(__APPLE__)
 #include <unistd.h>
 #endif
 
+#include <common/logger/logger.h>
+
 #include "gui/tray/tray.h"
-
-
-inline void initLogger(char *argv[])
-{
-    const std::filesystem::path log_dir = "./logs";
-    if (!std::filesystem::exists(log_dir)) {
-        std::filesystem::create_directory(log_dir);
-    }
-    ::FLAGS_log_dir = "./logs/";
-    ::FLAGS_logbuflevel = -1;
-    ::FLAGS_alsologtostderr = true;
-    google::InitGoogleLogging(argv[0]);
-    google::SetStderrLogging(google::GLOG_INFO);
-    google::SetLogDestination(google::GLOG_INFO, "");
-    google::SetLogDestination(google::GLOG_INFO, "logs/fptn.log.txt");
-}
-
-
-inline void setTranslation(QApplication& app, QTranslator& translator)
-{
-    // debug
-    // QLocale::setDefault(QLocale("ru_RU.UTF-8"));
-
-    const QLocale locale;
-    const QString localeName = locale.name();
-    LOG(INFO) << "LOCALE NAME: " << localeName.toStdString();
-    if (localeName.contains('_')) {
-        const QString languageCode = locale.name().split('_').first(); // Split on underscore and take the first part
-        const QString translationFile = QString("fptn_%1.qm").arg(languageCode);
-        if (translator.load(translationFile, ":/translations")) {
-            if (app.installTranslator(&translator)) {
-                LOG(INFO) << "Successfully loaded language: " << languageCode.toStdString();
-            } else {
-                LOG(WARNING) << "Failed to install translator for language: " << languageCode.toStdString();
-            }
-        } else {
-            LOG(WARNING) << "Translation file not found: " << translationFile.toStdString();
-        }
-    } else {
-        LOG(WARNING) << "No translation will be loaded.";
-    }
-}
 
 
 int main(int argc, char *argv[]) 
@@ -66,25 +24,27 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 #endif
-    initLogger(argv);
-    // init app
+    if (fptn::logger::init("fptn-client-gui")) {
+        spdlog::info("Application started successfully.");
+    } else {
+        std::cerr << "Logger initialization failed. Exiting application." << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    // init gui app
     QApplication::setDesktopSettingsAware(true);
+    QApplication::setQuitOnLastWindowClosed(false);
     QApplication app(argc, argv);
-
-    // load translations
-    QTranslator translator;
-    setTranslation(app, translator);
-
     auto settings = std::make_shared<fptn::gui::SettingsModel>(
         QMap<QString, QString>{
             {"en", "English"},
             {"ru", "Русский"}
         }
     );
-    // start gui app
     fptn::gui::TrayApp trayApp(settings);
 
-    const int retcode = app.exec();
-    google::ShutdownGoogleLogging();
-    return retcode;
+    // start gui app
+    const int code = app.exec();
+    spdlog::shutdown();
+    return code;
 }

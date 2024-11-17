@@ -13,9 +13,13 @@ using namespace fptn::gui;
 
 
 SettingsWidget::SettingsWidget(const SettingsModelPtr& settings, QWidget *parent)
-        : QWidget(parent), settings_(settings)
+        : QDialog(parent), settings_(settings)
 {
     setupUi();
+    setModal(true);
+//    setWindowModality(Qt::ApplicationModal);
+//    setWindowModality(Qt::ApplicationModal);
+//    setAttribute(Qt::WA_DeleteOnClose);
 }
 
 
@@ -144,6 +148,7 @@ void SettingsWidget::setupUi()
 void SettingsWidget::saveModel()
 {
     settings_->setNetworkInterface(interfaceComboBox->currentText());
+    settings_->setLanguage(languageComboBox->currentText());
     settings_->setGatewayIp(gatewayLineEdit->text());
     if (settings_->save() ) {
         QMessageBox::information(
@@ -151,7 +156,7 @@ void SettingsWidget::saveModel()
             QObject::tr("Save Successful"),
             QObject::tr("Data has been successfully saved.")
         );
-        this->hide();  // Hide the widget instead of closing the application
+        this->close();
     } else {
         QMessageBox::critical(
             this,
@@ -159,12 +164,6 @@ void SettingsWidget::saveModel()
             QObject::tr("An error occurred while saving the data.")
         );
     }
-}
-
-void SettingsWidget::closeEvent(QCloseEvent *event)
-{
-    this->hide();
-    event->ignore();
 }
 
 void SettingsWidget::loadNewConfig()

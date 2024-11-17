@@ -3,7 +3,7 @@
 #include <vector>
 
 #include <fmt/format.h>
-#include <glog/logging.h>
+#include <spdlog/spdlog.h>
 
 #include <boost/asio.hpp>
 #include <boost/process.hpp>
@@ -55,11 +55,11 @@ bool IPTables::apply() noexcept
     findOutInterfaceName_ = (outInterfaceName_.empty() ? getDefaultNetworkInterfaceName() : outInterfaceName_);
     findOutGatewayIp_ = (gatewayIp_ == pcpp::IPv4Address("0.0.0.0") ? getDefaultGatewayIPAddress() : gatewayIp_);
 
-    LOG(INFO)<< "=== Setting up routing ===";
-    LOG(INFO) << "IPTABLES VPN SERVER IP:         " << vpnServerIP_.toString();
-    LOG(INFO) << "IPTABLES OUT NETWORK INTERFACE: " << findOutInterfaceName_;
-    LOG(INFO) << "IPTABLES GATEWAY IP:            " << findOutGatewayIp_;
-    LOG(INFO) << "IPTABLES DNS SERVER:            " << dnsServer_;
+    spdlog::info("=== Setting up routing ===");
+    spdlog::info("IPTABLES VPN SERVER IP:         {}", vpnServerIP_.toString());
+    spdlog::info("IPTABLES OUT NETWORK INTERFACE: {}", findOutInterfaceName_);
+    spdlog::info("IPTABLES GATEWAY IP:            {}", findOutGatewayIp_.toString());
+    spdlog::info("IPTABLES DNS SERVER:            {}", dnsServer_.toString());
 #ifdef __linux__
     const std::vector<std::string> commands = {
         fmt::format("sysctl -w net.inet.ip.forwarding=1"),
@@ -110,12 +110,11 @@ bool IPTables::apply() noexcept
 #endif
     init_ = true;
     for (const auto& cmd : commands) {
-        /*LOG(INFO) << "cmd: " << cmd; */
         if (!runCommand(cmd)) {
-            LOG(WARNING) << "COMMAND ERORR: " << cmd;
+            spdlog::warn("COMMAND ERORR: {}", cmd);
         }
     }
-    LOG(INFO)<< "=== Routing setup completed successfully ===";
+    spdlog::info("=== Routing setup completed successfully ===");
     return true;
 }
 
@@ -174,9 +173,9 @@ static bool runCommand(const std::string& command)
             return true;
         }
     } catch (const std::exception& e) {
-        LOG(ERROR)<< "IPTables error: " << e.what();
+        spdlog::error("IPTables error: ", e.what());
     } catch (...) {
-        LOG(ERROR)<< "Undefined command error";
+        spdlog::error("Undefined command error");
     }
     return false;
 }
@@ -199,7 +198,7 @@ pcpp::IPv4Address fptn::system::resolveDomain(const std::string& domain) noexcep
             return pcpp::IPv4Address(endpoint.endpoint().address().to_string());
         }
     } catch (const std::exception& e) {
-        LOG(ERROR) << "Error resolving domain: " << e.what() << std::endl;
+        spdlog::error("Error resolving domain: {}", e.what());
     }
     return pcpp::IPv4Address(domain);
 }
@@ -242,7 +241,7 @@ pcpp::IPv4Address fptn::system::getDefaultGatewayIPAddress() noexcept
         }
         child.wait();
     } catch (const std::exception& ex) {
-        LOG(ERROR) << "Error: Failed to retrieve the default gateway IP address. " << ex.what();
+        spdlog::error("Error: Failed to retrieve the default gateway IP address. {}", ex.what());
     }
     return {};
 }
@@ -272,14 +271,14 @@ std::string fptn::system::getDefaultNetworkInterfaceName() noexcept
         std::getline(pipe, result);
         child.wait();
         if (result.empty()) {
-            LOG(ERROR)<< "Warning: Default gateway IP address not found.";
+            spdlog::warn("Warning: Default gateway IP address not found.");
             return {};
         }
         result.erase(result.find_last_not_of(" \n\r\t") + 1);
         result.erase(0, result.find_first_not_of(" \n\r\t"));
 #endif
     } catch (const std::exception& ex) {
-        LOG(ERROR) << "Error: Failed to retrieve the default gateway IP address. " << ex.what();
+        spdlog::error("Error: Failed to retrieve the default gateway IP address. {}", ex.what());
     }
     return result;
 }

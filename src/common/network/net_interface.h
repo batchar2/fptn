@@ -7,7 +7,7 @@
 #include <thread>
 #include <functional>
 
-#include <glog/logging.h>
+#include <spdlog/spdlog.h>
 #include <common/data/channel.h>
 
 #if defined(__APPLE__) || defined(__linux__)
@@ -161,7 +161,7 @@ namespace fptn::common::network
                 thread_ = std::thread(&PosixTunInterface::run, this);
                 return thread_.joinable();
             } catch (const std::exception &ex) {
-                LOG(ERROR) << "Error start: " << ex.what() << std::endl;
+                spdlog::error("Error start: {}", ex.what());
             }
             return false;
         }
@@ -259,7 +259,7 @@ namespace fptn::common::network
             if (!wintun_) {
                 return false;
             }
-            LOG(INFO) << "WINTUN: " << parseWinTunVersion(WintunGetRunningDriverVersion()) << " version loaded";
+            spdlog::info("WINTUN: {} version loaded", parseWinTunVersion(WintunGetRunningDriverVersion()));
 
             // --- open adapter ---
             const std::wstring interfaceName = toWString(name());
@@ -269,7 +269,7 @@ namespace fptn::common::network
                 &guid_
             );
             if (!adapter_) {
-                LOG(ERROR) << "Network adapter wasn't created!";
+                spdlog::error("Network adapter wasn't created!");
             }
 
             const std::string ipaddr = this->addr().toString();
@@ -280,19 +280,19 @@ namespace fptn::common::network
             addressRow.OnLinkPrefixLength = (BYTE)this->netmask();
             auto res = inet_pton(AF_INET, ipaddr.c_str(), &(addressRow.Address.Ipv4.sin_addr));
             if (res != 1) {
-                LOG(ERROR) << "Wrong address";
+                spdlog::error("Wrong address");
                 return false;
             }
             auto res2 = CreateUnicastIpAddressEntry(&addressRow);
             if (res2 != ERROR_SUCCESS && res2 != ERROR_OBJECT_ALREADY_EXISTS) {
-                LOG(ERROR) << "Failed to set " << ipaddr << " IP address";
+                spdlog::error("Failed to set {} IP address", ipaddr);
                 return false;
             }
             // --- start session ---
             const int capacity = 0x20000;
             session_ = WintunStartSession(adapter_, capacity);
             if (!session_) {
-                LOG(ERROR) << "Open sessoion error";
+                spdlog::error("Open sessoion error");
                 return false;
             }
             // --- start thread ---
@@ -393,7 +393,7 @@ namespace fptn::common::network
         {
             HMODULE wintun = LoadLibraryExW(L"wintun.dll", nullptr, LOAD_LIBRARY_SEARCH_APPLICATION_DIR | LOAD_LIBRARY_SEARCH_SYSTEM32);
             if (!wintun) {
-                LOG(ERROR) << "WINTUN NOT FOUND!";
+                spdlog::error("WINTUN NOT FOUND!");
                 return nullptr;
             }
             #define X(Name) ((*(FARPROC *)&Name = GetProcAddress(wintun, #Name)) == nullptr)
@@ -407,10 +407,10 @@ namespace fptn::common::network
                 DWORD LastError = GetLastError();
                 FreeLibrary(wintun);
                 SetLastError(LastError);
-                LOG(ERROR) << "Error whilst loading the lib: " << LastError;
+                spdlog::error("Error whilst loading the lib: {}", LastError);
                 return nullptr;
             }
-            LOG(INFO) << "Wintun initialization successful";
+            spdlog::info("Wintun initialization successful");
             return wintun;
         }
     private:

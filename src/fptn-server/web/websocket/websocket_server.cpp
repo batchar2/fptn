@@ -1,6 +1,6 @@
 #include "websocket_server.h"
 
-#include <glog/logging.h>
+#include <spdlog/spdlog.h>
 #include <boost/algorithm/string/replace.hpp>
 
 #include <common/protobuf/protocol.h>
@@ -69,15 +69,15 @@ void WebsocketServer::onOpenHandle(const WebSocketChannelPtr& channel, const Htt
                     newConnectionCallback_(channelId, clientVpnIP, clientIP, username, bandwidthBitesSeconds);
                 }
             } else {
-                LOG(WARNING) << "WRONG TOKEN: " << username << std::endl;
+                spdlog::warn("WRONG TOKEN: {}", username);
                 channel->close();
             }
         } else {
-            LOG(WARNING) << "CHECK: Authorization or ClientIP" << std::endl;
+            spdlog::warn("Required field missing: Authorization or ClientIP");
             channel->close();
         }
     } else {
-        LOG(WARNING) << "WRONG PATH: " << req->Path() << ", but the real path is: " << websocket_uri_ << std::endl;
+        spdlog::warn("WRONG PATH: {}, but the real path is: {}",req->Path(), websocket_uri_);
         channel->close();
     }
 }
@@ -99,17 +99,17 @@ void WebsocketServer::onMessageHandle(const WebSocketChannelPtr& channel, const 
             }
         }
     } catch (const fptn::common::protobuf::protocol::ProcessingError &err) {
-        LOG(ERROR) << "Processing error: " << err.what();
+        spdlog::error("Processing error: {}", err.what());
         const std::string msg = fptn::common::protobuf::protocol::createError(err.what(), fptn::protocol::ERROR_DEFAULT);
         channel->send(msg);
     } catch (const fptn::common::protobuf::protocol::MessageError &err) {
-        LOG(ERROR) << "Message error: " << err.what();
+        spdlog::error("Message error: {}", err.what());
     } catch (const fptn::common::protobuf::protocol::UnsoportedProtocolVersion &err) {
-        LOG(ERROR) << "Unsupported protocol version: " << err.what();
+        spdlog::error("Unsupported protocol version: {}", err.what());
         const std::string msg = fptn::common::protobuf::protocol::createError(err.what(), fptn::protocol::ERROR_WRONG_VERSION);
         channel->send(msg);
     } catch(...) {
-        LOG(ERROR) << "Unexpected error: ";
+        spdlog::error("Unexpected error");
     }
 }
 
@@ -144,9 +144,9 @@ void WebsocketServer::send(fptn::common::network::IPPacketPtr packet) noexcept
             it->second->send(msg, WS_OPCODE_BINARY);
         }
     } catch (const std::runtime_error &err) {
-        LOG(ERROR) << "Websockwt.send" << err.what();
+        spdlog::error("Websockwt.send: {}", err.what());
     } catch(...) {
-        LOG(ERROR) << "Websockwt.send: undefined error";
+        spdlog::error("Websockwt.send: undefined error");
     }
 }
 
@@ -173,7 +173,7 @@ void WebsocketServer::run() noexcept
 
             // Close the channel connection
             for (std::uint32_t channelId: channelsIds) {
-                LOG(INFO) << "Closing connection due to inactivity: ClientId " << channelId;
+                spdlog::info("Closing connection due to inactivity: ClientId={}", channelId);
                 // Close the channel connection
                 auto channelIt = channels_.find(channelId);
                 if (channelIt != channels_.end()) {

@@ -51,5 +51,7 @@ fi
 
 cd /tmp/
 
+networksetup -listallnetworkservices | grep -v '^An asterisk' | xargs -I {} networksetup -setdnsservers "{}" empty
+
 trap cleanup_dns EXIT
 /Applications/FptnClient.app/Contents/MacOS/fptn-client-cli "$@"

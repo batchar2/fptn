@@ -8,7 +8,7 @@
 #include <fstream>
 #include <iostream>
 
-#include <glog/logging.h>
+#include <spdlog/spdlog.h>
 #include <nlohmann/json.hpp>
 
 #include <jwt-cpp/jwt.h>
@@ -64,13 +64,13 @@ namespace fptn::common::jwt_token
                     .with_issuer("auth0");
                 return true;
             } catch (const jwt::error::invalid_json_exception& e) {
-                LOG(ERROR) << "Token parsing error: " << e.what();
+                spdlog::error("Token parsing error: {}", e.what());
             } catch (const jwt::error::token_verification_exception& e) {
-                LOG(ERROR) << "Unauthorized: Invalid token. " << e.what();
+                spdlog::error("Unauthorized: Invalid token: {}", e.what());
             } catch (const std::exception& e) {
-                LOG(ERROR) << "Handle other standard exceptions. " << e.what();
+                spdlog::error("Handle other standard exceptions: {}", e.what());
             } catch(...) {
-                LOG(ERROR) << "Undefined error";
+                spdlog::error("Undefined error");
             }
             return false;
         }
@@ -94,7 +94,7 @@ namespace fptn::common::jwt_token
         {
             std::ifstream is(path, std::ios::binary);
             if (!is) {
-                LOG(ERROR) << "Failed to open file: " << path << std::endl;
+                spdlog::error("Failed to open file: {}", path);
                 return {};
             }
             std::string contents((std::istreambuf_iterator<char>(is)), std::istreambuf_iterator<char>());

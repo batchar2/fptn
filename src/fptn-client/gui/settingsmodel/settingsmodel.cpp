@@ -6,13 +6,13 @@
 
 #include <QDir>
 #include <QFile>
-#include <QJsonDocument>
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QJsonDocument>
 #include <QNetworkInterface>
 
 #include <boost/asio.hpp>
-#include <glog/logging.h>
+#include <spdlog/spdlog.h>
 
 #include "system/iptables.h"
 
@@ -22,10 +22,11 @@
 using namespace fptn::gui;
 
 
-SettingsModel::SettingsModel(QMap<QString, QString> languages, QString selectedLanguage, QObject *parent)
+SettingsModel::SettingsModel(const QMap<QString, QString>& languages, const QString& defaultLanguage, QObject *parent)
     :
-        languages_(std::move(languages)),
-        selectedLanguage_(std::move(selectedLanguage)),
+        languages_(languages),
+        //defaultLanguage_(defaultLanguage),
+        selectedLanguage_(defaultLanguage_),
         QObject(parent)
 {
     load();
@@ -49,10 +50,10 @@ void SettingsModel::load()
     QString filePath = getFilePath();
     QFile file(filePath);
     if (!file.open(QIODevice::ReadOnly)) {
-        LOG(WARNING) << "Failed to open file for reading:" << filePath.toStdString();
+        spdlog::warn("Failed to open file for reading: {}", filePath.toStdString());
         return;
     }
-    LOG(INFO) << "Settings: " << filePath.toStdString();
+    spdlog::info("Settings: {}", filePath.toStdString());
 
     QByteArray data = file.readAll();
     file.close();
@@ -112,9 +113,23 @@ const QString SettingsModel::languageName() const
     return "English";
 }
 
-void SettingsModel::setLanguage(const QString& language)
+const QString& SettingsModel::languageCode() const
 {
-    selectedLanguage_ = language;
+    return selectedLanguage_;
+}
+
+const QString& SettingsModel::defaultLanguageCode() const
+{
+    return defaultLanguage_;
+}
+
+void SettingsModel::setLanguage(const QString& languageName)
+{
+    for (auto it = languages_.begin(); it != languages_.end(); ++it) {
+        if (languageName == it.value()) {
+            selectedLanguage_ = it.key();
+        }
+    }
     save();
 }
 
@@ -127,12 +142,17 @@ const QVector<QString> SettingsModel::getLanguages() const
     return languages;
 }
 
+bool SettingsModel::existsTranslation(const QString &languageCode) const
+{
+    return languages_.find(languageCode) != languages_.end();
+}
+
 bool SettingsModel::save()
 {
     QString filePath = getFilePath();
     QFile file(filePath);
     if (!file.open(QIODevice::WriteOnly)) {
-        LOG(ERROR) << "Failed to open file for writing:" << filePath.toStdString();
+        spdlog::error("Failed to open file for writing: {}", filePath.toStdString());
         return false;
     }
 
@@ -144,7 +164,7 @@ bool SettingsModel::save()
         serviceObj["username"] = service.username;
         serviceObj["password"] = service.password;
 
-        serviceObj["language"] = selectedLanguage_;
+
         QJsonArray serversArray;
         for (const ServerConfig& server : service.servers) {
             QJsonObject serverObj;
@@ -158,6 +178,7 @@ bool SettingsModel::save()
         servicesArray.append(serviceObj);
     }
 
+    jsonObject["language"] = selectedLanguage_;
     jsonObject["services"] = servicesArray;
     jsonObject["network_interface"] = networkInterface_;
     jsonObject["gateway_ip"] = gatewayIp_;
@@ -168,7 +189,7 @@ bool SettingsModel::save()
     emit dataChanged();
 
     if (len > 0) {
-        LOG(INFO) << "Success save:" << filePath.toStdString();
+        spdlog::info("Success save: {}", filePath.toStdString());
     }
 
     return len > 0;

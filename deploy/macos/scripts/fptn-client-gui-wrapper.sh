@@ -73,7 +73,9 @@ export QT_PLUGIN_PATH=/Applications/FptnClient.app/Contents/Frameworks/plugins
 export QT_QPA_PLATFORM_PLUGIN_PATH=/Applications/FptnClient.app/Contents/Frameworks/plugins/platforms
 export LD_LIBRARY_PATH=/Applications/FptnClient.app/Contents/Frameworks
 
-exec /Applications/FptnClient.app/Contents/MacOS/fptn-client-gui "$@" &
+networksetup -listallnetworkservices | grep -v '^An asterisk' | xargs -I {} networksetup -setdnsservers "{}" empty
 
 trap cleanup_dns EXIT
+exec /Applications/FptnClient.app/Contents/MacOS/fptn-client-gui "$@"
+
 networksetup -listallnetworkservices | grep -v '^An asterisk' | xargs -I {} networksetup -setdnsservers "{}" empty

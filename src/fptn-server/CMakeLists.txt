@@ -6,7 +6,7 @@ include_directories("${CMAKE_CURRENT_BINARY_DIR}/depends/protobuf/fptn_protocol/
 find_package(Boost REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_package(argparse REQUIRED)
-find_package(glog REQUIRED)
+find_package(spdlog REQUIRED)
 find_package(fmt REQUIRED)
 find_package(PcapPlusPlus REQUIRED)
 find_package(nlohmann_json REQUIRED)
@@ -45,7 +45,7 @@ target_link_libraries(
     nlohmann_json::nlohmann_json
     jwt-cpp::jwt-cpp
 
-    glog::glog
+    spdlog::spdlog
     fmt::fmt
     PcapPlusPlus::PcapPlusPlus
     httplib::httplib

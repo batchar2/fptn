@@ -8,7 +8,6 @@
 #include <functional>
 #include <unordered_map>
 
-#include <glog/logging.h>
 #include <hv/WebSocketServer.h>
 
 #include <pcapplusplus/Packet.h>

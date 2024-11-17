@@ -1,6 +1,7 @@
 #include "table.h"
 
-#include <glog/logging.h>
+#include <spdlog/spdlog.h>
+
 
 using namespace fptn::nat;
 
@@ -16,10 +17,10 @@ Table::Table(const pcpp::IPv4Address& tunInterfaceIP,
 }
 
 fptn::client::SessionSPtr Table::createClientSession(ClientID clientId,
-                                                     const std::string& userName,
-                                                     const pcpp::IPv4Address& clientIP,
-                                                     const fptn::traffic_shaper::LeakyBucketSPtr& trafficShaperToClient,
-                                                     const fptn::traffic_shaper::LeakyBucketSPtr& trafficShaperFromClient) noexcept
+    const std::string& userName,
+    const pcpp::IPv4Address& clientIP,
+    const fptn::traffic_shaper::LeakyBucketSPtr& trafficShaperToClient,
+    const fptn::traffic_shaper::LeakyBucketSPtr& trafficShaperFromClient) noexcept
 {
     std::unique_lock<std::mutex> lock(mutex_);
     if (clientIdToSessions_.find(clientId) == clientIdToSessions_.end()) {
@@ -28,21 +29,21 @@ fptn::client::SessionSPtr Table::createClientSession(ClientID clientId,
             try {
                 auto fakeIP = getUniqueIPAddress();
                 auto session = std::make_shared<fptn::client::Session>(
-                        clientId,
-                        userName,
-                        clientIP,
-                        fakeIP,
-                        trafficShaperToClient,
-                        trafficShaperFromClient
+                    clientId,
+                    userName,
+                    clientIP,
+                    fakeIP,
+                    trafficShaperToClient,
+                    trafficShaperFromClient
                 );
                 ipToSessions_.insert({fakeIP.toInt(), session});
                 clientIdToSessions_.insert({clientId, session});
                 return session;
             } catch(const std::runtime_error& err) {
-                LOG(ERROR) << "Client error: " << err.what();
+                spdlog::info("Client error: {}", err.what());
             }
         } else {
-            LOG(ERROR) << "Client limit (" << ipGenerator_.numAvailableAddresses() << ") was exceeded";
+            spdlog::info("Client limit ({}) was exceeded", ipGenerator_.numAvailableAddresses());
         }
     }
     return nullptr;

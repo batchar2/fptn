@@ -11,19 +11,21 @@
 
 namespace fptn::gui
 {
-    /*
-    {
-     "services":
-     [
+/*
+{
+     "gateway_ip": "auto",
+     "language": "en",
+     "network_interface": "auto",
+     "services": [
          {
             "version": 1,
             "service_name": "FPTN.ONLINE",
-            "username": "admin",
-            "password": "skokov92",
+            "username": "test",
+            "password": "test",
                 "servers": [
                     {
                         "name": "pq1",
-                        "host": "74.119.195.150",
+                        "host": "74.119.195.151",
                         "port": 443
                     },
                     {
@@ -35,7 +37,8 @@ namespace fptn::gui
             }
          }
      ]
-     */
+}
+*/
 
     struct ServerConfig
     {
@@ -58,7 +61,11 @@ namespace fptn::gui
     {
     Q_OBJECT
     public:
-        explicit SettingsModel(QMap<QString, QString> languages, QString selectedLanguage="en", QObject *parent = nullptr);
+        explicit SettingsModel(
+            const QMap<QString, QString>& languages,
+            const QString& defaultLanguage="en",
+            QObject *parent = nullptr
+        );
 
         void load();
         bool save();
@@ -82,10 +89,17 @@ namespace fptn::gui
         void setLanguage(const QString& language);
 
         const QVector<QString> getLanguages() const;
+
+        const QString& defaultLanguageCode() const;
+        const QString& languageCode() const;
+
+        bool existsTranslation(const QString &languageCode) const;
     signals:
         void dataChanged();
     private:
         QMap<QString, QString> languages_;
+
+        QString defaultLanguage_;
 
         QString selectedLanguage_;
 

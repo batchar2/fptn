@@ -1,10 +1,9 @@
 #include <filesystem>
 
 #include <boost/asio.hpp>
-#include <glog/logging.h>
 
 #include <common/data/channel.h>
-
+#include <common/logger/logger.h>
 #include <common/network/ip_packet.h>
 #include <common/network/net_interface.h>
 #include <common/jwt_token/token_manager.h>
@@ -26,7 +25,7 @@ inline void waitForSignal()
     boost::asio::signal_set signals(io_context, SIGINT, SIGTERM);
     signals.async_wait(
         [&](auto, auto) {
-            LOG(INFO) << "Signal received";
+            spdlog::info("Signal received");
             io_context.stop();
         });
     io_context.run();
@@ -35,12 +34,16 @@ inline void waitForSignal()
 
 int main(int argc, char* argv[]) 
 {
-    google::InitGoogleLogging(argv[0]);
-    google::SetStderrLogging(google::INFO);
-    google::SetLogDestination(google::INFO, "");
-
+#if defined(__linux__) || defined(__APPLE__)
     if (geteuid() != 0) {
-        LOG(ERROR) << "You must be root to run this program." << std::endl;
+        std::cerr << "You must be root to run this program." << std::endl;
+        return EXIT_FAILURE;
+    }
+#endif
+    if (fptn::logger::init("fptn-server")) {
+        spdlog::info("Application started successfully.");
+    } else {
+        std::cerr << "Logger initialization failed. Exiting application." << std::endl;
         return EXIT_FAILURE;
     }
 
@@ -53,7 +56,7 @@ int main(int argc, char* argv[])
         || !std::filesystem::exists(options->getServerKey())
         || !std::filesystem::exists(options->getServerPub())
     ) {
-        LOG(ERROR) << "SSL certificate or key file does not exist!";
+        spdlog::error("SSL certificate or key file does not exist!");
         return EXIT_FAILURE;
     }
 
@@ -106,19 +109,22 @@ int main(int argc, char* argv[])
         prometheus
     );
 
-    LOG(INFO) << std::endl
-        << "Starting server"     << std::endl
-        << "VERSION:           " << FPTN_VERSION << std::endl
-        << "NETWORK INTERFACE: " << options->getOutNetworkInterface() << std::endl
-        << "VPN SERVER IP:     " << options->getTunInterfaceIP().toString() << std::endl
-        << "VPN SERVER PORT:   " << options->getServerPort() << std::endl
-        << std::endl;
+    spdlog::info("\nStarting server\n"
+        "VERSION:           {}\n"
+        "NETWORK INTERFACE: {}\n"
+        "VPN SERVER IP:     {}\n"
+        "VPN SERVER PORT:   {}\n",
+        FPTN_VERSION,
+        options->getOutNetworkInterface(),
+        options->getTunInterfaceIP().toString(),
+        options->getServerPort()
+    );
 
     /* start/wait/stop */
     manager.start();
     waitForSignal();
     manager.stop();
-    google::ShutdownGoogleLogging();
+    spdlog::shutdown();
 
     return EXIT_SUCCESS;
 }

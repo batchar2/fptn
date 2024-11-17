@@ -4,15 +4,14 @@
 using namespace fptn::gui;
 
 static QString formatSpeed(std::size_t bytesPerSec);
+static QString formatSpeedLabel(const QString &text, std::size_t speed);
 
 
 SpeedWidget::SpeedWidget(QWidget *parent)
     :
         QWidget(parent),
-        uploadSpeedText_("      " + QObject::tr("Upload speed") + ": "),
-        downloadSpeedText_("      " + QObject::tr("Download speed") + ": "),
-        uploadSpeedLabel_(new QLabel(uploadSpeedText_ + "0 MB/s", this)),
-        downloadSpeedLabel_(new QLabel(downloadSpeedText_ + "0 MB/s", this))
+        uploadSpeedLabel_(new QLabel(formatSpeedLabel(QObject::tr("Upload speed"), 0), this)),
+        downloadSpeedLabel_(new QLabel(formatSpeedLabel(QObject::tr("Download speed"), 0), this))
 {
     QVBoxLayout *layout = new QVBoxLayout();
     layout->setContentsMargins(4, 4, 4, 4);
@@ -22,8 +21,13 @@ SpeedWidget::SpeedWidget(QWidget *parent)
 }
 
 void SpeedWidget::updateSpeed(std::size_t uploadSpeed, std::size_t downloadSpeed) {
-    uploadSpeedLabel_->setText(uploadSpeedText_  + formatSpeed(uploadSpeed));
-    downloadSpeedLabel_->setText(downloadSpeedText_ + formatSpeed(downloadSpeed));
+    uploadSpeedLabel_->setText(formatSpeedLabel(QObject::tr("Upload speed"), uploadSpeed));
+    downloadSpeedLabel_->setText(formatSpeedLabel(QObject::tr("Download speed"), downloadSpeed));
+}
+
+static QString formatSpeedLabel(const QString &text, std::size_t speed)
+{
+    return "    " + text + ": " + formatSpeed(speed);
 }
 
 static QString formatSpeed(std::size_t bytesPerSec)

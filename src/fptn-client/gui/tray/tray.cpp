@@ -6,7 +6,7 @@
 #include <QApplication>
 #include <QWidgetAction>
 
-#include <glog/logging.h>
+#include <spdlog/spdlog.h>
 
 #include "gui/style/style.h"
 
@@ -95,6 +95,19 @@ TrayApp::TrayApp(const SettingsModelPtr &settings, QObject *parent)
 #else
     #error "Unsupported system!"
 #endif
+
+    const QString selectedLanguage = settings->languageCode();
+    if (selectedLanguage.isEmpty()) { // save default language for first start
+        const QString systemLanguage = getSystemLanguageCode();
+        if (settings->existsTranslation(systemLanguage)) {
+            settings->setLanguage(systemLanguage);
+        } else {
+            settings->setLanguage(settings->defaultLanguageCode());
+        }
+    } else {
+        setTranslation(selectedLanguage);
+    }
+
     connect(this, &TrayApp::defaultState, this, &TrayApp::handleDefaultState);
     connect(this, &TrayApp::connecting, this, &TrayApp::handleConnecting);
     connect(this, &TrayApp::connected, this, &TrayApp::handleConnected);
@@ -237,6 +250,13 @@ void TrayApp::updateTrayMenu()
             break;
         }
     }
+
+    // Apply the language translation based on the user's settings
+    QString selectedLanguage = settings_->languageCode();
+    if (!selectedLanguage.isEmpty()) {
+        setTranslation(selectedLanguage);
+    }
+    retranslateUi();
 }
 
 void TrayApp::onConnectToServer(const ServiceConfig &service)
@@ -263,15 +283,8 @@ void TrayApp::onDisconnectFromServer()
 
 void TrayApp::onShowSettings()
 {
-    if (!settingsWidget_) {
-        settingsWidget_ = new SettingsWidget(settings_, nullptr);
-    }
-    if (!settingsWidget_->isVisible()) {
-        settingsWidget_->show();
-    } else {
-        settingsWidget_->raise();
-        settingsWidget_->activateWindow();
-    }
+    auto dialog = std::make_unique<SettingsWidget>(settings_);
+    dialog->exec();
 }
 
 void TrayApp::handleDefaultState()
@@ -284,13 +297,12 @@ void TrayApp::handleDefaultState()
         ipTables_->clean();
         ipTables_.reset();
     }
-
     updateTrayMenu();
 }
 
 void TrayApp::handleConnecting()
 {
-    LOG(INFO) << "Handling connecting state";
+    spdlog::info("Handling connecting state");
     updateTrayMenu();
     trayIcon_->setIcon(QIcon(inactiveIconPath_));
 
@@ -306,7 +318,13 @@ void TrayApp::handleConnecting()
     if (usingGatewayIP == pcpp::IPv4Address("0.0.0.0")) {
         showError(
             QObject::tr("Connection Error"),
-            QObject::tr("Unable to find the default gateway IP address. Please specify the gateway address in the FPTN settings using your router's IP address, and ensure that an active internet interface (adapter) is selected. If the error persists, please contact the developer via Telegram @fptn_chat.")
+            QObject::tr(
+                "Unable to find the default gateway IP address. "
+                "Please check your connection and make sure no other VPN is active. "
+                "If the error persists, specify the gateway address in the FPTN settings using your router's IP address, "
+                "and ensure that an active internet interface (adapter) is selected. If the issue remains unresolved, "
+                "please contact the developer via Telegram @fptn_chat."
+            )
         );
         connectionState_ = ConnectionState::None;
         updateTrayMenu();
@@ -441,4 +459,54 @@ void TrayApp::updateSpeedWidget()
 void TrayApp::handleQuit()
 {
     QApplication::quit();
+}
+
+bool TrayApp::setTranslation(const QString& languageCode)
+{
+    const QString translationFile = QString("fptn_%1.qm").arg(languageCode);
+    qApp->removeTranslator(&translator_);
+    if (translator_.load(translationFile, ":/translations")) {
+        if (qApp->installTranslator(&translator_)) {
+            spdlog::info("Successfully loaded language: {}", languageCode.toStdString());
+            return true;
+        } else {
+            spdlog::warn("Failed to install translator for language: {}", languageCode.toStdString());
+        }
+    } else {
+        spdlog::warn("Translation file not found: {}", translationFile.toStdString());
+    }
+    return false;
+}
+
+QString TrayApp::getSystemLanguageCode() const
+{
+    const QLocale locale;
+    const QString localeName = locale.name();
+    if (localeName.contains('_')) {
+        const QString languageCode = locale.name().split('_').first();
+        return languageCode;
+    }
+    return "en";
+}
+
+void TrayApp::retranslateUi()
+{
+    if (connectMenu_) {
+        connectMenu_->setTitle(QObject::tr("Connect") + "    ");
+    }
+    if (settingsAction_) {
+        settingsAction_->setText(QObject::tr("Settings"));
+    }
+    if (quitAction_) {
+        quitAction_->setText(QObject::tr("Quit"));
+    }
+    if (connectingAction_) {
+        connectingAction_->setText(QObject::tr("Connecting..."));
+    }
+    if (disconnectAction_) {
+        const QString disconnectText = QString(QObject::tr("Disconnect") + ": %1 (%2)")
+                .arg(selectedService_.serviceName)
+                .arg(QString::fromStdString(selectedServer_.name));
+        disconnectAction_->setText(disconnectText);
+    }
 }

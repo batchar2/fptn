@@ -1,14 +1,13 @@
 #pragma once
 
-#include <memory>
+#include <string>
 
-#include <glog/logging.h>
 #include <argparse/argparse.hpp>
 #include <pcapplusplus/IpAddress.h>
 
+
 namespace fptn::cmd
 {
-
     class CmdOptions
     {
     public:

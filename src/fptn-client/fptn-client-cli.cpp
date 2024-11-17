@@ -4,12 +4,11 @@
 #include <unistd.h>
 #endif
 
-#include <glog/logging.h>
-
 #include <boost/asio.hpp>
 #include <boost/process.hpp>
 #include <argparse/argparse.hpp>
 
+#include <common/logger/logger.h>
 #include <common/network/net_interface.h>
 
 #include "vpn/vpn_client.h"
@@ -24,7 +23,7 @@ inline void waitForSignal()
     boost::asio::signal_set signals(io_context, SIGINT, SIGTERM);
     signals.async_wait(
         [&](auto, auto) {
-            LOG(INFO) << "Signal received";
+            spdlog::info("Signal received");
             io_context.stop();
         });
     io_context.run();
@@ -39,9 +38,12 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
 #endif
-    google::InitGoogleLogging(argv[0]);
-    google::SetStderrLogging(google::GLOG_INFO);
-    google::SetLogDestination(google::GLOG_INFO, "");
+    if (fptn::logger::init("fptn-client-cli")) {
+        spdlog::info("Application started successfully.");
+    } else {
+        std::cerr << "Logger initialization failed. Exiting application." << std::endl;
+        return EXIT_FAILURE;
+    }
 
     argparse::ArgumentParser args("fptn-client");
     // Required arguments
@@ -68,6 +70,7 @@ int main(int argc, char* argv[])
         std::cerr << args;
         return EXIT_FAILURE;
     }
+
     /* parse cmd args */
     const auto outNetworkInterfaceName = args.get<std::string>("--out-network-interface");
     const auto gatewayIP = pcpp::IPv4Address(args.get<std::string>("--gateway-ip"));
@@ -81,14 +84,19 @@ int main(int argc, char* argv[])
         : pcpp::IPv4Address(gatewayIP)
     );
     if (usingGatewayIP == pcpp::IPv4Address("0.0.0.0")) {
-        LOG(ERROR) << "Error: Unable to find the default gateway IP address. Please specify it using the \"--gateway-ip\" option." << std::endl;
+        spdlog::error("Unable to find the default gateway IP address. "
+                      "Please check your connection and make sure no other VPN is active. "
+                      "If the error persists, specify the gateway address in the FPTN settings using your router's IP "
+                      "address with the \"--gateway-ip\" option. If the issue "
+                      "remains unresolved, please contact the developer via Telegram @fptn_chat."
+        );
         return EXIT_FAILURE;
     }
 
     /* check config */
     const std::filesystem::path configPath = args.get<std::string>("--access-config");
     if (!std::filesystem::exists(configPath)) {
-        LOG(ERROR) << "Config file '"  << configPath << "' not found!";
+        spdlog::error("Config file '{}' not found!", configPath.string());
         return EXIT_FAILURE;
     }
     fptn::config::ConfigFile config(configPath);
@@ -97,13 +105,13 @@ int main(int argc, char* argv[])
         config.parse();
         selectedServer = config.findFastestServer();
     } catch (std::runtime_error &err) {
-        LOG(ERROR) << "Config error: " << err.what();
+        spdlog::error("Config error: {}", err.what());
         return EXIT_FAILURE;
     }
     const int serverPort = selectedServer.port;
     const auto serverIP = fptn::system::resolveDomain(selectedServer.host);
     if (serverIP == pcpp::IPv4Address("0.0.0.0")) {
-        LOG(ERROR) << "DNS resolve error: " << selectedServer.host;
+        spdlog::error("DNS resolve error: {}", selectedServer.host);
         return EXIT_FAILURE;
     }
 
@@ -116,12 +124,12 @@ int main(int argc, char* argv[])
     );
     const bool status = webSocketClient->login(config.getUsername(), config.getPassword());
     if (!status) {
-        LOG(ERROR) << "The username or password you entered is incorrect" << std::endl;
+        spdlog::error("The username or password you entered is incorrect");
         return EXIT_FAILURE;
     }
     const auto dnsServer = webSocketClient->getDns();
     if (dnsServer == pcpp::IPv4Address("0.0.0.0")) {
-        LOG(ERROR) << "DNS server error! Check your connection!" << std::endl;
+        spdlog::error("DNS server error! Check your connection!");
         return EXIT_FAILURE;
     }
 
@@ -148,14 +156,21 @@ int main(int argc, char* argv[])
     );
 
     /* loop */
-    LOG(INFO) << std::endl
-        << "VERSION:           " << FPTN_VERSION << std::endl
-        << "GATEWAY IP:        " << usingGatewayIP << std::endl
-        << "NETWORK INTERFACE: " << outNetworkInterfaceName << std::endl
-        << "VPN SERVER NAME:   " << selectedServer.name << std::endl
-        << "VPN SERVER IP:     " << selectedServer.host << std::endl
-        << "VPN SERVER PORT:   " << selectedServer.port << std::endl
-        << "TUN INTERFACE IP:  " << tunInterfaceAddress.toString() << std::endl;
+    spdlog::info("VERSION:           {}\n"
+        "GATEWAY IP:        {}\n"
+        "NETWORK INTERFACE: {}\n"
+        "VPN SERVER NAME:   {}\n"
+        "VPN SERVER IP:     {}\n"
+        "VPN SERVER PORT:   {}\n"
+        "TUN INTERFACE IP:  {}\n",
+        FPTN_VERSION,
+        usingGatewayIP.toString(),
+        outNetworkInterfaceName,
+        selectedServer.name,
+        selectedServer.host,
+        selectedServer.port,
+        tunInterfaceAddress.toString()
+    );
 
     vpnClient.start();
     std::this_thread::sleep_for(std::chrono::seconds(2)); // FIX IT!
@@ -166,7 +181,7 @@ int main(int argc, char* argv[])
     /* clean */
     iptables->clean();
     vpnClient.stop();
-    google::ShutdownGoogleLogging();
+    spdlog::shutdown();
 
     return EXIT_SUCCESS;
 }

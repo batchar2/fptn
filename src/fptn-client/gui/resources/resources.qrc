@@ -8,5 +8,6 @@
         <file>icons/white/inactive.ico</file>
 
         <file>translations/fptn_ru.qm</file>
+        <file>translations/fptn_en.qm</file>
     </qresource>
 </RCC>

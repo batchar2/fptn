@@ -8,24 +8,24 @@
 #include <QCloseEvent>
 #include <QTableWidget>
 
-
 #include "gui/settingsmodel/settingsmodel.h"
 
 
 namespace fptn::gui
 {
-    class SettingsWidget : public QWidget
+    class SettingsWidget : public QDialog //QWidget
     {
     Q_OBJECT
     public:
         explicit SettingsWidget(const SettingsModelPtr& settings, QWidget *parent = nullptr);
     protected:
         void setupUi();
-        void closeEvent(QCloseEvent *event);
     private slots:
         void saveModel();
         void loadNewConfig();
         void removeServer(int row);
+
+        //void retranslateUi();
     private:
         SettingsModelPtr settings_;
 

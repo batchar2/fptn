@@ -1,6 +1,6 @@
 #include <fmt/format.h>
 #include <openssl/ssl.h>
-#include <glog/logging.h>
+#include <spdlog/spdlog.h>
 #include <nlohmann/json.hpp>
 
 #include <common/protobuf/protocol.h>
@@ -74,11 +74,11 @@ bool WebSocketClient::login(const std::string& username, const std::string& pass
         cli.set_read_timeout(5, 0);  // 5 seconds
         cli.set_write_timeout(5, 0); // 5 seconds
         if (SSL_CTX_set_cipher_list(cli.ssl_context(), chromeCiphers) != 1) {
-            LOG(ERROR) << "Failed to set cipher list" << std::endl;
+            spdlog::error("Failed to set cipher list");
             return false;
         }
     }
-    LOG(INFO) << "Login. Connect to " << vpnServerIP_.toString() << ":" << vpnServerPort_;
+    spdlog::info("Login. Connect to {}:{}", vpnServerIP_.toString(), vpnServerPort_);
     const std::string request = fmt::format(R"({{ "username": "{}", "password": "{}" }})", username, password);
     if (auto res = cli.Post("/api/v1/login", getRealBrowserHeaders(), request, "application/json")) {
         if (res->status == httplib::StatusCode::OK_200) {
@@ -86,27 +86,27 @@ bool WebSocketClient::login(const std::string& username, const std::string& pass
                 auto response = nlohmann::json::parse(res->body);
                 if (response.contains("access_token")) {
                     token_ = response["access_token"];
-                    LOG(INFO) << "Login successful.";
+                    spdlog::info("Login successful");
                     return true;
                 } else {
-                    LOG(ERROR) << "Error: Access token not found in the response. Check your conection";
+                    spdlog::error("Error: Access token not found in the response. Check your conection");
                 }
             } catch (const nlohmann::json::parse_error& e) {
-                LOG(ERROR) << "Error parsing JSON response: " << e.what() << std::endl << res->body;
+                spdlog::error("Error parsing JSON response: {}  {}", e.what(), res->body);
             }
         } else {
-            LOG(ERROR) << "Error: " << res->body;
+            spdlog::error("Error: {}", res->body);
         }
     } else {
         auto error = res.error();
-        LOG(ERROR) << "Error: Request failed or response is null." << to_string(error);
+        spdlog::error("Error: Request failed or response is null. {}", to_string(error));
     }
     return false;
 }
 
 pcpp::IPv4Address WebSocketClient::getDns() noexcept
 {
-    LOG(INFO) << "DNS. Connect to " << vpnServerIP_.toString() << ":" << vpnServerPort_;
+    spdlog::info("DNS. Connect to {}:{}", vpnServerIP_.toString(), vpnServerPort_);
     httplib::SSLClient cli(vpnServerIP_.toString(), vpnServerPort_);
     {
         cli.enable_server_certificate_verification(false); // NEED TO FIX
@@ -114,7 +114,7 @@ pcpp::IPv4Address WebSocketClient::getDns() noexcept
         cli.set_read_timeout(5, 0);  // 5 seconds
         cli.set_write_timeout(5, 0); // 5 seconds
         if (SSL_CTX_set_cipher_list(cli.ssl_context(), chromeCiphers) != 1) {
-            LOG(ERROR) << "Failed to set cipher list" << std::endl;
+            spdlog::info("Failed to set cipher list");
             return pcpp::IPv4Address("0.0.0.0");
         }
     }
@@ -126,16 +126,16 @@ pcpp::IPv4Address WebSocketClient::getDns() noexcept
                     const std::string dnsServer = response["dns"];
                     return pcpp::IPv4Address(dnsServer);
                 } else {
-                    LOG(ERROR) << "Error: dns not found in the response. Check your conection";
+                    spdlog::error("Error: dns not found in the response. Check your conection");
                 }
             } catch (const nlohmann::json::parse_error& e) {
-                LOG(ERROR) << "Error parsing JSON response: " << e.what() << std::endl << res->body;
+                spdlog::error("Error parsing JSON response: {} {}", e.what(), res->body);
             }
         } else {
-            LOG(ERROR) << "Error: " << res->body;
+            spdlog::error("Error: {}", res->body);
         }
     } else {
-        LOG(ERROR) << "Error: Request failed or response is null.";
+        spdlog::error("Error: Request failed or response is null.");
     }
     return pcpp::IPv4Address("0.0.0.0");
 }
@@ -150,14 +150,14 @@ AsioSslContextPtr WebSocketClient::onTlsInit() noexcept
                          boost::asio::ssl::context::no_sslv3
         );
         if (SSL_CTX_set_cipher_list(ctx->native_handle(), chromeCiphers) != 1) {
-            LOG(ERROR) << "Failed to set cipher list" << std::endl;
+            spdlog::error("Failed to set cipher list");
         }
         ctx->set_verify_mode(boost::asio::ssl::verify_none);
         // to trust
         // ctx->load_verify_file("path_to_your_cert.pem");
         // ctx->set_verify_mode(boost::asio::ssl::verify_peer);
     } catch (std::exception &e) {
-        LOG(ERROR) << "Error in context pointer: " << e.what() << std::endl;
+        spdlog::error("Error in context pointer: {}", e.what());
     }
     return ctx;
 }
@@ -171,15 +171,15 @@ void WebSocketClient::onMessage(websocketpp::connection_hdl hdl, AsioMessagePtr 
             newIPPktCallback_(std::move(packet));
         }
     } catch (const fptn::common::protobuf::protocol::ProcessingError &err) {
-        LOG(ERROR) << "Processing error: " << err.what();
+        spdlog::error("Processing error: {}", err.what());
         //const std::string msg = fptn::common::protobuf::protocol::createError(err.what(), fptn::protocol::ERROR_DEFAULT);
     } catch (const fptn::common::protobuf::protocol::MessageError &err) {
-        LOG(ERROR) << "Message error: " << err.what();
+        spdlog::error("Message error: {}", err.what());
     } catch (const fptn::common::protobuf::protocol::UnsoportedProtocolVersion &err) {
-        LOG(ERROR) << "Unsupported protocol version: " << err.what();
+        spdlog::error("Unsupported protocol version: {}", err.what());
         //const std::string msg = fptn::common::protobuf::protocol::createError(err.what(), fptn::protocol::ERROR_WRONG_VERSION);
     } catch(...) {
-        LOG(ERROR) << "Unexpected error: ";
+        spdlog::error("Unexpected error!");
     }
 }
 
@@ -203,9 +203,9 @@ bool WebSocketClient::send(fptn::common::network::IPPacketPtr packet) noexcept
             return true;
         }
     } catch (const std::runtime_error &err) {
-        LOG(ERROR) << "Send error: " << err.what();
+        spdlog::error("Send error: {}", err.what());
     } catch (const std::exception &e) {
-        LOG(ERROR) << "Exception occurred: " << e.what();
+        spdlog::error("Exception occurred: {}", e.what());
     }
     return false;
 }
@@ -223,7 +223,7 @@ void WebSocketClient::run() noexcept
             websocketpp::lib::error_code ec;
             connection_ = ws_.get_connection(url, ec);
             if (ec) {
-                LOG(ERROR) << "Could not create connection because: " << ec.message() << std::endl;
+                spdlog::error("Could not create connection because: {}", ec.message());
             }
             /* adding a real headers */
             httplib::Headers headers = getRealBrowserHeaders();
@@ -246,7 +246,7 @@ void WebSocketClient::run() noexcept
             connection_.reset();
             ws_.reset();
         }
-        LOG(ERROR) << "Connection closed";
+        spdlog::error("Connection closed");
     }
 }
 

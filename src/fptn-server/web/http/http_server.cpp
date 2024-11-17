@@ -1,5 +1,5 @@
 #include <fmt/format.h>
-#include <glog/logging.h>
+#include <spdlog/spdlog.h>
 
 #include <common/utils/utils.h>
 
@@ -131,7 +131,7 @@ int HttpServer::onHomeHandle(HttpRequest* req, HttpResponse* resp) noexcept
 
 int HttpServer::onDnsHandle(HttpRequest* req, HttpResponse* resp) noexcept
 {
-    LOG(INFO) << urlDns_;
+    spdlog::info("{}", urlDns_);
     resp->SetHeader("Content-Type", "application/json; charset=utf-8");
     resp->String(
         fmt::format(R"({{"dns": "{}"}})", dnsServer_.toString())
@@ -147,7 +147,7 @@ int HttpServer::onStatistics(HttpRequest* req, HttpResponse* resp) noexcept
 
 int HttpServer::onLoginHandle(HttpRequest* req, HttpResponse* resp) noexcept
 {
-    LOG(INFO) << urlLogin_;
+    spdlog::info("{}", urlLogin_);
     resp->SetHeader("Content-Type", "application/json; charset=utf-8");
     try {
         auto request = nlohmann::json::parse(req->Body());
@@ -155,7 +155,7 @@ int HttpServer::onLoginHandle(HttpRequest* req, HttpResponse* resp) noexcept
         const auto password = request.at("password").get<std::string>();
         int bandwidthBit = 0;
         if (userManager_->login(username, password, bandwidthBit)) {
-            LOG(INFO) << "Successful login for user " << username;
+            spdlog::info("Successful login for user {}", username);
             const auto tokens = tokenManager_->generate(username, bandwidthBit);
             resp->String(
                 fmt::format(
@@ -167,18 +167,18 @@ int HttpServer::onLoginHandle(HttpRequest* req, HttpResponse* resp) noexcept
             );
             return 200;
         }
-        LOG(WARNING) << "Wrong password for user: \"" << username << "\"" ;
+        spdlog::warn("Wrong password for user: \"{}\" ", username);
         resp->String(R"({"status": "error", "message": "Invalid login or password."})");
     } catch (const nlohmann::json::exception& e) {
-        LOG(ERROR) << "HTTP JSON AUTH ERROR: " << e.what();
+        spdlog::error("HTTP JSON AUTH ERROR: {}", e.what());
         resp->String(R"({"status": "error", "message": "Invalid JSON format."})");
         return 400;
     } catch (const std::exception& e) {
-        LOG(ERROR) << "HTTP AUTH ERROR: " << e.what();
+        spdlog::error("HTTP AUTH ERROR: {}", e.what());
         resp->String(R"({"status": "error", "message": "An unexpected error occurred."})");
         return 500;
     } catch(...) {
-        LOG(ERROR) << "UNDEFINED SERVER ERROR";
+        spdlog::error("UNDEFINED SERVER ERROR");
         resp->String(R"({"status": "error", "message": "Undefined server error"})");
         return 501;
     }
@@ -187,7 +187,7 @@ int HttpServer::onLoginHandle(HttpRequest* req, HttpResponse* resp) noexcept
 
 int HttpServer::onTestFileBin(HttpRequest* req, HttpResponse* resp) noexcept
 {
-    LOG(INFO) << urlTestFileBin_;
-    static const std::string data = fptn::common::utils::generateRandomString(100*1024);  // 100KB
+    spdlog::info("{}", urlTestFileBin_);
+    static const std::string data = fptn::common::utils::generateRandomString(150*1024);  // 150KB
     return resp->String(data);
 }

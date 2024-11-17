@@ -1,5 +1,5 @@
 #include <fmt/format.h>
-#include <glog/logging.h>
+#include <spdlog/spdlog.h>
 #include <nlohmann/json.hpp>
 
 #include "user_manager.h"
@@ -35,7 +35,7 @@ bool UserManager::login(const std::string &username, const std::string &password
 {
     bandwidthBit = 0; // reset
     if (useRemoteServer_) {
-        LOG(INFO) << "Login request to " << remoteServerIP_ << ":" << remoteServerPort_;
+        spdlog::info("Login request to {}:{}", remoteServerIP_, remoteServerPort_);
         std::string request = fmt::format(R"({{ "username": "{}", "password": "{}" }})",username, password);
         if (auto res = httpClient_->Post("/api/v1/login", request, "application/json")) {
             if (res->status == httplib::StatusCode::OK_200) {
@@ -45,16 +45,16 @@ bool UserManager::login(const std::string &username, const std::string &password
                         bandwidthBit = response["bandwidth_bit"].get<int>();
                         return true;
                     }
-                    LOG(ERROR) << "User manager error: Access token not found in the response. Check your connection";
+                    spdlog::info("User manager error: Access token not found in the response. Check your connection");
                 } catch (const nlohmann::json::parse_error& e) {
-                    LOG(ERROR) << "User manager: Error parsing JSON response: " << e.what() << std::endl << res->body;
+                    spdlog::info("User manager: Error parsing JSON response: {}\n{}", e.what(), res->body);
                 }
             } else {
-                LOG(ERROR) << "User manager: " << res->body;
+                spdlog::info("User manager: {}", res->body);
             }
         } else {
             auto error = res.error();
-            LOG(ERROR) << "User manager: request failed or response is null." << to_string(error);
+            spdlog::info("User manager: request failed or response is null. {}", to_string(error));
         }
     } else if (commonManager_->authenticate(username, password)) {
         bandwidthBit = commonManager_->getUserBandwidthBit(username);

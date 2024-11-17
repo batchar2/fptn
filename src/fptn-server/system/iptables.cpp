@@ -3,11 +3,12 @@
 #include <vector>
 
 #include <fmt/format.h>
-#include <glog/logging.h>
+#include <spdlog/spdlog.h>
 #include <boost/process.hpp>
 
 
 using namespace fptn::system;
+
 
 static bool runCommand(const std::string& command);
 
@@ -37,7 +38,7 @@ bool IPTables::check() noexcept
 
 bool IPTables::apply() noexcept
 {
-    LOG(INFO)<< "=== Setting up routing ===";
+    spdlog::info("=== Setting up routing ===");
 #ifdef __linux__ 
     const std::vector<std::string> commands = {
         "sysctl -w net.ipv4.ip_forward=1",
@@ -63,10 +64,10 @@ bool IPTables::apply() noexcept
     init_ = true;
     for (const auto& cmd : commands) {
         if (!runCommand(cmd)) {
-            LOG(WARNING) << "COMMAND ERORR: " << cmd;
+            spdlog::error("COMMAND ERORR: {}", cmd);
         }
     }
-    LOG(INFO)<< "=== Routing setup completed successfully ===";
+    spdlog::info("=== Routing setup completed successfully ===");
     return true;
 }
 
@@ -110,7 +111,7 @@ static bool runCommand(const std::string& command)
             return true;
         }
     } catch (const std::exception& e) {
-        LOG(ERROR)<< "IPTables error: " << e.what();
+        spdlog::error("IPTables error: {}", e.what());
     }
     return false;
 }

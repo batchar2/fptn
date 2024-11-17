@@ -5,7 +5,7 @@
 #include <filesystem>
 
 #include <fmt/format.h>
-#include <glog/logging.h>
+#include <spdlog/spdlog.h>
 #include <nlohmann/json.hpp>
 #include <httplib/httplib.h>
 
@@ -73,12 +73,11 @@ ConfigFile::Server ConfigFile::findFastestServer() const
         const std::uint64_t time = futures[i].get();
         times[i] = time;
         if (time != static_cast<std::uint64_t>(-1)) {
-            LOG(INFO) << "Server reachable: " << servers_[i].name
-            << " at " << servers_[i].host << ":" << servers_[i].port
-            << " - Download time: " << time << " ms";
+            spdlog::info("Server reachable: {} at {}:{} - Download time: {}ms",
+                         servers_[i].name, servers_[i].host, servers_[i].port, time);
         } else {
-            LOG(WARNING) << "Server unreachable: " << servers_[i].name
-            << " at " << servers_[i].host << ":" << servers_[i].port;
+            spdlog::warn("Server unreachable: {} at {}:{}",
+                         servers_[i].name, servers_[i].host, servers_[i].port);
         }
     }
     auto minTimeIt = std::min_element(times.begin(), times.end());
@@ -105,16 +104,13 @@ std::uint64_t ConfigFile::getDownloadTimeMs(const Server& server) const noexcept
                 auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
                 return duration;
             }
-            LOG(ERROR) << "Server responded with an error: " << std::to_string(res->status)
-            << "  " << server.name
-            << " (" << server.host << ":" << server.port << ")";
+            spdlog::error("Server responded with an error: {} {} ({}:{})",
+                          std::to_string(res->status), server.name, server.host, server.port);
         } else {
-            LOG(ERROR) << "Failed to connect to the server: "
-            << server.name
-            << " (" << server.host << ":" << server.port << ")";
+            spdlog::error("Failed to connect to the server: {} ({}:{})", server.name, server.host, server.port);
         }
     } catch (const std::exception& e) {
-        LOG(ERROR) << "Error while downloading from server: " << e.what();
+        spdlog::error("Error while downloading from server: {}", e.what());
     }
     return -1;
 }
