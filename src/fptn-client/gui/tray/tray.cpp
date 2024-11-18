@@ -95,14 +95,13 @@ TrayApp::TrayApp(const SettingsModelPtr &settings, QObject *parent)
 #else
     #error "Unsupported system!"
 #endif
-
     const QString selectedLanguage = settings->languageCode();
     if (selectedLanguage.isEmpty()) { // save default language for first start
         const QString systemLanguage = getSystemLanguageCode();
         if (settings->existsTranslation(systemLanguage)) {
-            settings->setLanguage(systemLanguage);
+            settings->setLanguageCode(systemLanguage);
         } else {
-            settings->setLanguage(settings->defaultLanguageCode());
+            settings->setLanguageCode(settings->defaultLanguageCode());
         }
     } else {
         setTranslation(selectedLanguage);
@@ -146,6 +145,7 @@ void TrayApp::updateTrayMenu()
     }
     if (trayMenu_ && connectMenu_) {
         trayMenu_->removeAction(connectMenu_->menuAction());
+        smartConnectAction_ = nullptr;
     }
 
     switch (connectionState_) {
@@ -154,12 +154,12 @@ void TrayApp::updateTrayMenu()
             const auto& services = settings_->services();
             if (!services.isEmpty()) {
                 // auto
-                auto smartConnectAction = new QAction(QObject::tr("Smart Connect"), connectMenu_);
-                connect(smartConnectAction, &QAction::triggered, [this]() {
+                smartConnectAction_ = new QAction(QObject::tr("Smart Connect"), connectMenu_);
+                connect(smartConnectAction_, &QAction::triggered, [this]() {
                     smartConnect_ = true;
                     onConnectToServer();
                 });
-                connectMenu_->addAction(smartConnectAction);
+                connectMenu_->addAction(smartConnectAction_);
 
                 connectMenu_->addSeparator();
 
@@ -176,7 +176,9 @@ void TrayApp::updateTrayMenu()
                                 cfgServer.host = server.host.toStdString();
                                 cfgServer.port = server.port;
                                 cfgServer.isUsing = server.isUsing;
-                                cfgServer.service = service;
+                                cfgServer.serviceName = service.serviceName.toStdString();
+                                cfgServer.username = service.username.toStdString();
+                                cfgServer.password = service.password.toStdString();
                             }
                             selectedServer_ = cfgServer;
                             onConnectToServer();
@@ -231,7 +233,7 @@ void TrayApp::updateTrayMenu()
                 disconnectAction_->setText(
                     QString(QObject::tr("Disconnect") + ": %1 (%2)")
                         .arg(QString::fromStdString(selectedServer_.name))
-                        .arg(selectedServer_.service.serviceName)
+                        .arg(QString::fromStdString(selectedServer_.serviceName))
                 );
                 disconnectAction_->setVisible(true);
             }
@@ -372,7 +374,9 @@ void TrayApp::handleConnecting()
                     cfgServer.host = s.host.toStdString();
                     cfgServer.port = s.port;
                     cfgServer.isUsing = s.isUsing;
-                    cfgServer.service = service;
+                    cfgServer.serviceName = service.serviceName.toStdString();
+                    cfgServer.username = service.username.toStdString();
+                    cfgServer.password = service.password.toStdString();
                 }
                 config.addServer(cfgServer);
             }
@@ -410,17 +414,15 @@ void TrayApp::handleConnecting()
         return;
     }
 
-
     auto webSocketClient = std::make_unique<fptn::http::WebSocketClient>(
         serverIP,
         serverPort,
         tunInterfaceAddress,
         true
     );
-
     bool loginStatus = webSocketClient->login(
-        selectedServer_.service.username.toStdString(),
-        selectedServer_.service.password.toStdString()
+        selectedServer_.username,
+        selectedServer_.password
     );
 
     if (!loginStatus) {
@@ -461,7 +463,7 @@ void TrayApp::handleConnecting()
         dnsServer
     );
     vpnClient_->start();
-    std::this_thread::sleep_for(std::chrono::seconds(2)); // FIX IT!
+    std::this_thread::sleep_for(std::chrono::seconds(3)); // FIX IT!
     ipTables_->apply();
 
     connectionState_ = ConnectionState::Connected;
@@ -544,10 +546,13 @@ void TrayApp::retranslateUi()
     if (connectingAction_) {
         connectingAction_->setText(QObject::tr("Connecting..."));
     }
+    if (smartConnectAction_) {
+        smartConnectAction_->setText(QObject::tr("Smart Connect"));
+    }
     if (disconnectAction_) {
         const QString disconnectText = QString(QObject::tr("Disconnect") + ": %1 (%2)")
             .arg(QString::fromStdString(selectedServer_.name))
-            .arg(selectedServer_.service.serviceName);
+            .arg(QString::fromStdString(selectedServer_.serviceName));
         disconnectAction_->setText(disconnectText);
     }
 }

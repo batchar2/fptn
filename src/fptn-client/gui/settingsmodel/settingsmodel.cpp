@@ -133,6 +133,16 @@ void SettingsModel::setLanguage(const QString& languageName)
     save();
 }
 
+void SettingsModel::setLanguageCode(const QString& languageCode)
+{
+    for (auto it = languages_.begin(); it != languages_.end(); ++it) {
+        if (languageCode == it.key()) {
+            selectedLanguage_ = languageCode;
+        }
+    }
+    save();
+}
+
 const QVector<QString> SettingsModel::getLanguages() const
 {
     QVector<QString> languages;

@@ -4,8 +4,6 @@
 #include <vector>
 #include <filesystem>
 
-#include "gui/settingsmodel/settingsmodel.h"
-
 
 namespace fptn::config
 {
@@ -18,7 +16,11 @@ namespace fptn::config
             std::string host;
             int port;
             bool isUsing;
-            fptn::gui::ServiceConfig service;
+
+            // FIX USING FOR CLI
+            std::string username;
+            std::string password;
+            std::string serviceName;
         };
     public:
         ConfigFile() = default;

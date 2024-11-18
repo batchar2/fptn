@@ -27,6 +27,7 @@
 #include "config/config_file.h"
 #include "http/websocket_client.h"
 
+
 namespace fptn::gui
 {
     class TrayApp : public QObject
@@ -75,6 +76,7 @@ namespace fptn::gui
         QSystemTrayIcon *trayIcon_ = nullptr;
         QMenu *trayMenu_ = nullptr;
         QMenu *connectMenu_ = nullptr;
+        QAction *smartConnectAction_ = nullptr;
         QAction *disconnectAction_ = nullptr;
         QAction *settingsAction_ = nullptr;
         QAction *quitAction_ = nullptr;
@@ -87,8 +89,6 @@ namespace fptn::gui
 
         QString activeIconPath_;
         QString inactiveIconPath_;
-
-//        fptn::config::ConfigFile::Server selectedServer_;
 
         fptn::vpn::VpnClientPtr vpnClient_;
         fptn::system::IPTablesPtr ipTables_;

@@ -13,11 +13,11 @@ namespace fptn::gui
 {
 /*
 {
-     "gateway_ip": "auto",
-     "language": "en",
-     "network_interface": "auto",
-     "services": [
-         {
+    "gateway_ip": "auto",
+    "language": "en",
+    "network_interface": "auto",
+    "services": [
+        {
             "version": 1,
             "service_name": "FPTN.ONLINE",
             "username": "test",
@@ -35,8 +35,8 @@ namespace fptn::gui
                     }
                 ]
             }
-         }
-     ]
+        }
+    ]
 }
 */
 
@@ -87,6 +87,7 @@ namespace fptn::gui
 
         const QString languageName() const;
         void setLanguage(const QString& language);
+        void setLanguageCode(const QString& languageCode);
 
         const QVector<QString> getLanguages() const;
 
