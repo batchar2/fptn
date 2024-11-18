@@ -4,6 +4,8 @@
 #include <vector>
 #include <filesystem>
 
+#include "gui/settingsmodel/settingsmodel.h"
+
 
 namespace fptn::config
 {
@@ -16,6 +18,7 @@ namespace fptn::config
             std::string host;
             int port;
             bool isUsing;
+            fptn::gui::ServiceConfig service;
         };
     public:
         ConfigFile() = default;
@@ -29,7 +32,7 @@ namespace fptn::config
         std::string getUsername() const noexcept;
         std::string getPassword() const  noexcept;
         std::vector<Server> getServers() const noexcept;
-    private:
+    public:
         std::uint64_t getDownloadTimeMs(const Server& server) const noexcept;
     private:
         std::filesystem::path path_;

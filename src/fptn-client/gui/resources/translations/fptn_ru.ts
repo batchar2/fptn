@@ -148,5 +148,18 @@
             <source>Language</source>
             <translation>Язык</translation>
         </message>
+
+        <message>
+            <source>Smart Connect</source>
+            <translation>Умное подключение</translation>
+        </message>
+        <message>
+            <source>Connection Error</source>
+            <translation>Ошибка подключения</translation>
+        </message>
+        <message>
+            <source>The server is unavailable. Please select another server or use Auto-connect to find the best available server.</source>
+            <translation>Сервер недоступен. Пожалуйста, выберите другой сервер или используйте функцию автоподключения для выбора лучшего доступного сервера.</translation>
+        </message>
     </context>
 </TS>

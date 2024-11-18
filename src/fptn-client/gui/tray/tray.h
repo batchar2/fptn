@@ -52,7 +52,7 @@ namespace fptn::gui
         void connected();
         void disconnecting();
     private slots:
-        void onConnectToServer(const ServiceConfig &service);
+        void onConnectToServer();
         void onDisconnectFromServer();
         void onShowSettings();
         void handleDefaultState();
@@ -66,6 +66,9 @@ namespace fptn::gui
         void updateTrayMenu();
     private:
         QTranslator translator_;
+
+        bool smartConnect_ = false;
+        fptn::config::ConfigFile::Server selectedServer_;
 
         SettingsModelPtr settings_;
 
@@ -85,8 +88,7 @@ namespace fptn::gui
         QString activeIconPath_;
         QString inactiveIconPath_;
 
-        ServiceConfig selectedService_;
-        fptn::config::ConfigFile::Server selectedServer_;
+//        fptn::config::ConfigFile::Server selectedServer_;
 
         fptn::vpn::VpnClientPtr vpnClient_;
         fptn::system::IPTablesPtr ipTables_;

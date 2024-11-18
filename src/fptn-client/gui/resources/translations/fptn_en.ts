@@ -148,5 +148,18 @@
             <source>Language</source>
             <translation>Language</translation>
         </message>
+
+        <message>
+            <source>Smart Connect</source>
+            <translation>Smart Connect</translation>
+        </message>
+        <message>
+            <source>Connection Error</source>
+            <translation>Connection Error</translation>
+        </message>
+        <message>
+            <source>The server is unavailable. Please select another server or use Auto-connect to find the best available server.</source>
+            <translation>The server is unavailable. Please select another server or use Auto-connect to find the best available server.</translation>
+        </message>
     </context>
 </TS>

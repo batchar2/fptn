@@ -151,14 +151,39 @@ void TrayApp::updateTrayMenu()
     switch (connectionState_) {
         case ConnectionState::None: {
             trayIcon_->setIcon(QIcon(inactiveIconPath_));
-            for (const auto &service : settings_->services()) {
-                QAction *serverAction = new QAction(
-                    QString("%1").arg(service.serviceName), this
-                );
-                connect(serverAction, &QAction::triggered, [this, service]() {
-                    onConnectToServer(service);
+            const auto& services = settings_->services();
+            if (!services.isEmpty()) {
+                // auto
+                auto smartConnectAction = new QAction(QObject::tr("Smart Connect"), connectMenu_);
+                connect(smartConnectAction, &QAction::triggered, [this]() {
+                    smartConnect_ = true;
+                    onConnectToServer();
                 });
-                connectMenu_->addAction(serverAction);
+                connectMenu_->addAction(smartConnectAction);
+
+                connectMenu_->addSeparator();
+
+                // servers
+                for (const auto &service : services) {
+                    for (const auto &server : service.servers) {
+                        auto serverConnect = new QAction(server.name, connectMenu_);
+                        connect(serverConnect, &QAction::triggered, [this, server, service]() {
+                            smartConnect_ = false;
+
+                            fptn::config::ConfigFile::Server cfgServer;
+                            {
+                                cfgServer.name = server.name.toStdString();
+                                cfgServer.host = server.host.toStdString();
+                                cfgServer.port = server.port;
+                                cfgServer.isUsing = server.isUsing;
+                                cfgServer.service = service;
+                            }
+                            selectedServer_ = cfgServer;
+                            onConnectToServer();
+                        });
+                        connectMenu_->addAction(serverConnect);
+                    }
+                }
             }
             trayMenu_->insertMenu(settingsAction_, connectMenu_);
             if (disconnectAction_) {
@@ -205,8 +230,8 @@ void TrayApp::updateTrayMenu()
             if (disconnectAction_) {
                 disconnectAction_->setText(
                     QString(QObject::tr("Disconnect") + ": %1 (%2)")
-                        .arg(selectedService_.serviceName)
                         .arg(QString::fromStdString(selectedServer_.name))
+                        .arg(selectedServer_.service.serviceName)
                 );
                 disconnectAction_->setVisible(true);
             }
@@ -259,9 +284,8 @@ void TrayApp::updateTrayMenu()
     retranslateUi();
 }
 
-void TrayApp::onConnectToServer(const ServiceConfig &service)
+void TrayApp::onConnectToServer()
 {
-    selectedService_ = service;
     connectionState_ = ConnectionState::Connecting;
     updateTrayMenu();
     emit connecting();
@@ -284,6 +308,7 @@ void TrayApp::onDisconnectFromServer()
 void TrayApp::onShowSettings()
 {
     auto dialog = std::make_unique<SettingsWidget>(settings_);
+    QMetaObject::invokeMethod(dialog.get(), "setFocus", Qt::QueuedConnection);
     dialog->exec();
 }
 
@@ -337,19 +362,22 @@ void TrayApp::handleConnecting()
         : settings_->networkInterface().toStdString()
     );
 
-    // find the best server
     fptn::config::ConfigFile config;
-    selectedServer_ = fptn::config::ConfigFile::Server();
-    {
-        for (const auto &s: selectedService_.servers) {
-            fptn::config::ConfigFile::Server cfgServer;
-            cfgServer.name = s.name.toStdString();
-            cfgServer.host = s.host.toStdString();
-            cfgServer.port = s.port;
-            cfgServer.isUsing = s.isUsing;
-            config.addServer(cfgServer);
+    if (smartConnect_) { // find the best server
+        for (const auto& service : settings_->services()) {
+            for (const auto &s: service.servers) {
+                fptn::config::ConfigFile::Server cfgServer;
+                {
+                    cfgServer.name = s.name.toStdString();
+                    cfgServer.host = s.host.toStdString();
+                    cfgServer.port = s.port;
+                    cfgServer.isUsing = s.isUsing;
+                    cfgServer.service = service;
+                }
+                config.addServer(cfgServer);
+            }
         }
-        try{
+        try {
             selectedServer_ = config.findFastestServer();
         } catch (std::runtime_error &err) {
             showError(QObject::tr("Config error"), err.what());
@@ -357,7 +385,20 @@ void TrayApp::handleConnecting()
             updateTrayMenu();
             return;
         }
+    } else {
+        // check connection to selected server
+        const std::uint64_t time = config.getDownloadTimeMs(selectedServer_);
+        if (time == -1) {
+            showError(
+                QObject::tr("Connection Error"),
+                QString(QObject::tr("The server is unavailable. Please select another server or use Auto-connect to find the best available server."))
+                    .arg(QString::fromStdString(selectedServer_.host)));
+            connectionState_ = ConnectionState::None;
+            updateTrayMenu();
+            return;
+        }
     }
+
     const int serverPort = selectedServer_.port;
     const auto serverIP = fptn::system::resolveDomain(selectedServer_.host);
     if (serverIP == pcpp::IPv4Address("0.0.0.0")) {
@@ -378,8 +419,8 @@ void TrayApp::handleConnecting()
     );
 
     bool loginStatus = webSocketClient->login(
-        selectedService_.username.toStdString(),
-        selectedService_.password.toStdString()
+        selectedServer_.service.username.toStdString(),
+        selectedServer_.service.password.toStdString()
     );
 
     if (!loginStatus) {
@@ -505,8 +546,8 @@ void TrayApp::retranslateUi()
     }
     if (disconnectAction_) {
         const QString disconnectText = QString(QObject::tr("Disconnect") + ": %1 (%2)")
-                .arg(selectedService_.serviceName)
-                .arg(QString::fromStdString(selectedServer_.name));
+            .arg(QString::fromStdString(selectedServer_.name))
+            .arg(selectedServer_.service.serviceName);
         disconnectAction_->setText(disconnectText);
     }
 }
