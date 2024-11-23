@@ -1,0 +1,13 @@
+{
+    "version": 1,
+    "service_name": "FPTN.ONLINE",
+    "username": "username",
+    "password": "password",
+    "servers": [
+        {
+            "name": "ServerName",
+            "host": "127.0.0.1",
+            "port": 443
+        }
+    ]
+}

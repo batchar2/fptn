@@ -5,4 +5,8 @@
     <string name="app_name">FptnClient</string>
     <string name="start_service">Start</string>
     <string name="stop_service">Stop</string>
+
+    <string name="action_send_intent_name_protobuf_data">protobufData</string>
+    <string name="action_send_to_websocket">SEND_TO_WEBSOCKET</string>
+    <string name="action_send_to_tun_interface">SEND_TO_TUN_INTERFACE</string>
 </resources>

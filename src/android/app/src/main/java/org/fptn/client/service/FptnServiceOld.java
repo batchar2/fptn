@@ -10,7 +10,7 @@ import androidx.annotation.Nullable;
 //import org.fptn.client.service.vpn.FptnVpnService;
 //import org.fptn.client.service.vpn.FptnVpnServiceOld;
 import org.fptn.client.service.websocket.WebSocketCallback;
-import org.fptn.client.service.websocket.WebSocketClient;
+import org.fptn.client.service.websocket.WebSocketClientOld;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -19,7 +19,7 @@ public class FptnServiceOld extends Service {
     private ExecutorService webSocketExecutor;
 
 
-    private WebSocketClient webSocket = null;
+    private WebSocketClientOld webSocket = null;
 //    private FptnVpnServiceOld vpnService = null;
 
     private static final String LOG_TAG = "FptnServiceTag";
@@ -40,7 +40,7 @@ public class FptnServiceOld extends Service {
         String password = intent.getStringExtra("password");
 
 
-        webSocket = new WebSocketClient(
+        webSocket = new WebSocketClientOld(
             host, port, username, password,
             new WebSocketCallback() {
                 @Override

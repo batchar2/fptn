@@ -36,12 +36,29 @@
 <!--        </service>-->
         <service
             android:name="org.fptn.client.services.FptnVpnService"
-            android:exported="true"
+            android:exported="false"
+            android:enabled="true"
             android:permission="android.permission.BIND_VPN_SERVICE" >
             <intent-filter>
                 <action android:name="android.net.VpnService" />
+                <action android:name="SEND_TO_WEBSOCKET" />
+                <action android:name="SEND_TO_TUN_INTERFACE" />
             </intent-filter>
         </service>
+
+        <service
+            android:name="org.fptn.client.services.FptnWebSocketService"
+            android:exported="false"
+            android:enabled="true"
+            android:permission="android.permission.BIND_VPN_SERVICE">
+
+            <intent-filter>
+                <action android:name="android.net.FptnWebSocketService" />
+                <action android:name="SEND_TO_WEBSOCKET" />
+                <action android:name="SEND_TO_TUN_INTERFACE" />
+            </intent-filter>
+        </service>
+
     </application>
 
 

@@ -19,8 +19,9 @@ import com.google.protobuf.ByteString;
 
 import org.fptn.client.R;
 
-//import org.fptn.client.service.FptnService;
+import org.fptn.client.models.ServiceInfo;
 import org.fptn.client.services.FptnVpnService;
+import org.fptn.client.services.FptnWebSocketService;
 import org.fptn.protocol.Protocol;
 import org.fptn.protocol.Protocol.IPPacket;
 import org.fptn.protocol.Protocol.Message;
@@ -33,6 +34,8 @@ public class MainActivity extends AppCompatActivity {
     private EditText editTextUsername;
     private EditText editTextPassword;
 
+    private ServiceInfo serviceInfo;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -41,15 +44,15 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         // PROTOCOL EXAMPLE
-        IPPacket packet = IPPacket.newBuilder()
-                .setPayload(ByteString.copyFromUtf8("IP-packet"))
-                .setPaddingData(ByteString.copyFromUtf8("Random padding"))
-                .build();
-        Message msg = Message.newBuilder()
-                .setProtocolVersion(1)
-                .setMsgType(Protocol.MessageType.MSG_IP_PACKET)
-                .setPacket(packet)
-                .build();
+//        IPPacket packet = IPPacket.newBuilder()
+//                .setPayload(ByteString.copyFromUtf8("IP-packet"))
+//                .setPaddingData(ByteString.copyFromUtf8("Random padding"))
+//                .build();
+//        Message msg = Message.newBuilder()
+//                .setProtocolVersion(1)
+//                .setMsgType(Protocol.MessageType.MSG_IP_PACKET)
+//                .setPacket(packet)
+//                .build();
 
         LocalBroadcastManager.getInstance(this).registerReceiver(vpnConnectedReceiver, new IntentFilter(FptnVpnService.ACTION_VPN_CONNECTED));
     }
@@ -65,13 +68,6 @@ public class MainActivity extends AppCompatActivity {
         String password = editTextPassword.getText().toString();
 
         establishedVpnConnection(host, username, password);
-//        Intent serviceIntent = new Intent(this, FptnServiceOld.class);
-//        serviceIntent.putExtra("host", host);
-//        serviceIntent.putExtra("username", username);
-//        serviceIntent.putExtra("password", password);
-//        serviceIntent.putExtra("port", 443);
-//
-//        startService(serviceIntent);
     }
 
     private void establishedVpnConnection(String host, String username, String password) {
@@ -85,23 +81,32 @@ public class MainActivity extends AppCompatActivity {
 
     private void startVpnServiceWithIp(String host, String username, String password) {
         Intent vpnIntent = new Intent(MainActivity.this, FptnVpnService.class);
-        vpnIntent.putExtra("serverHost", host);
-        vpnIntent.putExtra("serverPort", 443);
-        vpnIntent.putExtra("username", username);
-        vpnIntent.putExtra("password", password);
+        vpnIntent.putExtra("host", host);
         startService(vpnIntent);
+
+        Intent webSocketIntent = new Intent(MainActivity.this, FptnWebSocketService.class);
+        webSocketIntent.putExtra("host", host);
+        webSocketIntent.putExtra("port", 443);
+        webSocketIntent.putExtra("username", username);
+        webSocketIntent.putExtra("password", password);
+        startService(webSocketIntent);
     }
 
     public void stopService(View view) {
-//        Intent serviceIntent = new Intent(this, FptnServiceOld.class);
-//        stopService(serviceIntent);
+        Intent serviceIntent = new Intent(this, FptnVpnService.class);
+        stopService(serviceIntent);
     }
 
     private BroadcastReceiver vpnConnectedReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            // succerss message
-            Log.i(TAG, "RECV YES!!!!");
+        // succerss message
+        Log.i(TAG, "RECV YES!!!!");
         }
     };
+
+    private ServiceInfo parseJson()
+    {
+        return null;
+    }
 }

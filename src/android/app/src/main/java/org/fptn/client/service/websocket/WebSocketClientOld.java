@@ -23,7 +23,7 @@ import okhttp3.WebSocket;
 import okhttp3.WebSocketListener;
 import okio.ByteString;
 
-public class WebSocketClient implements Runnable {
+public class WebSocketClientOld implements Runnable {
     private String host;
     private Integer port;
     private String username;
@@ -36,7 +36,7 @@ public class WebSocketClient implements Runnable {
     WebSocket webSocket = null;
     private static final String LOG_TAG = "FptnClient";
 
-    public WebSocketClient(String host, Integer port, String username, String password, WebSocketCallback callback) {
+    public WebSocketClientOld(String host, Integer port, String username, String password, WebSocketCallback callback) {
         Log.i(LOG_TAG, "onStartCommand+" + host + " " + port + " " + username + " " + password);
         this.host = host; //"185.215.187.165";
         this.port = port;
