@@ -23,6 +23,7 @@ import org.fptn.protocol.Protocol;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.net.InetAddress;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -77,16 +78,14 @@ public class FptnVpnService extends VpnService {
         isRunning.set(true);
         if (vpnInterface == null) {
             Builder builder = new Builder();
-//            builder.excludeRoute(vpnHost)
-//            builder.excludeRoute(new IpPrefix(vpnHost));
-            builder.addAddress("10.10.0.1", 32);
-            builder.addRoute("0.0.0.0", 0);
 
+            builder.addAddress("10.10.0.1", 32);
+            builder.addRoute("172.20.0.1", 32);
+            builder.excludeRoute(new IpPrefix(InetAddress.getByName(vpnHost), 32));
+            builder.addRoute("0.0.0.0", 0);
             vpnInterface = builder.setSession(getString(R.string.app_name))
                     .setConfigureIntent(null)
                     .establish();
-//            builder.excludeAddress();
-            builder.setHttpProxy(ProxyInfo.buildDirectProxy(vpnHost, 443));
             return vpnInterface != null;
         } else {
             handler.post(new Runnable() {
@@ -111,9 +110,14 @@ public class FptnVpnService extends VpnService {
         }
     }
 
-    private byte[] ipPacketToProtobuf(ByteBuffer data) {
+    private byte[] ipPacketToProtobuf(ByteBuffer data, int length) {
+
+        byte[] copy = new byte[length];
+        System.arraycopy(data.array(), 0, copy, 0, length);
+        ByteString payload = ByteString.copyFrom(copy);//ByteString.copyFrom(data);
+
         Protocol.IPPacket packet = Protocol.IPPacket.newBuilder()
-                .setPayload(ByteString.copyFrom(data))
+                .setPayload(payload)
                 //.setPaddingData(ByteString.copyFromUtf8("Random padding"))
                 .build();
         Protocol.Message msg = Protocol.Message.newBuilder()
@@ -133,15 +137,17 @@ public class FptnVpnService extends VpnService {
             try {
                 int length = inputStream.read(buffer.array());
                 if (length > 0) {
-//                    Log.i(TAG, "READ PACKET");
                     // send to websocket service
                     Intent intent = new Intent(action);
 
-                    byte[] rawData = ipPacketToProtobuf(buffer);
-                    Log.i(TAG, "from tun> " + Integer.toString(length) + "  " +  Integer.toString(rawData.length) + "  " +  Arrays.toString(rawData));
+                    byte[] rawData = ipPacketToProtobuf(buffer, length);
+//                    Log.i(TAG, "from tun> " + Integer.toString(length) + "  " +  Integer.toString(rawData.length) + "  " +  Arrays.toString(rawData));
 
                     intent.putExtra(intentName, rawData);
                     LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
+
+
+//                    Log.w(TAG, "+Write IP packet TunInterface: " + rawData.length);
 //                    Log.w(TAG, "Read IP packet");
                 }
             } catch (Exception e) {
@@ -166,8 +172,8 @@ public class FptnVpnService extends VpnService {
                             // Parse the protobuf data back into an IP packet
                             Protocol.Message message = Protocol.Message.parseFrom(protobufData);
                             if (message.getMsgType() == Protocol.MessageType.MSG_IP_PACKET) {
-                                Log.w(TAG, "Write IP packet");
                                 byte[] rawData = message.getPacket().getPayload().toByteArray();
+//                                Log.w(TAG, "+Read get packet TunInterface: " + rawData.length);
                                 outputStream.write(rawData);
                             } else {
                                 Log.w(TAG, "Received a non-IP packet message type.");

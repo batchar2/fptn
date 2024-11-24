@@ -17,6 +17,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
@@ -34,6 +35,7 @@ import okhttp3.RequestBody;
 import okhttp3.Response;
 import okhttp3.WebSocket;
 import okhttp3.WebSocketListener;
+import okio.Buffer;
 import okio.ByteString;
 //import okio.ByteString;
 
@@ -61,13 +63,14 @@ public class FptnWebSocketService extends Service {
 
             @Override
             public void onMessage(WebSocket webSocket, String text) {
-                System.out.println("Message received1: " + text);
+//                System.out.println("Message received1: " + text);
 //                callback.onMessageReceived(text.getBytes());
             }
 
             @Override
             public void onMessage(WebSocket webSocket, ByteString protobufPacket) {
-                System.out.println("Message received2: ");
+//                Log.i(TAG, "-Read get packet WebSocket: " + protobufPacket.size());
+//                System.out.println("Message received2: ");
 
                 byte[] msg = protobufPacket.toByteArray();
                 Intent intent = new Intent(action);
@@ -147,9 +150,13 @@ public class FptnWebSocketService extends Service {
             json.put("username", username);
             json.put("password", password);
 
+//            RequestBody requestBody = RequestBody.create(
+//                    json.toString(),
+//                    MediaType.get("application/json")
+//            );
             RequestBody requestBody = RequestBody.create(
-                    json.toString(),
-                    MediaType.get("application/json")
+                    MediaType.get("application/json"),
+                    json.toString()
             );
             String url = String.format("https://%s:%d/api/v1/login", host, port);
 
@@ -237,11 +244,17 @@ public class FptnWebSocketService extends Service {
             Request request = new Request.Builder()
                     .url(String.format("wss://%s:%d/fptn", host, port))
                     .addHeader("Authorization", "Bearer " + token)
-                    .addHeader("ClientIP", "10.10.10.1")
+                    .addHeader("ClientIP", "10.10.0.1")
                     .build();
             OkHttpClient client = getUnsafeOkHttpClient();
             WebSocketListener websocketListener = getWebSocketListener();
             this.webSocket = client.newWebSocket(request, websocketListener);
+
+
+            IntentFilter intentFilter = new IntentFilter();
+            intentFilter.addAction("SEND_TO_WEBSOCKET");
+            LocalBroadcastManager.getInstance(this).registerReceiver(broadcastReceiver, new IntentFilter("SEND_TO_WEBSOCKET"));
+
 
             Thread readerThread = new Thread(new Runnable() {
                 @Override
@@ -278,18 +291,15 @@ public class FptnWebSocketService extends Service {
         public void onReceive(Context context, Intent intent) {
             String recvAction = intent.getAction();
             if (recvAction.equals(action)) {
-//                Log.d(TAG, "A");
                 byte[] protobufData = intent.getByteArrayExtra(intentName);
                 if (protobufData != null) {
-                    System.out.println("web1 >>> " + Integer.toString(protobufData.length) + " " + Arrays.toString(protobufData));
+//                    System.out.println("web1 >>> " + Integer.toString(protobufData.length) + " " + Arrays.toString(protobufData));
                     try {
-//                        ByteString
-                        //ByteString.of(protobufData);
-                        ByteString bs = new ByteString(protobufData);
-                        System.out.println("web2 >>> " + Integer.toString(bs.size()) + " ");// + bs.toString());
-
-                        webSocket.send(bs);//new String(protobufData)) ;//ByteString.of(protobufData));
-                        Log.i(TAG, "Send IP packet");
+//                        Log.w(TAG, "-Write IP packet WebSocket: " + protobufData.length);
+//                        boolean c = webSocket != null;
+//                        Log.i(TAG, "+++>" + c);
+                        webSocket.send(ByteString.of(protobufData));
+//                        Log.i(TAG, "Send IP packet");
                     } catch (Exception e) {
                         Log.e(TAG, "Error parsing or packet data: " + e.getMessage());
                     }
@@ -309,14 +319,9 @@ public class FptnWebSocketService extends Service {
             String username = intent.getStringExtra("username");
             String password = intent.getStringExtra("password");
 
-            IntentFilter intentFilter = new IntentFilter();
-            intentFilter.addAction("SEND_TO_WEBSOCKET");
-
-            LocalBroadcastManager.getInstance(this).registerReceiver(broadcastReceiver, new IntentFilter("SEND_TO_WEBSOCKET"));
-
-//            registerReceiver(broadcastReceiver, intentFilter);
-
-//            appCtx.registerReceiver
+//            IntentFilter intentFilter = new IntentFilter();
+//            intentFilter.addAction("SEND_TO_WEBSOCKET");
+//            LocalBroadcastManager.getInstance(this).registerReceiver(broadcastReceiver, new IntentFilter("SEND_TO_WEBSOCKET"));
 
             isRunning.set(true);
             webSocketThread = new Thread(new Runnable() {

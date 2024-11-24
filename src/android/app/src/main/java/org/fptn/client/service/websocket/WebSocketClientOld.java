@@ -62,9 +62,13 @@ public class WebSocketClientOld implements Runnable {
             json.put("username", username);
             json.put("password", password);
 
+//            RequestBody requestBody = RequestBody.create(
+//                    json.toString(),
+//                    MediaType.get("application/json")
+//            );
             RequestBody requestBody = RequestBody.create(
-                    json.toString(),
-                    MediaType.get("application/json")
+                    MediaType.get("application/json"),
+                    json.toString()
             );
             String url = String.format("https://%s:%d/api/v1/login", host, port);
 
