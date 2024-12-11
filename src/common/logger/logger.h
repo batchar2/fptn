@@ -37,8 +37,10 @@ namespace fptn::logger
             auto logger = std::make_shared<spdlog::logger>(appName, spdlog::sinks_init_list{consoleSink, fileSink});
             logger->flush_on(spdlog::level::debug);
 
+            spdlog::register_logger(logger);
             spdlog::set_default_logger(logger);
             spdlog::set_level(spdlog::level::debug);
+            spdlog::flush_every(std::chrono::seconds(1));
             spdlog::set_pattern("[%Y-%m-%d %H:%M:%S] [%^%l%$] %v");
             return true;
         } catch (const spdlog::spdlog_ex& ex) {
@@ -47,3 +49,4 @@ namespace fptn::logger
         return false;
     }
 }
+

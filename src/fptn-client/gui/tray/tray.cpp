@@ -330,11 +330,21 @@ void TrayApp::handleDefaultState()
 void TrayApp::handleConnecting()
 {
     spdlog::info("Handling connecting state");
+
+    spdlog::info("--tmp -- handleConnecting +1");
+
     updateTrayMenu();
+
+    spdlog::info("--tmp -- handleConnecting +2");
+
     trayIcon_->setIcon(QIcon(inactiveIconPath_));
+
+    spdlog::info("--tmp -- handleConnecting +3");
 
     const pcpp::IPv4Address tunInterfaceAddress("10.0.1.1");
     const std::string tunInterfaceName = "tun0";
+
+    spdlog::info("--tmp -- handleConnecting +4");
 
     /* check gateway address */
     const auto usingGatewayIP = (
@@ -342,6 +352,9 @@ void TrayApp::handleConnecting()
         ? fptn::system::getDefaultGatewayIPAddress()
         : pcpp::IPv4Address(settings_->gatewayIp().toStdString())
     );
+
+    spdlog::info("--tmp -- handleConnecting +5");
+
     if (usingGatewayIP == pcpp::IPv4Address("0.0.0.0")) {
         showError(
             QObject::tr("Connection Error"),
@@ -357,12 +370,16 @@ void TrayApp::handleConnecting()
         updateTrayMenu();
         return;
     }
+    spdlog::info("--tmp -- handleConnecting +6");
+
     /* config */
     const std::string networkInterface = (
         settings_->networkInterface() == "auto"
         ? ""
         : settings_->networkInterface().toStdString()
     );
+
+    spdlog::info("--tmp -- handleConnecting +7");
 
     fptn::config::ConfigFile config;
     if (smartConnect_) { // find the best server
