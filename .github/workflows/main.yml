@@ -141,35 +141,42 @@ jobs:
         with:
           submodules: true
       - name: Set env
+        shell: powershell
         if: github.event_name == 'release'
         run: |
           $releaseVersion = "${{ github.ref_name }}"
           echo "RELEASE_VERSION=$releaseVersion" >> $env:GITHUB_ENV
       - name: Print Release Version
+        shell: powershell
         if: github.event_name == 'release'
         run: |
           Write-Output "Release Version: $env:RELEASE_VERSION"
       - name: Update FPTN_VERSION in conanfile.py
+        shell: powershell
         if: github.event_name == 'release'
         run: |
-          python deploy\windows\conan-replace-version.py conanfile.py "$env:RELEASE_VERSION"
+          python.exe deploy\windows\conan-replace-version.py conanfile.py "$env:RELEASE_VERSION"
       - name: Install dependencies
+        shell: powershell
         run: |
           conan install . --output-folder=build --build=missing -o with_gui_client=True --settings build_type=Release -s compiler.cppstd=17
       - name: Build
+        shell: powershell
         run: |
           cd build
           cmake .. -G "Visual Studio 17 2022" -DCMAKE_TOOLCHAIN_FILE="conan_toolchain.cmake" -DCMAKE_BUILD_TYPE=Release
           cmake --build . --config Release
       - name: Test
+        shell: powershell
         run: |
           cd build
           ctest -C Release
       - name: Build Windows installer
+        shell: powershell
         run: |
           cd build
           cmake --build . --config Release --target build-installer
-      - name: Upload macOS pkg
+      - name: Upload Windows installer
         if: github.event_name == 'release'
         uses: AButler/upload-release-assets@v3.0
         with:
