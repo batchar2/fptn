@@ -123,6 +123,8 @@
             background: var(--blue);
             border-radius: 24px;
             color: white;
+            width: 256px;
+            text-align: center!important;
         }
         .dropdown-content {
             display: none;
@@ -131,7 +133,7 @@
             box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
             border-radius: 4px;
             z-index: 1;
-            min-width: 190px;
+            min-width: 256px;
             top: 27px;
         }
         .dropdown-content a {
@@ -172,7 +174,7 @@
         }
         .wrapper {
             display: flex;
-            gap: 32px;
+            gap: 68px;
             justify-content: space-between;
         }
         .item {
@@ -404,11 +406,12 @@
                 </div>
                 <div class="download macos">
                     <p>
-                        <span class="language-en">Download MacOS client (supports Apple Silicon)</span>
-                        <span class="language-ru">Скачать клиент для MacOS (поддерживается Apple Silicon)</span>
+                        <span class="language-en">Download MacOS client (Apple Silicon architecture)</span>
+                        <span class="language-ru">Скачать клиент для MacOS (архитектура Apple Silicon)</span>
                     </p>
                     <div class="dropdown">
-                        <a class="dropdown-button download_2" onclick="downloadUrl('macos')">.dmg (Apple Silicon)</a>
+                        <a class="dropdown-button download_2 language-ru" onclick="downloadUrl('macos')">Скачать .dmg</a>
+                        <a class="dropdown-button download_2 language-en" onclick="downloadUrl('macos')">Download .dmg</a>
                     </div>
 
                     <div class="toolbox-ad language-ru">
@@ -487,10 +490,11 @@
                                 <span class="language-ru">Скачать Linux клиент</span>
                             </p>
                             <div class="dropdown">
-                                <a class="dropdown-button download_2" onclick="downloadUrl('linux_l_server')">.deb (Linux x86_64)</a>
+                                <a class="dropdown-button download_2 language-ru" onclick="downloadUrl('linux_l_server')">Linux клиент</a>
+                                <a class="dropdown-button download_2 language-en" onclick="downloadUrl('linux_l_server')">Linux client</a>
                                 <div class="dropdown-content">
-                                    <a href="#" onclick="downloadUrl('linux_l_client')">.deb (x86_64)</a>
-                                    <a href="#" onclick="downloadUrl('linux_a_client')">.deb (ARM64)</a>
+                                    <a class="language-ru" href="#" onclick="downloadUrl('linux_l_client')">Ubuntu (x86_64)</a>
+                                    <a class="language-ru" href="#" onclick="downloadUrl('linux_a_client')">Ubuntu (ARM64)</a>
                                 </div>
                             </div>
                         </div>
@@ -500,12 +504,13 @@
                                 <span class="language-ru">Инструменты командной строки</span>
                             </p>
                             <div class="dropdown">
-                                <a class="dropdown-button download_2" onclick="downloadUrl('linux_l_client')">.deb (Linux x86_64)</a>
+                                <a class="dropdown-button download_2 language-ru" onclick="downloadUrl('linux_l_client')">Linux утилиты</a>
+                                <a class="dropdown-button download_2 language-en" onclick="downloadUrl('linux_l_client')">Linux utils</a>
                                 <div class="dropdown-content">
-                                    <a href="#" onclick="downloadUrl('linux_l_server')">Server .deb (x86_64)</a>
-                                    <a href="#" onclick="downloadUrl('linux_a_server')">Server .deb (ARM)</a>
-                                    <a href="#" onclick="downloadUrl('linux_l_client_cli')">CmdClient .deb (x86_64)</a>
-                                    <a href="#" onclick="downloadUrl('linux_a_client_cli')">CmdClient .deb (ARM64)</a>
+                                    <a href="#" onclick="downloadUrl('linux_l_server')">FPTN Server (Ubuntu x86_64)</a>
+                                    <a href="#" onclick="downloadUrl('linux_a_server')">FPTN Server (Ubuntu ARM)</a>
+                                    <a href="#" onclick="downloadUrl('linux_l_client_cli')">CmdClient (Ubuntu x86_64)</a>
+                                    <a href="#" onclick="downloadUrl('linux_a_client_cli')">CmdClient (Ubuntu ARM64)</a>
                                 </div>
                             </div>
                         </div>
@@ -580,11 +585,12 @@
                 </div>
                 <div class="download active win">
                     <p>
-                        <span class="language-en">Download the Windows client (supports Windows 10 and Windows 11)</span>
-                        <span class="language-ru">Скачать клиент для Windows (поддерживаются Windows 10 и Windows 11)</span>
+                        <span class="language-en">Download the client for Windows (supports Windows 10 and Windows 11, x86_64 architecture)</span>
+                        <span class="language-ru">Скачать клиент для Windows (поддерживаются Windows 10 и Windows 11, архитектура x86_64)</span>
                     </p>
                     <div class="dropdown">
-                        <a class="dropdown-button download_2" onclick="downloadUrl('w_client')">Installer (x86_64)</a>
+                        <a class="dropdown-button download_2 language-ru" onclick="downloadUrl('w_client')">Скачать</a>
+                        <a class="dropdown-button download_2 language-en" onclick="downloadUrl('w_client')">Download</a>
                     </div>
 
                     <div class="toolbox-ad language-ru">
@@ -736,101 +742,101 @@
 </footer>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 <script>
-  const owner = 'batchar2';
-  const repo = 'fptn';
-  let tag_name = ''
+    const owner = 'batchar2';
+    const repo = 'fptn';
+    let tag_name = ''
 
-  fetch(`https://api.github.com/repos/${owner}/${repo}/releases/latest`)
-    .then(response => response.json())
-    .then(data => {
-      const releaseInfo = document.getElementById('version');
-      releaseInfo.innerHTML = data.tag_name;
-      tag_name = data.tag_name
-    })
-    .catch(error => {
-      console.error('Error fetching release data:', error);
-      document.getElementById('release-info').textContent = 'Failed to load release information.';
-    })
-  function openTab(tabName) {
-    const tabs = document.getElementsByClassName('tablink');
-    const downloads = document.getElementsByClassName('download');
-    for (let i = 0; i < tabs.length; i++) {
-      tabs[i].classList.remove('active');
-      downloads[i].classList.remove('active');
-      if (downloads[i].classList.contains(tabName)) {
-        downloads[i].classList.add('active');
-      }
+    fetch(`https://api.github.com/repos/${owner}/${repo}/releases/latest`)
+        .then(response => response.json())
+        .then(data => {
+            const releaseInfo = document.getElementById('version');
+            releaseInfo.innerHTML = data.tag_name;
+            tag_name = data.tag_name
+        })
+        .catch(error => {
+            console.error('Error fetching release data:', error);
+            document.getElementById('release-info').textContent = 'Failed to load release information.';
+        })
+    function openTab(tabName) {
+        const tabs = document.getElementsByClassName('tablink');
+        const downloads = document.getElementsByClassName('download');
+        for (let i = 0; i < tabs.length; i++) {
+            tabs[i].classList.remove('active');
+            downloads[i].classList.remove('active');
+            if (downloads[i].classList.contains(tabName)) {
+                downloads[i].classList.add('active');
+            }
+        }
+        document.querySelector(`[onclick="openTab('${tabName}')"]`).classList.add('active');
     }
-    document.querySelector(`[onclick="openTab('${tabName}')"]`).classList.add('active');
-  }
-  function downloadUrl(name) {
-    let url = ''
-    switch (name) {
-      case 'macos':
-        url = `https://github.com/${owner}/${repo}/releases/latest/download/fptn-client-${tag_name}-apple-silicon.pkg`
-        break;
-      case 'linux_l_server':
-        url = `https://github.com/${owner}/${repo}/releases/latest/download/fptn-server-${tag_name}-ubuntu22.04-amd64.deb`
-        break;
-      case 'linux_a_server':
-        url = `https://github.com/${owner}/${repo}/releases/latest/download/fptn-server-${tag_name}-ubuntu22.04-arm64.deb`
-        break;
-      case 'linux_l_client':
-        url = `https://github.com/${owner}/${repo}/releases/latest/download/fptn-client-${tag_name}-ubuntu22.04-amd64.deb`
-        break;
-      case 'linux_a_client':
-        url = `https://github.com/${owner}/${repo}/releases/latest/download/fptn-client-${tag_name}-ubuntu22.04-arm64.deb`
-        break;
-      case 'linux_l_client_cli':
-        url = `https://github.com/${owner}/${repo}/releases/latest/download/fptn-client-cli-${tag_name}-ubuntu22.04-amd64.deb`
-        break;
-      case 'linux_a_client_cli':
-        url = `https://github.com/${owner}/${repo}/releases/latest/download/fptn-client-cli-${tag_name}-ubuntu22.04-arm64.deb`
-        break;
-      case 'w_client':
-          url = `https://github.com/${owner}/${repo}/releases/latest/download/FptnClientInstaller-${tag_name}-windows-x64_x86.exe`
-        break;
-      case 'notes':
-        url = `https://github.com/${owner}/${repo}/releases/latest`
-        break;
-      default:
+    function downloadUrl(name) {
+        let url = ''
+        switch (name) {
+            case 'macos':
+                url = `https://github.com/${owner}/${repo}/releases/latest/download/fptn-client-${tag_name}-apple-silicon.pkg`
+                break;
+            case 'linux_l_server':
+                url = `https://github.com/${owner}/${repo}/releases/latest/download/fptn-server-${tag_name}-ubuntu22.04-amd64.deb`
+                break;
+            case 'linux_a_server':
+                url = `https://github.com/${owner}/${repo}/releases/latest/download/fptn-server-${tag_name}-ubuntu22.04-arm64.deb`
+                break;
+            case 'linux_l_client':
+                url = `https://github.com/${owner}/${repo}/releases/latest/download/fptn-client-${tag_name}-ubuntu22.04-amd64.deb`
+                break;
+            case 'linux_a_client':
+                url = `https://github.com/${owner}/${repo}/releases/latest/download/fptn-client-${tag_name}-ubuntu22.04-arm64.deb`
+                break;
+            case 'linux_l_client_cli':
+                url = `https://github.com/${owner}/${repo}/releases/latest/download/fptn-client-cli-${tag_name}-ubuntu22.04-amd64.deb`
+                break;
+            case 'linux_a_client_cli':
+                url = `https://github.com/${owner}/${repo}/releases/latest/download/fptn-client-cli-${tag_name}-ubuntu22.04-arm64.deb`
+                break;
+            case 'w_client':
+                url = `https://github.com/${owner}/${repo}/releases/latest/download/FptnClientInstaller-${tag_name}-windows-x64_x86.exe`
+                break;
+            case 'notes':
+                url = `https://github.com/${owner}/${repo}/releases/latest`
+                break;
+            default:
+        }
+        window.open(url, '_blank').focus();
     }
-    window.open(url, '_blank').focus();
-  }
 
-  let language = window.navigator.language;
-  let languageFistTwo = language.substr(0,2);
-  let lanDiv = document.querySelector('.dropdown-toggle');
+    let language = window.navigator.language;
+    let languageFistTwo = language.substr(0,2);
+    let lanDiv = document.querySelector('.dropdown-toggle');
 
-  function hideBlocks(lan) {
-    if (lan === 'ru'){
-      const elements = document.querySelectorAll('.language-ru')
-      elements.forEach(elem => {
-        elem.classList.add('active')
-      })
-      const elementsA = document.querySelectorAll('.language-en')
-      elementsA.forEach(elem => {
-        elem.classList.remove('active')
-      })
-      lanDiv.textContent = 'Русский'
-    } else {
-      const elements = document.querySelectorAll('.language-en')
-      elements.forEach(elem => {
-        elem.classList.add('active')
-      })
-      const elementsA = document.querySelectorAll('.language-ru')
-      elementsA.forEach(elem => {
-        elem.classList.remove('active')
-      })
-      lanDiv.textContent = 'English'
+    function hideBlocks(lan) {
+        if (lan === 'ru'){
+            const elements = document.querySelectorAll('.language-ru')
+            elements.forEach(elem => {
+                elem.classList.add('active')
+            })
+            const elementsA = document.querySelectorAll('.language-en')
+            elementsA.forEach(elem => {
+                elem.classList.remove('active')
+            })
+            lanDiv.textContent = 'Русский'
+        } else {
+            const elements = document.querySelectorAll('.language-en')
+            elements.forEach(elem => {
+                elem.classList.add('active')
+            })
+            const elementsA = document.querySelectorAll('.language-ru')
+            elementsA.forEach(elem => {
+                elem.classList.remove('active')
+            })
+            lanDiv.textContent = 'English'
+        }
     }
-  }
 
-  hideBlocks(languageFistTwo)
+    hideBlocks(languageFistTwo)
 
-  function editLan(lan) {
-    hideBlocks(lan)
-  }
+    function editLan(lan) {
+        hideBlocks(lan)
+    }
 </script>
 </body>
 </html>

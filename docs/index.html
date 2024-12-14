@@ -123,6 +123,8 @@
             background: var(--blue);
             border-radius: 24px;
             color: white;
+            width: 256px;
+            text-align: center!important;
         }
         .dropdown-content {
             display: none;
@@ -131,7 +133,7 @@
             box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
             border-radius: 4px;
             z-index: 1;
-            min-width: 190px;
+            min-width: 256px;
             top: 27px;
         }
         .dropdown-content a {
@@ -172,7 +174,7 @@
         }
         .wrapper {
             display: flex;
-            gap: 32px;
+            gap: 68px;
             justify-content: space-between;
         }
         .item {
@@ -404,11 +406,12 @@
                 </div>
                 <div class="download macos">
                     <p>
-                        <span class="language-en">Download MacOS client (supports Apple Silicon)</span>
-                        <span class="language-ru">Скачать клиент для MacOS (поддерживается Apple Silicon)</span>
+                        <span class="language-en">Download MacOS client (Apple Silicon architecture)</span>
+                        <span class="language-ru">Скачать клиент для MacOS (архитектура Apple Silicon)</span>
                     </p>
                     <div class="dropdown">
-                        <a class="dropdown-button download_2" onclick="downloadUrl('macos')">.dmg (Apple Silicon)</a>
+                        <a class="dropdown-button download_2 language-ru" onclick="downloadUrl('macos')">Скачать .dmg</a>
+                        <a class="dropdown-button download_2 language-en" onclick="downloadUrl('macos')">Download .dmg</a>
                     </div>
 
                     <div class="toolbox-ad language-ru">
@@ -487,10 +490,11 @@
                                 <span class="language-ru">Скачать Linux клиент</span>
                             </p>
                             <div class="dropdown">
-                                <a class="dropdown-button download_2" onclick="downloadUrl('linux_l_server')">.deb (Linux x86_64)</a>
+                                <a class="dropdown-button download_2 language-ru" onclick="downloadUrl('linux_l_server')">Linux клиент</a>
+                                <a class="dropdown-button download_2 language-en" onclick="downloadUrl('linux_l_server')">Linux client</a>
                                 <div class="dropdown-content">
-                                    <a href="#" onclick="downloadUrl('linux_l_client')">.deb (x86_64)</a>
-                                    <a href="#" onclick="downloadUrl('linux_a_client')">.deb (ARM64)</a>
+                                    <a class="language-ru" href="#" onclick="downloadUrl('linux_l_client')">Ubuntu (x86_64)</a>
+                                    <a class="language-ru" href="#" onclick="downloadUrl('linux_a_client')">Ubuntu (ARM64)</a>
                                 </div>
                             </div>
                         </div>
@@ -500,12 +504,13 @@
                                 <span class="language-ru">Инструменты командной строки</span>
                             </p>
                             <div class="dropdown">
-                                <a class="dropdown-button download_2" onclick="downloadUrl('linux_l_client')">.deb (Linux x86_64)</a>
+                                <a class="dropdown-button download_2 language-ru" onclick="downloadUrl('linux_l_client')">Linux утилиты</a>
+                                <a class="dropdown-button download_2 language-en" onclick="downloadUrl('linux_l_client')">Linux utils</a>
                                 <div class="dropdown-content">
-                                    <a href="#" onclick="downloadUrl('linux_l_server')">Server .deb (x86_64)</a>
-                                    <a href="#" onclick="downloadUrl('linux_a_server')">Server .deb (ARM)</a>
-                                    <a href="#" onclick="downloadUrl('linux_l_client_cli')">CmdClient .deb (x86_64)</a>
-                                    <a href="#" onclick="downloadUrl('linux_a_client_cli')">CmdClient .deb (ARM64)</a>
+                                    <a href="#" onclick="downloadUrl('linux_l_server')">FPTN Server (Ubuntu x86_64)</a>
+                                    <a href="#" onclick="downloadUrl('linux_a_server')">FPTN Server (Ubuntu ARM)</a>
+                                    <a href="#" onclick="downloadUrl('linux_l_client_cli')">CmdClient (Ubuntu x86_64)</a>
+                                    <a href="#" onclick="downloadUrl('linux_a_client_cli')">CmdClient (Ubuntu ARM64)</a>
                                 </div>
                             </div>
                         </div>
@@ -580,11 +585,12 @@
                 </div>
                 <div class="download active win">
                     <p>
-                        <span class="language-en">Download the Windows client (supports Windows 10 and Windows 11)</span>
-                        <span class="language-ru">Скачать клиент для Windows (поддерживаются Windows 10 и Windows 11)</span>
+                        <span class="language-en">Download the client for Windows (supports Windows 10 and Windows 11, x86_64 architecture)</span>
+                        <span class="language-ru">Скачать клиент для Windows (поддерживаются Windows 10 и Windows 11, архитектура x86_64)</span>
                     </p>
                     <div class="dropdown">
-                        <a class="dropdown-button download_2" onclick="downloadUrl('w_client')">Installer (x86_64)</a>
+                        <a class="dropdown-button download_2 language-ru" onclick="downloadUrl('w_client')">Скачать</a>
+                        <a class="dropdown-button download_2 language-en" onclick="downloadUrl('w_client')">Download</a>
                     </div>
 
                     <div class="toolbox-ad language-ru">
@@ -822,7 +828,6 @@
       elementsA.forEach(elem => {
         elem.classList.remove('active')
       })
-      lanDiv.textContent = 'English'
     }
   }
 
