@@ -219,7 +219,6 @@ namespace fptn::common::network
         std::atomic<bool> running_;
         std::thread thread_;
         std::unique_ptr<tuntap::tun> tun_;
-
         DataRateCalculator sendRateCalculator_;
         DataRateCalculator receiveRateCalculator_;
     };
@@ -434,10 +433,10 @@ namespace fptn::common::network
 
         GUID guid_;
         HMODULE wintun_;
-		WINTUN_ADAPTER_HANDLE adapter_;
-		WINTUN_SESSION_HANDLE session_;
-		ULONG ipContext_;
-		ULONG ipInstance_;
+        WINTUN_ADAPTER_HANDLE adapter_;
+        WINTUN_SESSION_HANDLE session_;
+        ULONG ipContext_;
+        ULONG ipInstance_;
 
         DataRateCalculator sendRateCalculator_;
         DataRateCalculator receiveRateCalculator_;

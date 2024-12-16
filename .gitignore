@@ -1,3 +1,4 @@
+conan_provider.cmake
 .conan_provider.cmake
 logs/
 *.dmg

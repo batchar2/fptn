@@ -24,9 +24,6 @@ class FPTN(ConanFile):
         "websocketpp/0.8.2",
         "cpp-httplib/0.17.3",
     )
-    tool_requires = (
-        "cmake/3.30.1",
-    )
     settings = (
         "os",
         "arch",
