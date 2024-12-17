@@ -5,14 +5,13 @@
 
 namespace fptn::filter::packets
 {
-
     using namespace fptn::common::network;
 
     class BitTorrentFilter : public BaseFilter
     {
     public:
         BitTorrentFilter();
-        virtual IPPacketPtr apply(IPPacketPtr packet) noexcept override;
+        virtual IPPacketPtr apply(IPPacketPtr packet) const noexcept override;
         virtual ~BitTorrentFilter() = default;
     };
 }

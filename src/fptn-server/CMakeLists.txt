@@ -27,6 +27,7 @@ add_executable("${PROJECT_NAME}"
 
     filter/manager.h filter/manager.cpp
     filter/packets/base.h
+    filter/packets/antiscan/antiscan.h filter/packets/antiscan/antiscan.cpp
     filter/packets/bittorrent/bittorrent.h filter/packets/bittorrent/bittorrent.cpp
     vpn/manager.h vpn/manager.cpp
 

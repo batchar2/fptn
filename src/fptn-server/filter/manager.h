@@ -16,7 +16,8 @@ namespace fptn::filter
     class FilterManager 
     {
     public:
-        FilterManager(bool disableBittorrent=false);
+        FilterManager() = default;
+        void add(packets::BaseFilterSPtr filter) noexcept;
         IPPacketPtr apply(IPPacketPtr packet) const;
     private:
         std::vector<packets::BaseFilterSPtr> filters_;

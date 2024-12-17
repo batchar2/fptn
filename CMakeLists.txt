@@ -3,6 +3,8 @@ project(fptn VERSION "${FPTN_VERSION}" LANGUAGES CXX)
 
 set(FPTN_SERVER_PATH "${CMAKE_CURRENT_SOURCE_DIR}/src/fptn-server")
 
+enable_testing()
+
 # enable ssl for cpphttp-lib
 add_compile_definitions(CPPHTTPLIB_OPENSSL_SUPPORT)
 
@@ -72,10 +74,6 @@ if(APPLE OR UNIX)
     install(TARGETS fptn-passwd DESTINATION bin)
 endif()
 
-# --- tests ---
-add_subdirectory(tests)
-enable_testing()
-
 # --- packaging ---
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")  # deb
     add_custom_target(build-deb
@@ -124,3 +122,6 @@ elseif(WIN32)
 else()
     message(FATAL_ERROR "Unsupported platform")
 endif()
+
+# --- tests ---
+add_subdirectory(tests)

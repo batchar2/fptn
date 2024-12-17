@@ -28,3 +28,8 @@ include_directories(${FPTN_SERVER_PATH})
 add_executable(MetricTest statistic/MetricTest.cpp ${FPTN_SERVER_PATH}/statistic/metrics.h ${FPTN_SERVER_PATH}/statistic/metrics.cpp)
 target_link_libraries(MetricTest ${LIBS})
 add_test(NAME MetricTest COMMAND MetricTest)
+
+# --- AntiScan test ---
+add_executable(AntiScanTest filter/antiscan/AntiScanTest.cpp ${FPTN_SERVER_PATH}/filter/packets/antiscan/antiscan.h ${FPTN_SERVER_PATH}/filter/packets/antiscan/antiscan.cpp)
+target_link_libraries(AntiScanTest ${LIBS})
+add_test(NAME AntiScanTest COMMAND AntiScanTest)

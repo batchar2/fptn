@@ -77,11 +77,6 @@ void Manager::runToClient() noexcept
         if (shaper && !shaper->checkSpeedLimit(packet->size())) {
             continue;
         }
-        // filter 
-        packet = filter_->apply(std::move(packet));
-        if (!packet) {
-            continue;
-        }
         // send
         webServer_->send(session->changeIPAddressToCleintIP(std::move(packet)));
     }

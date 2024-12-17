@@ -20,7 +20,7 @@ BitTorrentFilter::BitTorrentFilter()
 }
 
 
-IPPacketPtr BitTorrentFilter::apply(IPPacketPtr packet) noexcept
+IPPacketPtr BitTorrentFilter::apply(IPPacketPtr packet) const noexcept
 {
     const pcpp::TcpLayer* tcp = packet->pkt().getLayerOfType<pcpp::TcpLayer>();
     if (tcp) { // TCP

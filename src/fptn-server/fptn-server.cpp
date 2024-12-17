@@ -12,11 +12,14 @@
 #include "web/server.h"
 #include "vpn/manager.h"
 #include "cmd/cmd_option.h"
-#include "filter/manager.h"
 #include "system/iptables.h"
 #include "statistic/metrics.h"
 #include "user/user_manager.h"
 #include "network/virtual_interface.h"
+
+#include "filter/manager.h"
+#include "filter/packets/antiscan/antiscan.h"
+#include "filter/packets/bittorrent/bittorrent.h"
 
 
 inline void waitForSignal() 
@@ -99,8 +102,19 @@ int main(int argc, char* argv[])
         options->getTunInterfaceIP()
     );
 
+    /* init packet filter */
+    auto filterManager = std::make_shared<fptn::filter::FilterManager>();
+    if (options->disableBittorrent()) { // block bittorrent traffic
+        filterManager->add(std::make_shared<fptn::filter::packets::BitTorrentFilter>());
+    }
+    filterManager->add( // Prevent sending requests to the VPN virtual network from the client
+        std::make_shared<fptn::filter::packets::AntiScanFilter>(
+            options->getTunInterfaceNetworkAddress(),
+            options->getTunInterfaceNetworkMask()
+        )
+    );
+
     /* init vpn manager */
-    auto filterManager = std::make_shared<fptn::filter::FilterManager>(options->disableBittorrent());
     fptn::vpn::Manager manager(
         std::move(webServer),
         std::move(virtualNetworkInterface),

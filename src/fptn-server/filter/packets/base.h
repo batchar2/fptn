@@ -14,7 +14,7 @@ namespace fptn::filter::packets
     {
     public:
         BaseFilter() = default;
-        virtual IPPacketPtr apply(IPPacketPtr packet) noexcept = 0;
+        virtual IPPacketPtr apply(IPPacketPtr packet) const noexcept = 0;
         ~BaseFilter() = default;
     };
 

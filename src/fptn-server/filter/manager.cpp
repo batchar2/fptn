@@ -5,12 +5,9 @@
 
 using namespace fptn::filter;
 
-
-FilterManager::FilterManager(bool bittorent)
+void FilterManager::add(packets::BaseFilterSPtr filter) noexcept
 {
-    if (bittorent) {
-        filters_.push_back(std::make_shared<packets::BitTorrentFilter>());
-    }
+    filters_.push_back(std::move(filter));
 }
 
 IPPacketPtr FilterManager::apply(IPPacketPtr packet) const 

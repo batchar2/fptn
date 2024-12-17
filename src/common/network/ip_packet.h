@@ -41,10 +41,9 @@ namespace fptn::common::network
 
     #define PACKET_UNDEFINED_CLIENT_ID   (static_cast<std::uint32_t>(-1))
 
-    class IPPacket final
+    class IPPacket
     {
     public:
-
         static std::unique_ptr<IPPacket> parse(std::string strdata, std::uint32_t clientId = PACKET_UNDEFINED_CLIENT_ID)
         {
             auto packet =  std::make_unique<IPPacket>(std::move(strdata), clientId);
@@ -75,7 +74,7 @@ namespace fptn::common::network
                 ipLayer_(parsedPacket_.getLayerOfType<pcpp::IPv4Layer>())
         {
         }
-        ~IPPacket() = default;
+        virtual ~IPPacket() = default;
 
         void computeCalculateFields() noexcept
         {
@@ -95,7 +94,7 @@ namespace fptn::common::network
         {
             clientId_ = clientId;
         }
-        
+
         std::uint32_t clientId() const noexcept
         {
             return clientId_;
@@ -106,7 +105,7 @@ namespace fptn::common::network
             return parsedPacket_;
         }
         
-        pcpp::IPv4Layer* ipLayer() noexcept
+        virtual pcpp::IPv4Layer* ipLayer() noexcept
         {
             return ipLayer_;
         }
@@ -145,6 +144,8 @@ namespace fptn::common::network
             }
             return false;
         }
+    protected:
+        IPPacket() = default; // for tests
     private:
         std::string packetData_;
         std::uint32_t clientId_;
