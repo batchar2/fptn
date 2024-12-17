@@ -27,10 +27,16 @@ private:
 
 
 TEST(AntiScanTest, BlockScan) {
+    const pcpp::IPv4Address server("192.168.1.1");
     const pcpp::IPv4Address net("192.168.1.0");
     const int mask = 24;
 
-    fptn::filter::packets::AntiScanFilter antiScanFilter(net, mask);
+    fptn::filter::packets::AntiScanFilter antiScanFilter(server, net, mask);
+
+    EXPECT_EQ(
+        antiScanFilter.apply(std::make_unique<MockIPPacket>(net)),
+        nullptr
+    ) << "Packet in the network should be blocked";
 
     EXPECT_EQ(
         antiScanFilter.apply(std::make_unique<MockIPPacket>(pcpp::IPv4Address("192.168.1.5"))),
@@ -38,14 +44,10 @@ TEST(AntiScanTest, BlockScan) {
     ) << "Packet in the network should be blocked";
 
     EXPECT_EQ(
-        antiScanFilter.apply(std::make_unique<MockIPPacket>(pcpp::IPv4Address("192.168.1.1"))),
-        nullptr
-    ) << "Packet in the network should be blocked";
-
-    EXPECT_EQ(
         antiScanFilter.apply(std::make_unique<MockIPPacket>(pcpp::IPv4Address("192.168.1.255"))),
         nullptr
     ) << "Packet in the network should be blocked";
+
     EXPECT_EQ(
         antiScanFilter.apply(std::make_unique<MockIPPacket>(pcpp::IPv4Address("255.255.255.255"))),
         nullptr
@@ -54,22 +56,32 @@ TEST(AntiScanTest, BlockScan) {
 
 
 TEST(AntiScanTest, AllowNonScanPacket) {
+    const pcpp::IPv4Address server("192.168.1.1");
     const pcpp::IPv4Address net("192.168.1.0");
     const int mask = 24;
 
-    fptn::filter::packets::AntiScanFilter antiScanFilter(net, mask);
+    fptn::filter::packets::AntiScanFilter antiScanFilter(server, net, mask);
+
+    EXPECT_NE(
+        antiScanFilter.apply(std::make_unique<MockIPPacket>(server)),
+        nullptr
+    );
+
     EXPECT_NE(
         antiScanFilter.apply(std::make_unique<MockIPPacket>(pcpp::IPv4Address("192.168.2.1"))),
         nullptr
     );
+
     EXPECT_NE(
         antiScanFilter.apply(std::make_unique<MockIPPacket>(pcpp::IPv4Address("8.8.8.8"))),
         nullptr
     );
+
     EXPECT_NE(
         antiScanFilter.apply(std::make_unique<MockIPPacket>(pcpp::IPv4Address("192.168.0.1"))),
         nullptr
     );
+
     EXPECT_NE(
         antiScanFilter.apply(std::make_unique<MockIPPacket>(pcpp::IPv4Address("192.168.0.255"))),
         nullptr

@@ -21,10 +21,11 @@ namespace fptn::filter::packets
     class AntiScanFilter : public BaseFilter
     {
     public:
-        AntiScanFilter(const pcpp::IPv4Address& net, const int mask);
+        AntiScanFilter(const pcpp::IPv4Address& serverIp, const pcpp::IPv4Address& net, const int mask);
         virtual IPPacketPtr apply(IPPacketPtr packet) const noexcept override;
         virtual ~AntiScanFilter() = default;
     private:
+        const std::uint32_t serverIp_;
         const std::uint32_t net_;
         const int mask_;
     };

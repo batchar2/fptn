@@ -109,6 +109,7 @@ int main(int argc, char* argv[])
     }
     filterManager->add( // Prevent sending requests to the VPN virtual network from the client
         std::make_shared<fptn::filter::packets::AntiScanFilter>(
+            options->getTunInterfaceIP(),
             options->getTunInterfaceNetworkAddress(),
             options->getTunInterfaceNetworkMask()
         )
