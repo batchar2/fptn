@@ -1,7 +1,12 @@
 
 #include "antiscan.h"
 
+#if defined(__linux__) || defined(__APPLE__)
 #include <arpa/inet.h>
+#else
+#include <winsock2.h>
+#include <windows.h>
+#endif
 
 
 using namespace fptn::filter::packets;
