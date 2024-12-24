@@ -161,5 +161,9 @@
             <source>The server is unavailable. Please select another server or use Auto-connect to find the best available server.</source>
             <translation>The server is unavailable. Please select another server or use Auto-connect to find the best available server.</translation>
         </message>
+        <message>
+            <source>No servers</source>
+            <translation>No servers</translation>
+        </message>
     </context>
 </TS>

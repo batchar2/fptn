@@ -1,11 +1,9 @@
 <!DOCTYPE RCC>
 <RCC version="1.0">
     <qresource prefix="/">
-        <file>icons/dark/active.ico</file>
-        <file>icons/dark/inactive.ico</file>
-
-        <file>icons/white/active.ico</file>
-        <file>icons/white/inactive.ico</file>
+        <file>icons/app.ico</file>
+        <file>icons/active.ico</file>
+        <file>icons/inactive.ico</file>
 
         <file>translations/fptn_ru.qm</file>
         <file>translations/fptn_en.qm</file>

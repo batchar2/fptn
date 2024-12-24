@@ -158,7 +158,6 @@ def compile_inno_setup_script(
 
 
 if __name__ == "__main__":
-
     parser = argparse.ArgumentParser(
         description="A script to manage the build process for FPTN Client."
     )
@@ -237,8 +236,12 @@ if __name__ == "__main__":
 
     # change permissions
     manifest = INSTALLER_DIR / "app.manifest"
-    run_command(f'mt.exe -manifest "{manifest.as_posix()}" -outputresource:"{APP_FPTN_CLIENT.as_posix()}";1')
-    run_command(f'mt.exe -manifest "{manifest.as_posix()}" -outputresource:"{APP_FPTN_CLIENT_CLI.as_posix()}";1')
+    run_command(
+        f'mt.exe -manifest "{manifest.as_posix()}" -outputresource:"{APP_FPTN_CLIENT.as_posix()}";1'
+    )
+    run_command(
+        f'mt.exe -manifest "{manifest.as_posix()}" -outputresource:"{APP_FPTN_CLIENT_CLI.as_posix()}";1'
+    )
 
     compile_inno_setup_script(PREPARED_INNOSETUP_SCRIPT_PATH, OUTPUT_DIR)
     arch = "arm64" if is_arm_64() else "x64_x86"

@@ -5,6 +5,7 @@
 #include <QMessageBox>
 #include <QApplication>
 #include <QWidgetAction>
+#include <QStyleFactory>
 
 #include <spdlog/spdlog.h>
 
@@ -16,12 +17,11 @@
 using namespace fptn::gui;
 
 
-inline bool isDarkMode()
-{
-    const auto scheme = QGuiApplication::styleHints()->colorScheme();
-    return scheme == Qt::ColorScheme::Dark;
-}
-
+//inline bool isDarkMode()
+//{
+//    const auto scheme = QGuiApplication::styleHints()->colorScheme();
+//    return scheme == Qt::ColorScheme::Dark;
+//}
 
 inline bool isUbuntu()
 {
@@ -47,46 +47,28 @@ inline void showError(const QString& title, const QString& msg)
 
 TrayApp::TrayApp(const SettingsModelPtr &settings, QObject *parent)
     :
+        QWidget(),//QObject(parent),
         settings_(settings),
-        QObject(parent),
         trayIcon_(new QSystemTrayIcon(this)),
-        trayMenu_(new QMenu()),
+        trayMenu_(new QMenu(this)),
         connectMenu_(new QMenu(QObject::tr("Connect") + "    ", trayMenu_)),
-        speedWidget_(new SpeedWidget()),
-        updateTimer_(new QTimer(this))
+        speedWidget_(new SpeedWidget(this)),
+        updateTimer_(new QTimer(this)),
+        activeIconPath_(":/icons/active.ico"),
+        inactiveIconPath_(":/icons/inactive.ico")
 {
 #ifdef __linux__
-    if (isDarkMode() || isUbuntu()) {
-        activeIconPath_ = ":/icons/dark/active.ico";
-        inactiveIconPath_ = ":/icons/dark/inactive.ico";
-    } else {
-        activeIconPath_ = ":/icons/white/active.ico";
-        inactiveIconPath_ = ":/icons/white/inactive.ico";
-    }
     qApp->setStyleSheet(fptn::gui::ubuntuStyleSheet);
 #elif __APPLE__
-    // hot fix: for mac always dark
-    activeIconPath_ = ":/icons/dark/active.ico";
-    inactiveIconPath_ = ":/icons/dark/inactive.ico";
-    if (isDarkMode()) {
-        qApp->setStyleSheet(fptn::gui::darkStyleSheet);
-    } else {
-        qApp->setStyleSheet(fptn::gui::whiteStyleSheet);
-    }
+    qApp->setStyleSheet(fptn::gui::macStyleSheet);
 #elif _WIN32
-    if (isDarkMode()) {
-        activeIconPath_ = ":/icons/dark/active.ico";
-        inactiveIconPath_ = ":/icons/dark/inactive.ico";
-    } else {
-        activeIconPath_ = ":/icons/white/active.ico";
-        inactiveIconPath_ = ":/icons/white/inactive.ico";
-    }
     qApp->setStyleSheet(fptn::gui::windowsStyleSheet);
     if (trayIcon_ && trayMenu_) {
         QObject::connect(trayIcon_, &QSystemTrayIcon::activated, [this](QSystemTrayIcon::ActivationReason reason) {
             if (trayMenu_->isVisible()) {
                 trayMenu_->close(); // Hide the menu if it's visible
             } else {
+                // const auto position = mapToGlobal(QCursor::pos());
                 trayMenu_->show();
                 trayMenu_->exec(QCursor::pos()); // Show the menu if it's not visible
             }
@@ -95,6 +77,10 @@ TrayApp::TrayApp(const SettingsModelPtr &settings, QObject *parent)
 #else
     #error "Unsupported system!"
 #endif
+    // Also connect clicking on the icon to the signal processor of this press
+    connect(trayIcon_, SIGNAL(activated(QSystemTrayIcon::ActivationReason)),
+            this, SLOT(iconActivated(QSystemTrayIcon::ActivationReason)));
+
     const QString selectedLanguage = settings->languageCode();
     if (selectedLanguage.isEmpty()) { // save default language for first start
         const QString systemLanguage = getSystemLanguageCode();
@@ -131,6 +117,11 @@ TrayApp::TrayApp(const SettingsModelPtr &settings, QObject *parent)
     trayIcon_->setContextMenu(trayMenu_);
 
     updateTrayMenu();
+
+    trayIcon_->show();
+
+    show();
+    hide();
 }
 
 void TrayApp::setUpTrayIcon()
@@ -146,21 +137,20 @@ void TrayApp::updateTrayMenu()
     if (trayMenu_ && connectMenu_) {
         trayMenu_->removeAction(connectMenu_->menuAction());
         smartConnectAction_ = nullptr;
+        emptyConfigurationAction_ = nullptr;
     }
 
     switch (connectionState_) {
         case ConnectionState::None: {
             trayIcon_->setIcon(QIcon(inactiveIconPath_));
             const auto& services = settings_->services();
-            if (!services.isEmpty()) {
-                // auto
+            if (services.length()) {
                 smartConnectAction_ = new QAction(QObject::tr("Smart Connect"), connectMenu_);
                 connect(smartConnectAction_, &QAction::triggered, [this]() {
                     smartConnect_ = true;
                     onConnectToServer();
                 });
                 connectMenu_->addAction(smartConnectAction_);
-
                 connectMenu_->addSeparator();
 
                 // servers
@@ -186,8 +176,16 @@ void TrayApp::updateTrayMenu()
                         connectMenu_->addAction(serverConnect);
                     }
                 }
+            } else {
+                emptyConfigurationAction_ = new QAction(QObject::tr("No servers"), connectMenu_);
+                connectMenu_->addAction(emptyConfigurationAction_);
+                emptyConfigurationAction_->setEnabled(false);
             }
             trayMenu_->insertMenu(settingsAction_, connectMenu_);
+
+            if (connectMenu_) {
+                connectMenu_->setVisible(true);
+            }
             if (disconnectAction_) {
                 disconnectAction_->setVisible(false);
             }
@@ -267,12 +265,14 @@ void TrayApp::updateTrayMenu()
             } else {
                 connectingAction_->setText(QObject::tr("Disconnecting... "));
             }
-            connectingAction_->setVisible(true);
             if (speedWidgetAction_) {
                 speedWidgetAction_->setVisible(false);
             }
             if (settingsAction_) {
                 settingsAction_->setEnabled(false);
+            }
+            if (connectingAction_) {
+                connectingAction_->setVisible(true);
             }
             break;
         }
@@ -581,6 +581,9 @@ void TrayApp::retranslateUi()
     }
     if (connectingAction_) {
         connectingAction_->setText(QObject::tr("Connecting..."));
+    }
+    if (emptyConfigurationAction_) {
+        emptyConfigurationAction_->setText(QObject::tr("No servers"));
     }
     if (smartConnectAction_) {
         smartConnectAction_->setText(QObject::tr("Smart Connect"));

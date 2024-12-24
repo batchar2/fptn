@@ -5,8 +5,7 @@
 
 namespace fptn::gui
 {
-    extern QString darkStyleSheet;
-    extern QString whiteStyleSheet;
+    extern QString macStyleSheet;
     extern QString ubuntuStyleSheet;
     extern QString windowsStyleSheet;
 }

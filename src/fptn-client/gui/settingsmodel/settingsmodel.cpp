@@ -174,7 +174,6 @@ bool SettingsModel::save()
         serviceObj["username"] = service.username;
         serviceObj["password"] = service.password;
 
-
         QJsonArray serversArray;
         for (const ServerConfig& server : service.servers) {
             QJsonObject serverObj;
@@ -196,11 +195,14 @@ bool SettingsModel::save()
     auto len = file.write(document.toJson());
     file.close();
 
-    emit dataChanged();
-
     if (len > 0) {
         spdlog::info("Success save: {}", filePath.toStdString());
     }
+    // load saved data
+    load();
+
+    // send signal
+    emit dataChanged();
 
     return len > 0;
 }

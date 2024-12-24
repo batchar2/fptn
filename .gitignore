@@ -13,7 +13,9 @@ build*/
 cmake-build-*/
 .idea/
 libhv.*
-
+linux-build/
+linux-build22/
+linux-build24/
 CMakeUserPresets.json
 .env
 

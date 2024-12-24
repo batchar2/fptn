@@ -57,7 +57,7 @@ target_link_libraries(
 
 #### fptn-client-gui
 if("${FPTN_BUILD_WITH_GUI_CLIENT}")
-    find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network CONFIG REQUIRED)
+    find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network LinguistTools CONFIG REQUIRED)
     set(CMAKE_AUTOMOC ON)
     set(CMAKE_AUTORCC ON)
     set(CMAKE_AUTOUIC ON)
@@ -114,7 +114,7 @@ if("${FPTN_BUILD_WITH_GUI_CLIENT}")
         hv_static
         fptn_protocol
 
-        Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Network Qt6::LinguistTools
+        Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Network
 
         ${TUNTAP_LIB}
     )

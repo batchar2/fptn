@@ -5,6 +5,7 @@
 #include <QHeaderView>
 #include <QPushButton>
 #include <QMessageBox>
+#include <QSystemTrayIcon>
 #include <QTableWidgetItem>
 
 #include "settings.h"
@@ -17,9 +18,7 @@ SettingsWidget::SettingsWidget(const SettingsModelPtr& settings, QWidget *parent
 {
     setupUi();
     setModal(true);
-//    setWindowModality(Qt::ApplicationModal);
-//    setWindowModality(Qt::ApplicationModal);
-//    setAttribute(Qt::WA_DeleteOnClose);
+    setWindowIcon(QIcon(":/icons/app.ico"));
 }
 
 
@@ -181,7 +180,7 @@ void SettingsWidget::loadNewConfig()
 #else
     QString filePath = QFileDialog::getOpenFileName(
         this,
-        "Open FPTN Service File",
+        QObject::tr("Open FPTN Service File"),
         QDir::homePath(),
         "FPTN Files (*.fptn);;All files (*)"
     );
@@ -234,7 +233,6 @@ void SettingsWidget::loadNewConfig()
             buttonLayout->setAlignment(Qt::AlignCenter);
             buttonLayout->addWidget(deleteButton);
             serverTable->setCellWidget(newRow, 3, buttonContainer);
-
         } catch(const std::exception &err) {
             QMessageBox::critical(this, QObject::tr("Error!"), err.what());
         }

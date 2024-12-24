@@ -30,7 +30,7 @@
 
 namespace fptn::gui
 {
-    class TrayApp : public QObject
+    class TrayApp : public QWidget //QObject
     {
         Q_OBJECT
     private:
@@ -77,6 +77,7 @@ namespace fptn::gui
         QMenu *trayMenu_ = nullptr;
         QMenu *connectMenu_ = nullptr;
         QAction *smartConnectAction_ = nullptr;
+        QAction *emptyConfigurationAction_ = nullptr;
         QAction *disconnectAction_ = nullptr;
         QAction *settingsAction_ = nullptr;
         QAction *quitAction_ = nullptr;

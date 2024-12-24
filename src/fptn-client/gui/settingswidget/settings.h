@@ -24,8 +24,6 @@ namespace fptn::gui
         void saveModel();
         void loadNewConfig();
         void removeServer(int row);
-
-        //void retranslateUi();
     private:
         SettingsModelPtr settings_;
 

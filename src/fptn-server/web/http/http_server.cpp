@@ -182,6 +182,6 @@ int HttpServer::onTestFileBin(HttpRequest* req, HttpResponse* resp) noexcept
 {
     spdlog::info("{}", urlTestFileBin_);
     setHttpHeaders(resp, "application/octet-stream");
-    static const std::string data = fptn::common::utils::generateRandomString(150*1024);  // 150KB
+    static const std::string data = fptn::common::utils::generateRandomString(100*1024);  // 100KB
     return resp->String(data);
 }

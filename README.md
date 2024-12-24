@@ -183,6 +183,8 @@ Install the dnsmasq package using the following command:
 ```bash
 sudo apt update
 sudo apt install dnsmasq
+sudo systemctl enable dnsmasq
+sudo systemctl start dnsmasq
 ```
 
 
@@ -239,8 +241,34 @@ You can also test DNS resolution to confirm that the server is working:
 dig @127.0.0.1 google.com
 ```
 
+##### Step 9: Running
 
-##### Step 9. Telegram and Grafana
+To connect the client to your server, create an FPTN configuration file and save it as `MyFptnServer.fptn`
+
+Use the following template:
+
+```
+{
+    "version": 1,
+    "service_name": "MyFptnServer",
+    "username": "YOUR_USER",
+    "password": "YOUR_PASSWORD",
+    "servers": [
+        {
+            "name": "MyFptnServer",
+            "host": "YOUR_IP",
+            "port": 443
+        }
+    ]
+}
+```
+* Replace `YOUR_USER` and `YOUR_PASSWORD` with the `username` and `password` you created in `Step 5: Add User`.
+* Set the `host` field to the public IP address of your server.
+
+Once the configuration file is ready, open the FPTN Client settings and load your configuration file.
+
+
+##### Step 10 (optional). Telegram and Grafana
 
 Please follow the instructions for setting up both the [Telegram bot](sysadmin-tools/telegram-bot/README.md) and [Grafana](sysadmin-tools/grafana/README.md).
 With these tools, you can run your own bot and monitoring system.

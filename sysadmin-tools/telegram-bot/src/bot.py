@@ -141,7 +141,7 @@ async def start(update: Update, context: CallbackContext) -> None:
 
 
 async def send_credentials_file(
-        update: Update, context: CallbackContext, username: str, password: str
+    update: Update, context: CallbackContext, username: str, password: str
 ) -> None:
     # Create a unique temporary file
     with tempfile.NamedTemporaryFile(delete=False, suffix=".fptn") as temp_file:
@@ -207,7 +207,9 @@ def main() -> None:
     application.add_handler(
         MessageHandler(filters.TEXT & filters.Regex("Get access file"), get_access_file)
     )
-    application.add_handler(MessageHandler(filters.TEXT & filters.Regex("Update keyboard"), update_keyboard))
+    application.add_handler(
+        MessageHandler(filters.TEXT & filters.Regex("Update keyboard"), update_keyboard)
+    )
     logger.info("Bot started and is polling for messages.")
     application.run_polling()
 

@@ -20,7 +20,6 @@ class FPTN(ConanFile):
         "pcapplusplus/23.09",
         "nlohmann_json/3.11.3",
         "prometheus-cpp/1.1.0",
-
         "websocketpp/0.8.2",
         "cpp-httplib/0.17.3",
     )
@@ -30,9 +29,7 @@ class FPTN(ConanFile):
         "compiler",
         "build_type",
     )
-    generators = (
-        "CMakeDeps",
-    )
+    generators = ("CMakeDeps",)
     options = {
         "setup": [True, False],
         "with_gui_client": [True, False],
@@ -84,7 +81,7 @@ class FPTN(ConanFile):
         "boost/*:without_url": True,
         "boost/*:without_type_erasure": True,
         "boost/*:without_wave": True,
-        # --- qt ---
+        # --- Qt (only for MacOS and Windows) ---
         "qt/*:shared": True,
         "qt/*:qttools": True,
         "qt/*:with_harfbuzz": False,
@@ -100,7 +97,7 @@ class FPTN(ConanFile):
     }
 
     def requirements(self):
-        if self.options.with_gui_client:
+        if self.options.with_gui_client:  # and self.settings.os in ["Windows", "Macos"]:
             self.requires("qt/6.7.1")
         if self.settings.os != "Windows":
             self.requires("meson/1.4.1", override=True, force=True)
@@ -108,7 +105,6 @@ class FPTN(ConanFile):
     def build_requirements(self):
         self.test_requires("gtest/1.14.0")
         if self.settings.os != "Windows":
-            # Fix for MacOS
             self.build_requires("meson/1.4.1", override=True)
 
     def generate(self):

@@ -37,7 +37,12 @@ def save_tunnelblick_tun_driver(target_dir: pathlib.Path) -> bool:
     with tempfile.TemporaryDirectory() as temp_git_dir:
         print("Cloning repository...")
         run_command(f"git clone --depth 1 -b master {repo_url}", cwd=temp_git_dir)
-        source_folder = pathlib.Path(temp_git_dir) / "Tunnelblick" / "third_party" / "tun-notarized.kext"
+        source_folder = (
+            pathlib.Path(temp_git_dir)
+            / "Tunnelblick"
+            / "third_party"
+            / "tun-notarized.kext"
+        )
         if source_folder.exists():
             print(f"Copying folder '{source_folder}' to target directory...")
             shutil.copytree(source_folder, target_dir, dirs_exist_ok=True)
@@ -110,7 +115,9 @@ def create_app(
                 shutil.copy(lib, frameworks_path / lib_name)
             elif "qtbase/plugins/" in str(lib_path):
                 separeted = lib.split(r"qtbase/plugins/")
-                plugin_folder = frameworks_qt_plugins_path / separeted[1].replace(lib_name, "")
+                plugin_folder = frameworks_qt_plugins_path / separeted[1].replace(
+                    lib_name, ""
+                )
                 os.makedirs(plugin_folder, exist_ok=True)
 
                 print(f"Copy {lib_path} -> {plugin_folder / lib_name}")
