@@ -119,13 +119,6 @@ hv::HttpService* HttpServer::getService()
 int HttpServer::onHomeHandle(HttpRequest* req, HttpResponse* resp) noexcept
 {
     (void)req;
-    resp->SetHeader("Server", "nginx/1.24.0");
-    resp->SetHeader("Content-Type", "text/html; charset=utf-8");
-    resp->SetHeader("Connection", "keep-alive");
-    resp->SetHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-    resp->SetHeader("Pragma", "no-cache");
-    resp->SetHeader("Expires", "Fri, 07 Jun 1974 04:00:00 GMT");
-    resp->SetHeader("x-bitrix-composite", "Cache (200)");
     return resp->String(html_home_page);
 }
 
@@ -141,14 +134,14 @@ int HttpServer::onDnsHandle(HttpRequest* req, HttpResponse* resp) noexcept
 
 int HttpServer::onStatistics(HttpRequest* req, HttpResponse* resp) noexcept
 {
-
+    setHttpHeaders(resp, "text/html; charset=utf-8");
     return resp->String(prometheus_->collect());
 }
 
 int HttpServer::onLoginHandle(HttpRequest* req, HttpResponse* resp) noexcept
 {
     spdlog::info("{}", urlLogin_);
-    resp->SetHeader("Content-Type", "application/json; charset=utf-8");
+    setHttpHeaders(resp, "application/json; charset=utf-8");
     try {
         auto request = nlohmann::json::parse(req->Body());
         const auto username = request.at("username").get<std::string>();
@@ -188,6 +181,7 @@ int HttpServer::onLoginHandle(HttpRequest* req, HttpResponse* resp) noexcept
 int HttpServer::onTestFileBin(HttpRequest* req, HttpResponse* resp) noexcept
 {
     spdlog::info("{}", urlTestFileBin_);
+    setHttpHeaders(resp, "application/octet-stream");
     static const std::string data = fptn::common::utils::generateRandomString(150*1024);  // 150KB
     return resp->String(data);
 }

@@ -89,8 +89,8 @@
             <translation>Действие</translation>
         </message>
         <message>
-            <source>Load config</source>
-            <translation>Загрузить конфиг</translation>
+            <source>Select config</source>
+            <translation>Выбрать конфиг</translation>
         </message>
         <message>
             <source>Save</source>

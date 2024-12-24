@@ -57,7 +57,7 @@ void WebsocketServer::onOpenHandle(const WebSocketChannelPtr& channel, const Htt
             std::size_t bandwidthBitesSeconds = 0;
             if(tokenManager_->validate(token, username, bandwidthBitesSeconds)) {
                 {
-                    std::unique_lock<std::mutex> lock(mutex_);
+                    const std::unique_lock<std::mutex> lock(mutex_);
                     if (channels_.find(channelId) == channels_.end()) {
                         // save client
                         channels_.insert({channelId, channel});
@@ -91,7 +91,7 @@ void WebsocketServer::onMessageHandle(const WebSocketChannelPtr& channel, const 
         if (packet != nullptr && newPacketCallback_) {
             newPacketCallback_(std::move(packet));
             {
-                std::lock_guard<std::mutex> lock(mutex_);
+                const std::lock_guard<std::mutex> lock(mutex_);
                 if (channels_.find(channelId) != channels_.end()) { // check
                     // update alive information
                     channelsLastActive_[channelId] = std::chrono::steady_clock::now();
@@ -117,7 +117,7 @@ void WebsocketServer::onCloseHandle(const WebSocketChannelPtr& channel) noexcept
 {
     const std::uint32_t channelId = channel->id();
     {
-        std::unique_lock<std::mutex> lock(mutex_);
+        const std::unique_lock<std::mutex> lock(mutex_);
         // clean channel
         auto channelIt = channels_.find(channelId);
         if (channelIt != channels_.end()) {
@@ -137,7 +137,7 @@ void WebsocketServer::onCloseHandle(const WebSocketChannelPtr& channel) noexcept
 void WebsocketServer::send(fptn::common::network::IPPacketPtr packet) noexcept
 {
     try {
-        std::unique_lock<std::mutex> lock(mutex_);
+        const std::unique_lock<std::mutex> lock(mutex_);
         auto it = channels_.find(packet->clientId());
         if (it != channels_.end()) {
             const std::string msg = fptn::common::protobuf::protocol::createPacket(std::move(packet));
@@ -161,7 +161,7 @@ void WebsocketServer::run() noexcept
             lastCheckTime = now;
             std::vector<std::uint32_t> channelsIds;
 
-            std::unique_lock<std::mutex> lock(mutex_);
+            const std::unique_lock<std::mutex> lock(mutex_);
 
             // Identify channels that have been inactive beyond the timeout threshold
             for (auto &[channelId, lastActive]: channelsLastActive_) {

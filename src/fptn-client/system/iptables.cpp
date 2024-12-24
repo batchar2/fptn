@@ -70,7 +70,11 @@ bool IPTables::apply() noexcept
         fmt::format("iptables -A OUTPUT -o {} -d {} -j ACCEPT", findOutInterfaceName_, vpnServerIP_.toString()),
         fmt::format("iptables -A INPUT -i {} -s {} -j ACCEPT", findOutInterfaceName_, vpnServerIP_.toString()),
         fmt::format("ip route add default dev {}", tunInterfaceName_),
+        // exclude vpn server & networks
         fmt::format("ip route add {} via {} dev {}", vpnServerIP_.toString(), findOutGatewayIp_.toString(), findOutInterfaceName_),
+        fmt::format("ip route add 10.0.0.0/8 via {} dev {}", findOutGatewayIp_.toString(), findOutInterfaceName_),
+        fmt::format("ip route add 172.16.0.0/12 via {} dev {}", findOutGatewayIp_.toString(), findOutInterfaceName_),
+        fmt::format("ip route add 192.168.0.0/16 via {} dev {}", findOutGatewayIp_.toString(), findOutInterfaceName_),
         // DNS
         fmt::format("resolvectl dns {} {}", tunInterfaceName_, dnsServer_.toString()),
         fmt::format("resolvectl domain {} \"~.\" ", tunInterfaceName_),
@@ -93,7 +97,12 @@ bool IPTables::apply() noexcept
         fmt::format("pfctl -ef /tmp/pf.conf"),
         fmt::format("route add -net 0.0.0.0/1 -interface {}", tunInterfaceName_),
         fmt::format("route add -net 128.0.0.0/1 -interface {}", tunInterfaceName_),
-        fmt::format("route add {} {}", vpnServerIP_.toString(), findOutGatewayIp_.toString()),
+        // exclude vpn server & networks
+        fmt::format("route add -host {} {}", vpnServerIP_.toString(), findOutGatewayIp_.toString()),
+        fmt::format("route add -net 10.0.0.0/8 {}", findOutGatewayIp_.toString()),
+        fmt::format("route add -net 172.16.0.0/12 {}", findOutGatewayIp_.toString()),
+        fmt::format("route add -net 192.168.0.0/16 {}", findOutGatewayIp_.toString()),
+        // DNS
         fmt::format("dscacheutil -flushcache"),
         fmt::format(R"(bash -c "networksetup -listallnetworkservices | grep -v '^\* ' | xargs -I {{}} networksetup -setdnsservers '{{}}' {}")", dnsServer_.toString())
     };
@@ -101,8 +110,14 @@ bool IPTables::apply() noexcept
     const std::string winInterfaceNumber = getWindowsInterfaceNumber(tunInterfaceName_);
     const std::string interfaceInfo = winInterfaceNumber.empty() ? "" : " if " + winInterfaceNumber;
     const std::vector<std::string> commands = {
+        // exclude vpn server & networks
         fmt::format("route add {} mask 255.255.255.255 {} METRIC 2", vpnServerIP_.toString(), findOutGatewayIp_.toString()),
+        fmt::format("route add 10.0.0.0 mask 255.0.0.0 {} METRIC 2", findOutGatewayIp_.toString()),
+        fmt::format("route add 172.16.0.0 mask 255.240.0.0 {} METRIC 2", findOutGatewayIp_.toString()),
+        fmt::format("route add 192.168.0.0 mask 255.255.0.0 {} METRIC 2", findOutGatewayIp_.toString()),
+        // Default gateway
         fmt::format("route add 0.0.0.0 mask 0.0.0.0 {} METRIC 1 {}", tunInterfaceAddress_.toString(), interfaceInfo),
+        // DNS
         fmt::format("netsh interface ip set dns name=\"{}\" static {}", tunInterfaceName_, dnsServer_.toString())
     };
 #else
@@ -127,8 +142,13 @@ bool IPTables::clean() noexcept
         fmt::format("iptables -D FORWARD -i {} -o {} -j ACCEPT", tunInterfaceName_, findOutInterfaceName_),
         fmt::format("iptables -D OUTPUT -o {} -d {} -j ACCEPT", findOutInterfaceName_, vpnServerIP_.toString()),
         fmt::format("iptables -D INPUT -i {} -s {} -j ACCEPT", findOutInterfaceName_, vpnServerIP_.toString()),
+        // del routes
         fmt::format("ip route del default dev {}", tunInterfaceName_),
         fmt::format("ip route del {} via {} dev {}", vpnServerIP_.toString(), findOutGatewayIp_.toString(), findOutInterfaceName_),
+        fmt::format("ip route del 10.0.0.0/8 via {} dev {}", findOutGatewayIp_.toString(), findOutInterfaceName_),
+        fmt::format("ip route del 172.16.0.0/12 via {} dev {}", findOutGatewayIp_.toString(), findOutInterfaceName_),
+        fmt::format("ip route del 192.168.0.0/16 via {} dev {}", findOutGatewayIp_.toString(), findOutInterfaceName_),
+        // DNS
         fmt::format("resolvectl dns {} '' ", tunInterfaceName_),
         fmt::format("resolvectl domain {} '' ", findOutInterfaceName_),
         fmt::format("resolvectl default-route {} no '' ", findOutInterfaceName_)
@@ -137,15 +157,25 @@ bool IPTables::clean() noexcept
     const std::vector<std::string> commands = {
         fmt::format(R"(bash -c "networksetup -listallnetworkservices | grep -v '^An asterisk' | xargs -I {{}} networksetup -setdnsservers '{{}}' empty")"),
         fmt::format("pfctl -F all -f /etc/pf.conf"),
+        // del routes
         fmt::format("route delete -net 0.0.0.0/1 -interface {}", tunInterfaceName_),
         fmt::format("route delete -net 128.0.0.0/1 -interface {}", tunInterfaceName_),
-        fmt::format("route delete {} {}", vpnServerIP_.toString(), findOutGatewayIp_.toString()),
+        fmt::format("route delete -host {} {}", vpnServerIP_.toString(), findOutGatewayIp_.toString()),
+        fmt::format("route delete -net 10.0.0.0/8 {}", findOutGatewayIp_.toString()),
+        fmt::format("route delete -net 172.16.0.0/12 {}", findOutGatewayIp_.toString()),
+        fmt::format("route delete -net 192.168.0.0/16 {}", findOutGatewayIp_.toString()),
+        // DNS
         fmt::format(R"(bash -c "networksetup -listallnetworkservices | grep -v '^An asterisk' | xargs -I {{}} networksetup -setdnsservers '{{}}' empty")")
     };
 #elif _WIN32
     const std::vector<std::string> commands = {
+        // del routes
         fmt::format("route delete {} mask 255.255.255.255 {}", vpnServerIP_.toString(), findOutGatewayIp_.toString()),
         fmt::format("route delete 0.0.0.0 mask 0.0.0.0 {}", tunInterfaceAddress_.toString()),
+        fmt::format("route delete 10.0.0.0 mask 255.0.0.0 {}", findOutGatewayIp_.toString()),
+        fmt::format("route delete 172.16.0.0 mask 255.240.0.0 {}", findOutGatewayIp_.toString()),
+        fmt::format("route delete 192.168.0.0 mask 255.255.0.0 {}", findOutGatewayIp_.toString()),
+        // DNS
         fmt::format("netsh interface ip set dns name=\"{}\" dhcp", tunInterfaceName_, dnsServer_.toString())
     };
 #else

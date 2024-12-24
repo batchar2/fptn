@@ -85,7 +85,7 @@ void SettingsWidget::setupUi()
     QHBoxLayout *buttonLayout = new QHBoxLayout();
     buttonLayout->addStretch();
 
-    QPushButton *loadNewConfigButton = new QPushButton("  " + QObject::tr("Load config") + "  ", this);
+    QPushButton *loadNewConfigButton = new QPushButton("  " + QObject::tr("Select config") + "  ", this);
     connect(loadNewConfigButton, &QPushButton::clicked, this, &SettingsWidget::loadNewConfig);
     buttonLayout->addWidget(loadNewConfigButton);
 

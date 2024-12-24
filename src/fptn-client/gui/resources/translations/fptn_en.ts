@@ -89,8 +89,8 @@
             <translation>Action</translation>
         </message>
         <message>
-            <source>Load config</source>
-            <translation>Load config</translation>
+            <source>Select config</source>
+            <translation>Select config</translation>
         </message>
         <message>
             <source>Save</source>

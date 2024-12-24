@@ -22,7 +22,8 @@ fptn::client::SessionSPtr Table::createClientSession(ClientID clientId,
     const fptn::traffic_shaper::LeakyBucketSPtr& trafficShaperToClient,
     const fptn::traffic_shaper::LeakyBucketSPtr& trafficShaperFromClient) noexcept
 {
-    std::unique_lock<std::mutex> lock(mutex_);
+    const std::unique_lock<std::mutex> lock(mutex_);
+
     if (clientIdToSessions_.find(clientId) == clientIdToSessions_.end()) {
         if (clientNumber_ < ipGenerator_.numAvailableAddresses()) {
             clientNumber_ += 1;
@@ -51,7 +52,8 @@ fptn::client::SessionSPtr Table::createClientSession(ClientID clientId,
 
 bool Table::delClientSession(ClientID clientId) noexcept
 {
-    std::unique_lock<std::mutex> lock(mutex_);
+    const std::unique_lock<std::mutex> lock(mutex_);
+
     auto it = clientIdToSessions_.find(clientId);
     if (it != clientIdToSessions_.end()) {
         const IPv4INT ipInt = it->second->fakeClientIP().toInt();
@@ -70,7 +72,8 @@ bool Table::delClientSession(ClientID clientId) noexcept
 
 fptn::client::SessionSPtr Table::getSessionByFakeIP(const pcpp::IPv4Address& ip) noexcept
 {
-    std::unique_lock<std::mutex> lock(mutex_);
+    const std::unique_lock<std::mutex> lock(mutex_);
+
     auto it = ipToSessions_.find(ip.toInt());
     if (it != ipToSessions_.end()) {
         return it->second;
@@ -80,7 +83,7 @@ fptn::client::SessionSPtr Table::getSessionByFakeIP(const pcpp::IPv4Address& ip)
 
 fptn::client::SessionSPtr Table::getSessionByClientId(ClientID clientId) noexcept
 {
-    std::unique_lock<std::mutex> lock(mutex_);
+    const std::unique_lock<std::mutex> lock(mutex_);
     auto it = clientIdToSessions_.find(clientId);
     if (it != clientIdToSessions_.end()) {
         return it->second;
@@ -101,7 +104,7 @@ pcpp::IPv4Address Table::getUniqueIPAddress()
 
 void Table::updateStatistic(fptn::statistic::MetricsSPtr& prometheus) noexcept
 {
-    std::unique_lock<std::mutex> lock(mutex_);
+    const std::unique_lock<std::mutex> lock(mutex_);
 
     prometheus->updateActiveSessions(clientIdToSessions_.size());
     for (const auto &client: clientIdToSessions_) {

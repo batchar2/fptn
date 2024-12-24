@@ -46,4 +46,16 @@ namespace fptn::web
         pcpp::IPv4Address dnsServer_;
         hv::HttpService http_;
     };
+
+
+    inline void setHttpHeaders(HttpResponse* resp, const std::string& contentType) noexcept
+    {
+        resp->SetHeader("Server", "nginx/1.24.0");
+        resp->SetHeader("Content-Type", contentType);
+        resp->SetHeader("Connection", "keep-alive");
+        resp->SetHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        resp->SetHeader("Pragma", "no-cache");
+        resp->SetHeader("Expires", "Fri, 07 Jun 1974 04:00:00 GMT");
+        resp->SetHeader("x-bitrix-composite", "Cache (200)");
+    }
 }

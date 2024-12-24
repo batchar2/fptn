@@ -41,7 +41,8 @@ namespace fptn::common::network
         }
         void update(std::size_t len) noexcept
         {
-            std::lock_guard<std::mutex> lock(mutex_);
+            const std::lock_guard<std::mutex> lock(mutex_);
+
             auto now = std::chrono::steady_clock::now();
             std::chrono::duration<double> elapsed = now - lastUpdateTime_;
             bytes_ += len;
@@ -53,7 +54,8 @@ namespace fptn::common::network
         }
         std::size_t getRateForSecond() const noexcept
         {
-            std::lock_guard<std::mutex> lock(mutex_);
+            const std::lock_guard<std::mutex> lock(mutex_);
+
             const auto intervalCount = interval_.count();
             if (intervalCount) { 
                 return static_cast<std::size_t>(rate_ / (1000 / interval_.count()));
@@ -100,12 +102,12 @@ namespace fptn::common::network
             return name_;
         }
 
-        const pcpp::IPv4Address& addr() const 
+        const pcpp::IPv4Address& addr() const
         {
             return addr_;
         }
 
-        int netmask() const 
+        int netmask() const
         {
             return netmask_;
         }
