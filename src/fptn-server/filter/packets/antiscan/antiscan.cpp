@@ -1,7 +1,13 @@
 
 #include "antiscan.h"
 
-#include <arpa/inet.h>
+#if defined(__APPLE__) || defined(__linux__)
+    #include <arpa/inet.h>
+#elif _WIN32
+    #include <winsock2.h>
+#else
+    #error "Unsupported system!"
+#endif
 
 
 using namespace fptn::filter::packets;
