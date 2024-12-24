@@ -30,7 +30,7 @@
 
 namespace fptn::gui
 {
-    class TrayApp : public QWidget //QObject
+    class TrayApp : public QWidget
     {
         Q_OBJECT
     private:
@@ -41,7 +41,7 @@ namespace fptn::gui
             Disconnecting
         };
     public:
-        TrayApp(const SettingsModelPtr &settings, QObject *parent = nullptr);
+        explicit TrayApp(const SettingsModelPtr &settings, QObject* parent = nullptr);
         virtual ~TrayApp() = default;
     private:
         bool setTranslation(const QString& languageCode);

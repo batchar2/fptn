@@ -69,7 +69,9 @@ bool IPTables::apply() noexcept
         fmt::format("iptables -A FORWARD -i {} -o {} -j ACCEPT", tunInterfaceName_, findOutInterfaceName_),
         fmt::format("iptables -A OUTPUT -o {} -d {} -j ACCEPT", findOutInterfaceName_, vpnServerIP_.toString()),
         fmt::format("iptables -A INPUT -i {} -s {} -j ACCEPT", findOutInterfaceName_, vpnServerIP_.toString()),
+        // default & DNS route
         fmt::format("ip route add default dev {}", tunInterfaceName_),
+        fmt::format("ip route add {} dev {}", dnsServer_.toString(), tunInterfaceName_), // via TUN
         // exclude vpn server & networks
         fmt::format("ip route add {} via {} dev {}", vpnServerIP_.toString(), findOutGatewayIp_.toString(), findOutInterfaceName_),
         fmt::format("ip route add 10.0.0.0/8 via {} dev {}", findOutGatewayIp_.toString(), findOutInterfaceName_),
@@ -82,6 +84,7 @@ bool IPTables::apply() noexcept
     };
 #elif __APPLE__
     const std::vector<std::string> commands = {
+        fmt::format(R"(bash -c "networksetup -listallnetworkservices | grep -v '^An asterisk' | xargs -I {{}} networksetup -setdnsservers '{{}}' empty")", dnsServer_.toString()), // clean DNS
         fmt::format("sysctl -w net.inet.ip.forwarding=1"),
         fmt::format(
             R"(sh -c "echo 'nat on {findOutInterfaceName} from {tunInterfaceName}:network to any -> ({findOutInterfaceName})
@@ -95,8 +98,10 @@ bool IPTables::apply() noexcept
             fmt::arg("vpnServerIP", vpnServerIP_.toString())
         ),
         fmt::format("pfctl -ef /tmp/pf.conf"),
+        // default & DNS route
         fmt::format("route add -net 0.0.0.0/1 -interface {}", tunInterfaceName_),
         fmt::format("route add -net 128.0.0.0/1 -interface {}", tunInterfaceName_),
+        fmt::format("route add -host {} -interface {}", dnsServer_.toString(), tunInterfaceName_), // via TUN
         // exclude vpn server & networks
         fmt::format("route add -host {} {}", vpnServerIP_.toString(), findOutGatewayIp_.toString()),
         fmt::format("route add -net 10.0.0.0/8 {}", findOutGatewayIp_.toString()),
@@ -111,12 +116,14 @@ bool IPTables::apply() noexcept
     const std::string interfaceInfo = winInterfaceNumber.empty() ? "" : " if " + winInterfaceNumber;
     const std::vector<std::string> commands = {
         // exclude vpn server & networks
+        fmt::format("netsh interface ip set dns name=\"{}\" dhcp", tunInterfaceName_), // CLEAN DNS
         fmt::format("route add {} mask 255.255.255.255 {} METRIC 2", vpnServerIP_.toString(), findOutGatewayIp_.toString()),
         fmt::format("route add 10.0.0.0 mask 255.0.0.0 {} METRIC 2", findOutGatewayIp_.toString()),
         fmt::format("route add 172.16.0.0 mask 255.240.0.0 {} METRIC 2", findOutGatewayIp_.toString()),
         fmt::format("route add 192.168.0.0 mask 255.255.0.0 {} METRIC 2", findOutGatewayIp_.toString()),
-        // Default gateway
+        // Default gateway & dns
         fmt::format("route add 0.0.0.0 mask 0.0.0.0 {} METRIC 1 {}", tunInterfaceAddress_.toString(), interfaceInfo),
+        fmt::format("route add {} mask 255.255.255.255 {} METRIC 2 {}", dnsServer_.toString(), tunInterfaceAddress_.toString(), interfaceInfo), // via TUN
         // DNS
         fmt::format("netsh interface ip set dns name=\"{}\" static {}", tunInterfaceName_, dnsServer_.toString())
     };
@@ -155,9 +162,10 @@ bool IPTables::clean() noexcept
     };
 #elif __APPLE__
     const std::vector<std::string> commands = {
-        fmt::format(R"(bash -c "networksetup -listallnetworkservices | grep -v '^An asterisk' | xargs -I {{}} networksetup -setdnsservers '{{}}' empty")"),
+        fmt::format(R"(bash -c "networksetup -listallnetworkservices | grep -v '^An asterisk' | xargs -I {{}} networksetup -setdnsservers '{{}}' empty")"), // clean DNS
         fmt::format("pfctl -F all -f /etc/pf.conf"),
         // del routes
+        fmt::format("route delete -host {} -interface {}", dnsServer_.toString(), tunInterfaceName_), // via TUN
         fmt::format("route delete -net 0.0.0.0/1 -interface {}", tunInterfaceName_),
         fmt::format("route delete -net 128.0.0.0/1 -interface {}", tunInterfaceName_),
         fmt::format("route delete -host {} {}", vpnServerIP_.toString(), findOutGatewayIp_.toString()),
@@ -165,7 +173,7 @@ bool IPTables::clean() noexcept
         fmt::format("route delete -net 172.16.0.0/12 {}", findOutGatewayIp_.toString()),
         fmt::format("route delete -net 192.168.0.0/16 {}", findOutGatewayIp_.toString()),
         // DNS
-        fmt::format(R"(bash -c "networksetup -listallnetworkservices | grep -v '^An asterisk' | xargs -I {{}} networksetup -setdnsservers '{{}}' empty")")
+        fmt::format(R"(bash -c "networksetup -listallnetworkservices | grep -v '^An asterisk' | xargs -I {{}} networksetup -setdnsservers '{{}}' empty")") // clean DNS
     };
 #elif _WIN32
     const std::vector<std::string> commands = {
@@ -176,7 +184,8 @@ bool IPTables::clean() noexcept
         fmt::format("route delete 172.16.0.0 mask 255.240.0.0 {}", findOutGatewayIp_.toString()),
         fmt::format("route delete 192.168.0.0 mask 255.255.0.0 {}", findOutGatewayIp_.toString()),
         // DNS
-        fmt::format("netsh interface ip set dns name=\"{}\" dhcp", tunInterfaceName_, dnsServer_.toString())
+        fmt::format("netsh interface ip set dns name=\"{}\" dhcp", tunInterfaceName_),
+        fmt::format("route delete {} mask 255.255.255.255 {} METRIC 2 {}", dnsServer_.toString(), tunInterfaceAddress_.toString(), interfaceInfo), // via TUN
     };
 #else
     #error "Unsupported system!"
@@ -199,11 +208,13 @@ static bool runCommand(const std::string& command)
         boost::process::child child(command, boost::process::std_out > stdout, boost::process::std_err > stderr);
 #endif
         child.wait();
+        spdlog::info("RUN: " + command);
         if (child.exit_code() == 0) {
             return true;
         }
     } catch (const std::exception& e) {
-        spdlog::error("IPTables error: ", e.what());
+        const std::string msg = e.what();
+        spdlog::error("IPTables error: " + msg);
     } catch (...) {
         spdlog::error("Undefined command error");
     }

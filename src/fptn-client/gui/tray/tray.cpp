@@ -17,24 +17,6 @@
 using namespace fptn::gui;
 
 
-//inline bool isDarkMode()
-//{
-//    const auto scheme = QGuiApplication::styleHints()->colorScheme();
-//    return scheme == Qt::ColorScheme::Dark;
-//}
-
-inline bool isUbuntu()
-{
-    QString osName = QSysInfo::prettyProductName();
-    return osName.contains("Ubuntu", Qt::CaseInsensitive);
-}
-
-inline bool isWindows()
-{
-    QString osName = QSysInfo::productType();
-    return osName.contains("windows", Qt::CaseInsensitive);
-}
-
 inline void showError(const QString& title, const QString& msg)
 {
     QWidget tempWidget;
@@ -45,14 +27,15 @@ inline void showError(const QString& title, const QString& msg)
     );
 }
 
-TrayApp::TrayApp(const SettingsModelPtr &settings, QObject *parent)
-    :
-        QWidget(),//QObject(parent),
+
+TrayApp::TrayApp(const SettingsModelPtr &settings, QObject* parent)
+        :
+        QWidget(),
         settings_(settings),
         trayIcon_(new QSystemTrayIcon(this)),
         trayMenu_(new QMenu(this)),
         connectMenu_(new QMenu(QObject::tr("Connect") + "    ", trayMenu_)),
-        speedWidget_(new SpeedWidget(this)),
+        speedWidget_(new SpeedWidget(trayMenu_)),
         updateTimer_(new QTimer(this)),
         activeIconPath_(":/icons/active.ico"),
         inactiveIconPath_(":/icons/inactive.ico")
@@ -63,19 +46,20 @@ TrayApp::TrayApp(const SettingsModelPtr &settings, QObject *parent)
     qApp->setStyleSheet(fptn::gui::macStyleSheet);
 #elif _WIN32
     qApp->setStyleSheet(fptn::gui::windowsStyleSheet);
+#else
+    #error "Unsupported system!"
+#endif
+
+#if defined(_WIN32) || defined(__linux__)
     if (trayIcon_ && trayMenu_) {
         QObject::connect(trayIcon_, &QSystemTrayIcon::activated, [this](QSystemTrayIcon::ActivationReason reason) {
-            if (trayMenu_->isVisible()) {
-                trayMenu_->close(); // Hide the menu if it's visible
+            if (reason == QSystemTrayIcon::Context) {
+                trayMenu_->popup(trayIcon_->geometry().bottomLeft());
             } else {
-                // const auto position = mapToGlobal(QCursor::pos());
-                trayMenu_->show();
-                trayMenu_->exec(QCursor::pos()); // Show the menu if it's not visible
+                trayMenu_->close();
             }
         });
     }
-#else
-    #error "Unsupported system!"
 #endif
     // Also connect clicking on the icon to the signal processor of this press
     connect(trayIcon_, SIGNAL(activated(QSystemTrayIcon::ActivationReason)),
@@ -119,9 +103,6 @@ TrayApp::TrayApp(const SettingsModelPtr &settings, QObject *parent)
     updateTrayMenu();
 
     trayIcon_->show();
-
-    show();
-    hide();
 }
 
 void TrayApp::setUpTrayIcon()
@@ -152,14 +133,12 @@ void TrayApp::updateTrayMenu()
                 });
                 connectMenu_->addAction(smartConnectAction_);
                 connectMenu_->addSeparator();
-
                 // servers
                 for (const auto &service : services) {
                     for (const auto &server : service.servers) {
                         auto serverConnect = new QAction(server.name, connectMenu_);
                         connect(serverConnect, &QAction::triggered, [this, server, service]() {
                             smartConnect_ = false;
-
                             fptn::config::ConfigFile::Server cfgServer;
                             {
                                 cfgServer.name = server.name.toStdString();
@@ -184,7 +163,7 @@ void TrayApp::updateTrayMenu()
             trayMenu_->insertMenu(settingsAction_, connectMenu_);
 
             if (connectMenu_) {
-                connectMenu_->setVisible(true);
+                connectMenu_->setVisible(false);
             }
             if (disconnectAction_) {
                 disconnectAction_->setVisible(false);
