@@ -55,7 +55,7 @@ Once the client is running, find the VPN client icon in the system tray.
 
 Simply click on the icon to open the context menu.
 
-<img style="max-height: 200px" class="img-center" src="docs/images/client.png" alt="Application"/>
+<img style="max-height: 200px" class="img-center" src="docs/images/macos/client.png" alt="Application"/>
 
 
 Open "Settings" to configure your client.
@@ -67,27 +67,20 @@ which will quickly provide you with the parameters for internet access.
 Open the settings to add a new connection. To do this, download the file provided by
 the bot and simply upload it in your client's settings by clicking the "Load config" button.
 
-<img style="max-height: 350px" src="docs/images/settings-2.png" alt="Settings"/>
+<img style="max-height: 350px" class="img-center" src="docs/images/macos/settings-2.png" alt="Settings"/>
 
 
 After that, save the settings.
-<img style="max-height: 350px" src="docs/images/settings-3.png" alt="Settings"/>
+<img style="max-height: 350px" class="img-center" src="docs/images/macos/settings-3.png" alt="Settings"/>
 
 Ease of use:
-<img style="max-height: 350px" class="img-center" src="docs/images/running-client.png" alt="Settings"/>
+<img style="max-height: 350px" class="img-center" src="docs/images/macos/running-client.png" alt="Settings"/>
 
 You can also easily turn your Raspberry Pi or Orange Pi into a WiFi access point and install the FPTN client on it.
 In this case, all devices connected to the WiFi will be able to access the internet, bypassing any restrictions.
 [Read more here](https://github.com/batchar2/fptn/blob/master/deploy/linux/wifi/README.md)
 
-
-<img style="max-height: 350px" src="docs/images/orangepi.jpg" alt="Settings"/>
-
-
-
-
-
-
+<img style="max-height: 350px" class="img-center" src="docs/images/orangepi.jpg" alt="Settings"/>
 
 <details>
   <summary>FPTN Server Installation and Configuration</summary>
