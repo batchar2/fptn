@@ -523,6 +523,14 @@ void TrayApp::updateSpeedWidget()
 
 void TrayApp::handleQuit()
 {
+    if (vpnClient_) {
+        vpnClient_->stop();
+        vpnClient_.reset();
+    }
+    if (ipTables_) {
+        ipTables_->clean();
+        ipTables_.reset();
+    }
     QApplication::quit();
 }
 
