@@ -176,6 +176,8 @@ bool IPTables::clean() noexcept
         fmt::format(R"(bash -c "networksetup -listallnetworkservices | grep -v '^An asterisk' | xargs -I {{}} networksetup -setdnsservers '{{}}' empty")") // clean DNS
     };
 #elif _WIN32
+    const std::string winInterfaceNumber = getWindowsInterfaceNumber(tunInterfaceName_);
+    const std::string interfaceInfo = winInterfaceNumber.empty() ? "" : " if " + winInterfaceNumber;
     const std::vector<std::string> commands = {
         // del routes
         fmt::format("route delete {} mask 255.255.255.255 {}", vpnServerIP_.toString(), findOutGatewayIp_.toString()),
@@ -185,7 +187,7 @@ bool IPTables::clean() noexcept
         fmt::format("route delete 192.168.0.0 mask 255.255.0.0 {}", findOutGatewayIp_.toString()),
         // DNS
         fmt::format("netsh interface ip set dns name=\"{}\" dhcp", tunInterfaceName_),
-        fmt::format("route delete {} mask 255.255.255.255 {} METRIC 2 {}", dnsServer_.toString(), tunInterfaceAddress_.toString(), interfaceInfo), // via TUN
+        fmt::format("route delete {} mask 255.255.255.255 {} METRIC 2 {}", dnsServer_.toString(), tunInterfaceAddress_.toString(), interfaceInfo) // via TUN
     };
 #else
     #error "Unsupported system!"

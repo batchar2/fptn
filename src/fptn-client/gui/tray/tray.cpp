@@ -50,16 +50,23 @@ TrayApp::TrayApp(const SettingsModelPtr &settings, QObject* parent)
     #error "Unsupported system!"
 #endif
 
-#if defined(_WIN32) || defined(__linux__)
-    if (trayIcon_ && trayMenu_) {
-        QObject::connect(trayIcon_, &QSystemTrayIcon::activated, [this](QSystemTrayIcon::ActivationReason reason) {
-            if (reason == QSystemTrayIcon::Context) {
-                trayMenu_->popup(trayIcon_->geometry().bottomLeft());
-            } else {
-                trayMenu_->close();
-            }
-        });
-    }
+#if __linux__
+    QObject::connect(trayIcon_, &QSystemTrayIcon::activated, [this](QSystemTrayIcon::ActivationReason reason) {
+        if (reason == QSystemTrayIcon::Context) {
+            trayMenu_->popup(trayIcon_->geometry().bottomLeft());
+        } else {
+            trayMenu_->close();
+        }
+    });
+#elif _WIN32
+    QObject::connect(trayIcon_, &QSystemTrayIcon::activated, [this](QSystemTrayIcon::ActivationReason reason) {
+        if (reason == QSystemTrayIcon::Context) {
+            trayMenu_->show();
+            trayMenu_->exec(QCursor::pos());
+        } else {
+            trayMenu_->close();
+        }
+    });
 #endif
     // Also connect clicking on the icon to the signal processor of this press
     connect(trayIcon_, SIGNAL(activated(QSystemTrayIcon::ActivationReason)),
