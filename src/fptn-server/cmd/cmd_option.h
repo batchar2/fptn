@@ -20,10 +20,17 @@ namespace fptn::cmd
         std::string getServerPub() const;
         std::string getOutNetworkInterface() const;
         int getServerPort() const;
+
         std::string getTunInterfaceName() const;
-        pcpp::IPv4Address getTunInterfaceIP() const;
-        pcpp::IPv4Address getTunInterfaceNetworkAddress() const;
-        int getTunInterfaceNetworkMask() const;
+        /* IPv4 */
+        pcpp::IPv4Address getTunInterfaceIPv4() const;
+        pcpp::IPv4Address getTunInterfaceNetworkIPv4Address() const;
+        int getTunInterfaceNetworkIPv4Mask() const;
+        /* IPv6 */
+        pcpp::IPv6Address getTunInterfaceIPv6() const;
+        pcpp::IPv6Address getTunInterfaceNetworkIPv6Address() const;
+        int getTunInterfaceNetworkIPv6Mask() const;
+
         std::string getUserFile() const;
         bool useHttps() const;
         bool disableBittorrent() const;

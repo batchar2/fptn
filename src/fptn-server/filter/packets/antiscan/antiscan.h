@@ -2,6 +2,8 @@
 
 #include <filter/packets/base.h>
 
+#include <boost/multiprecision/cpp_int.hpp>
+
 
 namespace fptn::filter::packets
 {
@@ -21,12 +23,27 @@ namespace fptn::filter::packets
     class AntiScanFilter : public BaseFilter
     {
     public:
-        AntiScanFilter(const pcpp::IPv4Address& serverIp, const pcpp::IPv4Address& net, const int mask);
+        AntiScanFilter(
+            /* IPv4 */
+            const pcpp::IPv4Address& serverIPv4,
+            const pcpp::IPv4Address& serverIpv4Net,
+            const int serverIPv4Mask,
+            /* IPv6 */
+            const pcpp::IPv6Address& serverIPv6,
+            const pcpp::IPv6Address& serverIpv6Net,
+            const int serverIPv6Mask
+        );
         virtual IPPacketPtr apply(IPPacketPtr packet) const noexcept override;
         virtual ~AntiScanFilter() = default;
     private:
-        const std::uint32_t serverIp_;
-        const std::uint32_t net_;
-        const int mask_;
+        /* IPv4 */
+        const std::uint32_t serverIPv4_;
+        const std::uint32_t serverIPv4Net_;
+        const int serverIPv4Mask_;
+
+        /* IPv6 */
+        const boost::multiprecision::uint128_t serverIPv6_;
+        const boost::multiprecision::uint128_t serverIpv6Net_;
+        const boost::multiprecision::uint128_t serverIPv6Mask_;
     };
 }

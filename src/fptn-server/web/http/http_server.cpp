@@ -89,13 +89,15 @@ HttpServer::HttpServer(
         const fptn::common::jwt_token::TokenManagerSPtr& tokenManager,
         const fptn::statistic::MetricsSPtr& prometheus,
         const std::string& prometheusAccessKey,
-        const pcpp::IPv4Address& dnsServer
+        const pcpp::IPv4Address& dnsServerIPv4,
+        const pcpp::IPv6Address& dnsServerIPv6
 )
     : 
         userManager_(userManager),
         tokenManager_(tokenManager),
         prometheus_(prometheus),
-        dnsServer_(dnsServer)
+        dnsServerIPv4_(dnsServerIPv4),
+        dnsServerIPv6_(dnsServerIPv6)
 {
     using namespace std::placeholders;
     http_.GET(urlHome_.c_str(), std::bind(&HttpServer::onHomeHandle, this, _1, _2));
@@ -127,7 +129,7 @@ int HttpServer::onDnsHandle(HttpRequest* req, HttpResponse* resp) noexcept
     spdlog::info("{}", urlDns_);
     resp->SetHeader("Content-Type", "application/json; charset=utf-8");
     resp->String(
-        fmt::format(R"({{"dns": "{}"}})", dnsServer_.toString())
+        fmt::format(R"({{"dns": "{}", "dns_ipv6": "{}" }})", dnsServerIPv4_.toString(), dnsServerIPv6_.toString())
     );
     return 200;
 }

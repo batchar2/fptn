@@ -23,31 +23,46 @@ IPTables::IPTables(
 {
 }
 
-
 IPTables::~IPTables()
 {
     clean();
 }
-
 
 bool IPTables::check() noexcept
 {
     return true;
 }
 
-
 bool IPTables::apply() noexcept
 {
-    spdlog::info("=== Setting up routing ===");
-#ifdef __linux__ 
+    const std::unique_lock<std::mutex> lock(mutex_);
+
+    init_ = true;
+#ifdef __linux__
     const std::vector<std::string> commands = {
+        "systemctl start sysctl",
         "sysctl -w net.ipv4.ip_forward=1",
+        "sysctl -w net.ipv4.conf.all.rp_filter=0",
+        "sysctl -w net.ipv4.conf.default.rp_filter=0",
+        "sysctl -w net.ipv6.conf.default.disable_ipv6=0",
+        "sysctl -w net.ipv6.conf.all.disable_ipv6=0",
+        "sysctl -w net.ipv6.conf.lo.disable_ipv6=0",
+        "sysctl -w net.ipv6.conf.all.forwarding=1",
+        "sysctl -p",
+        /* IPv4 */
         "iptables -P INPUT ACCEPT",
         "iptables -P FORWARD ACCEPT",
         "iptables -P OUTPUT ACCEPT",
         fmt::format("iptables -A FORWARD -i {} -o {} -j ACCEPT", tunInterfaceName_, outInterfaceName_),
         fmt::format("iptables -A FORWARD -i {} -o {} -j ACCEPT", outInterfaceName_, tunInterfaceName_),
-        fmt::format("iptables -t nat -A POSTROUTING -o {} -j MASQUERADE", outInterfaceName_)
+        fmt::format("iptables -t nat -A POSTROUTING -o {} -j MASQUERADE", outInterfaceName_),
+        /* IPv6 */
+        "ip6tables -P INPUT ACCEPT",
+        "ip6tables -P FORWARD ACCEPT",
+        "ip6tables -P OUTPUT ACCEPT",
+        fmt::format("ip6tables -A FORWARD -i {} -o {} -j ACCEPT", tunInterfaceName_, outInterfaceName_),
+        fmt::format("ip6tables -A FORWARD -i {} -o {} -j ACCEPT", outInterfaceName_, tunInterfaceName_),
+        fmt::format("ip6tables -t nat -A POSTROUTING -o {} -j MASQUERADE", outInterfaceName_)
     };
 #elif __APPLE__
     // NEED CHECK
@@ -61,7 +76,7 @@ bool IPTables::apply() noexcept
 #else
     #error "Unsupported system!"
 #endif
-    init_ = true;
+    spdlog::info("=== Setting up routing ===");
     for (const auto& cmd : commands) {
         if (!runCommand(cmd)) {
             spdlog::error("COMMAND ERORR: {}", cmd);
@@ -71,9 +86,14 @@ bool IPTables::apply() noexcept
     return true;
 }
 
-
 bool IPTables::clean() noexcept
 {
+    const std::unique_lock<std::mutex> lock(mutex_);
+
+    if (!init_) {
+        spdlog::info("No need to clean rules!");
+        return true;
+    }
 #ifdef __linux__ 
     const std::vector<std::string> commands = {
         fmt::format("iptables -D FORWARD -i {} -o {} -j ACCEPT", tunInterfaceName_, outInterfaceName_),
@@ -93,14 +113,13 @@ bool IPTables::clean() noexcept
 #else
     #error "Unsupported system!"
 #endif
-    if (init_) {
-        for (const auto& cmd : commands) {
-            runCommand(cmd); 
-        }
+
+    for (const auto& cmd : commands) {
+        runCommand(cmd);
     }
+    init_ = false;
     return true;
 }
-
 
 static bool runCommand(const std::string& command) 
 {

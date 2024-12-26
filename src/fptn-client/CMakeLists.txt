@@ -55,7 +55,7 @@ target_link_libraries(
 )
 
 
-#### fptn-client-gui
+### fptn-client-gui
 if("${FPTN_BUILD_WITH_GUI_CLIENT}")
     find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network LinguistTools CONFIG REQUIRED)
     set(CMAKE_AUTOMOC ON)

@@ -21,6 +21,8 @@
 #include <pcapplusplus/ArpLayer.h>
 #include <pcapplusplus/EthLayer.h>
 #include <pcapplusplus/IPv4Layer.h>
+#include <pcapplusplus/IPv6Layer.h>
+#include <pcapplusplus/IcmpV6Layer.h>
 
 #ifdef TCPOPT_CC
 #undef TCPOPT_CC
@@ -41,25 +43,45 @@ namespace fptn::common::network
 
     #define PACKET_UNDEFINED_CLIENT_ID   (static_cast<std::uint32_t>(-1))
 
+    inline bool checkIPv4(const std::string& buffer)
+    {
+        return (static_cast<uint8_t>(buffer[0]) >> 4) == 4;
+    }
+
+    inline bool checkIPv6(const std::string& buffer)
+    {
+        return (static_cast<uint8_t>(buffer[0]) >> 4) == 6;
+    }
+
     class IPPacket
     {
     public:
-        static std::unique_ptr<IPPacket> parse(std::string strdata, std::uint32_t clientId = PACKET_UNDEFINED_CLIENT_ID)
+        static std::unique_ptr<IPPacket> parse(std::string buffer, std::uint32_t clientId = PACKET_UNDEFINED_CLIENT_ID)
         {
-            auto packet =  std::make_unique<IPPacket>(std::move(strdata), clientId);
-            if (nullptr != packet->ipLayer()) {
-                return packet;
+            if (buffer.empty()) {
+                return nullptr;
+            }
+            if (checkIPv4(buffer)) {
+                auto packet =  std::make_unique<IPPacket>(std::move(buffer), clientId, pcpp::LINKTYPE_IPV4);
+                if (nullptr != packet->ipv4Layer()) {
+                    return packet;
+                }
+            } else if (checkIPv6(buffer)) {
+                auto packet =  std::make_unique<IPPacket>(std::move(buffer), clientId, pcpp::LINKTYPE_IPV6);
+                if (nullptr != packet->ipv6Layer()) {
+                    return packet;
+                }
             }
             return nullptr;
         }
 
         static std::unique_ptr<IPPacket> parse(const std::uint8_t *data, std::size_t size, std::uint32_t clientId = PACKET_UNDEFINED_CLIENT_ID)
         {
-            std::string strdata((const char*)data, size);
-            return parse(std::move(strdata), clientId);
+            std::string buffer((const char*)data, size);
+            return parse(std::move(buffer), clientId);
         }
     public:
-        IPPacket(std::string data, std::uint32_t clientId)
+        IPPacket(std::string data, std::uint32_t clientId, pcpp::LinkLayerType ipType)
             :
                 packetData_(std::move(data)),
                 clientId_(clientId),
@@ -68,12 +90,18 @@ namespace fptn::common::network
                     (int)packetData_.size(),
                     timeval { 0, 0 },
                     false,
-                    pcpp::LINKTYPE_IPV4
+                    ipType // pcpp::LINKTYPE_IPV4 or pcpp::LINKTYPE_IPV6
                 ),
-                parsedPacket_(&rawPacket_, false),
-                ipLayer_(parsedPacket_.getLayerOfType<pcpp::IPv4Layer>())
+                parsedPacket_(&rawPacket_, false)
         {
+            ipv4Layer_ = (pcpp::LINKTYPE_IPV4 == ipType)
+                         ? parsedPacket_.getLayerOfType<pcpp::IPv4Layer>()
+                         : nullptr;
+            ipv6Layer_ = (pcpp::LINKTYPE_IPV6 == ipType)
+                         ? parsedPacket_.getLayerOfType<pcpp::IPv6Layer>()
+                         : nullptr;
         }
+
         virtual ~IPPacket() = default;
 
         void computeCalculateFields() noexcept
@@ -87,7 +115,15 @@ namespace fptn::common::network
                     udpLayer->computeCalculateFields();
                 }
             }
-            ipLayer_->computeCalculateFields();
+            if (ipv4Layer_) {
+                ipv4Layer_->computeCalculateFields();
+            } else if (ipv6Layer_) {
+                auto icmpLayer = parsedPacket_.getLayerOfType<pcpp::IcmpV6Layer>();
+                if (icmpLayer) {
+                    icmpLayer->computeCalculateFields();
+                }
+                ipv6Layer_->computeCalculateFields();
+            }
         }
 
         void setClientId(std::uint32_t clientId) noexcept
@@ -95,7 +131,37 @@ namespace fptn::common::network
             clientId_ = clientId;
         }
 
-        std::uint32_t clientId() const noexcept
+        void setDstIPv4Address(const pcpp::IPv4Address& dst) noexcept
+        {
+            if (ipv4Layer_) {
+                ipv4Layer_->getIPv4Header()->timeToLive -= 1;
+                ipv4Layer_->setDstIPv4Address(dst);
+            }
+        }
+
+        void setSrcIPv4Address(const pcpp::IPv4Address& src) noexcept
+        {
+            if (ipv4Layer_) {
+                ipv4Layer_->getIPv4Header()->timeToLive -= 1;
+                ipv4Layer_->setSrcIPv4Address(src);
+            }
+        }
+
+        void setDstIPv6Address(const pcpp::IPv6Address& dst) noexcept
+        {
+            if (ipv6Layer_) {
+                ipv6Layer_->setDstIPv6Address(dst);
+            }
+        }
+
+        void setSrcIPv6Address(const pcpp::IPv6Address& src) noexcept
+        {
+            if (ipv6Layer_) {
+                ipv6Layer_->setSrcIPv6Address(src);
+            }
+        }
+
+        const std::uint32_t clientId() const noexcept
         {
             return clientId_;
         }
@@ -104,11 +170,6 @@ namespace fptn::common::network
         {
             return parsedPacket_;
         }
-        
-        virtual pcpp::IPv4Layer* ipLayer() noexcept
-        {
-            return ipLayer_;
-        }
 
         std::vector<std::uint8_t> serialize() noexcept
         {
@@ -116,7 +177,7 @@ namespace fptn::common::network
             return {raw->getRawData(), raw->getRawData() + raw->getRawDataLen()};
         }
 
-        std::size_t size() const noexcept
+        const std::size_t size() const noexcept
         {
             return packetData_.size();
         }
@@ -126,33 +187,40 @@ namespace fptn::common::network
             const auto raw = parsedPacket_.getRawPacket();
             return {reinterpret_cast<const char*>(raw->getRawData()), static_cast<std::size_t>(raw->getRawDataLen())};
         }
-
-        bool isDnsPacket() const noexcept
+    public:
+        /* virtual functions for tests */
+        virtual const bool isIPv4() const noexcept
         {
-            auto udp = parsedPacket_.getLayerOfType<pcpp::UdpLayer>();
-            if (udp) {
-                if (ntohs(udp->getUdpHeader()->portSrc) == 53 || ntohs(udp->getUdpHeader()->portDst) == 53) {
-                    return true;
-                }
-                return false;
-            }
-            auto tcp = parsedPacket_.getLayerOfType<pcpp::TcpLayer>();
-            if (tcp) {
-                if (ntohs(tcp->getTcpHeader()->portSrc) == 53 || ntohs(tcp->getTcpHeader()->portDst) == 53) {
-                    return true;
-                }
-            }
-            return false;
+            return ipv4Layer_ != nullptr;
+        }
+
+        virtual const bool isIPv6() const noexcept
+        {
+            return ipv6Layer_ != nullptr;
+        }
+
+        virtual pcpp::IPv4Layer* ipv4Layer() noexcept
+        {
+            return ipv4Layer_;
+        }
+
+        virtual pcpp::IPv6Layer* ipv6Layer() noexcept
+        {
+            return ipv6Layer_;
         }
     protected:
-        IPPacket() = default; // for tests
+        IPPacket()  // for tests
+            : clientId_(PACKET_UNDEFINED_CLIENT_ID)
+        {
+        }
     private:
         std::string packetData_;
         std::uint32_t clientId_;
         pcpp::RawPacket rawPacket_;
         pcpp::Packet parsedPacket_;
 
-        pcpp::IPv4Layer* ipLayer_;
+        pcpp::IPv4Layer* ipv4Layer_ = nullptr;
+        pcpp::IPv6Layer* ipv6Layer_ = nullptr;
     };
 
     using IPPacketPtr = std::unique_ptr<IPPacket>;

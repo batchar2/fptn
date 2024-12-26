@@ -1,12 +1,12 @@
 #include <fmt/core.h>
 #include <gtest/gtest.h>
 
-#include <common/network/ip_generator.h>
+#include <common/network/ipv4_generator.h>
 
 
-TEST(IPGeneratorTest, InitialAddress)
+TEST(IPv4GeneratorTest, InitialAddress)
 {
-    fptn::common::network::IPAddressGenerator generator(
+    fptn::common::network::IPv4AddressGenerator generator(
             pcpp::IPv4Address("192.168.1.0"),
             24);
     EXPECT_EQ(generator.numAvailableAddresses(), 254);
@@ -21,9 +21,9 @@ TEST(IPGeneratorTest, InitialAddress)
 }
 
 
-TEST(IPGeneratorTest, NumAvaliableAddresses)
+TEST(IPv4GeneratorTest, NumAvaliableAddresses)
 {
-    fptn::common::network::IPAddressGenerator generator(
+    fptn::common::network::IPv4AddressGenerator generator(
             pcpp::IPv4Address("192.168.0.0"),
             24);
     EXPECT_EQ(generator.numAvailableAddresses(), 254);
@@ -40,9 +40,9 @@ TEST(IPGeneratorTest, NumAvaliableAddresses)
 }
 
 
-TEST(IPGeneratorTest, SmallDifficultNetsMask)
+TEST(IPv4GeneratorTest, SmallDifficultNetsMask)
 {
-    fptn::common::network::IPAddressGenerator generator(
+    fptn::common::network::IPv4AddressGenerator generator(
             pcpp::IPv4Address("192.168.0.0"),
             28);
     EXPECT_EQ(generator.numAvailableAddresses(), 14);
@@ -55,7 +55,7 @@ TEST(IPGeneratorTest, SmallDifficultNetsMask)
 
 TEST(IPGeneratorTest, BigDifficultNetsMask)
 {
-    fptn::common::network::IPAddressGenerator generator(
+    fptn::common::network::IPv4AddressGenerator generator(
             pcpp::IPv4Address("192.168.0.0"),
             16);
     EXPECT_EQ(generator.numAvailableAddresses(), 65534);

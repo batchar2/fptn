@@ -1,12 +1,11 @@
-#  FPTN
+#  FPTN  
 
 [![Ubuntu](https://img.shields.io/badge/Ubuntu-E95420?style=for-the-badge\&logo=ubuntu\&logoColor=white)](https://github.com/batchar2/fptn/releases)
 [![Mac OS](https://img.shields.io/badge/mac%20os-000000?style=for-the-badge\&logo=macos\&logoColor=F0F0F0)](https://github.com/batchar2/fptn/releases)
 [![Windows](https://img.shields.io/badge/Windows-0078D6?style=for-the-badge\&logo=windows\&logoColor=white)](https://github.com/batchar2/fptn/releases)
 
 
-[![Build and Test](https://github.com/batchar2/fptn/actions/workflows/main.yml/badge.svg)](https://github.com/batchar2/fptn/actions/workflows/main.yml)
-
+[![Build and Test](https://github.com/batchar2/fptn/actions/workflows/main.yml/badge.svg)](https://github.com/batchar2/fptn/actions/workflows/main.yml) [![Github All Releases](https://img.shields.io/github/downloads/batchar2/fptn/total.svg)]()
 
 FPTN is a VPN service specifically designed to bypass censorship.
 Initially launched as a research project, FPTN actively helps people gain access to a free internet.
@@ -199,8 +198,6 @@ Restart the systemd-resolved service:
 sudo systemctl restart systemd-resolved
 ```
 
-
-
 3. Configure dnsmasq
 
 Open the dnsmasq configuration file `/etc/dnsmasq.conf`
@@ -208,7 +205,10 @@ Open the dnsmasq configuration file `/etc/dnsmasq.conf`
 Add or modify the following line to set up DNS forwarding to Google's public DNS server:
 
 ```bash
-server=8.8.8.8
+server=8.8.8.8          # Google DNS IPv4
+server=8.8.4.4          # Google Secondary DNS IPv4
+server=2001:4860:4860::8888  # Google DNS IPv6
+server=2001:4860:4860::8844  # Google Secondary DNS IPv6
 ```
 
 4. Restart dnsmasq
@@ -218,6 +218,7 @@ Apply the changes by restarting the dnsmasq service:
 
 ```
 sudo systemctl restart dnsmasq
+sudo systemctl enable dnsmasq
 ```
 
 5. Verify the Configuration
@@ -343,7 +344,6 @@ journalctl -u fptn-client
 
 
 
-
 <details>
   <summary>How to build</summary>
 1. Install Conan (version 2.9.2):
@@ -352,7 +352,6 @@ journalctl -u fptn-client
 pip install conan==2.9.2
 sudo apt install gcc g++ cmake pkg-config
 ```
-
 
 
 2. Detect and configure Conan profile:

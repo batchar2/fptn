@@ -67,8 +67,19 @@ void Manager::runToClient() noexcept
         if (!packet) {
             continue;
         }
-        // get session
-        auto session = nat_->getSessionByFakeIP(packet->ipLayer()->getDstIPv4Address());
+        if (!packet->isIPv4() && !packet->isIPv6()) {
+            continue;
+        }
+        // get session using "fake" client address
+        auto session = (
+                packet->isIPv4()
+                ? nat_->getSessionByFakeIPv4(packet->ipv4Layer()->getDstIPv4Address())
+                : (
+                    packet->isIPv6()
+                    ? nat_->getSessionByFakeIPv6(packet->ipv6Layer()->getDstIPv6Address())
+                    : nullptr
+                )
+        );
         if (!session) {
             continue;
         }
@@ -78,7 +89,7 @@ void Manager::runToClient() noexcept
             continue;
         }
         // send
-        webServer_->send(session->changeIPAddressToCleintIP(std::move(packet)));
+        webServer_->send(session->changeIPAddressToClientIP(std::move(packet)));
     }
 }
 
@@ -89,6 +100,9 @@ void Manager::runFromClient() noexcept
     while (running_) {
         auto packet = webServer_->waitForPacket(timeout);
         if (!packet) {
+            continue;
+        }
+        if (!packet->isIPv4() && !packet->isIPv6()) {
             continue;
         }
         // get session

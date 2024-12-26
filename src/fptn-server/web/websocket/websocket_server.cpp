@@ -50,26 +50,37 @@ void WebsocketServer::onOpenHandle(const WebSocketChannelPtr& channel, const Htt
             boost::replace_first(token, "Bearer ", ""); // clean token string
 
             const std::uint32_t channelId = channel->id();
-            const pcpp::IPv4Address clientVpnIP(req->headers["ClientIP"]);
+            const pcpp::IPv4Address clientVpnIPv4(req->headers["ClientIP"]);
             const pcpp::IPv4Address clientIP(req->client_addr.ip);
-
-            std::string username;
-            std::size_t bandwidthBitesSeconds = 0;
-            if(tokenManager_->validate(token, username, bandwidthBitesSeconds)) {
-                {
+            const pcpp::IPv6Address clientVpnIPv6 = (
+                req->headers.find("ClientIPv6") != req->headers.end()
+                ? req->headers["ClientIPv6"]
+                : FPTN_CLIENT_DEFAULT_ADDRESS_IP6 // default value
+            );
+            if (clientVpnIPv4 != pcpp::IPv4Address("") && clientVpnIPv6 != pcpp::IPv6Address("")) {
+                std::string username;
+                std::size_t bandwidthBitesSeconds = 0;
+                if(tokenManager_->validate(token, username, bandwidthBitesSeconds)) {
                     const std::unique_lock<std::mutex> lock(mutex_);
                     if (channels_.find(channelId) == channels_.end()) {
                         // save client
                         channels_.insert({channelId, channel});
                         // update alive information
-                          channelsLastActive_.insert({channelId, std::chrono::steady_clock::now()});
+                        channelsLastActive_.insert({channelId, std::chrono::steady_clock::now()});
+                        if (newConnectionCallback_)  {
+                            newConnectionCallback_(channelId, clientVpnIPv4, clientVpnIPv6,
+                                                   clientIP, username, bandwidthBitesSeconds);
+                        }
+                    } else {
+                        spdlog::warn("Client with same ID already exists!");
+                        channel->close();
                     }
-                }
-                if (newConnectionCallback_)  {
-                    newConnectionCallback_(channelId, clientVpnIP, clientIP, username, bandwidthBitesSeconds);
+                } else {
+                    spdlog::warn("WRONG TOKEN: {}", username);
+                    channel->close();
                 }
             } else {
-                spdlog::warn("WRONG TOKEN: {}", username);
+                spdlog::warn("Wrong ClientIP or ClientIPv6");
                 channel->close();
             }
         } else {

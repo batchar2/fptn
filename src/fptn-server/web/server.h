@@ -22,7 +22,8 @@ namespace fptn::web
             const fptn::common::jwt_token::TokenManagerSPtr& tokenManager,
             const fptn::statistic::MetricsSPtr& prometheus,
             const std::string& prometheusAccessKey,
-            const pcpp::IPv4Address& dnsServer,
+            const pcpp::IPv4Address& dnsServerIPv4,
+            const pcpp::IPv6Address& dnsServerIPv6,
             int thread_number = 4
         );
         ~Server();
@@ -35,10 +36,11 @@ namespace fptn::web
     private:
         void newVpnConnection(
             std::uint32_t clientId,
-            const pcpp::IPv4Address& clientVpnIP,
-            const pcpp::IPv4Address& clientIP,
+            const pcpp::IPv4Address& clientVpnIPv4,
+            const pcpp::IPv6Address& clientVpnIPv6,
+            const pcpp::IPv4Address &clientIP,
             const std::string& username,
-            std::size_t bandwidthBitesSeconds
+            const std::size_t bandwidthBitesSeconds
         ) noexcept;
         void closeVpnConnection(std::uint32_t clientId) noexcept;
         void newIPPacketFromVPN(fptn::common::network::IPPacketPtr packet) noexcept;

@@ -5,22 +5,38 @@ set(FPTN_SERVER_PATH "${CMAKE_CURRENT_SOURCE_DIR}/src/fptn-server")
 
 enable_testing()
 
-# enable ssl for cpphttp-lib
-add_compile_definitions(CPPHTTPLIB_OPENSSL_SUPPORT)
-
 add_compile_definitions(FPTN_VERSION=\"${FPTN_VERSION}\")
 add_compile_definitions(FPTN_MTU_SIZE=1500)
 add_compile_definitions(FPTN_IP_PACKET_MAX_SIZE=1450)
 add_compile_definitions(FPTN_ENABLE_PACKET_PADDING=1)
 add_compile_definitions(FPTN_PROTOBUF_PROTOCOL_VERSION=0x01)
+# client
+add_compile_definitions(FPTN_CLIENT_DEFAULT_ADDRESS_IP6=\"fd00::1\")
+add_compile_definitions(FPTN_CLIENT_DEFAULT_ADDRESS_IP4=\"10.0.0.1\")
+# server
+add_compile_definitions(FPTN_SERVER_DEFAULT_ADDRESS_IP6=\"fc00:1::1\")
+add_compile_definitions(FPTN_SERVER_DEFAULT_NET_ADDRESS_IP6=\"fc00:1::\")
+add_compile_definitions(FPTN_SERVER_DEFAULT_ADDRESS_IP4=\"172.20.0.1\")
+add_compile_definitions(FPTN_SERVER_DEFAULT_NET_ADDRESS_IP4=\"172.20.0.0\")
+
+# enable ssl for cpphttp-lib
+add_compile_definitions(CPPHTTPLIB_OPENSSL_SUPPORT)
 
 # cmake_policy(SET CMP0077 NEW)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_VERBOSE_MAKEFILE ON)
+# set(CMAKE_COMPILE_WARNING_AS_ERROR ON)
 if(WIN32)
     set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS TRUE)
+else()
+    set(CMAKE_CXX_FLAGS "-Wall -Wextra")
+endif()
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+    set(CMAKE_CXX_FLAGS_DEBUG "-g")
+    set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 endif()
 
 # -- depends: tuntap  ---
@@ -40,6 +56,7 @@ else()
 endif()
 
 # --- depends: libhv ---
+#include(depends/cmake/libhv/libhv.cmake)
 find_package(OpenSSL REQUIRED)
 include_directories(${OPENSSL_INCLUDE_DIR})
 set(WITH_OPENSSL ON CACHE BOOL "with openssl library" FORCE)

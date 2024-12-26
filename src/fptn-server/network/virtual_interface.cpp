@@ -5,15 +5,17 @@ using namespace fptn::network;
 
 VirtualInterface::VirtualInterface(
     const std::string &name,
-    const pcpp::IPv4Address& ipAddress,
-    std::uint16_t netmask,
+    const pcpp::IPv4Address& ipv4Address,
+    const int ipv4Netmask,
+    const pcpp::IPv6Address& ipv6Address,
+    const int ipv6Netmask,
     fptn::system::IPTablesPtr iptables
 )
     : iptables_(std::move(iptables))
 {
     auto callback = std::bind(&VirtualInterface::newIPPacketFromNetwork, this, std::placeholders::_1);
     virtualNetworkInterface_ = std::make_unique<fptn::common::network::TunInterface>(
-        name, ipAddress, netmask, callback
+        name, ipv4Address, ipv4Netmask, ipv6Address, ipv6Netmask, callback
     );
 }
 

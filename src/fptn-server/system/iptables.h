@@ -1,7 +1,9 @@
 #pragma once
 
-#include <string>
+#include <mutex>
 #include <memory>
+#include <string>
+
 
 namespace fptn::system
 {
@@ -17,6 +19,8 @@ namespace fptn::system
         bool apply() noexcept;
         bool clean() noexcept;
     private:
+        mutable std::mutex mutex_;
+
         bool init_;
         std::string outInterfaceName_;
         std::string tunInterfaceName_;

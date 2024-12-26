@@ -17,13 +17,14 @@ Server::Server(
         const fptn::common::jwt_token::TokenManagerSPtr& tokenManager,
         const fptn::statistic::MetricsSPtr& prometheus,
         const std::string& prometheusAccessKey,
-        const pcpp::IPv4Address& dnsServer,
+        const pcpp::IPv4Address& dnsServerIPv4,
+        const pcpp::IPv6Address& dnsServerIPv6,
         int thread_number
 )
     : 
         running_(false), 
         natTable_(natTable),
-        http_(userManager, tokenManager, prometheus, prometheusAccessKey, dnsServer),
+        http_(userManager, tokenManager, prometheus, prometheusAccessKey, dnsServerIPv4, dnsServerIPv6),
         ws_(
             tokenManager,
             std::bind(
@@ -33,7 +34,8 @@ Server::Server(
                 std::placeholders::_2,
                 std::placeholders::_3,
                 std::placeholders::_4,
-                std::placeholders::_5
+                std::placeholders::_5,
+                std::placeholders::_6
             ),
             std::bind(&Server::closeVpnConnection, this, std::placeholders::_1),
             std::bind(&Server::newIPPacketFromVPN, this, std::placeholders::_1)
@@ -113,17 +115,25 @@ void Server::runSenderThread() noexcept
     }
 }
 
-void Server::newVpnConnection(std::uint32_t clientId, const pcpp::IPv4Address& clientVpnIP, const pcpp::IPv4Address &clientIP, const std::string& username, std::size_t bandwidthBitesSeconds) noexcept
+void Server::newVpnConnection(
+    std::uint32_t clientId,
+    const pcpp::IPv4Address& clientVpnIPv4,
+    const pcpp::IPv6Address& clientVpnIPv6,
+    const pcpp::IPv4Address &clientIP,
+    const std::string& username,
+    const std::size_t bandwidthBitesSeconds
+) noexcept
 {
-    auto shaperToClient = std::make_shared<fptn::traffic_shaper::LeakyBucket>(bandwidthBitesSeconds);
-    auto shaperFromClient = std::make_shared<fptn::traffic_shaper::LeakyBucket>(bandwidthBitesSeconds);
-    auto session = natTable_->createClientSession(clientId, username, clientVpnIP, shaperToClient, shaperFromClient);
-    spdlog::info("NEW SESSION! Username={} ClientId={} Bandwidth={} IP={} VirtualIP={}",
+    const auto shaperToClient = std::make_shared<fptn::traffic_shaper::LeakyBucket>(bandwidthBitesSeconds);
+    const auto shaperFromClient = std::make_shared<fptn::traffic_shaper::LeakyBucket>(bandwidthBitesSeconds);
+    const auto session = natTable_->createClientSession(clientId, username, clientVpnIPv4, clientVpnIPv6, shaperToClient, shaperFromClient);
+    spdlog::info("NEW SESSION! Username={} ClientId={} Bandwidth={} ClientIP={} VirtualIPv4={} VirtualIPv6={}",
         username,
         clientId,
         bandwidthBitesSeconds,
         clientIP.toString(),
-        session->fakeClientIP().toString()
+        session->fakeClientIPv4().toString(),
+        session->fakeClientIPv6().toString()
     );
 }
 

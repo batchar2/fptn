@@ -37,21 +37,33 @@ CmdOptions::CmdOptions(int argc, char* argv[])
         .help("Network out interface");
     // Optional arguments
     args_.add_argument("--server-port")
-        .default_value(8080)
+        .default_value(443)
         .help("Port number")
         .scan<'i', int>();
     args_.add_argument("--tun-interface-name")
         .default_value("tun0")
         .help("Network interface name");
+    /* IPv4 */
     args_.add_argument("--tun-interface-ip")
-        .default_value("172.20.0.1")
+        .default_value(FPTN_SERVER_DEFAULT_ADDRESS_IP4)
         .help("IP address of the virtual interface");
     args_.add_argument("--tun-interface-network-address")
-        .default_value("172.20.0.0")
+        .default_value(FPTN_SERVER_DEFAULT_NET_ADDRESS_IP4)
         .help("IP network of the virtual interface");
     args_.add_argument("--tun-interface-network-mask")
-        .default_value(24)
+        .default_value(16)
         .help("Network mask")
+        .scan<'i', int>();
+    /* IPv6 */
+    args_.add_argument("--tun-interface-ipv6")
+        .default_value(FPTN_SERVER_DEFAULT_ADDRESS_IP6)
+        .help("IPv6 address of the virtual interface");
+    args_.add_argument("--tun-interface-network-ipv6-address")
+        .default_value(FPTN_SERVER_DEFAULT_NET_ADDRESS_IP6)
+        .help("IPv6 network address of the virtual interface");
+    args_.add_argument("--tun-interface-network-ipv6-mask")
+        .default_value(64)
+        .help("IPv6 network mask")
         .scan<'i', int>();
     args_.add_argument("--userfile")
         .help("Path to users file (default: /etc/fptn/users.list)")
@@ -122,24 +134,45 @@ std::string CmdOptions::getTunInterfaceName() const
     return args_.get<std::string>("--tun-interface-name");
 }
 
-pcpp::IPv4Address CmdOptions::getTunInterfaceIP() const
+pcpp::IPv4Address CmdOptions::getTunInterfaceIPv4() const
 {
     return pcpp::IPv4Address(
         args_.get<std::string>("--tun-interface-ip")
     );
 }
 
-pcpp::IPv4Address CmdOptions::getTunInterfaceNetworkAddress() const
+pcpp::IPv4Address CmdOptions::getTunInterfaceNetworkIPv4Address() const
 {
     return pcpp::IPv4Address(
         args_.get<std::string>("--tun-interface-network-address")
     );
 }
 
-int CmdOptions::getTunInterfaceNetworkMask() const
+int CmdOptions::getTunInterfaceNetworkIPv4Mask() const
 {
     return args_.get<int>("--tun-interface-network-mask");
 }
+
+
+pcpp::IPv6Address CmdOptions::getTunInterfaceIPv6() const
+{
+    return pcpp::IPv6Address(
+            args_.get<std::string>("--tun-interface-ipv6")
+    );
+}
+
+pcpp::IPv6Address CmdOptions::getTunInterfaceNetworkIPv6Address() const
+{
+    return pcpp::IPv6Address(
+            args_.get<std::string>("--tun-interface-network-ipv6-address")
+    );
+}
+
+int CmdOptions::getTunInterfaceNetworkIPv6Mask() const
+{
+    return args_.get<int>("--tun-interface-network-ipv6-mask");
+}
+
 
 std::string CmdOptions::getUserFile() const
 {

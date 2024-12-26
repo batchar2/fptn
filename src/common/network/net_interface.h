@@ -82,34 +82,48 @@ namespace fptn::common::network
         virtual std::size_t getReceiveRate() const noexcept = 0;
     public:
         explicit BaseNetInterface(
-            const std::string &name,
-            const pcpp::IPv4Address &addr,
-            const int netmask,
+            const std::string& name,
+            const pcpp::IPv4Address &ipv4Addr,
+            const int ipv4Netmask,
+            const pcpp::IPv6Address &ipv6Addr,
+            const int ipv6Netmask,
             const NewIPPacketCallback& callback = nullptr
         )
             :
                 name_(name),
-                addr_(addr),
-                netmask_(netmask),
+                ipv4Addr_(ipv4Addr),
+                ipv4Netmask_(ipv4Netmask),
+                ipv6Addr_(ipv6Addr),
+                ipv6Netmask_(ipv6Netmask),
                 newIPPktCallback(callback)
         {
         }
 
         virtual ~BaseNetInterface() = default;
 
-        const std::string& name() const 
+        const std::string& name() const noexcept
         {
             return name_;
         }
 
-        const pcpp::IPv4Address& addr() const
+        const pcpp::IPv4Address& ipv4Addr() const noexcept
         {
-            return addr_;
+            return ipv4Addr_;
         }
 
-        int netmask() const
+        const int ipv4Netmask() const noexcept
         {
-            return netmask_;
+            return ipv4Netmask_;
+        }
+
+        const pcpp::IPv6Address& ipv6Addr() const noexcept
+        {
+            return ipv6Addr_;
+        }
+
+        const int ipv6Netmask() const noexcept
+        {
+            return ipv4Netmask_;
         }
 
         void setNewIPPacketCallback(const NewIPPacketCallback &callback) noexcept
@@ -120,8 +134,12 @@ namespace fptn::common::network
         NewIPPacketCallback newIPPktCallback;
     private:
         const std::string name_;
-        const pcpp::IPv4Address addr_;
-        const int netmask_;
+        /* IPv4 */
+        const pcpp::IPv4Address ipv4Addr_;
+        const int ipv4Netmask_;
+        /* IPv6 */
+        const pcpp::IPv6Address ipv6Addr_;
+        const int ipv6Netmask_;
     };
 
     using BaseNetInterfacePtr = std::unique_ptr<BaseNetInterface>;
@@ -134,12 +152,14 @@ namespace fptn::common::network
     public:
         explicit PosixTunInterface(
             const std::string &name,
-            const pcpp::IPv4Address &addr,
-            const int netmask,
+            const pcpp::IPv4Address &ipv4Addr,
+            const int ipv4Netmask,
+            const pcpp::IPv6Address &ipv6Addr,
+            const int ipv6Netmask,
             const NewIPPacketCallback &callback = nullptr
         )
             :
-                BaseNetInterface(name, addr, netmask, callback),
+                BaseNetInterface(name, ipv4Addr, ipv4Netmask, ipv6Addr, ipv6Netmask, callback),
                 mtu_(FPTN_MTU_SIZE),
                 running_(false)
         {
@@ -155,10 +175,16 @@ namespace fptn::common::network
             try {
                 tun_ = std::make_unique<tuntap::tun>();
                 tun_->name(name());
-                tun_->ip(addr().toString(), netmask());
+                /* set IPv6 */
+                tun_->ip(ipv6Addr().toString(), ipv6Netmask());
+                /* set IPv4 */
+                tun_->ip(ipv4Addr().toString(), ipv4Netmask());
+                
                 tun_->nonblocking(true);
                 tun_->mtu(mtu_);
                 tun_->up();
+
+
                 running_ = true;
                 thread_ = std::thread(&PosixTunInterface::run, this);
                 return thread_.joinable();
@@ -233,13 +259,15 @@ namespace fptn::common::network
     {
     public:
         WindowsTunInterface(
-                const std::string &name,
-                const pcpp::IPv4Address &addr,
-                const int netmask,
-                const NewIPPacketCallback &callback = nullptr
+            const std::string &name,
+            const pcpp::IPv4Address &ipv4Addr,
+            const int ipv4Netmask,
+            const pcpp::IPv6Address &ipv6Addr,
+            const int ipv6Netmask,
+            const NewIPPacketCallback &callback = nullptr
         )
             :
-                BaseNetInterface(name, addr, netmask, callback),
+                BaseNetInterface(name, ipv4Addr, ipv4Netmask, ipv6Addr, ipv6Netmask, callback),
                 running_(false),
                 wintun_(nullptr),
                 adapter_(0),
@@ -271,23 +299,15 @@ namespace fptn::common::network
             );
             if (!adapter_) {
                 spdlog::error("Network adapter wasn't created!");
+                return false;
+            }
+            if (!setIPv4AndNetmask(this->ipv4Addr(), this->ipv4Netmask())) {
+                return false;
             }
 
-            const std::string ipaddr = this->addr().toString();
-            MIB_UNICASTIPADDRESS_ROW addressRow;
-            InitializeUnicastIpAddressEntry(&addressRow);
-            WintunGetAdapterLUID(adapter_, &addressRow.InterfaceLuid);
-            addressRow.Address.Ipv4.sin_family = AF_INET;
-            addressRow.OnLinkPrefixLength = (BYTE)this->netmask();
-            auto res = inet_pton(AF_INET, ipaddr.c_str(), &(addressRow.Address.Ipv4.sin_addr));
-            if (res != 1) {
-                spdlog::error("Wrong address");
-                return false;
-            }
-            auto res2 = CreateUnicastIpAddressEntry(&addressRow);
-            if (res2 != ERROR_SUCCESS && res2 != ERROR_OBJECT_ALREADY_EXISTS) {
-                spdlog::error("Failed to set {} IP address", ipaddr);
-                return false;
+            if (!setIPv6AndNetmask(this->ipv6Addr(), this->ipv6Netmask())) {
+                // pass IPv6
+                // return false;
             }
             // --- start session ---
             const int capacity = 0x20000;
@@ -341,6 +361,54 @@ namespace fptn::common::network
         }
 
     private:
+        bool setIPv4AndNetmask(const pcpp::IPv4Address &addr, const int mask)
+        {
+            const std::string ipaddr = addr.toString();
+            MIB_UNICASTIPADDRESS_ROW addressRow;
+
+            InitializeUnicastIpAddressEntry(&addressRow);
+            WintunGetAdapterLUID(adapter_, &addressRow.InterfaceLuid);
+            
+            addressRow.Address.Ipv4.sin_family = AF_INET;
+            addressRow.OnLinkPrefixLength = static_cast<BYTE>(mask);
+            addressRow.DadState = IpDadStatePreferred;
+            
+            if (1 != inet_pton(AF_INET, ipaddr.c_str(), &(addressRow.Address.Ipv4.sin_addr))) {
+                spdlog::error("Wrong IPv4 address");
+                return false;
+            }
+            const auto res = CreateUnicastIpAddressEntry(&addressRow);
+            if (res != ERROR_SUCCESS && res != ERROR_OBJECT_ALREADY_EXISTS) {
+                spdlog::error("Failed to set {} IPv4 address", ipaddr);
+                return false;
+            }
+            return true;
+        }
+
+        bool setIPv6AndNetmask(const pcpp::IPv6Address &addr, const int mask)
+        {
+            const std::string ipaddr = addr.toString();
+            MIB_UNICASTIPADDRESS_ROW addressRow;
+
+            InitializeUnicastIpAddressEntry(&addressRow);
+            WintunGetAdapterLUID(adapter_, &addressRow.InterfaceLuid);
+            
+            addressRow.Address.Ipv6.sin6_family = AF_INET6;
+            addressRow.OnLinkPrefixLength = static_cast<BYTE>(mask);
+            addressRow.DadState = IpDadStatePreferred;
+            
+            if (1 != inet_pton(AF_INET6, ipaddr.c_str(), &(addressRow.Address.Ipv6.sin6_addr))) {
+                spdlog::error("Wrong IPv6 address");
+                return false;
+            }
+            const auto res = CreateUnicastIpAddressEntry(&addressRow);
+            if (res != ERROR_SUCCESS && res != ERROR_OBJECT_ALREADY_EXISTS) {
+                spdlog::error("Failed to set {} IPv6 address", ipaddr);
+                return false;
+            }
+            return true;
+        }
+
         void run() noexcept
         {
             std::uint8_t buffer[65536] = {0};

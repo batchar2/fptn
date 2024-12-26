@@ -22,7 +22,8 @@ namespace fptn::web
             const fptn::common::jwt_token::TokenManagerSPtr& tokenManager,
             const fptn::statistic::MetricsSPtr& prometheus,
             const std::string& prometheusAccessKey,
-            const pcpp::IPv4Address& dnsServer
+            const pcpp::IPv4Address& dnsServerIPv4,
+            const pcpp::IPv6Address& dnsServerIPv6
         );
         ~HttpServer() = default;
         hv::HttpService* getService();
@@ -43,7 +44,8 @@ namespace fptn::web
         fptn::common::jwt_token::TokenManagerSPtr tokenManager_;
         fptn::statistic::MetricsSPtr prometheus_;
 
-        pcpp::IPv4Address dnsServer_;
+        pcpp::IPv4Address dnsServerIPv4_;
+        pcpp::IPv6Address dnsServerIPv6_;
         hv::HttpService http_;
     };
 

@@ -68,10 +68,16 @@ int main(int argc, char* argv[])
         options->getOutNetworkInterface(),
         options->getTunInterfaceName()
     );
+
     auto virtualNetworkInterface = std::make_unique<fptn::network::VirtualInterface>(
         options->getTunInterfaceName(),
-        options->getTunInterfaceIP(),
-        options->getTunInterfaceNetworkMask(),
+        /* IPv+4 */
+        options->getTunInterfaceIPv4(),
+        options->getTunInterfaceNetworkIPv4Mask(),
+        /* IPv6 */
+        options->getTunInterfaceIPv6(),
+        options->getTunInterfaceNetworkIPv6Mask(),
+        /* iptables */
         std::move(iptables)
     );
 
@@ -86,9 +92,14 @@ int main(int argc, char* argv[])
         options->getRemoteServerAuthPort()
     );
     auto natTable = std::make_shared<fptn::nat::Table>(
-        options->getTunInterfaceIP(),
-        options->getTunInterfaceNetworkAddress(),
-        options->getTunInterfaceNetworkMask()
+        /* IPv4 */
+        options->getTunInterfaceIPv4(),
+        options->getTunInterfaceNetworkIPv4Address(),
+        options->getTunInterfaceNetworkIPv4Mask(),
+        /* IPv6 */
+        options->getTunInterfaceIPv6(),
+        options->getTunInterfaceNetworkIPv6Address(),
+        options->getTunInterfaceNetworkIPv6Mask()
     );
     auto prometheus = std::make_shared<fptn::statistic::Metrics>();
     auto webServer = std::make_unique<fptn::web::Server>(
@@ -99,7 +110,8 @@ int main(int argc, char* argv[])
         tokenManager,
         prometheus,
         options->getPrometheusAccessKey(),
-        options->getTunInterfaceIP()
+        options->getTunInterfaceIPv4(),
+        options->getTunInterfaceIPv6()
     );
 
     /* init packet filter */
@@ -109,9 +121,14 @@ int main(int argc, char* argv[])
     }
     filterManager->add( // Prevent sending requests to the VPN virtual network from the client
         std::make_shared<fptn::filter::packets::AntiScanFilter>(
-            options->getTunInterfaceIP(),
-            options->getTunInterfaceNetworkAddress(),
-            options->getTunInterfaceNetworkMask()
+            /* IPv4 */
+            options->getTunInterfaceIPv4(),
+            options->getTunInterfaceNetworkIPv4Address(),
+            options->getTunInterfaceNetworkIPv4Mask(),
+            /* IPv6 */
+            options->getTunInterfaceIPv6(),
+            options->getTunInterfaceNetworkIPv6Address(),
+            options->getTunInterfaceNetworkIPv6Mask()
         )
     );
 
@@ -124,14 +141,16 @@ int main(int argc, char* argv[])
         prometheus
     );
 
-    spdlog::info("\nStarting server\n"
+    spdlog::info("\n--- Starting server---\n"
         "VERSION:           {}\n"
         "NETWORK INTERFACE: {}\n"
-        "VPN SERVER IP:     {}\n"
+        "VPN NETWORK IPv4:  {}\n"
+        "VPN NETWORK IPv6:  {}\n"
         "VPN SERVER PORT:   {}\n",
         FPTN_VERSION,
         options->getOutNetworkInterface(),
-        options->getTunInterfaceIP().toString(),
+        options->getTunInterfaceNetworkIPv4Address().toString(),
+        options->getTunInterfaceNetworkIPv6Address().toString(),
         options->getServerPort()
     );
 

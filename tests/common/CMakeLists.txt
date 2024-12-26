@@ -25,7 +25,12 @@ add_executable(ChannelTest data/ChannelTest.cpp)
 target_link_libraries(ChannelTest ${LIBS})
 add_test(NAME ChannelTest COMMAND ChannelTest)
 
-# --- IP Generator test ---
-add_executable(IPGeneratorTest network/IPGeneratorTest.cpp)
-target_link_libraries(IPGeneratorTest ${LIBS})
-add_test(NAME IPGeneratorTest COMMAND IPGeneratorTest)
+# --- IPv4 Generator test ---
+add_executable(IPv4GeneratorTest network/IPv4GeneratorTest.cpp)
+target_link_libraries(IPv4GeneratorTest ${LIBS})
+add_test(NAME IPv4GeneratorTest COMMAND IPv4GeneratorTest)
+
+# --- IPv6 Generator test ---
+add_executable(IPv6GeneratorTest network/IPv6GeneratorTest.cpp)
+target_link_libraries(IPv6GeneratorTest ${LIBS})
+add_test(NAME IPv6GeneratorTest COMMAND IPv6GeneratorTest)

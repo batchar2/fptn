@@ -27,12 +27,13 @@ namespace fptn::http
         WebSocketClient(
             const pcpp::IPv4Address& vpnServerIP,
             int vpnServerPort,
-            const pcpp::IPv4Address& tunInterfaceAddress,
+            const pcpp::IPv4Address& tunInterfaceAddressIPv4,
+            const pcpp::IPv6Address& tunInterfaceAddressIPv6,
             bool useSsl = true,
             const NewIPPacketCallback& newIPPktCallback = nullptr
         );
         bool login(const std::string& username, const std::string& password) noexcept;
-        pcpp::IPv4Address getDns() noexcept;
+        std::pair<pcpp::IPv4Address, pcpp::IPv6Address> getDns() noexcept;
         bool start() noexcept;
         bool stop() noexcept;
         bool send(fptn::common::network::IPPacketPtr packet) noexcept;
@@ -54,9 +55,11 @@ namespace fptn::http
         const pcpp::IPv4Address vpnServerIP_;
         const int vpnServerPort_;
 
-        std::string token_;
-        pcpp::IPv4Address tunInterfaceAddress_;
+        const pcpp::IPv4Address tunInterfaceAddressIPv4_;
+        const pcpp::IPv6Address tunInterfaceAddressIPv6_;
         NewIPPacketCallback newIPPktCallback_;
+
+        std::string token_;
     };
 
     using WebSocketClientPtr = std::unique_ptr<WebSocketClient>;

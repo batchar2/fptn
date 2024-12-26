@@ -322,7 +322,8 @@ void TrayApp::handleConnecting()
 
     trayIcon_->setIcon(QIcon(inactiveIconPath_));
 
-    const pcpp::IPv4Address tunInterfaceAddress("10.0.1.1");
+    const pcpp::IPv4Address tunInterfaceAddressIPv4(FPTN_CLIENT_DEFAULT_ADDRESS_IP4);
+    const pcpp::IPv6Address tunInterfaceAddressIPv6(FPTN_CLIENT_DEFAULT_ADDRESS_IP6);
     const std::string tunInterfaceName = "tun0";
 
     spdlog::debug("--- get gatewayIp ---");
@@ -417,7 +418,8 @@ void TrayApp::handleConnecting()
     auto webSocketClient = std::make_unique<fptn::http::WebSocketClient>(
         serverIP,
         serverPort,
-        tunInterfaceAddress,
+        tunInterfaceAddressIPv4,
+        tunInterfaceAddressIPv6,
         true
     );
 
@@ -439,9 +441,8 @@ void TrayApp::handleConnecting()
     }
 
     spdlog::debug("--- getDns ---");
-
-    const auto dnsServer = webSocketClient->getDns();
-    if (dnsServer == pcpp::IPv4Address("0.0.0.0")) {
+    const auto [dnsServerIPv4, dnsServerIPv6] = webSocketClient->getDns();
+    if (dnsServerIPv4 == pcpp::IPv4Address("0.0.0.0") || dnsServerIPv6 == pcpp::IPv6Address("")) {
         showError(
             QObject::tr("Connection error"),
             QObject::tr("DNS server error! Check your connection!")
@@ -457,20 +458,27 @@ void TrayApp::handleConnecting()
         networkInterface,
         tunInterfaceName,
         serverIP,
-        dnsServer,
+        dnsServerIPv4,
+        dnsServerIPv6,
         usingGatewayIP,
-        tunInterfaceAddress
+        tunInterfaceAddressIPv4,
+        tunInterfaceAddressIPv6
     );
     spdlog::debug("--- TunInterface ---");
 
     auto virtualNetworkInterface = std::make_unique<fptn::common::network::TunInterface>(
-        tunInterfaceName, tunInterfaceAddress, 30
+        tunInterfaceName,
+        /* IPv4 */
+        tunInterfaceAddressIPv4, 30,
+        /* IPv6 */
+        tunInterfaceAddressIPv6, 126
     );
     spdlog::debug("--- VpnClient ---");
     vpnClient_ = std::make_unique<fptn::vpn::VpnClient>(
         std::move(webSocketClient),
         std::move(virtualNetworkInterface),
-        dnsServer
+        dnsServerIPv4,
+        dnsServerIPv6
     );
 
     spdlog::debug("--- VpnClient.start ---");

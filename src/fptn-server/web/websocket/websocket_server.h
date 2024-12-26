@@ -25,7 +25,14 @@ namespace fptn::web
     class WebsocketServer final
     {
     public:
-        using NewConnectionCallback = std::function<void(std::uint32_t clientId, const pcpp::IPv4Address& clientVpnIP, const pcpp::IPv4Address& clientIP, const std::string& username, std::size_t bandwidthBitesSeconds)>;
+        using NewConnectionCallback = std::function<void(
+            std::uint32_t clientId,
+            const pcpp::IPv4Address& clientVpnIPv4,
+            const pcpp::IPv6Address& clientVpnIPv6,
+            const pcpp::IPv4Address& clientIP,
+            const std::string& username,
+            std::size_t bandwidthBitesSeconds
+        )>;
         using CloseConnectionCallback = std::function<void(std::uint32_t client_id)>;
         using NewIPPacketCallback = std::function<void(fptn::common::network::IPPacketPtr packet)>;
     public:

@@ -32,7 +32,8 @@ using namespace fptn::http;
 WebSocketClient::WebSocketClient(
     const pcpp::IPv4Address& vpnServerIP,
     int vpnServerPort,
-    const pcpp::IPv4Address& tunInterfaceAddress,
+    const pcpp::IPv4Address& tunInterfaceAddressIPv4,
+    const pcpp::IPv6Address& tunInterfaceAddressIPv6,
     bool useSsl,
     const NewIPPacketCallback& newIPPktCallback 
 )
@@ -41,8 +42,8 @@ WebSocketClient::WebSocketClient(
         running_(false),
         vpnServerIP_(vpnServerIP),
         vpnServerPort_(vpnServerPort),
-        token_(""),
-        tunInterfaceAddress_(tunInterfaceAddress),
+        tunInterfaceAddressIPv4_(tunInterfaceAddressIPv4),
+        tunInterfaceAddressIPv6_(tunInterfaceAddressIPv6),
         newIPPktCallback_(newIPPktCallback)
 {
     // Set logging
@@ -104,7 +105,7 @@ bool WebSocketClient::login(const std::string& username, const std::string& pass
     return false;
 }
 
-pcpp::IPv4Address WebSocketClient::getDns() noexcept
+std::pair<pcpp::IPv4Address, pcpp::IPv6Address> WebSocketClient::getDns() noexcept
 {
     spdlog::info("DNS. Connect to {}:{}", vpnServerIP_.toString(), vpnServerPort_);
     httplib::SSLClient cli(vpnServerIP_.toString(), vpnServerPort_);
@@ -115,7 +116,7 @@ pcpp::IPv4Address WebSocketClient::getDns() noexcept
         cli.set_write_timeout(5, 0); // 5 seconds
         if (SSL_CTX_set_cipher_list(cli.ssl_context(), chromeCiphers) != 1) {
             spdlog::info("Failed to set cipher list");
-            return pcpp::IPv4Address("0.0.0.0");
+            return {pcpp::IPv4Address("0.0.0.0"), pcpp::IPv6Address("")};
         }
     }
     if (auto res = cli.Get("/api/v1/dns", getRealBrowserHeaders())) {
@@ -123,8 +124,13 @@ pcpp::IPv4Address WebSocketClient::getDns() noexcept
             try {
                 auto response = nlohmann::json::parse(res->body);
                 if (response.contains("dns")) {
-                    const std::string dnsServer = response["dns"];
-                    return pcpp::IPv4Address(dnsServer);
+                    const std::string dnsServerIPv4 = response["dns"];
+                    const std::string dnsServerIPv6 = (
+                        response.contains("dns_ipv6")
+                        ? response["dns_ipv6"]
+                        : FPTN_SERVER_DEFAULT_ADDRESS_IP6 // default for old servers
+                    );
+                    return {pcpp::IPv4Address(dnsServerIPv4), pcpp::IPv6Address(dnsServerIPv6)};
                 } else {
                     spdlog::error("Error: dns not found in the response. Check your conection");
                 }
@@ -137,7 +143,7 @@ pcpp::IPv4Address WebSocketClient::getDns() noexcept
     } else {
         spdlog::error("Error: Request failed or response is null.");
     }
-    return pcpp::IPv4Address("0.0.0.0");
+    return {pcpp::IPv4Address("0.0.0.0"), pcpp::IPv6Address("")};
 }
 
 AsioSslContextPtr WebSocketClient::onTlsInit() noexcept
@@ -232,7 +238,8 @@ void WebSocketClient::run() noexcept
             }
             /* need to provide auth and local vpn address */
             connection_->append_header("Authorization", "Bearer " + token_);
-            connection_->append_header("ClientIP", tunInterfaceAddress_.toString());
+            connection_->append_header("ClientIP", tunInterfaceAddressIPv4_.toString());
+            connection_->append_header("ClientIPv6", tunInterfaceAddressIPv6_.toString());
         }
         {
             /* loop */
