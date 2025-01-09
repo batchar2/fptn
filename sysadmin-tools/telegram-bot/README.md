@@ -48,6 +48,16 @@ To configure your bot, you'll need to edit the .env file. This file contains sen
 API_TOKEN=your_actual_api_token_here
 
 
+### Servers
+
+
+```
+cp servers.json.demo server.json
+```
+
+Edit this config file to provide your own servers
+
+
 # Welcome message for the bot
 FPTN_WELCOME_MESSAGE="⚡⚡⚡ Welcome to the FPTN service bot! ⚡⚡⚡\n\n
 This bot allows you to get access to VPN services or restore your password.\n

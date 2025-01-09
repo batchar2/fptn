@@ -40,6 +40,7 @@ TrayApp::TrayApp(const SettingsModelPtr &settings, QObject* parent)
         activeIconPath_(":/icons/active.ico"),
         inactiveIconPath_(":/icons/inactive.ico")
 {
+    (void)parent;
 #ifdef __linux__
     qApp->setStyleSheet(fptn::gui::ubuntuStyleSheet);
 #elif __APPLE__
@@ -391,7 +392,7 @@ void TrayApp::handleConnecting()
     } else {
         // check connection to selected server
         const std::uint64_t time = config.getDownloadTimeMs(selectedServer_);
-        if (time == -1) {
+        if (time == static_cast<std::uint64_t>(-1)) {
             showError(
                 QObject::tr("Connection Error"),
                 QString(QObject::tr("The server is unavailable. Please select another server or use Auto-connect to find the best available server."))
@@ -424,7 +425,6 @@ void TrayApp::handleConnecting()
     );
 
     spdlog::debug("--- login ---");
-
     bool loginStatus = webSocketClient->login(
         selectedServer_.username,
         selectedServer_.password
@@ -539,6 +539,7 @@ void TrayApp::handleQuit()
         ipTables_->clean();
         ipTables_.reset();
     }
+    spdlog::info("--- exit ---");
     QApplication::quit();
 }
 

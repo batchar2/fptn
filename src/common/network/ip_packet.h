@@ -161,7 +161,7 @@ namespace fptn::common::network
             }
         }
 
-        const std::uint32_t clientId() const noexcept
+        std::uint32_t clientId() const noexcept
         {
             return clientId_;
         }
@@ -177,7 +177,7 @@ namespace fptn::common::network
             return {raw->getRawData(), raw->getRawData() + raw->getRawDataLen()};
         }
 
-        const std::size_t size() const noexcept
+        std::size_t size() const noexcept
         {
             return packetData_.size();
         }
@@ -189,12 +189,12 @@ namespace fptn::common::network
         }
     public:
         /* virtual functions for tests */
-        virtual const bool isIPv4() const noexcept
+        virtual bool isIPv4() const noexcept
         {
             return ipv4Layer_ != nullptr;
         }
 
-        virtual const bool isIPv6() const noexcept
+        virtual bool isIPv6() const noexcept
         {
             return ipv6Layer_ != nullptr;
         }

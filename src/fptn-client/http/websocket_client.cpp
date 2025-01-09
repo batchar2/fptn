@@ -46,6 +46,7 @@ WebSocketClient::WebSocketClient(
         tunInterfaceAddressIPv6_(tunInterfaceAddressIPv6),
         newIPPktCallback_(newIPPktCallback)
 {
+    (void)useSsl;
     // Set logging
     // ws_.set_access_channels(websocketpp::log::alevel::all);
     ws_.set_access_channels(websocketpp::log::alevel::none);

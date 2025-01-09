@@ -111,7 +111,7 @@ namespace fptn::common::network
             return ipv4Addr_;
         }
 
-        const int ipv4Netmask() const noexcept
+        int ipv4Netmask() const noexcept
         {
             return ipv4Netmask_;
         }
@@ -121,17 +121,15 @@ namespace fptn::common::network
             return ipv6Addr_;
         }
 
-        const int ipv6Netmask() const noexcept
+        int ipv6Netmask() const noexcept
         {
-            return ipv4Netmask_;
+            return ipv6Netmask_;
         }
 
         void setNewIPPacketCallback(const NewIPPacketCallback &callback) noexcept
         {
             newIPPktCallback = callback;
         }
-    protected:
-        NewIPPacketCallback newIPPktCallback;
     private:
         const std::string name_;
         /* IPv4 */
@@ -140,6 +138,8 @@ namespace fptn::common::network
         /* IPv6 */
         const pcpp::IPv6Address ipv6Addr_;
         const int ipv6Netmask_;
+    protected:
+        NewIPPacketCallback newIPPktCallback;
     };
 
     using BaseNetInterfacePtr = std::unique_ptr<BaseNetInterface>;
@@ -210,7 +210,7 @@ namespace fptn::common::network
             if (running_ && packet && packet->size()) {
                 sendRateCalculator_.update(packet->size()); // calculate rate
                 std::vector<std::uint8_t> serialized = packet->serialize();
-                return tun_->write(serialized.data(), serialized.size()) == serialized.size();
+                return static_cast<std::size_t>(tun_->write(serialized.data(), serialized.size())) == serialized.size();
             }
             return false;
         }
