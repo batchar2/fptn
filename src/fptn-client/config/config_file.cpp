@@ -81,7 +81,7 @@ ConfigFile::Server ConfigFile::findFastestServer() const
         }
     }
     auto minTimeIt = std::min_element(times.begin(), times.end());
-    if (minTimeIt == times.end() || *minTimeIt == -1) {
+    if (minTimeIt == times.end() || *minTimeIt == static_cast<std::uint64_t>(-1)) {
         throw std::runtime_error("All servers unavailable!");
     }
     std::size_t fastestServerIndex = std::distance(times.begin(), minTimeIt);

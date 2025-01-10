@@ -74,7 +74,7 @@ fptn::common::network::IPPacketPtr Session::changeIPAddressToClientIP(fptn::comm
         packet->setDstIPv6Address(clientIPv6_);
     }
     packet->computeCalculateFields();
-    return std::move(packet);
+    return packet;
 }
 
 fptn::common::network::IPPacketPtr Session::changeIPAddressToFakeIP(fptn::common::network::IPPacketPtr packet) noexcept
@@ -86,5 +86,5 @@ fptn::common::network::IPPacketPtr Session::changeIPAddressToFakeIP(fptn::common
         packet->setSrcIPv6Address(fakeClientIPv6_);
     }
     packet->computeCalculateFields();
-    return std::move(packet);
+    return packet;
 }

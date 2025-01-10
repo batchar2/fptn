@@ -33,7 +33,7 @@ namespace fptn::common::network
             numAvailableAddresses_ = (1U << (32 - subnetMask)) - 2;
         }
 
-        const std::uint32_t numAvailableAddresses() const noexcept
+        std::uint32_t numAvailableAddresses() const noexcept
         {
             return numAvailableAddresses_;
         }

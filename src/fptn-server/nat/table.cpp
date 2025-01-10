@@ -125,7 +125,7 @@ fptn::client::SessionSPtr Table::getSessionByClientId(ClientID clientId) noexcep
 
 pcpp::IPv4Address Table::getUniqueIPv4Address()
 {
-    for (int i = 0; i < ipv4Generator_.numAvailableAddresses(); i++) {
+    for (std::uint32_t i = 0; i < ipv4Generator_.numAvailableAddresses(); i++) {
         const auto ip = ipv4Generator_.getNextAddress();
         if (ip != tunInterfaceIPv4_ && ipv4ToSessions_.find(ip.toInt()) == ipv4ToSessions_.end()) {
             return ip;

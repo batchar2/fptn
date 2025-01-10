@@ -26,8 +26,7 @@ add_compile_definitions(CPPHTTPLIB_OPENSSL_SUPPORT)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_VERBOSE_MAKEFILE ON)
-# set(CMAKE_COMPILE_WARNING_AS_ERROR ON)
+
 if(WIN32)
     set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS TRUE)
 else()
@@ -64,6 +63,13 @@ include_directories(src/)
 include_directories(depends/)
 
 # --- project ---
+set(CMAKE_COMPILE_WARNING_AS_ERROR ON)  # check all warnings!
+if (MSVC)
+    add_compile_options(/W4 /WX)
+else()
+    add_compile_options(-Wall -Werror)
+endif()
+
 if(APPLE OR UNIX)
     add_subdirectory(src/fptn-server)
     add_subdirectory(src/fptn-passwd)

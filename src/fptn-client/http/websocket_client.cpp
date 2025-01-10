@@ -171,6 +171,7 @@ AsioSslContextPtr WebSocketClient::onTlsInit() noexcept
 
 void WebSocketClient::onMessage(websocketpp::connection_hdl hdl, AsioMessagePtr msg) noexcept
 {
+    (void)hdl;
     try {
         std::string rawIpPacket = fptn::common::protobuf::protocol::getPayload(msg->get_payload());
         auto packet = fptn::common::network::IPPacket::parse(std::move(rawIpPacket));

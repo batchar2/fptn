@@ -24,10 +24,10 @@ using namespace fptn::gui;
 
 SettingsModel::SettingsModel(const QMap<QString, QString>& languages, const QString& defaultLanguage, QObject *parent)
     :
+        QObject(parent),
         languages_(languages),
-        //defaultLanguage_(defaultLanguage),
-        selectedLanguage_(defaultLanguage_),
-        QObject(parent)
+        defaultLanguage_(defaultLanguage),
+        selectedLanguage_(defaultLanguage)
 {
     load();
 }
