@@ -16,6 +16,7 @@
 #include "config/config_file.h"
 #include "http/websocket_client.h"
 
+#include <base64.hpp>
 
 inline void waitForSignal() 
 {
