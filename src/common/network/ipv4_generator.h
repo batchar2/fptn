@@ -4,12 +4,20 @@
 #include <memory>
 #include <cinttypes>
 
+#if _WIN32
+#pragma warning(disable: 4996) 
+#endif
+
 #include <pcapplusplus/Packet.h>
 #include <pcapplusplus/EthLayer.h>
 #include <pcapplusplus/IPv4Layer.h>
 
 #include <boost/asio.hpp>
 #include <boost/system/error_code.hpp>
+
+#if _WIN32
+#pragma warning(default: 4996) 
+#endif
 
 
 namespace fptn::common::network
