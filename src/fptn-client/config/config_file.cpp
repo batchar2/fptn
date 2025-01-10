@@ -1,22 +1,21 @@
 #include <string>
 #include <vector>
 #include <future>
-#include <fstream>
-#include <filesystem>
 
-#include <fmt/format.h>
+#include <base64.hpp>
 #include <spdlog/spdlog.h>
 #include <nlohmann/json.hpp>
 #include <httplib/httplib.h>
 
+#include <common/utils/utils.h>
 
 #include "config_file.h"
 
 using namespace fptn::config;
 
 
-ConfigFile::ConfigFile(const std::filesystem::path& path)
-    : path_(path)
+ConfigFile::ConfigFile(std::string token)
+    : token_(std::move(token)), version_(0)
 {
 }
 
@@ -28,22 +27,16 @@ bool ConfigFile::addServer(const ConfigFile::Server &s)
 
 bool ConfigFile::parse()
 {
-    if (!std::filesystem::exists(path_)) {
-        throw std::runtime_error("Config file not found");
-    }
-    std::ifstream file(path_);
-    if (!file.is_open()) {
-        throw std::runtime_error("Cannot open the config file");
-    }
     try {
-        nlohmann::json configJson;
-        file >> configJson;
+        const std::string cleanToken = fptn::common::utils::removeSubstring(token_, {"fptn://", "fptn:"});
+        const std::string decodedToken = base64::from_base64(cleanToken + "==");
+        const auto config = nlohmann::json::parse(decodedToken);
 
-        version_ = configJson.at("version").get<int>();
-        serviceName_ = configJson.at("service_name").get<std::string>();
-        username_ = configJson.at("username").get<std::string>();
-        password_ = configJson.at("password").get<std::string>();
-        for (const auto& server : configJson.at("servers")) {
+        version_ = config.at("version").get<int>();
+        serviceName_ = config.at("service_name").get<std::string>();
+        username_ = config.at("username").get<std::string>();
+        password_ = config.at("password").get<std::string>();
+        for (const auto& server : config.at("servers")) {
             Server s;
             s.name = server.at("name").get<std::string>();
             s.host = server.at("host").get<std::string>();

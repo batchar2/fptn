@@ -16,7 +16,6 @@
 #include "config/config_file.h"
 #include "http/websocket_client.h"
 
-#include <base64.hpp>
 
 inline void waitForSignal() 
 {
@@ -48,9 +47,9 @@ int main(int argc, char* argv[])
 
     argparse::ArgumentParser args("fptn-client");
     // Required arguments
-    args.add_argument("--access-config")
+    args.add_argument("--access-token")
         .required()
-        .help("Config path");
+        .help("Access token");
     // Optional arguments
     args.add_argument("--out-network-interface")
         .default_value("")
@@ -65,8 +64,8 @@ int main(int argc, char* argv[])
         .default_value(FPTN_CLIENT_DEFAULT_ADDRESS_IP4)
         .help("Network interface IPv4 address");
     args.add_argument("--tun-interface-ipv6")
-            .default_value(FPTN_CLIENT_DEFAULT_ADDRESS_IP6)
-            .help("Network interface IPv6 address");
+        .default_value(FPTN_CLIENT_DEFAULT_ADDRESS_IP6)
+        .help("Network interface IPv6 address");
     try {
         args.parse_args(argc, argv);
     } catch (const std::runtime_error& err) {
@@ -99,12 +98,8 @@ int main(int argc, char* argv[])
     }
 
     /* check config */
-    const std::filesystem::path configPath = args.get<std::string>("--access-config");
-    if (!std::filesystem::exists(configPath)) {
-        spdlog::error("Config file '{}' not found!", configPath.string());
-        return EXIT_FAILURE;
-    }
-    fptn::config::ConfigFile config(configPath);
+    const auto accessToken = args.get<std::string>("--access-token");
+    fptn::config::ConfigFile config(accessToken);
     fptn::config::ConfigFile::Server selectedServer;
     try{
         config.parse();

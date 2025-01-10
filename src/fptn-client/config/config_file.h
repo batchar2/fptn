@@ -2,7 +2,6 @@
 
 #include <string>
 #include <vector>
-#include <filesystem>
 
 
 namespace fptn::config
@@ -24,7 +23,7 @@ namespace fptn::config
         };
     public:
         ConfigFile() = default;
-        explicit ConfigFile(const std::filesystem::path& path);
+        explicit ConfigFile(const std::string token);
         bool parse();
         Server findFastestServer() const;
         bool addServer(const Server &s);
@@ -37,7 +36,8 @@ namespace fptn::config
     public:
         std::uint64_t getDownloadTimeMs(const Server& server) const noexcept;
     private:
-        std::filesystem::path path_;
+        std::string token_;
+
         int version_;
         std::string serviceName_;
         std::string username_;

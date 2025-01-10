@@ -279,9 +279,9 @@ With these tools, you can run your own bot and monitoring system.
 
 Download the FPTN client cli DEB package for your architecture (x86_64 or arm64) from [WebSite](http://batchar2.github.io/fptn/) or [GitHub](https://github.com/batchar2/fptn/releases).
 
-##### Step 3. Get access file
+##### Step 3. Get access token
 
-Use our [Telegram bot](https://t.me/fptn_bot), to quickly obtain your access file for internet connectivity.
+Use our [Telegram bot](https://t.me/fptn_bot), to quickly obtain your access token for internet connectivity.
 
 ##### Step 3: Install the DEB Package
 
@@ -294,7 +294,7 @@ sudo apt install -f /path/to/fptn-client-cli.deb
 Using the user credentials created in the previous step, try to connect via the command line:
 
 ```bash
-fptn-client-cli --access-config=/path/to/config.fptn
+fptn-client-cli --access-token=your-access-token
 ```
 
 *In some situations, you may need to specify your network gateway IP (e.g., router IP) using the `--gateway-ip` option when the client cannot automatically detect it
@@ -306,7 +306,7 @@ You can run fptn-client as a systemd service. To do this, open the client config
 
 ```bash
 # Configuration for FPTN client (required)
-ACCESS_CONFIG=
+ACCESS_TOKEN=
 
 # Optional: Specify the network interface
 NETWORK_INTERFACE=
@@ -316,7 +316,7 @@ GATEWAY_IP=
 ```
 
 Configuration File Fields:
-- `ACCESS_CONFIG` Path to access file.
+- `ACCESS_TOKEN` Access token.
 - `NETWORK_INTERFACE` (Optional) The network interface on the client device to be used for VPN connections (e.g., eth0 or wlan0).
 - `GATEWAY_IP` (Optional) The IP address of the gateway for the VPN connection (your router's address)
 
