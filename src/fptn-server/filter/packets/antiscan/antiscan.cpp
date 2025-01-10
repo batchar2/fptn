@@ -4,7 +4,9 @@
 #if defined(__APPLE__) || defined(__linux__)
 #include <arpa/inet.h>
 #elif _WIN32
-#include <winsock2.h>
+#pragma warning(disable: 4996) 
+#include <Winsock2.h>
+#pragma warning(default: 4996)  
 #endif
 
 

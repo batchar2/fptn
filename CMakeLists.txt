@@ -66,6 +66,7 @@ include_directories(depends/)
 set(CMAKE_COMPILE_WARNING_AS_ERROR ON)  # check all warnings!
 if (MSVC)
     add_compile_options(/W4 /WX)
+    # target_compile_options("/wd4996")  # Disable warning
 else()
     add_compile_options(-Wall -Werror)
 endif()

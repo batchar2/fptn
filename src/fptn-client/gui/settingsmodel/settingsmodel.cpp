@@ -64,14 +64,14 @@ void SettingsModel::load()
     if (serviceObj.contains("services")) {
         QJsonArray servicesArray = serviceObj["services"].toArray();
         for (const QJsonValue& serviceValue : servicesArray) {
-            QJsonObject serviceObj = serviceValue.toObject();
+            QJsonObject jsonServiceObj = serviceValue.toObject();
             ServiceConfig service;
 
-            service.serviceName = serviceObj["service_name"].toString();
-            service.username = serviceObj["username"].toString();
-            service.password = serviceObj["password"].toString();
+            service.serviceName = jsonServiceObj["service_name"].toString();
+            service.username = jsonServiceObj["username"].toString();
+            service.password = jsonServiceObj["password"].toString();
 
-            QJsonArray serversArray = serviceObj["servers"].toArray();
+            QJsonArray serversArray = jsonServiceObj["servers"].toArray();
             for (const QJsonValue& serverValue : serversArray) {
                 QJsonObject serverObj = serverValue.toObject();
                 ServerConfig server;

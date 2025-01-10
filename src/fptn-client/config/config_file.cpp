@@ -112,7 +112,7 @@ std::uint64_t ConfigFile::getDownloadTimeMs(const Server& server) const noexcept
     } catch (const std::exception& e) {
         spdlog::error("Error while downloading from server: {}", e.what());
     }
-    return -1;
+    return static_cast<std::uint64_t>(-1);
 }
 
 int ConfigFile::getVersion() const noexcept

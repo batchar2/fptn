@@ -136,10 +136,10 @@ void SettingsWidget::setupUi()
         connect(deleteButton, &QPushButton::clicked, [this, i]() { removeServer(i); });
 
         QWidget *buttonContainer = new QWidget();
-        QHBoxLayout *buttonLayout = new QHBoxLayout(buttonContainer);
-        buttonLayout->setContentsMargins(0, 0, 0, 0);
-        buttonLayout->setAlignment(Qt::AlignCenter);
-        buttonLayout->addWidget(deleteButton);
+        QHBoxLayout *actionLayout = new QHBoxLayout(buttonContainer);
+        actionLayout->setContentsMargins(0, 0, 0, 0);
+        actionLayout->setAlignment(Qt::AlignCenter);
+        actionLayout->addWidget(deleteButton);
         serverTable->setCellWidget(i, 3, buttonContainer);
     }
 }

@@ -6,6 +6,10 @@
 #include <cstdint>
 
 #if _WIN32
+#pragma warning(disable: 4996) 
+#endif
+
+#if _WIN32
 #include <Winsock2.h>
 #else
 #include <arpa/inet.h>
@@ -36,6 +40,10 @@
 
 #include <pcapplusplus/TcpLayer.h>
 #include <pcapplusplus/UdpLayer.h>
+
+#if _WIN32
+#pragma warning(default: 4996) 
+#endif
 
 
 namespace fptn::common::network

@@ -5,12 +5,20 @@
 #include <cinttypes>
 #include <mutex>
 
+#if _WIN32
+#pragma warning(disable: 4996) 
+#endif
+
 #include <pcapplusplus/Packet.h>
 #include <pcapplusplus/EthLayer.h>
 #include <pcapplusplus/IPv6Layer.h>
 
 #include <boost/asio.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
+
+#if _WIN32
+#pragma warning(default: 4996) 
+#endif
 
 #include "ipv6_utils.h"
 

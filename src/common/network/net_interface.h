@@ -340,9 +340,9 @@ namespace fptn::common::network
         {
             if (running_ && session_ && packet && packet->size()) {
                 sendRateCalculator_.update(packet->size());
-                BYTE *data = WintunAllocateSendPacket(session_, packet->size());
+                BYTE *data = WintunAllocateSendPacket(session_, static_cast<DWORD>(packet->size()));
                 if (data) {
-                    std::vector<std::uint8_t> serialized = packet->serialize();
+                    const std::vector<std::uint8_t> serialized = packet->serialize();
                     std::memcpy(data, serialized.data(), serialized.size());
                     WintunSendPacket(session_, data);
                     return true;
