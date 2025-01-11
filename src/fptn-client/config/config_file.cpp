@@ -28,7 +28,10 @@ bool ConfigFile::addServer(const ConfigFile::Server &s)
 bool ConfigFile::parse()
 {
     try {
-        const std::string cleanToken = fptn::common::utils::removeSubstring(token_, {"fptn://", "fptn:"});
+        const std::string cleanToken = fptn::common::utils::removeSubstring(
+            token_,
+            {"fptn://", "fptn:", " ", "\n", "\r", "\t"}
+        );
         const std::string decodedToken = base64::from_base64(cleanToken + "==");
         const auto config = nlohmann::json::parse(decodedToken);
 

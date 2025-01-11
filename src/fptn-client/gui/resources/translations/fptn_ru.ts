@@ -89,8 +89,8 @@
             <translation>Действие</translation>
         </message>
         <message>
-            <source>Select config</source>
-            <translation>Выбрать конфиг</translation>
+            <source>Add token</source>
+            <translation>Добавить токен</translation>
         </message>
         <message>
             <source>Save</source>
@@ -129,14 +129,6 @@
             <translation>Открыть файл службы FPTN</translation>
         </message>
         <message>
-            <source>Replace settings</source>
-            <translation>Заменить настройки</translation>
-        </message>
-        <message>
-            <source>Settings file already exists. Do you want to replace it?</source>
-            <translation>Настройки уже существуют. Вы хотите заменить их?</translation>
-        </message>
-        <message>
             <source>Delete Successful</source>
             <translation>Сервер успешно удален.</translation>
         </message>
@@ -164,6 +156,41 @@
         <message>
             <source>No servers</source>
             <translation>Нет серверов</translation>
+        </message>
+
+        <message>
+            <source>Copy your access token</source>
+            <translation>Скопируйте ваш токен</translation>
+        </message>
+        <message>
+            <source>Token</source>
+            <translation>Токен</translation>
+        </message>
+        <message>
+            <source>OK</source>
+            <translation>OK</translation>
+        </message>
+        <message>
+            <source>Cancel</source>
+            <translation>Отмена</translation>
+        </message>
+
+        <message>
+            <source>Validation Error</source>
+            <translation>Ошибка валидации</translation>
+        </message>
+        <message>
+            <source>Token cannot be empty</source>
+            <translation>Токен не может быть пустым</translation>
+        </message>
+        <message>
+            <source>Wrong token</source>
+            <translation>Неправильный токен</translation>
+        </message>
+
+        <message>
+            <source>Exit</source>
+            <translation>Выход</translation>
         </message>
     </context>
 </TS>

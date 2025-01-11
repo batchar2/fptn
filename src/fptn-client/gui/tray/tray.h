@@ -7,7 +7,6 @@
 #include <QObject>
 #include <QString>
 #include <QAction>
-#include <QTranslator>
 #include <QMouseEvent>
 #include <QApplication>
 #include <QWidgetAction>
@@ -44,7 +43,6 @@ namespace fptn::gui
         explicit TrayApp(const SettingsModelPtr &settings, QObject* parent = nullptr);
         virtual ~TrayApp() = default;
     private:
-        bool setTranslation(const QString& languageCode);
         QString getSystemLanguageCode() const;
         void retranslateUi();
     signals:
@@ -66,8 +64,6 @@ namespace fptn::gui
         void setUpTrayIcon();
         void updateTrayMenu();
     private:
-        QTranslator translator_;
-
         bool smartConnect_ = false;
         fptn::config::ConfigFile::Server selectedServer_;
 

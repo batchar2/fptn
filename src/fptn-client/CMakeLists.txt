@@ -91,6 +91,8 @@ if("${FPTN_BUILD_WITH_GUI_CLIENT}")
         gui/settingswidget/settings.h gui/settingswidget/settings.cpp
 
         gui/settingsmodel/settingsmodel.h gui/settingsmodel/settingsmodel.cpp
+        gui/tokendialog/tokendialog.h gui/tokendialog/tokendialog.cpp
+        gui/translations/translations.h gui/translations/translations.cpp
 
         gui/style/style.h gui/style/style.cpp
         ${PROJECT_RESOURCES}

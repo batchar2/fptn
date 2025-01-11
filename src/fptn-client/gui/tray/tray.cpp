@@ -10,6 +10,7 @@
 #include <spdlog/spdlog.h>
 
 #include "gui/style/style.h"
+#include "gui/translations/translations.h"
 
 #include "tray.h"
 
@@ -82,7 +83,7 @@ TrayApp::TrayApp(const SettingsModelPtr &settings, QObject* parent)
             settings->setLanguageCode(settings->defaultLanguageCode());
         }
     } else {
-        setTranslation(selectedLanguage);
+        fptn::gui::setTranslation(selectedLanguage);
     }
 
     connect(this, &TrayApp::defaultState, this, &TrayApp::handleDefaultState);
@@ -268,7 +269,7 @@ void TrayApp::updateTrayMenu()
     // Apply the language translation based on the user's settings
     QString selectedLanguage = settings_->languageCode();
     if (!selectedLanguage.isEmpty()) {
-        setTranslation(selectedLanguage);
+        fptn::gui::setTranslation(selectedLanguage);
     }
     retranslateUi();
 }
@@ -541,23 +542,6 @@ void TrayApp::handleQuit()
     }
     spdlog::info("--- exit ---");
     QApplication::quit();
-}
-
-bool TrayApp::setTranslation(const QString& languageCode)
-{
-    const QString translationFile = QString("fptn_%1.qm").arg(languageCode);
-    qApp->removeTranslator(&translator_);
-    if (translator_.load(translationFile, ":/translations")) {
-        if (qApp->installTranslator(&translator_)) {
-            spdlog::info("Successfully loaded language: {}", languageCode.toStdString());
-            return true;
-        } else {
-            spdlog::warn("Failed to install translator for language: {}", languageCode.toStdString());
-        }
-    } else {
-        spdlog::warn("Translation file not found: {}", translationFile.toStdString());
-    }
-    return false;
 }
 
 QString TrayApp::getSystemLanguageCode() const

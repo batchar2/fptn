@@ -48,7 +48,6 @@
 
 namespace fptn::common::network
 {
-
     #define PACKET_UNDEFINED_CLIENT_ID   (static_cast<std::uint32_t>(-1))
 
     inline bool checkIPv4(const std::string& buffer)
