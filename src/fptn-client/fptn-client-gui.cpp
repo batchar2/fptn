@@ -9,11 +9,8 @@
 
 #if defined(__linux__) || defined(__APPLE__)
     #include <unistd.h>
-#elif defined(_WIN32)
-    #include <Windows.h>
-#else
-    #error "Unsupported platform"
 #endif
+
 
 #include <common/logger/logger.h>
 
@@ -34,6 +31,8 @@ static BOOL WINAPI signalHandler(DWORD ctrlType)
     }
     return FALSE;
 }
+#else
+    #error "Unsupported platform"
 #endif
 
 
