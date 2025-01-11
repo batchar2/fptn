@@ -29,6 +29,12 @@ inline void waitForSignal()
     io_context.run();
 }
 
+inline void showVersionAndExit()
+{
+    std::cerr << "Version: " << FPTN_VERSION << std::endl;
+    std::exit(EXIT_SUCCESS);
+}
+
 
 int main(int argc, char* argv[])
 {
@@ -38,13 +44,6 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
 #endif
-    if (fptn::logger::init("fptn-client-cli")) {
-        spdlog::info("Application started successfully.");
-    } else {
-        std::cerr << "Logger initialization failed. Exiting application." << std::endl;
-        return EXIT_FAILURE;
-    }
-
     argparse::ArgumentParser args("fptn-client");
     // Required arguments
     args.add_argument("--access-token")
@@ -66,11 +65,27 @@ int main(int argc, char* argv[])
     args.add_argument("--tun-interface-ipv6")
         .default_value(FPTN_CLIENT_DEFAULT_ADDRESS_IP6)
         .help("Network interface IPv6 address");
+    args.add_argument("--version")
+        .help("Show version information");
+
     try {
         args.parse_args(argc, argv);
+        if (args.is_used("--version")) {
+            showVersionAndExit();
+        }
     } catch (const std::runtime_error& err) {
+        if (args.is_used("--version")) {
+            showVersionAndExit();
+        }
         std::cerr << err.what() << std::endl;
         std::cerr << args;
+        return EXIT_FAILURE;
+    }
+
+    if (fptn::logger::init("fptn-client-cli")) {
+        spdlog::info("Application started successfully.");
+    } else {
+        std::cerr << "Logger initialization failed. Exiting application." << std::endl;
         return EXIT_FAILURE;
     }
 
@@ -114,6 +129,7 @@ int main(int argc, char* argv[])
         spdlog::error("DNS resolve error: {}", selectedServer.host);
         return EXIT_FAILURE;
     }
+
     spdlog::info(
         "VERSION:            {}\n"
         "GATEWAY IP:         {}\n"
@@ -121,7 +137,7 @@ int main(int argc, char* argv[])
         "VPN SERVER NAME:    {}\n"
         "VPN SERVER IP:      {}\n"
         "VPN SERVER PORT:    {}\n"
-        "TUN INTERFACE IPv4: {}\n",
+        "TUN INTERFACE IPv4: {}\n"
         "TUN INTERFACE IPv6: {}\n",
         FPTN_VERSION,
         usingGatewayIP.toString(),

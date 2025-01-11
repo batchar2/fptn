@@ -157,7 +157,6 @@ void SettingsWidget::setupUi()
 
 void SettingsWidget::exit()
 {
-    this->close();
     settings_->setNetworkInterface(interfaceComboBox_->currentText());
     settings_->setLanguage(languageComboBox_->currentText());
     settings_->setGatewayIp(gatewayLineEdit_->text());
@@ -168,6 +167,7 @@ void SettingsWidget::exit()
             QObject::tr("An error occurred while saving the data.")
         );
     }
+    this->close();
 }
 
 void SettingsWidget::loadNewConfig()
@@ -192,14 +192,51 @@ void SettingsWidget::loadNewConfig()
                 serverTable_->removeRow(existsIndex);
             }
             settings_->addService(config);
-            settings_->save();
-            if (settings_->save() ) {
-                QMessageBox::information(
-                    this,
-                    QObject::tr("Save Successful"),
-                    QObject::tr("Data has been successfully saved.")
-                );
-                this->close();
+            const bool savingStatus = settings_->save();
+            if (savingStatus) {
+                // Insert a new row into the server table
+                const int newRow = serverTable_->rowCount();
+                serverTable_->insertRow(newRow);
+
+                serverTable_->setItem(newRow, 0, new QTableWidgetItem(config.serviceName));
+                serverTable_->setItem(newRow, 1, new QTableWidgetItem(config.username));
+
+                QString serversTextList = "";
+                for (const auto &s: config.servers) {
+                    serversTextList += QString("%1\n").arg(s.name);
+                }
+                QTableWidgetItem *item = new QTableWidgetItem(serversTextList);
+                item->setTextAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+                item->setFlags(item->flags() | Qt::ItemIsEnabled);
+                item->setData(Qt::DisplayRole, serversTextList);
+                serverTable_->setItem(newRow, 2, item);
+
+                QPushButton *deleteButton = new QPushButton(QObject::tr("Delete"), this);
+                connect(deleteButton, &QPushButton::clicked, [this, newRow]() { removeServer(newRow); });
+
+                QWidget *buttonContainer = new QWidget();
+                QHBoxLayout *buttonLayout = new QHBoxLayout(buttonContainer);
+                buttonLayout->setContentsMargins(0, 0, 0, 0);
+                buttonLayout->setAlignment(Qt::AlignCenter);
+                buttonLayout->addWidget(deleteButton);
+                serverTable_->setCellWidget(newRow, 3, buttonContainer);
+            }
+            if (savingStatus) {
+                if (existsIndex != -1) {
+                    // update data
+                    QMessageBox::information(
+                        this,
+                        QObject::tr("Save Successful"),
+                        QObject::tr("Data has been successfully saved.")
+                    );
+                } else {
+                    // new data
+                    QMessageBox::information(
+                        this,
+                        QObject::tr("Save Successful"),
+                        QObject::tr("Data has been successfully saved.")
+                    );
+                }
             } else {
                 QMessageBox::critical(
                     this,
@@ -207,32 +244,6 @@ void SettingsWidget::loadNewConfig()
                     QObject::tr("An error occurred while saving the data.")
                 );
             }
-            // visualite table
-            int newRow = serverTable_->rowCount();
-            serverTable_->insertRow(newRow);
-
-            serverTable_->setItem(newRow, 0, new QTableWidgetItem(config.serviceName));
-            serverTable_->setItem(newRow, 1, new QTableWidgetItem(config.username));
-
-            QString serversTextList = "";
-            for (const auto& s : config.servers) {
-                serversTextList += QString("%1\n").arg(s.name);
-            }
-            QTableWidgetItem* item = new QTableWidgetItem(serversTextList);
-            item->setTextAlignment(Qt::AlignLeft | Qt::AlignVCenter);
-            item->setFlags(item->flags() | Qt::ItemIsEnabled);
-            item->setData(Qt::DisplayRole, serversTextList);
-            serverTable_->setItem(newRow, 2, item);
-
-            QPushButton *deleteButton = new QPushButton(QObject::tr("Delete"), this);
-            connect(deleteButton, &QPushButton::clicked, [this, newRow]() { removeServer(newRow); });
-
-            QWidget *buttonContainer = new QWidget();
-            QHBoxLayout *buttonLayout = new QHBoxLayout(buttonContainer);
-            buttonLayout->setContentsMargins(0, 0, 0, 0);
-            buttonLayout->setAlignment(Qt::AlignCenter);
-            buttonLayout->addWidget(deleteButton);
-            serverTable_->setCellWidget(newRow, 3, buttonContainer);
         } catch(const std::exception &err) {
             QMessageBox::critical(this, QObject::tr("Error!"), err.what());
         }
@@ -247,17 +258,15 @@ void SettingsWidget::removeServer(int row)
         QMessageBox::information(
             this,
             QObject::tr("Delete Successful"),
-            QObject::tr("Server has been successfully deleted.")
+            QObject::tr("The data has been successfully removed")
         );
     }
 }
 
 void SettingsWidget::closeEvent(QCloseEvent* event)
 {
-    qDebug() << "+";
     exit();
-    // Accept the event to proceed with the closing
-    event->accept();
+    event->accept(); // Accept the event to proceed with the closing
 }
 
 void SettingsWidget::onLanguageChanged(const QString&)

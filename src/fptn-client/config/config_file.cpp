@@ -2,12 +2,12 @@
 #include <vector>
 #include <future>
 
-#include <base64.hpp>
 #include <spdlog/spdlog.h>
 #include <nlohmann/json.hpp>
 #include <httplib/httplib.h>
 
 #include <common/utils/utils.h>
+#include <common/utils/base64.h>
 
 #include "config_file.h"
 
@@ -32,7 +32,7 @@ bool ConfigFile::parse()
             token_,
             {"fptn://", "fptn:", " ", "\n", "\r", "\t"}
         );
-        const std::string decodedToken = base64::from_base64(cleanToken + "==");
+        const std::string decodedToken = fptn::common::utils::base64::decode(cleanToken);
         const auto config = nlohmann::json::parse(decodedToken);
 
         version_ = config.at("version").get<int>();
@@ -51,7 +51,7 @@ bool ConfigFile::parse()
         }
         throw std::runtime_error("Server list is empty!");
     } catch (const nlohmann::json::exception& e) {
-        throw std::runtime_error(std::string("JSON parsing error!") + e.what());
+        throw std::runtime_error(std::string("JSON parsing error: ") + e.what());
     }
     return false;
 }

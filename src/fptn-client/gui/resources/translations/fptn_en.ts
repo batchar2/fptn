@@ -125,16 +125,16 @@
             <translation>An error occurred while saving the data.</translation>
         </message>
         <message>
-            <source>Open FPTN Service File</source>
-            <translation>Open FPTN Service File</translation>
-        </message>
-        <message>
             <source>Delete Successful</source>
             <translation>Delete Successful</translation>
         </message>
         <message>
-            <source>Server has been successfully deleted.</source>
-            <translation>Server has been successfully deleted.</translation>
+            <source>The data has been successfully removed</source>
+            <translation>The data has been successfully removed</translation>
+        </message>
+        <message>
+            <source>The data has been successfully updated</source>
+            <translation>The data has been successfully updated</translation>
         </message>
         <message>
             <source>Language</source>

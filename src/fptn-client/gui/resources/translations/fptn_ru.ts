@@ -125,16 +125,16 @@
             <translation>Произошла ошибка при сохранении данных.</translation>
         </message>
         <message>
-            <source>Open FPTN Service File</source>
-            <translation>Открыть файл службы FPTN</translation>
-        </message>
-        <message>
             <source>Delete Successful</source>
-            <translation>Сервер успешно удален.</translation>
+            <translation>Успешное удаление</translation>
         </message>
         <message>
-            <source>Server has been successfully deleted.</source>
-            <translation>Сервер былуспешно удален.</translation>
+            <source>The data has been successfully removed</source>
+            <translation>Данные были успешно удалены</translation>
+        </message>
+        <message>
+            <source>The data has been successfully updated</source>
+            <translation>Данные были успешно обновлены</translation>
         </message>
         <message>
             <source>Language</source>

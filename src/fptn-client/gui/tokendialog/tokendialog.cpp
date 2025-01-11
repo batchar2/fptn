@@ -1,8 +1,7 @@
 #include "tokendialog.h"
 
-#include <base64.hpp>
-
 #include <common/utils/utils.h>
+#include <common/utils/base64.h>
 
 
 using namespace fptn::gui;
@@ -59,7 +58,7 @@ void TokenDialog::onOkClicked()
         const std::string cleanToken = fptn::common::utils::removeSubstring(
             enteredToken.toStdString(), {"fptn://", "fptn:", " ", "\n", "\r", "\t"}
         );
-        const std::string decodedToken = base64::from_base64(cleanToken + "==");
+        const std::string decodedToken = fptn::common::utils::base64::decode(cleanToken);
         const QString t = QString::fromStdString(decodedToken);
         if (t.isEmpty()) {
             QMessageBox::warning(
