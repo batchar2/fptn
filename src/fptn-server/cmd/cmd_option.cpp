@@ -16,6 +16,11 @@ inline bool parseBoolean(const std::string& value) noexcept
     return lowercasedValue == "true";
 }
 
+inline void showVersion()
+{
+    std::cerr << "Version: " << FPTN_VERSION << std::endl;
+}
+
 CmdOptions::CmdOptions(int argc, char* argv[])
         :
         argc_(argc),
@@ -90,14 +95,24 @@ CmdOptions::CmdOptions(int argc, char* argv[])
         .help("Specify the port number for the remote server authentication. Set to 0 to use the default port.")
         .default_value(443)
         .scan<'i', int>();
+    args_.add_argument("--version")
+        .help("Show version information");
 }
 
 bool CmdOptions::parse() noexcept
 {
     try {
         args_.parse_args(argc_, argv_);
+        if (args_.is_used("--version")) {
+            showVersion();
+            return false;
+        }
         return true;
     } catch (const std::runtime_error& err) {
+        if (args_.is_used("--version")) {
+            showVersion();
+            return false;
+        }
         const std::string help = args_.help().str();
         spdlog::error("Argument parsing error: {}\n{}", err.what(), help);
     }

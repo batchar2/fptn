@@ -35,7 +35,7 @@ IPPacketPtr BitTorrentFilter::apply(IPPacketPtr packet) const noexcept
             }
         }
     }
-    return std::move(packet);
+    return packet;
 }
 
 

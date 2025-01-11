@@ -17,12 +17,12 @@ public:
         ipv4Layer_.setDstIPv4Address(addr);
     }
 
-    virtual const bool isIPv4() const noexcept override
+    virtual bool isIPv4() const noexcept override
     {
         return true;
     }
 
-    virtual const bool isIPv6() const noexcept override
+    virtual bool isIPv6() const noexcept override
     {
         return false;
     }
@@ -44,12 +44,12 @@ public:
         ipv6Layer_.setDstIPv6Address(addr);
     }
 
-    virtual const bool isIPv4() const noexcept override
+    virtual bool isIPv4() const noexcept override
     {
         return false;
     }
 
-    virtual const bool isIPv6() const noexcept override
+    virtual bool isIPv6() const noexcept override
     {
         return true;
     }

@@ -26,8 +26,7 @@ add_compile_definitions(CPPHTTPLIB_OPENSSL_SUPPORT)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_VERBOSE_MAKEFILE ON)
-# set(CMAKE_COMPILE_WARNING_AS_ERROR ON)
+
 if(WIN32)
     set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS TRUE)
 else()
@@ -39,34 +38,20 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 endif()
 
+
 # -- depends: tuntap  ---
 if(APPLE OR UNIX)
-    set(ENABLE_CXX ON CACHE BOOL "Enable C++ support" FORCE)
-    set(BUILD_TESTING OFF CACHE BOOL "Disable testing globally" FORCE)
-    set(ENABLE_PYTHON OFF CACHE BOOL "Disable Python support" FORCE)
-    set(LIBTUNTAP_DISABLE_TESTS ON CACHE BOOL "Disable library tests" FORCE)
-    add_subdirectory(depends/libs/libtuntap EXCLUDE_FROM_ALL)
-    include_directories(depends/libs/libtuntap/)
-    include_directories(depends/libs/libtuntap/bindings/cpp)
-    link_directories(${CMAKE_BINARY_DIR}/depends/libs/libtuntap/lib)
+    include(depends/cmake/FetchLibTunTap.cmake)
 elseif(WIN32)
-    include(depends/cmake/wintun/wintun.cmake)
+    include(depends/cmake/FetchWintun.cmake)
 else()
     message(FATAL_ERROR "Unsupported platform")
 endif()
-
+# --- depends: base64 ---
+include(depends/cmake/FetchBase64.cmake)
 # --- depends: libhv ---
-#include(depends/cmake/libhv/libhv.cmake)
-find_package(OpenSSL REQUIRED)
-include_directories(${OPENSSL_INCLUDE_DIR})
-set(WITH_OPENSSL ON CACHE BOOL "with openssl library" FORCE)
-set(BUILD_STATIC ON CACHE BOOL "with openssl library" FORCE)
-set(BUILD_SHARED OFF CACHE BOOL "with openssl library" FORCE)
-set(WITH_NGHTTP2 OFF CACHE BOOL "with nghttp2 library" FORCE)
-set(BUILD_EXAMPLES OFF CACHE BOOL "build examples" FORCE)
-include_directories(CMAKE_BINARY_DIR/depends/libs/libhv/include)
-link_directories(${CMAKE_BINARY_DIR}/lib/)
-add_subdirectory(depends/libs/libhv EXCLUDE_FROM_ALL)
+include(depends/cmake/FetchLibhv.cmake)
+
 
 # --- protobuf ---
 include_directories(${CMAKE_BINARY_DIR}/depends/protobuf/fptn_protocol/)
@@ -78,6 +63,14 @@ include_directories(src/)
 include_directories(depends/)
 
 # --- project ---
+set(CMAKE_COMPILE_WARNING_AS_ERROR ON)  # check all warnings!
+if (MSVC)
+    add_compile_options(/W4 /WX)
+    # target_compile_options("/wd4996")  # Disable warning
+else()
+    add_compile_options(-Wall -Werror)
+endif()
+
 if(APPLE OR UNIX)
     add_subdirectory(src/fptn-server)
     add_subdirectory(src/fptn-passwd)

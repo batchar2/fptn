@@ -5,6 +5,8 @@
 #include <string>
 #include <stdexcept>
 
+#include <boost/algorithm/string.hpp>
+
 #include <protocol.pb.h>
 
 #include <common/network/ip_packet.h>
@@ -24,5 +26,13 @@ namespace fptn::common::utils
             result += characters[dist(gen)];
         }
         return result;
+    }
+
+    inline std::string removeSubstring(std::string input, const std::vector<std::string>& toRemove)
+    {
+        for (const auto& substr : toRemove) {
+            boost::algorithm::erase_all(input, substr);
+        }
+        return input;
     }
 }

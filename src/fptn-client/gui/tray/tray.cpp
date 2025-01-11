@@ -10,6 +10,7 @@
 #include <spdlog/spdlog.h>
 
 #include "gui/style/style.h"
+#include "gui/translations/translations.h"
 
 #include "tray.h"
 
@@ -40,6 +41,7 @@ TrayApp::TrayApp(const SettingsModelPtr &settings, QObject* parent)
         activeIconPath_(":/icons/active.ico"),
         inactiveIconPath_(":/icons/inactive.ico")
 {
+    (void)parent;
 #ifdef __linux__
     qApp->setStyleSheet(fptn::gui::ubuntuStyleSheet);
 #elif __APPLE__
@@ -81,7 +83,7 @@ TrayApp::TrayApp(const SettingsModelPtr &settings, QObject* parent)
             settings->setLanguageCode(settings->defaultLanguageCode());
         }
     } else {
-        setTranslation(selectedLanguage);
+        fptn::gui::setTranslation(selectedLanguage);
     }
 
     connect(this, &TrayApp::defaultState, this, &TrayApp::handleDefaultState);
@@ -100,6 +102,7 @@ TrayApp::TrayApp(const SettingsModelPtr &settings, QObject* parent)
 
     quitAction_ = new QAction(QObject::tr("Quit"), this);
     connect(quitAction_, &QAction::triggered, this, &TrayApp::handleQuit);
+    connect(qApp, &QCoreApplication::aboutToQuit, this, &TrayApp::handleQuit);
 
     trayMenu_->addSeparator();
     trayMenu_->addAction(settingsAction_);
@@ -110,6 +113,11 @@ TrayApp::TrayApp(const SettingsModelPtr &settings, QObject* parent)
     updateTrayMenu();
 
     trayIcon_->show();
+}
+
+TrayApp::~TrayApp()
+{
+    stop();
 }
 
 void TrayApp::setUpTrayIcon()
@@ -267,7 +275,7 @@ void TrayApp::updateTrayMenu()
     // Apply the language translation based on the user's settings
     QString selectedLanguage = settings_->languageCode();
     if (!selectedLanguage.isEmpty()) {
-        setTranslation(selectedLanguage);
+        fptn::gui::setTranslation(selectedLanguage);
     }
     retranslateUi();
 }
@@ -391,7 +399,7 @@ void TrayApp::handleConnecting()
     } else {
         // check connection to selected server
         const std::uint64_t time = config.getDownloadTimeMs(selectedServer_);
-        if (time == -1) {
+        if (time == static_cast<std::uint64_t>(-1)) {
             showError(
                 QObject::tr("Connection Error"),
                 QString(QObject::tr("The server is unavailable. Please select another server or use Auto-connect to find the best available server."))
@@ -424,7 +432,6 @@ void TrayApp::handleConnecting()
     );
 
     spdlog::debug("--- login ---");
-
     bool loginStatus = webSocketClient->login(
         selectedServer_.username,
         selectedServer_.password
@@ -531,32 +538,9 @@ void TrayApp::updateSpeedWidget()
 
 void TrayApp::handleQuit()
 {
-    if (vpnClient_) {
-        vpnClient_->stop();
-        vpnClient_.reset();
-    }
-    if (ipTables_) {
-        ipTables_->clean();
-        ipTables_.reset();
-    }
+    stop();
+    spdlog::info("--- exit ---");
     QApplication::quit();
-}
-
-bool TrayApp::setTranslation(const QString& languageCode)
-{
-    const QString translationFile = QString("fptn_%1.qm").arg(languageCode);
-    qApp->removeTranslator(&translator_);
-    if (translator_.load(translationFile, ":/translations")) {
-        if (qApp->installTranslator(&translator_)) {
-            spdlog::info("Successfully loaded language: {}", languageCode.toStdString());
-            return true;
-        } else {
-            spdlog::warn("Failed to install translator for language: {}", languageCode.toStdString());
-        }
-    } else {
-        spdlog::warn("Translation file not found: {}", translationFile.toStdString());
-    }
-    return false;
 }
 
 QString TrayApp::getSystemLanguageCode() const
@@ -595,5 +579,19 @@ void TrayApp::retranslateUi()
             .arg(QString::fromStdString(selectedServer_.name))
             .arg(QString::fromStdString(selectedServer_.serviceName));
         disconnectAction_->setText(disconnectText);
+    }
+}
+
+void TrayApp::stop()
+{
+    if (vpnClient_) {
+        spdlog::info("--- stop VpnClient ---");
+        vpnClient_->stop();
+        vpnClient_.reset();
+    }
+    if (ipTables_) {
+        spdlog::info("--- stop IpTables ---");
+        ipTables_->clean();
+        ipTables_.reset();
     }
 }

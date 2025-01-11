@@ -32,7 +32,7 @@ chmod 755 "$CLIENT_TMP_DIR/usr/bin/$(basename "$CLIENT_CLI")"
 # Create client configuration file
 cat <<EOL > "$CLIENT_TMP_DIR/etc/fptn-client/client.conf"
 # Configuration for FPTN client (required)
-ACCESS_CONFIG=
+ACCESS_TOKEN=
 
 
 
@@ -51,7 +51,7 @@ After=network.target
 
 [Service]
 EnvironmentFile=/etc/fptn-client/client.conf
-ExecStart=/usr/bin/$(basename "$CLIENT_CLI") --access-config=\${ACCESS_CONFIG} --out-network-interface=\${NETWORK_INTERFACE} --gateway-ip=\${GATEWAY_IP}
+ExecStart=/usr/bin/$(basename "$CLIENT_CLI") --access-token=\${ACCESS_TOKEN} --out-network-interface=\${NETWORK_INTERFACE} --gateway-ip=\${GATEWAY_IP}
 Restart=always
 RestartSec=5
 User=root

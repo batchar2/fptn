@@ -24,10 +24,10 @@ using namespace fptn::gui;
 
 SettingsModel::SettingsModel(const QMap<QString, QString>& languages, const QString& defaultLanguage, QObject *parent)
     :
+        QObject(parent),
         languages_(languages),
-        //defaultLanguage_(defaultLanguage),
-        selectedLanguage_(defaultLanguage_),
-        QObject(parent)
+        defaultLanguage_(defaultLanguage),
+        selectedLanguage_(defaultLanguage)
 {
     load();
 }
@@ -64,14 +64,14 @@ void SettingsModel::load()
     if (serviceObj.contains("services")) {
         QJsonArray servicesArray = serviceObj["services"].toArray();
         for (const QJsonValue& serviceValue : servicesArray) {
-            QJsonObject serviceObj = serviceValue.toObject();
+            QJsonObject jsonServiceObj = serviceValue.toObject();
             ServiceConfig service;
 
-            service.serviceName = serviceObj["service_name"].toString();
-            service.username = serviceObj["username"].toString();
-            service.password = serviceObj["password"].toString();
+            service.serviceName = jsonServiceObj["service_name"].toString();
+            service.username = jsonServiceObj["username"].toString();
+            service.password = jsonServiceObj["password"].toString();
 
-            QJsonArray serversArray = serviceObj["servers"].toArray();
+            QJsonArray serversArray = jsonServiceObj["servers"].toArray();
             for (const QJsonValue& serverValue : serversArray) {
                 QJsonObject serverObj = serverValue.toObject();
                 ServerConfig server;
@@ -94,7 +94,6 @@ void SettingsModel::load()
     if (networkInterface_.isEmpty()) {
         networkInterface_ = "auto";
     }
-
     if (serviceObj.contains("gateway_ip")) {
         gatewayIp_ = serviceObj["gateway_ip"].toString();
     }
@@ -207,18 +206,11 @@ bool SettingsModel::save()
     return len > 0;
 }
 
-ServiceConfig SettingsModel::parseFile(const QString& filepath)
+ServiceConfig SettingsModel::parseToken(const QString& token)
 {
-    QFile file(filepath);
-    if (!file.open(QIODevice::ReadOnly)) {
-        throw std::runtime_error("Failed to open file: " + filepath.toStdString());
-    }
-
-    QByteArray fileData = file.readAll();
-    file.close();
-
     QJsonParseError parseError;
-    QJsonDocument jsonDoc = QJsonDocument::fromJson(fileData, &parseError);
+    const QByteArray tokenData = token.toUtf8();
+    QJsonDocument jsonDoc = QJsonDocument::fromJson(tokenData, &parseError);
 
     if (parseError.error != QJsonParseError::NoError) {
         throw std::runtime_error("JSON parsing error: " + parseError.errorString().toStdString());

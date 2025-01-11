@@ -5,7 +5,15 @@
 #include <string>
 #include <iostream>
 
+#if _WIN32
+#pragma warning(disable: 4996) 
+#endif
+
 #include <pcapplusplus/IpAddress.h>
+
+#if _WIN32
+#pragma warning(default: 4996) 
+#endif
 
 
 namespace fptn::system

@@ -43,13 +43,6 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
 #endif
-    if (fptn::logger::init("fptn-server")) {
-        spdlog::info("Application started successfully.");
-    } else {
-        std::cerr << "Logger initialization failed. Exiting application." << std::endl;
-        return EXIT_FAILURE;
-    }
-
     /* Check options */
     auto options = std::make_shared<fptn::cmd::CmdOptions>(argc, argv);
     if(!options->parse()) {
@@ -63,12 +56,19 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
 
-    /* Init virtual network interface */
+    /* Init logger */
+    if (fptn::logger::init("fptn-server")) {
+        spdlog::info("Application started successfully.");
+    } else {
+        std::cerr << "Logger initialization failed. Exiting application." << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    /* Init iptables & virtual network interface */
     auto iptables = std::make_unique<fptn::system::IPTables>(
         options->getOutNetworkInterface(),
         options->getTunInterfaceName()
     );
-
     auto virtualNetworkInterface = std::make_unique<fptn::network::VirtualInterface>(
         options->getTunInterfaceName(),
         /* IPv+4 */

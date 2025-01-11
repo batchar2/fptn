@@ -82,7 +82,7 @@ namespace fptn::gui
         void addService(const ServiceConfig& server);
         void removeServer(int index);
         int getExistServiceIndex(const QString& name) const;
-        ServiceConfig parseFile(const QString& filepath);
+        ServiceConfig parseToken(const QString& token);
         void clear();
 
         const QString languageName() const;

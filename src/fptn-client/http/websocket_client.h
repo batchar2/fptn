@@ -6,9 +6,17 @@
 #include <iostream>
 #include <functional>
 
+#if _WIN32
+#pragma warning(disable: 4996) 
+#endif
+
 #include <httplib/httplib.h>
 #include <websocketpp/client.hpp>
 #include <websocketpp/config/asio_client.hpp>
+
+#if _WIN32
+#pragma warning(default: 4996) 
+#endif
 
 #include <common/network/ip_packet.h>
 

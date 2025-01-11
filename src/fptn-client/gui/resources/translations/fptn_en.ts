@@ -89,8 +89,8 @@
             <translation>Action</translation>
         </message>
         <message>
-            <source>Select config</source>
-            <translation>Select config</translation>
+            <source>Add token</source>
+            <translation>Add token</translation>
         </message>
         <message>
             <source>Save</source>
@@ -125,24 +125,16 @@
             <translation>An error occurred while saving the data.</translation>
         </message>
         <message>
-            <source>Open FPTN Service File</source>
-            <translation>Open FPTN Service File</translation>
-        </message>
-        <message>
-            <source>Replace settings</source>
-            <translation>Replace settings</translation>
-        </message>
-        <message>
-            <source>Settings file already exists. Do you want to replace it?</source>
-            <translation>Settings file already exists. Do you want to replace it?</translation>
-        </message>
-        <message>
             <source>Delete Successful</source>
             <translation>Delete Successful</translation>
         </message>
         <message>
-            <source>Server has been successfully deleted.</source>
-            <translation>Server has been successfully deleted.</translation>
+            <source>The data has been successfully removed</source>
+            <translation>The data has been successfully removed</translation>
+        </message>
+        <message>
+            <source>The data has been successfully updated</source>
+            <translation>The data has been successfully updated</translation>
         </message>
         <message>
             <source>Language</source>
@@ -164,6 +156,41 @@
         <message>
             <source>No servers</source>
             <translation>No servers</translation>
+        </message>
+
+        <message>
+            <source>Paste your token</source>
+            <translation>Paste your token</translation>
+        </message>
+        <message>
+            <source>Token</source>
+            <translation>Token</translation>
+        </message>
+        <message>
+            <source>OK</source>
+            <translation>OK</translation>
+        </message>
+        <message>
+            <source>Cancel</source>
+            <translation>Cancel</translation>
+        </message>
+
+        <message>
+            <source>Validation Error</source>
+            <translation>Validation Error</translation>
+        </message>
+        <message>
+            <source>Token cannot be empty</source>
+            <translation>Token cannot be empty</translation>
+        </message>
+        <message>
+            <source>Wrong token</source>
+            <translation>Wrong token</translation>
+        </message>
+
+        <message>
+            <source>Exit</source>
+            <translation>Exit</translation>
         </message>
     </context>
 </TS>

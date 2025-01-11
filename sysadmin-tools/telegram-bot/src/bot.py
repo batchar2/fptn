@@ -1,15 +1,16 @@
 import json
 import os
 import sys
+import base64
 import random
 import string
 import hashlib
-import tempfile
 import threading
 from pathlib import Path
 
 from loguru import logger
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
+from telegram.constants import ParseMode
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -20,7 +21,9 @@ from telegram.ext import (
 
 
 TELEGRAM_API_TOKEN = os.getenv("TELEGRAM_API_TOKEN")
-FPTN_WELCOME_MESSAGE = os.getenv("FPTN_WELCOME_MESSAGE")
+FPTN_WELCOME_MESSAGE_EN = os.getenv("FPTN_WELCOME_MESSAGE_EN", "")
+FPTN_WELCOME_MESSAGE_RU = os.getenv("FPTN_WELCOME_MESSAGE_RU", "")
+
 MAX_USER_SPEED_LIMIT = int(os.getenv("MAX_USER_SPEED_LIMIT"))
 SERVICE_NAME = os.getenv("SERVICE_NAME")
 USERS_FILE = Path(os.getenv("USERS_FILE", "/etc/fptn/users.list"))
@@ -122,76 +125,86 @@ class UserManager:
 
 user_manager = UserManager(USERS_FILE)
 
-start_keyboard = ReplyKeyboardMarkup(
-    [
-        [
-            KeyboardButton("Get access file"),
-        ]
-    ],
-    resize_keyboard=True,
-)
-
 
 async def start(update: Update, context: CallbackContext) -> None:
+    MESSAGES = {
+        "en": {
+            "welcome": FPTN_WELCOME_MESSAGE_EN,
+            "token_button": "Get access token",
+        },
+        "ru": {
+            "welcome": FPTN_WELCOME_MESSAGE_RU,
+            "token_button": "Получить токен доступа",
+        },
+    }
+    language_code = update.message.from_user.language_code or "en"
+    messages = MESSAGES.get(language_code, MESSAGES["en"])
+    new_keyboard = [
+        [KeyboardButton(messages["token_button"])],
+    ]
+    reply_markup = ReplyKeyboardMarkup(new_keyboard, resize_keyboard=True)
     await update.message.reply_text(
-        FPTN_WELCOME_MESSAGE,
-        reply_markup=start_keyboard,
+        messages["welcome"],
+        reply_markup=reply_markup,
+        parse_mode=ParseMode.MARKDOWN,
+        disable_web_page_preview=True,
     )
     logger.info(f"User {update.message.from_user.id} started the bot.")
 
 
-async def send_credentials_file(
-    update: Update, context: CallbackContext, username: str, password: str
-) -> None:
-    # Create a unique temporary file
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".fptn") as temp_file:
-        data = {
-            "version": 1,
-            "service_name": SERVICE_NAME,
-            "username": username,
-            "password": password,
-            "servers": SERVERS_LIST,
-        }
-        temp_file_path = temp_file.name
-        temp_file.write(json.dumps(data, indent=4).encode("utf-8"))
-    try:
-        await context.bot.send_document(
-            chat_id=update.message.chat_id,
-            document=open(temp_file_path, "rb"),
-            filename=f"{SERVICE_NAME}.fptn",
-        )
-        logger.info(f"Sent credentials file to user {update.message.from_user.id}.")
-    except Exception as e:
-        logger.error(f"Failed to send credentials file: {e}")
-    finally:
-        if os.path.exists(temp_file_path):
-            os.remove(temp_file_path)
+def generate_access_link(username: str, password: str) -> str:
+    data = {
+        "version": 1,
+        "service_name": SERVICE_NAME,
+        "username": username,
+        "password": password,
+        "servers": SERVERS_LIST,
+    }
+    serialized_content = json.dumps(data)
+    base64_content = (
+        base64.b64encode(serialized_content.encode("utf-8")).decode().replace("=", "")
+    )
+    # return f"fptn://{base64_content}"
+    return f"fptn:{base64_content}"
 
 
-async def get_access_file(update: Update, context: CallbackContext) -> None:
+async def get_access_token(update: Update, context: CallbackContext) -> None:
+    MESSAGES = {
+        "en": {
+            "status_registered": "🎉✨ You have successfully registered! 🎉",
+            "status_reset": "🔑 Your  token has been reset! 🔑",
+            "info": "🌐 _ You can download the client from the official project website _ [https://batchar2.github.io/fptn/](https://batchar2.github.io/fptn/)",
+            "click_to_copy": "📋💾 Tap the **token below** to copy it and paste it into the app! ⬇️",
+        },
+        "ru": {
+            "status_registered": "🎉✨ Вы успешно зарегистрированы! 🎉",
+            "status_reset": "🔑 Ваш токен был сброшен!🔑",
+            "info": "🌐 _ Клиент можно скачать с официального сайта проекта _ [https://batchar2.github.io/fptn/](https://batchar2.github.io/fptn/) ",
+            "click_to_copy": "📋💾 Нажмите на **токен ниже**, чтобы скопировать и вставите его в приложение! ⬇️",
+        },
+    }
+
     user_id = update.message.from_user.id
+    language_code = update.message.from_user.language_code or "en"
+    messages = MESSAGES.get(language_code, MESSAGES["en"])
+
     if user_manager.is_registered(user_id):
         username, password = user_manager.reset_password(user_id)
+        status_message = messages["status_reset"]
     else:
         username, password = user_manager.register_user(user_id)
-    if password:
-        await update.message.reply_text(
-            f"You have been successfully registered!\n\n"
-            f"Please use the provided file to connect to our service.\n\n"
-        )
-        await send_credentials_file(update, context, username, password)
-    else:
-        await update.message.reply_text("You are already registered!")
+        status_message = messages["status_registered"]
 
-
-async def update_keyboard(update: Update, context: CallbackContext) -> None:
-    new_keyboard = ReplyKeyboardMarkup(
-        start_keyboard,
-        resize_keyboard=True,
-    )
+    fptn_link = generate_access_link(username, password)
+    click_to_copy = messages["click_to_copy"]
+    info = messages["info"]
     await update.message.reply_text(
-        "Updated!",
-        reply_markup=new_keyboard,
+        f"{status_message}\n\n"
+        f"{info}\n\n\n"
+        f"{click_to_copy}\n\n" 
+        f"`{fptn_link}`",
+        parse_mode=ParseMode.MARKDOWN,
+        disable_web_page_preview=True,
     )
 
 
@@ -201,14 +214,22 @@ def main() -> None:
             "API_TOKEN is not set. Please set the TELEGRAM_API_TOKEN environment variable."
         )
         sys.exit(1)
+
     application = Application.builder().token(TELEGRAM_API_TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("token", get_access_token))
+
     application.add_handler(
-        MessageHandler(filters.TEXT & filters.Regex("Get access file"), get_access_file)
+        MessageHandler(
+            filters.TEXT & filters.Regex("Get access token"), get_access_token
+        )
     )
     application.add_handler(
-        MessageHandler(filters.TEXT & filters.Regex("Update keyboard"), update_keyboard)
+        MessageHandler(
+            filters.TEXT & filters.Regex("Получить токен доступа"),
+            get_access_token,
+        )
     )
     logger.info("Bot started and is polling for messages.")
     application.run_polling()

@@ -4,7 +4,9 @@
 #if defined(__APPLE__) || defined(__linux__)
 #include <arpa/inet.h>
 #elif _WIN32
-#include <winsock2.h>
+#pragma warning(disable: 4996) 
+#include <Winsock2.h>
+#pragma warning(default: 4996)  
 #endif
 
 
@@ -44,14 +46,14 @@ IPPacketPtr AntiScanFilter::apply(IPPacketPtr packet) const noexcept
         const std::uint32_t dst = ntohl(packet->ipv4Layer()->getDstIPv4Address().toInt());
         const bool isInNetwork = (dst & serverIPv4Mask_) == (serverIPv4Net_ & serverIPv4Mask_);
         if (serverIPv4_ == dst || (!isInNetwork && ipv4Broadcast != packet->ipv4Layer()->getDstIPv4Address())) {
-            return std::move(packet);
+            return packet;
         }
     } else if (packet->isIPv6()) {
         const auto dst = fptn::common::network::ipv6::toUInt128(packet->ipv6Layer()->getDstIPv6Address());
         const auto maxAddr = serverIpv6Net_ | serverIPv6Mask_;
         const bool isInNetwork = (serverIpv6Net_ <= dst && dst <= maxAddr);
         if (serverIPv6_ == dst || !isInNetwork) {
-            return std::move(packet);
+            return packet;
         }
     }
     return nullptr;
