@@ -78,25 +78,25 @@ The client is a compact application with an interface located in the system tray
 
 Simply click on the icon to open the context menu.
 
-<img style="max-height: 200px" class="img-center" src="docs/images/macos/client.png" alt="Application"/>
+<img style="max-height: 100px" class="img-center" src="docs/images/macos/en/client.png" alt="Application"/>
 
 Go to the "Settings" menu, where you need to add the servers. 
 To do this, obtain the access token, which contains the list of available servers. 
 Get the token by contacting our <a target="_blank" href="https://t.me/fptn_bot">Telegram bot</a>,
 
-<img style="max-height: 300px" class="img-center" src="docs/images/telegram_token.png" alt="Settings"/>
+<img style="max-height: 200px" class="img-center" src="docs/images/telegram_token_en.png" alt="Settings"/>
 
 Copy the token, click the "Add Token" button, paste it into the form, and save.
 
-<img style="max-height: 250px" class="img-center" src="docs/images/macos/settings-2.png" alt="Settings"/>
+<img style="max-height: 250px" class="img-center" src="docs/images/macos/en/settings-2.png" alt="Settings"/>
 
 After that, the available servers will appear in the list.
 
-<img style="max-height: 250px" class="img-center" src="docs/images/macos/settings-3.png" alt="Settings"/>
+<img style="max-height: 250px" class="img-center" src="docs/images/macos/en/settings-3.png" alt="Settings"/>
 
 Ease of use:
 
-<img style="max-height: 250px" class="img-center" src="docs/images/macos/running-client.png" alt="Settings"/>
+<img style="max-height: 250px" class="img-center" src="docs/images/macos/en/running-client.png" alt="Settings"/>
 
 You can also easily turn your Raspberry Pi or Orange Pi into a WiFi access point and install the FPTN client on it.
 In this case, all devices connected to the WiFi will be able to access the internet, bypassing any restrictions.
