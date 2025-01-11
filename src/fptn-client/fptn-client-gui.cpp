@@ -8,12 +8,33 @@
 #include <QStyleFactory>
 
 #if defined(__linux__) || defined(__APPLE__)
-#include <unistd.h>
+    #include <unistd.h>
+#elif defined(_WIN32)
+    #include <Windows.h>
+#else
+    #error "Unsupported platform"
 #endif
 
 #include <common/logger/logger.h>
 
 #include "gui/tray/tray.h"
+
+
+#if defined(__linux__) || defined(__APPLE__)
+static void signalHandler(int)
+{
+    qApp->quit();
+}
+#elif defined(_WIN32)
+static BOOL WINAPI signalHandler(DWORD ctrlType)
+{
+    if (ctrlType == CTRL_C_EVENT || ctrlType == CTRL_BREAK_EVENT) {
+        qApp->quit();
+        return TRUE;
+    }
+    return FALSE;
+}
+#endif
 
 
 int main(int argc, char *argv[]) 
@@ -24,6 +45,7 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 #endif
+    // Initialize logger
     if (fptn::logger::init("fptn-client-gui")) {
         spdlog::info("Application started successfully.");
     } else {
@@ -31,7 +53,15 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    // init gui app
+    // Setup signal handler
+#if defined(__linux__) || defined(__APPLE__)
+    std::signal(SIGINT, signalHandler);
+    std::signal(SIGTERM, signalHandler);
+#elif defined(_WIN32)
+    SetConsoleCtrlHandler(signalHandler, TRUE);
+#endif
+
+    // Initialize GUI app
     QApplication::setDesktopSettingsAware(true);
     QApplication::setQuitOnLastWindowClosed(false);
     QApplication app(argc, argv);
@@ -41,10 +71,12 @@ int main(int argc, char *argv[])
             {"ru", "Русский"}
         }
     );
+
+    // Start GUI app
     fptn::gui::TrayApp trayApp(settings);
 
-    // start gui app
     const int code = app.exec();
     spdlog::shutdown();
+
     return code;
 }

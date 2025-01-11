@@ -24,7 +24,7 @@ namespace fptn::gui
         QLineEdit* tokenField_;
         QHBoxLayout* tokenLayout_;
 
-        QPushButton* okButton_;
+        QPushButton* saveButton_;
         QPushButton* cancelButton_;
         QHBoxLayout* buttonLayout_;
 

@@ -102,6 +102,7 @@ TrayApp::TrayApp(const SettingsModelPtr &settings, QObject* parent)
 
     quitAction_ = new QAction(QObject::tr("Quit"), this);
     connect(quitAction_, &QAction::triggered, this, &TrayApp::handleQuit);
+    connect(qApp, &QCoreApplication::aboutToQuit, this, &TrayApp::handleQuit);
 
     trayMenu_->addSeparator();
     trayMenu_->addAction(settingsAction_);
@@ -112,6 +113,11 @@ TrayApp::TrayApp(const SettingsModelPtr &settings, QObject* parent)
     updateTrayMenu();
 
     trayIcon_->show();
+}
+
+TrayApp::~TrayApp()
+{
+    stop();
 }
 
 void TrayApp::setUpTrayIcon()
@@ -532,14 +538,7 @@ void TrayApp::updateSpeedWidget()
 
 void TrayApp::handleQuit()
 {
-    if (vpnClient_) {
-        vpnClient_->stop();
-        vpnClient_.reset();
-    }
-    if (ipTables_) {
-        ipTables_->clean();
-        ipTables_.reset();
-    }
+    stop();
     spdlog::info("--- exit ---");
     QApplication::quit();
 }
@@ -580,5 +579,19 @@ void TrayApp::retranslateUi()
             .arg(QString::fromStdString(selectedServer_.name))
             .arg(QString::fromStdString(selectedServer_.serviceName));
         disconnectAction_->setText(disconnectText);
+    }
+}
+
+void TrayApp::stop()
+{
+    if (vpnClient_) {
+        spdlog::info("--- stop VpnClient ---");
+        vpnClient_->stop();
+        vpnClient_.reset();
+    }
+    if (ipTables_) {
+        spdlog::info("--- stop IpTables ---");
+        ipTables_->clean();
+        ipTables_.reset();
     }
 }

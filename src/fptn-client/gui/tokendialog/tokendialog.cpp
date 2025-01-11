@@ -19,14 +19,14 @@ TokenDialog::TokenDialog(QWidget* parent)
     tokenLayout_->addWidget(label_);
     tokenLayout_->addWidget(tokenField_);
 
-    okButton_ = new QPushButton(QObject::tr("OK"), this);
+    saveButton_ = new QPushButton(QObject::tr("Save"), this);
     cancelButton_ = new QPushButton(QObject::tr("Cancel"), this);
 
     // Layout for buttons
     buttonLayout_ = new QHBoxLayout();
     buttonLayout_->addStretch();
+    buttonLayout_->addWidget(saveButton_);
     buttonLayout_->addWidget(cancelButton_);
-    buttonLayout_->addWidget(okButton_);
 
     // Main layout
     mainLayout_ = new QVBoxLayout(this);
@@ -36,7 +36,7 @@ TokenDialog::TokenDialog(QWidget* parent)
     setLayout(mainLayout_);
 
     connect(cancelButton_, &QPushButton::clicked, this, &QDialog::reject);
-    connect(okButton_, &QPushButton::clicked, this, &TokenDialog::onOkClicked);
+    connect(saveButton_, &QPushButton::clicked, this, &TokenDialog::onOkClicked);
 
     // show on top
     setWindowFlags(Qt::Window | Qt::WindowStaysOnTopHint);

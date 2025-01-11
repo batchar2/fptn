@@ -35,7 +35,6 @@ inline void showVersionAndExit()
     std::exit(EXIT_SUCCESS);
 }
 
-
 int main(int argc, char* argv[])
 {
 #if defined(__linux__) || defined(__APPLE__)

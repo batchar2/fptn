@@ -11,8 +11,34 @@ FPTN is a VPN service specifically designed to bypass censorship.
 Initially launched as a research project, FPTN actively helps people gain access to a free internet.
 
 
+##### Features
+
+* ✅ `Traffic Forwarding`: Seamlessly forwards traffic to the server.
+* ✅ `Traffic Shaping`: Regulates traffic bandwidth.
+* ✅ `Packet Filtering`: Detects and blocks BitTorrent traffic.
+* ✅ `Packet Padding`: Hides traffic patterns for extra privacy.
+* ✅ `IPv6 Support`: Supports IPv6 networking (note: IPv6 is not supported on the macOS client).
+* ✅ `User Management & Authentication`: Create users and set their bandwidth limits.
+* ✅ `Grafana & Prometheus Integration`: Collects and visualizes service metrics with Grafana and Prometheus.
+* ✅ `Chrome Ciphers`: Utilizes Chrome's cipher suite to reduce the risk of traffic detection.
+* ✅ `Cross-Platform Support`: Client compatible with Windows, Ubuntu, and macOS.
+
+
+##### Next Steps
+
+* 💡 `Android Application`: Expanding the solution to mobile devices.
+* 💡 `Traffic Divider`: Introducing tools for managing traffic flow.
+* 💡 `iOS Application`: Bringing the application to iOS platforms.
+* 💡 `... Your Proposal!` We welcome new ideas and contributions!
+
+
+##### Join us team! 
+
+We welcome new ideas and people! Join our [Telegram chat](https://t.me/fptn_chat)
+
 FPTN operates by securely routing network traffic from your device through a VPN server to bypass censorship and access restricted content.
-The process involves encapsulating your traffic within a secure WebSocket tunnel, which is then processed by the VPN server. Here's a high-level overview of the workflow:
+The process involves encapsulating your traffic within a secure WebSocket tunnel, which is then processed by the VPN server.
+Here's a high-level overview of the workflow:
 
 ```
 +--------------------+                      +--------------------+
@@ -38,10 +64,9 @@ The process involves encapsulating your traffic within a secure WebSocket tunnel
 +--------------------+                      +--------------------+
 ```
 
-FPTN can be seamlessly integrated with **NGINX**, allowing you to disguise the VPN server behind any regular web server. This can be particularly useful in evading detection and bypassing restrictive network filters. By using NGINX to proxy WebSocket connections, you can effectively hide the VPN server behind the facade of a regular website.
-
-
-
+FPTN can be seamlessly integrated with **NGINX**, allowing you to disguise the VPN server behind any regular web server.
+This can be particularly useful in evading detection and bypassing restrictive network filters.
+By using NGINX to proxy WebSocket connections, you can effectively hide the VPN server behind the facade of a regular website.
 
 ### FPTN Client Installation and Setup
 
@@ -49,30 +74,28 @@ FPTN can be seamlessly integrated with **NGINX**, allowing you to disguise the V
 
 Download the FPTN client from [WebSite](http://batchar2.github.io/fptn/) or [GitHub](https://github.com/batchar2/fptn/releases). After downloading, install and run the client.
 
-FPTN Client is a straightforward application with an interface located in the system tray.
-Once the client is running, find the VPN client icon in the system tray.
+The client is a compact application with an interface located in the system tray.
 
 Simply click on the icon to open the context menu.
 
 <img style="max-height: 200px" class="img-center" src="docs/images/macos/client.png" alt="Application"/>
 
+Go to the "Settings" menu, where you need to add the servers. 
+To do this, obtain the access token, which contains the list of available servers. 
+Get the token by contacting our <a target="_blank" href="https://t.me/fptn_bot">Telegram bot</a>,
 
-Open "Settings" to configure your client.
+<img style="max-height: 700px" class="img-center" src="docs/images/telegram_token.png" alt="Settings"/>
 
-Registration for accessing the free internet via FPTN is very simple!
-Use our Telegram bot [@fptn_bot](https://t.me/fptn_bot),
-which will quickly provide you with the parameters for internet access.
-
-Open the settings to add a new connection. To do this, download the file provided by
-the bot and simply upload it in your client's settings by clicking the "Load config" button.
+Copy the token, click the "Add Token" button, paste it into the form, and save.
 
 <img style="max-height: 350px" class="img-center" src="docs/images/macos/settings-2.png" alt="Settings"/>
 
+After that, the available servers will appear in the list.
 
-After that, save the settings.
 <img style="max-height: 350px" class="img-center" src="docs/images/macos/settings-3.png" alt="Settings"/>
 
 Ease of use:
+
 <img style="max-height: 350px" class="img-center" src="docs/images/macos/running-client.png" alt="Settings"/>
 
 You can also easily turn your Raspberry Pi or Orange Pi into a WiFi access point and install the FPTN client on it.
