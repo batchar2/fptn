@@ -84,7 +84,7 @@ Go to the "Settings" menu, where you need to add the servers.
 To do this, obtain the access token, which contains the list of available servers. 
 Get the token by contacting our <a target="_blank" href="https://t.me/fptn_bot">Telegram bot</a>,
 
-<img style="max-height: 400px" class="img-center" src="docs/images/telegram_token.png" alt="Settings"/>
+<img style="max-height: 300px" class="img-center" src="docs/images/telegram_token.png" alt="Settings"/>
 
 Copy the token, click the "Add Token" button, paste it into the form, and save.
 
@@ -92,7 +92,7 @@ Copy the token, click the "Add Token" button, paste it into the form, and save.
 
 After that, the available servers will appear in the list.
 
-<img style="max-height: 350px" class="img-center" src="docs/images/macos/settings-3.png" alt="Settings"/>
+<img style="max-height: 250px" class="img-center" src="docs/images/macos/settings-3.png" alt="Settings"/>
 
 Ease of use:
 
