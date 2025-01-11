@@ -11,7 +11,6 @@
     #include <unistd.h>
 #endif
 
-
 #include <common/logger/logger.h>
 
 #include "gui/tray/tray.h"
