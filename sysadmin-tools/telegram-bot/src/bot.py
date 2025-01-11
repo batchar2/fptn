@@ -231,6 +231,12 @@ def main() -> None:
             get_access_token,
         )
     )
+    # UPDATE KEYBOARD (OLD VERSION)
+    application.add_handler(
+        MessageHandler(
+            filters.TEXT & filters.Regex("Get access file"), start
+        )
+    )
     logger.info("Bot started and is polling for messages.")
     application.run_polling()
 
