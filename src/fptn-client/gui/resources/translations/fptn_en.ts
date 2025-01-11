@@ -159,8 +159,8 @@
         </message>
 
         <message>
-            <source>Copy your access token</source>
-            <translation>Copy your access token</translation>
+            <source>Paste your token</source>
+            <translation>Paste your token</translation>
         </message>
         <message>
             <source>Token</source>

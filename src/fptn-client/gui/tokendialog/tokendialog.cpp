@@ -10,7 +10,7 @@ using namespace fptn::gui;
 TokenDialog::TokenDialog(QWidget* parent)
     : QDialog(parent)
 {
-    label_ = new QLabel(QObject::tr("Copy your access token") + ": ", this);
+    label_ = new QLabel(QObject::tr("Paste your token") + ": ", this);
     tokenField_ = new QLineEdit(this);
     tokenField_->setPlaceholderText(QObject::tr("Token") + "...");
     tokenField_->setMinimumWidth(350);
