@@ -62,6 +62,11 @@ int main(int argc, char *argv[])
     // Initialize GUI app
     QApplication::setDesktopSettingsAware(true);
     QApplication::setQuitOnLastWindowClosed(false);
+#if __APPLE__
+    QApplication::setAttribute(Qt::AA_MacDontSwapCtrlAndMeta, false);
+//    QApplication::setAttribute(Qt::AA_MacDontSwapCtrlAndCommand, false);
+#endif
+
     QApplication app(argc, argv);
     auto settings = std::make_shared<fptn::gui::SettingsModel>(
         QMap<QString, QString>{

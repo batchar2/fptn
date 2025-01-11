@@ -14,6 +14,11 @@ TokenDialog::TokenDialog(QWidget* parent)
     tokenField_ = new QLineEdit(this);
     tokenField_->setPlaceholderText(QObject::tr("Token") + "...");
     tokenField_->setMinimumWidth(350);
+#if __APPLE__
+    setAttribute(Qt::WA_DeleteOnClose);
+    tokenField_->setAttribute(Qt::WA_InputMethodEnabled, true);
+    tokenField_->setFocus();
+#endif
 
     tokenLayout_ = new QHBoxLayout();
     tokenLayout_->addWidget(label_);
@@ -44,6 +49,7 @@ TokenDialog::TokenDialog(QWidget* parent)
     show();
     activateWindow();
     raise();
+    setWindowModality(Qt::ApplicationModal);
 }
 
 const QString& TokenDialog::token() const
