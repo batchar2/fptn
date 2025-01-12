@@ -12,7 +12,7 @@ services:
       - SERVERS_LIST_FILE=/etc/fptn/servers.json
       - SERVICE_NAME=${SERVICE_NAME}
     volumes:
-       - /etc/fptn/:/etc/fptn/:rw
+      - /etc/fptn/:/etc/fptn/:rw
       - ./logs:/var/log/fptn_bot:rw
       - ${SERVERS_LIST_FILE}:/etc/fptn/servers.json:rw
     restart: unless-stopped
