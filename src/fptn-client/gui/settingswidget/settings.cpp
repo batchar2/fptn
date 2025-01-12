@@ -172,13 +172,12 @@ void SettingsWidget::exit()
 
 void SettingsWidget::loadNewConfig()
 {
-    // show modal window
-#if __APPLE__
+#if __APPLE__ // show modal window only for mac
     const QString filePath = QFileDialog::getOpenFileName(
         this,
         QObject::tr("Open FPTN Service File"),
         QDir::homePath(),
-        "FPTN Files (*.token);;All files (*)",
+        "FPTN Files (*.fptn);;All files (*)",
         nullptr,
         QFileDialog::DontUseNativeDialog
     );
@@ -200,7 +199,6 @@ void SettingsWidget::loadNewConfig()
     show();
     activateWindow();
     raise();
-
     if (!token.isEmpty()) {
         try {
             ServiceConfig config = settings_->parseToken(token);
