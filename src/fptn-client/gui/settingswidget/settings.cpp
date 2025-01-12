@@ -173,16 +173,35 @@ void SettingsWidget::exit()
 void SettingsWidget::loadNewConfig()
 {
     // show modal window
+#if __APPLE__
+    const QString filePath = QFileDialog::getOpenFileName(
+        this,
+        QObject::tr("Open FPTN Service File"),
+        QDir::homePath(),
+        "FPTN Files (*.token);;All files (*)",
+        nullptr,
+        QFileDialog::DontUseNativeDialog
+    );
+    QString token;
+    if (!filePath.isEmpty()) {
+        QFile file(filePath);
+        if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            QTextStream in(&file);
+            token = in.readAll();
+            file.close();
+        }
+    }
+#else
     TokenDialog dialog(this);
-    const int result = dialog.exec();
-
+    dialog.exec();
+    const QString token = dialog.token();
+#endif
     // show on top
     show();
     activateWindow();
     raise();
 
-    const QString token = dialog.token();
-    if (result == QDialog::Accepted && !token.isEmpty()) {
+    if (!token.isEmpty()) {
         try {
             ServiceConfig config = settings_->parseToken(token);
             int existsIndex = settings_->getExistServiceIndex(config.serviceName);
