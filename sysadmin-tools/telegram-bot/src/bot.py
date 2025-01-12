@@ -210,7 +210,8 @@ async def send_credentials_file(update: Update, context: CallbackContext, token:
     # Create a unique temporary file
     with tempfile.NamedTemporaryFile(delete=False, suffix=".fptn") as temp_file:
         temp_file_path = temp_file.name
-        temp_file.write(json.dumps(token, indent=4).encode("utf-8"))
+        print("token>>>", token)
+        temp_file.write(token.encode("utf-8"))
     try:
         await context.bot.send_document(
             chat_id=update.message.chat_id,
