@@ -10,7 +10,7 @@ import threading
 from pathlib import Path
 
 from loguru import logger
-from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
+from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
 from telegram.constants import ParseMode
 from telegram.ext import (
     Application,
@@ -145,6 +145,7 @@ async def start(update: Update, context: CallbackContext) -> None:
             messages["welcome"],
             parse_mode=ParseMode.MARKDOWN,
             disable_web_page_preview=True,
+            reply_markup=ReplyKeyboardRemove(),
         )
         logger.info(f"User {update.message.from_user.id} started the bot.")
     except Exception as e:
@@ -161,11 +162,11 @@ def generate_token(username: str, password: str) -> str:
     }
     return json.dumps(data)
 
+
 def generate_access_link(token: str) -> str:
-    base64_content = (
-        base64.b64encode(token.encode("utf-8")).decode().replace("=", "")
-    )
+    base64_content = base64.b64encode(token.encode("utf-8")).decode().replace("=", "")
     return f"fptn:{base64_content}"
+
 
 async def get_access_token(update: Update, context: CallbackContext) -> None:
     MESSAGES = {
@@ -198,15 +199,15 @@ async def get_access_token(update: Update, context: CallbackContext) -> None:
     click_to_copy = messages["click_to_copy"]
     info = messages["info"]
     await update.message.reply_text(
-        f"{status_message}\n\n"
-        f"{info}\n\n\n"
-        f"{click_to_copy}\n\n" 
-        f"`{fptn_link}`",
+        f"{status_message}\n\n" f"{info}\n\n\n" f"{click_to_copy}\n\n" f"`{fptn_link}`",
         parse_mode=ParseMode.MARKDOWN,
         disable_web_page_preview=True,
     )
 
-async def send_credentials_file(update: Update, context: CallbackContext, token: str) -> None:
+
+async def send_credentials_file(
+    update: Update, context: CallbackContext, token: str
+) -> None:
     # Create a unique temporary file
     with tempfile.NamedTemporaryFile(delete=False, suffix=".fptn") as temp_file:
         temp_file_path = temp_file.name
@@ -223,6 +224,7 @@ async def send_credentials_file(update: Update, context: CallbackContext, token:
     finally:
         if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
+
 
 async def get_access_file(update: Update, context: CallbackContext) -> None:
     MESSAGES = {
@@ -256,15 +258,14 @@ async def get_access_file(update: Update, context: CallbackContext) -> None:
     info = messages["info"]
     try:
         await update.message.reply_text(
-            f"{status_message}\n\n"
-            f"{info}\n\n\n"
-            f"{click_to_copy}\n\n",
+            f"{status_message}\n\n" f"{info}\n\n\n" f"{click_to_copy}\n\n",
             parse_mode=ParseMode.MARKDOWN,
             disable_web_page_preview=True,
         )
         await send_credentials_file(update, context, token)
     except Exception as e:
         logger.error(f"Error: {e}")
+
 
 def main() -> None:
     if not TELEGRAM_API_TOKEN:
@@ -280,9 +281,7 @@ def main() -> None:
 
     # UPDATE KEYBOARD (OLD VERSION)
     application.add_handler(
-        MessageHandler(
-            filters.TEXT & filters.Regex("Get access file"), start
-        )
+        MessageHandler(filters.TEXT & filters.Regex("Get access file"), start)
     )
     logger.info("Bot started and is polling for messages.")
     application.run_polling()

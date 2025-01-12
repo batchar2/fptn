@@ -97,7 +97,9 @@ class FPTN(ConanFile):
     }
 
     def requirements(self):
-        if self.options.with_gui_client:  # and self.settings.os in ["Windows", "Macos"]:
+        if (
+            self.options.with_gui_client
+        ):  # and self.settings.os in ["Windows", "Macos"]:
             self.requires("qt/6.7.1")
         if self.settings.os != "Windows":
             self.requires("meson/1.4.1", override=True, force=True)
