@@ -10,18 +10,18 @@ class FPTN(ConanFile):
     name = "fptn"
     version = FPTN_VERSION
     requires = (
-        "fmt/10.2.1",
+        "fmt/11.0.2",
         "boost/1.83.0",
-        "argparse/3.0",
-        "openssl/3.2.2",
+        "argparse/3.1",
+        "openssl/3.3.2",
         "jwt-cpp/0.7.0",
-        "spdlog/1.14.1",
+        "spdlog/1.15.0",
         "protobuf/5.27.0",
         "pcapplusplus/23.09",
         "nlohmann_json/3.11.3",
-        "prometheus-cpp/1.1.0",
+        "prometheus-cpp/1.3.0",
         "websocketpp/0.8.2",
-        "cpp-httplib/0.17.3",
+        "cpp-httplib/0.18.3",
     )
     settings = (
         "os",

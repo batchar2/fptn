@@ -17,19 +17,19 @@
 
 
 #if defined(__linux__) || defined(__APPLE__)
-static void signalHandler(int)
-{
-    qApp->quit();
-}
-#elif defined(_WIN32)
-static BOOL WINAPI signalHandler(DWORD ctrlType)
-{
-    if (ctrlType == CTRL_C_EVENT || ctrlType == CTRL_BREAK_EVENT) {
+    static void signalHandler(int)
+    {
         qApp->quit();
-        return TRUE;
     }
-    return FALSE;
-}
+#elif defined(_WIN32)
+    static BOOL WINAPI signalHandler(DWORD ctrlType)
+    {
+        if (ctrlType == CTRL_C_EVENT || ctrlType == CTRL_BREAK_EVENT) {
+            qApp->quit();
+            return TRUE;
+        }
+        return FALSE;
+    }
 #else
     #error "Unsupported platform"
 #endif
@@ -64,7 +64,6 @@ int main(int argc, char *argv[])
     QApplication::setQuitOnLastWindowClosed(false);
 #if __APPLE__
     QApplication::setAttribute(Qt::AA_MacDontSwapCtrlAndMeta, false);
-//    QApplication::setAttribute(Qt::AA_MacDontSwapCtrlAndCommand, false);
 #endif
 
     QApplication app(argc, argv);
