@@ -54,6 +54,7 @@ int main(int argc, char *argv[])
     // Setup signal handler
 #if defined(__linux__) || defined(__APPLE__)
     std::signal(SIGINT, signalHandler);
+    std::signal(SIGHUP, signalHandler);
     std::signal(SIGTERM, signalHandler);
 #elif defined(_WIN32)
     SetConsoleCtrlHandler(signalHandler, TRUE);
