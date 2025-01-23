@@ -11,8 +11,10 @@ EOF
 
 # Function to clean DNS settings
 cleanup_dns() {
+    echo 1 >> /var/logs/1.fptn
     echo "Cleaning up DNS settings..."
     networksetup -listallnetworkservices | grep -v '^An asterisk' | xargs -I {} networksetup -setdnsservers "{}" empty
+    echo 2 >> /var/logs/1.fptn
 }
 
 
@@ -76,6 +78,12 @@ export LD_LIBRARY_PATH=/Applications/FptnClient.app/Contents/Frameworks
 networksetup -listallnetworkservices | grep -v '^An asterisk' | xargs -I {} networksetup -setdnsservers "{}" empty
 
 trap cleanup_dns EXIT
+trap cleanup_dns SIGINT
+trap cleanup_dns SIGHUP
+trap cleanup_dns SIGTERM
+
 exec /Applications/FptnClient.app/Contents/MacOS/fptn-client-gui "$@"
 
+echo 3 >> /var/logs/1.fptn
 networksetup -listallnetworkservices | grep -v '^An asterisk' | xargs -I {} networksetup -setdnsservers "{}" empty
+echo 4 >> /var/logs/1.fptn

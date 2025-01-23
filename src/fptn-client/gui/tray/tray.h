@@ -41,11 +41,10 @@ namespace fptn::gui
         };
     public:
         explicit TrayApp(const SettingsModelPtr &settings, QObject* parent = nullptr);
-        virtual ~TrayApp();
+        void stop();
     private:
         QString getSystemLanguageCode() const;
         void retranslateUi();
-        void stop();
     signals:
         void defaultState();
         void connecting();
@@ -60,7 +59,6 @@ namespace fptn::gui
         void handleConnected();
         void handleDisconnecting();
         void updateSpeedWidget();
-        void handleQuit();
     private:
         void setUpTrayIcon();
         void updateTrayMenu();

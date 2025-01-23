@@ -53,7 +53,7 @@ TrayApp::TrayApp(const SettingsModelPtr &settings, QObject* parent)
 #endif
 
 #if __linux__
-    QObject::connect(trayIcon_, &QSystemTrayIcon::activated, [this](QSystemTrayIcon::ActivationReason reason) {
+    connect(trayIcon_, &QSystemTrayIcon::activated, [this](QSystemTrayIcon::ActivationReason reason) {
         if (reason == QSystemTrayIcon::Context) {
             trayMenu_->popup(trayIcon_->geometry().bottomLeft());
         } else {
@@ -61,7 +61,7 @@ TrayApp::TrayApp(const SettingsModelPtr &settings, QObject* parent)
         }
     });
 #elif _WIN32
-    QObject::connect(trayIcon_, &QSystemTrayIcon::activated, [this](QSystemTrayIcon::ActivationReason reason) {
+    connect(trayIcon_, &QSystemTrayIcon::activated, [this](QSystemTrayIcon::ActivationReason reason) {
         if (reason == QSystemTrayIcon::Context) {
             trayMenu_->show();
             trayMenu_->exec(QCursor::pos());
@@ -101,8 +101,7 @@ TrayApp::TrayApp(const SettingsModelPtr &settings, QObject* parent)
     connect(settingsAction_, &QAction::triggered, this, &TrayApp::onShowSettings);
 
     quitAction_ = new QAction(QObject::tr("Quit"), this);
-    connect(quitAction_, &QAction::triggered, this, &TrayApp::handleQuit);
-    connect(qApp, &QCoreApplication::aboutToQuit, this, &TrayApp::handleQuit);
+    connect(quitAction_, &QAction::triggered, this, &QCoreApplication::quit);
 
     trayMenu_->addSeparator();
     trayMenu_->addAction(settingsAction_);
@@ -113,11 +112,6 @@ TrayApp::TrayApp(const SettingsModelPtr &settings, QObject* parent)
     updateTrayMenu();
 
     trayIcon_->show();
-}
-
-TrayApp::~TrayApp()
-{
-    stop();
 }
 
 void TrayApp::setUpTrayIcon()
@@ -536,13 +530,6 @@ void TrayApp::updateSpeedWidget()
     }
 }
 
-void TrayApp::handleQuit()
-{
-    stop();
-    spdlog::info("--- exit ---");
-    QApplication::quit();
-}
-
 QString TrayApp::getSystemLanguageCode() const
 {
     const QLocale locale;
@@ -584,6 +571,7 @@ void TrayApp::retranslateUi()
 
 void TrayApp::stop()
 {
+    std::cerr << "+ exit +" << std::endl;
     if (vpnClient_) {
         spdlog::info("--- stop VpnClient ---");
         vpnClient_->stop();
@@ -594,4 +582,5 @@ void TrayApp::stop()
         ipTables_->clean();
         ipTables_.reset();
     }
+    spdlog::info("--- exit ---");
 }

@@ -51,20 +51,20 @@ done
 cat <<EOL > "$CLIENT_TMP_DIR/usr/bin/fptn-client"
 #!/usr/bin/env bash
 
-set -euo pipefail
+export FPTN_QT_DIR="/opt/fptn/qt6"
+export QT_PLUGIN_PATH="\$FPTN_QT_DIR/plugins"
+export QT_QPA_PLATFORM_PLUGIN_PATH="\$FPTN_QT_DIR/plugins/platforms"
+export LD_LIBRARY_PATH="\$FPTN_QT_DIR:\$QT_QPA_PLATFORM_PLUGIN_PATH"
 
-export FPTN_QT_DIR=/opt/fptn/qt6
-export QT_PLUGIN_PATH=\$FPTN_QT_DIR/plugins
-export QT_QPA_PLATFORM_PLUGIN_PATH=\$FPTN_QT_DIR/plugins/platforms
-export LD_LIBRARY_PATH=\$FPTN_QT_DIR:\$QT_QPA_PLATFORM_PLUGIN_PATH
-
-
-# Function to clean DNS settings
 cleanup_dns() {
     echo "Cleaning up DNS settings..."
     resolvectl revert tun0
 }
 
+notify_error() {
+    local message="\$1"
+    notify-send -u critical "Error in Script" "\$message" || echo "D'oh"
+}
 
 declare -a VARS
 VARS+=(
@@ -72,16 +72,40 @@ VARS+=(
     "QT_QPA_PLATFORM_PLUGIN_PATH=\$QT_QPA_PLATFORM_PLUGIN_PATH"
     "LD_LIBRARY_PATH=\$LD_LIBRARY_PATH"
 )
-
 for VAR in \$(env | sed 's/=/\t/g' | awk '{ print \$1 }' | tr '\n' ' '); do
-    # Add variable if not already set manually
     if [[ ! " \${VARS[@]} " =~ " \$VAR=" ]]; then
         VARS+=("\$VAR=\${!VAR}")
     fi
 done
 
-trap cleanup_dns EXIT
+PROCESS_NAME="fptn-client-gui"
+PID=\$(pgrep "\$PROCESS_NAME")
+if [ -n "\$PID" ]; then
+    cleanup_dns || echo "Failed to clean dns"
 
+    echo "Process \$PROCESS_NAME found with PID \$PID. Attempting to kill it."
+    kill "\$PID" || echo "Failed to stop"
+    sleep 5
+
+    PID=\$(pgrep "\$PROCESS_NAME")
+    if [ -n "\$PID" ]; then
+        echo "Process \$PROCESS_NAME still running. Force killing it."
+        pkill -9 "\$PROCESS_NAME" || echo "Failed to kill"
+    else
+        echo "Process \$PROCESS_NAME successfully terminated."
+    fi
+else
+    echo "Process \$PROCESS_NAME not found."
+fi
+
+TUN_INTERFACE=\$(ip link show | grep -o 'tun0')
+if [ -n "\$TUN_INTERFACE" ]; then
+    notify_error "TUN interface \$TUN_INTERFACE found. Disabling another VPN."
+else
+    echo "No TUN interface found."
+fi
+
+trap cleanup_dns EXIT
 exec pkexec env -u PKEXEC_UID "SUDO_USER=\$USER" "SUDO_UID=\$(id -u)" "SUDO_GID=\$(id -g)" "\${VARS[@]}" "/bin/sh" -c "exec /opt/fptn/fptn-client-gui \"\$@\"" "\$@"
 
 EOL
@@ -113,23 +137,61 @@ Architecture: $(dpkg --print-architecture)
 Maintainer: ${MAINTAINER}
 Installed-Size: ${INSTALLED_SIZE}
 Depends: iptables, iproute2, net-tools, libgl-dev, libgl1-mesa-dev, libx11-dev, libx11-xcb-dev, libfontenc-dev, libxcb-cursor0
+Provides: fptn-client
+Replaces: fptn-client
+Conflicts: fptn-client
 Section: admin
 Priority: optional
 Description: fptn client
 EOL
 
 
+# Create postinst file
+cat <<EOL > "$CLIENT_TMP_DIR/DEBIAN/postinst"
+#!/bin/bash
+
+update-desktop-database || true
+EOL
+chmod 755 "$CLIENT_TMP_DIR/DEBIAN/postinst"
+
+# Create prerm file
+cat <<EOL > "$CLIENT_TMP_DIR/DEBIAN/prerm"
+#!/bin/bash
+
+PROCESS_NAME="fptn-client-gui"
+PID=\$(pgrep "\$PROCESS_NAME")
+if [ -n "\$PID" ]; then
+    echo "Process \$PROCESS_NAME found with PID \$PID. Attempting to kill it."
+    kill "\$PID" || echo "Failed to stop process \$PROCESS_NAME"
+    sleep 5
+
+    PID=\$(pgrep "\$PROCESS_NAME")
+    if [ -n "\$PID" ]; then
+        echo "Process \$PROCESS_NAME still running. Force killing it."
+        pkill -9 "\$PROCESS_NAME" || echo "Failed to force kill process \$PROCESS_NAME"
+    else
+        echo "Process \$PROCESS_NAME successfully terminated."
+    fi
+else
+    echo "Process \$PROCESS_NAME not found."
+fi
+EOL
+chmod 755 "$CLIENT_TMP_DIR/DEBIAN/prerm"
+
+
 
 # Create postrm file
 cat <<EOL > "$CLIENT_TMP_DIR/DEBIAN/postrm"
 #!/bin/bash
-set -e
 
-rm -rf /opt/fptn || true
-rm -f /usr/bin/fptn-client || true
-rm -f /usr/share/icons/hicolor/512x512/apps/fptn-client.png || true
+if [ "\$1" != "upgrade" ]; then
+    rm -rf "/opt/fptn" || true
+    rm -f "/usr/bin/fptn-client" || true
+    rm -f "/usr/share/icons/hicolor/512x512/apps/fptn-client.png" || true
+    rm -f "/usr/share/applications/fptn-client.desktop" || true
+fi
+update-desktop-database || true
 EOL
-
 chmod 755 "$CLIENT_TMP_DIR/DEBIAN/postrm"
 
 

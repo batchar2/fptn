@@ -13,6 +13,7 @@ fi
 SERVER_BIN="$1"
 PASSWD_BIN="$2"
 VERSION="$3"
+
 MAINTAINER="FPTN Project"
 
 OS_NAME=$(lsb_release -i | awk -F':\t' '{print $2}' | tr '[:upper:]' '[:lower:]')
@@ -109,21 +110,51 @@ Maintainer: ${MAINTAINER}
 Installed-Size: ${INSTALLED_SIZE}
 Depends: iptables, iproute2, net-tools
 Section: admin
+Replaces: fptn-server
+Conflicts: fptn-server
+Provides: fptn-server
 Priority: optional
 Description: fptn server
 EOL
 
 
+# Create preinst file
+cat <<EOL > "$SERVER_TMP_DIR/DEBIAN/preinst"
+#!/bin/bash
+
+if [ -f /etc/fptn/server.conf ]; then
+    cp /etc/fptn/server.conf "/etc/fptn/server.conf.backup.\$(date +'%Y-%m-%d__%H-%M-%S')"
+fi
+EOL
+chmod 755 "$SERVER_TMP_DIR/DEBIAN/preinst"
+
+
+# Create postinst file
+cat <<EOL > "$SERVER_TMP_DIR/DEBIAN/postinst"
+#!/bin/bash
+
+chown root:root /etc/fptn/server.conf 2>/dev/null  || true
+EOL
+chmod 755 "$SERVER_TMP_DIR/DEBIAN/postinst"
+
+
+cat <<EOL > "$SERVER_TMP_DIR/DEBIAN/prerm"
+#!/bin/bash
+
+systemctl daemon-reload 2>/dev/null || echo "Failed to reload"
+systemctl stop fptn-server 2>/dev/null || echo "Failed to stop"
+EOL
+chmod 755 "$SERVER_TMP_DIR/DEBIAN/prerm"
+
+
 cat <<EOL > "$SERVER_TMP_DIR/DEBIAN/postrm"
 #!/bin/bash
-set -e
 
-systemctl stop fptn-server || true
-systemctl disable fptn-server.service || true
-systemctl daemon-reload || true
-rm -f /lib/systemd/system/fptn-server.service || true
+if [ "\$1" != "upgrade" ]; then
+    systemctl disable fptn-server.service 2>/dev/null || echo "Failed to disable"
+    rm -f /lib/systemd/system/fptn-server.service 2>/dev/null || echo "Failed to remove"
+fi
 EOL
-
 chmod 755 "$SERVER_TMP_DIR/DEBIAN/postrm"
 
 # Build the Debian package

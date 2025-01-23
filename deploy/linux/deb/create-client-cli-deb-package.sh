@@ -70,22 +70,36 @@ Maintainer: ${MAINTAINER}
 Installed-Size: ${INSTALLED_SIZE}
 Depends: iptables, iproute2, net-tools
 Section: admin
+Replaces: fptn-client-cli
+Conflicts: fptn-client-cli
+Provides: fptn-client-cli
 Priority: optional
 Description: fptn client
 EOL
 
+
+# Create prerm file
+cat <<EOL > "$CLIENT_TMP_DIR/DEBIAN/prerm"
+#!/bin/bash
+
+systemctl daemon-reload || echo "Failed to reload"
+systemctl stop fptn-client 2>/dev/null || echo "Failed to stop"
+EOL
+chmod 755 "$CLIENT_TMP_DIR/DEBIAN/prerm"
+
+
 # Create postrm file
 cat <<EOL > "$CLIENT_TMP_DIR/DEBIAN/postrm"
 #!/bin/bash
-set -e
 
-systemctl stop fptn-client || true
-systemctl disable fptn-client.service || true
-systemctl daemon-reload || true
-rm -f /lib/systemd/system/fptn-client.service || true
+if [ "\$1" != "upgrade" ]; then
+    systemctl disable fptn-client.service 2>/dev/null || true
+    rm -f /lib/systemd/system/fptn-client.service 2>/dev/null || echo "Failed to remove"
+fi
 EOL
-
 chmod 755 "$CLIENT_TMP_DIR/DEBIAN/postrm"
+
+
 
 # Build the Debian package
 dpkg-deb --build "$CLIENT_TMP_DIR" "fptn-client-cli-${VERSION}-${OS_NAME}${OS_VERSION}-$(dpkg --print-architecture).deb"
