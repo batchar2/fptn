@@ -81,7 +81,7 @@ class UserManager:
                     f"{username} {hashed_password} {MAX_USER_SPEED_LIMIT}\n"
                 )  # Default balance
 
-    def register_user(self, user_id: int) -> (str, str):
+    def register_user(self, user_id: str) -> (str, str):
         username = f"user{user_id}"
         with self.user_data_lock:
             users = self.load_users()
@@ -98,7 +98,7 @@ class UserManager:
                 logger.info(f"User {user_id} registered with username: {username}")
                 return username, password
 
-    def is_registered(self, user_id: int) -> bool:
+    def is_registered(self, user_id: str) -> bool:
         username = f"user{user_id}"
         with self.user_data_lock:
             users = self.load_users()
@@ -106,7 +106,7 @@ class UserManager:
                 return True
         return False
 
-    def reset_password(self, user_id: int) -> (str, str):
+    def reset_password(self, user_id: str) -> (str, str):
         username = f"user{user_id}"
         with self.user_data_lock:
             users = self.load_users()
@@ -241,7 +241,7 @@ async def get_access_file(update: Update, context: CallbackContext) -> None:
             "click_to_copy": "📋💾 Скачайте **токен** и в выберите его в настройках  FPTN! ⬇️",
         },
     }
-    user_id = update.message.from_user.id
+    user_id = "mac" + update.message.from_user.id
     language_code = update.message.from_user.language_code or "en"
     messages = MESSAGES.get(language_code, MESSAGES["en"])
 

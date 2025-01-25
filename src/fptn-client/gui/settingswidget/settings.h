@@ -3,6 +3,7 @@
 #include <QLabel>
 #include <QDialog>
 #include <QWidget>
+#include <QCheckBox>
 #include <QComboBox>
 #include <QToolButton>
 #include <QPushButton>
@@ -28,6 +29,8 @@ namespace fptn::gui
         void removeServer(int row);
         void onLanguageChanged(const QString& newLanguage);
         void onInterfaceChanged(const QString& newLanguage);
+        void onAutostartChanged(bool checked);
+        void onAutoGatewayChanged(bool checked);
     private:
         SettingsModelPtr settings_;
 
@@ -36,6 +39,9 @@ namespace fptn::gui
         QWidget* aboutTab_ = nullptr;
         QTableWidget* serverTable_ = nullptr;
 
+        QLabel* autostartLabel_ = nullptr;
+        QCheckBox* autostartCheckBox_ = nullptr;
+
         QLabel* languageLabel_ = nullptr;
         QComboBox* languageComboBox_ = nullptr;
 
@@ -43,6 +49,7 @@ namespace fptn::gui
         QLabel* interfaceLabel_ = nullptr;
 
         QLineEdit* gatewayLineEdit_ = nullptr;
+        QCheckBox* gatewayAutoCheckbox_ = nullptr;
         QLabel* gatewayLabel_ = nullptr;
 
         QPushButton *loadNewTokenButton_ = nullptr;

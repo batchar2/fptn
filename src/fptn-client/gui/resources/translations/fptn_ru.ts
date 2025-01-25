@@ -189,8 +189,22 @@
         </message>
 
         <message>
-            <source>Exit</source>
-            <translation>Выход</translation>
+            <source>Close</source>
+            <translation>Закрыть</translation>
+        </message>
+
+        <message>
+            <source>Autostart</source>
+            <translation>Автостарт</translation>
+        </message>
+        <message>
+            <source>Auto</source>
+            <translation>Автоматически</translation>
+        </message>
+
+        <message>
+            <source>New version available</source>
+            <translation>Доступна новая версия</translation>
         </message>
     </context>
 </TS>

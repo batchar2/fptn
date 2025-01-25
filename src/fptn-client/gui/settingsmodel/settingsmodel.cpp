@@ -27,7 +27,8 @@ SettingsModel::SettingsModel(const QMap<QString, QString>& languages, const QStr
         QObject(parent),
         languages_(languages),
         defaultLanguage_(defaultLanguage),
-        selectedLanguage_(defaultLanguage)
+        selectedLanguage_(defaultLanguage),
+        clientAutostart_(false)
 {
     load();
 }
@@ -93,6 +94,9 @@ void SettingsModel::load()
     }
     if (networkInterface_.isEmpty()) {
         networkInterface_ = "auto";
+    }
+    if (serviceObj.contains("autostart")) {
+        clientAutostart_ = serviceObj["autostart"].toInt();
     }
     if (serviceObj.contains("gateway_ip")) {
         gatewayIp_ = serviceObj["gateway_ip"].toString();
@@ -190,6 +194,7 @@ bool SettingsModel::save()
     jsonObject["services"] = servicesArray;
     jsonObject["network_interface"] = networkInterface_;
     jsonObject["gateway_ip"] = gatewayIp_;
+    jsonObject["autostart"] = clientAutostart_ ? 1 : 0;
     QJsonDocument document(jsonObject);
     auto len = file.write(document.toJson());
     file.close();
@@ -257,6 +262,18 @@ QString SettingsModel::gatewayIp() const {
 
 void SettingsModel::setGatewayIp(const QString &ip) {
     gatewayIp_ = (ip.isEmpty() ? "auto" : ip);
+    save();
+}
+
+bool SettingsModel::autostart() const
+{
+    return clientAutostart_;
+}
+
+void SettingsModel::setAutostart(bool value)
+{
+    clientAutostart_ = value;
+    save();
 }
 
 const QVector<ServiceConfig>& SettingsModel::services() const {
@@ -307,3 +324,4 @@ int SettingsModel::getExistServiceIndex(const QString& name) const
     }
     return -1;
 }
+

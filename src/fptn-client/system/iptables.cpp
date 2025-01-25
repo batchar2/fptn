@@ -5,19 +5,11 @@
 #include <fmt/format.h>
 #include <spdlog/spdlog.h>
 
-#include <boost/asio.hpp>
-#include <boost/process.hpp>
-#if _WIN32
-#include <VersionHelpers.h>
-#include <boost/process/windows.hpp>
-#endif
-
-
-static bool runCommand(const std::string& command);
-
 #if _WIN32
 static std::string getWindowsInterfaceNumber(const std::string& interfaceName);
 #endif
+
+#include <common/system/command.h>
 
 
 using namespace fptn::system;
@@ -62,7 +54,9 @@ bool IPTables::apply() noexcept
     const std::unique_lock<std::mutex> lock(mutex_);
 
     init_ = true;
+#if defined(__APPLE__) || defined(__linux__)
     findOutInterfaceName_ = (outInterfaceName_.empty() ? getDefaultNetworkInterfaceName() : outInterfaceName_);
+#endif
     findOutGatewayIp_ = (gatewayIp_ == pcpp::IPv4Address("0.0.0.0") ? getDefaultGatewayIPAddress() : gatewayIp_);
 
     spdlog::info("=== Setting up routing ===");
@@ -104,7 +98,7 @@ bool IPTables::apply() noexcept
 #elif __APPLE__
     const std::vector<std::string> commands = {
         fmt::format(R"(bash -c "networksetup -listallnetworkservices | grep -v '^An asterisk' | xargs -I {{}} networksetup -setdnsservers '{{}}' empty")", dnsServerIPv4_.toString()), // clean DNS
-        fmt::format("sysctl -w net.inet.ip.forwarding=1"),
+        fmt::format("sudo sysctl -w net.inet.ip.forwarding=1"),
         fmt::format(
             R"(sh -c "echo 'nat on {findOutInterfaceName} from {tunInterfaceName}:network to any -> ({findOutInterfaceName})
                 pass out on {findOutInterfaceName} proto tcp from any to {vpnServerIP}
@@ -116,19 +110,19 @@ bool IPTables::apply() noexcept
             fmt::arg("tunInterfaceName", tunInterfaceName_),
             fmt::arg("vpnServerIP", vpnServerIP_.toString())
         ),
-        fmt::format("pfctl -ef /tmp/pf.conf"),
+        fmt::format("sudo pfctl -ef /tmp/pf.conf"),
         // default & DNS route
-        fmt::format("route add -net 0.0.0.0/1 -interface {}", tunInterfaceName_),
-        fmt::format("route add -net 128.0.0.0/1 -interface {}", tunInterfaceName_),
-        fmt::format("route add -host {} -interface {}", dnsServerIPv4_.toString(), tunInterfaceName_), // via TUN
+        fmt::format("sudo route add -net 0.0.0.0/1 -interface {}", tunInterfaceName_),
+        fmt::format("sudo route add -net 128.0.0.0/1 -interface {}", tunInterfaceName_),
+        fmt::format("sudo route add -host {} -interface {}", dnsServerIPv4_.toString(), tunInterfaceName_), // via TUN
         // exclude vpn server & networks
-        fmt::format("route add -host {} {}", vpnServerIP_.toString(), findOutGatewayIp_.toString()),
-        fmt::format("route add -net 10.0.0.0/8 {}", findOutGatewayIp_.toString()),
-        fmt::format("route add -net 172.16.0.0/12 {}", findOutGatewayIp_.toString()),
-        fmt::format("route add -net 192.168.0.0/16 {}", findOutGatewayIp_.toString()),
+        fmt::format("sudo route add -host {} {}", vpnServerIP_.toString(), findOutGatewayIp_.toString()),
+        fmt::format("sudo route add -net 10.0.0.0/8 {}", findOutGatewayIp_.toString()),
+        fmt::format("sudo route add -net 172.16.0.0/12 {}", findOutGatewayIp_.toString()),
+        fmt::format("sudo route add -net 192.168.0.0/16 {}", findOutGatewayIp_.toString()),
         // DNS
-        fmt::format("dscacheutil -flushcache"),
-        fmt::format(R"(bash -c "networksetup -listallnetworkservices | grep -v '^\* ' | xargs -I {{}} networksetup -setdnsservers '{{}}' {}")", dnsServerIPv4_.toString())
+        fmt::format("sudo dscacheutil -flushcache"),
+        fmt::format(R"(bash -c "sudo networksetup -listallnetworkservices | grep -v '^\* ' | xargs -I {{}} networksetup -setdnsservers '{{}}' {}")", dnsServerIPv4_.toString())
     };
 #elif _WIN32
     const std::string winInterfaceNumber = getWindowsInterfaceNumber(tunInterfaceName_);
@@ -153,9 +147,7 @@ bool IPTables::apply() noexcept
     #error "Unsupported system!"
 #endif
     for (const auto& cmd : commands) {
-        if (!runCommand(cmd)) {
-            spdlog::warn("COMMAND ERORR: {}", cmd);
-        }
+        fptn::common::system::command::run(cmd);
     }
     spdlog::info("=== Routing setup completed successfully ===");
     return true;
@@ -222,42 +214,20 @@ bool IPTables::clean() noexcept
     #error "Unsupported system!"
 #endif
     for (const auto& cmd : commands) {
-        runCommand(cmd);
+        fptn::common::system::command::run(cmd);
     }
     init_ = false;
     return true;
 }
 
-static bool runCommand(const std::string& command)
-{
-    try {
-#ifdef _WIN32
-        boost::process::child child(command, boost::process::std_out > stdout, boost::process::std_err > stderr, ::boost::process::windows::hide);
-#else
-        boost::process::child child(command, boost::process::std_out > stdout, boost::process::std_err > stderr);
-#endif
-        child.wait();
-        spdlog::info("RUN: " + command);
-        if (child.exit_code() == 0) {
-            return true;
-        }
-    } catch (const std::exception& e) {
-        const std::string msg = e.what();
-        spdlog::error("IPTables error: " + msg);
-    } catch (...) {
-        spdlog::error("Undefined command error");
-    }
-    return false;
-}
 
 pcpp::IPv4Address fptn::system::resolveDomain(const std::string& domain) noexcept
 {
     try {
-        // Check if the domain is already an IP address
-        boost::asio::ip::address ip_address;
         try {
-            ip_address = boost::asio::ip::make_address(domain);
-            return pcpp::IPv4Address(domain);
+            // error test
+            boost::asio::ip::make_address(domain);
+            return domain;
         } catch (const std::exception&) {
             // Not a valid IP address, proceed with domain name resolution
         }
@@ -265,12 +235,12 @@ pcpp::IPv4Address fptn::system::resolveDomain(const std::string& domain) noexcep
         boost::asio::ip::tcp::resolver resolver(io_context);
         boost::asio::ip::tcp::resolver::results_type endpoints = resolver.resolve(domain, "");
         for (const auto& endpoint : endpoints) {
-            return pcpp::IPv4Address(endpoint.endpoint().address().to_string());
+            return endpoint.endpoint().address().to_string();
         }
     } catch (const std::exception& e) {
         spdlog::error("Error resolving domain: {}", e.what());
     }
-    return pcpp::IPv4Address(domain);
+    return domain;
 }
 
 pcpp::IPv4Address fptn::system::getDefaultGatewayIPAddress() noexcept
@@ -286,17 +256,10 @@ pcpp::IPv4Address fptn::system::getDefaultGatewayIPAddress() noexcept
 #else
         #error "Unsupported system!"
 #endif
-        boost::process::ipstream pipe;
-#ifdef _WIN32
-        boost::process::child child(command, boost::process::std_out > pipe, ::boost::process::windows::hide);
-#else
-        boost::process::child child(
-            boost::process::search_path("bash"), "-c", command,
-            boost::process::std_out > pipe
-        );
-#endif
-        std::string result;
-        while (std::getline(pipe, result)) {
+        std::vector<std::string> stdoutput;
+        fptn::common::system::command::run(command, stdoutput);
+        for (const auto& line : stdoutput) {
+            std::string result = line;
             result.erase(
                 std::remove_if(
                     result.begin(), result.end(), [](char c) {
@@ -305,11 +268,10 @@ pcpp::IPv4Address fptn::system::getDefaultGatewayIPAddress() noexcept
                 ),
                 result.end()
             );
-            if (!result.empty() && pcpp::IPv4Address(result) != pcpp::IPv4Address("0.0.0.0")) {  
-                return pcpp::IPv4Address(result);
+            if (!result.empty() && pcpp::IPv4Address(result) != pcpp::IPv4Address("0.0.0.0")) {
+                return result;
             }
         }
-        child.wait();
     } catch (const std::exception& ex) {
         spdlog::error("Error: Failed to retrieve the default gateway IP address. {}", ex.what());
     }
@@ -327,26 +289,18 @@ std::string fptn::system::getDefaultNetworkInterfaceName() noexcept
         const std::string command = "route get 8.8.8.8 | grep interface | awk '{print $2}' ";
 #elif _WIN32
         const std::string command = R"(cmd.exe /c "FOR /F "tokens=1,2,3" %i IN ('route print ^| findstr /R /C:"0.0.0.0"') DO @echo %i")";
-#else
-        #error "Unsupported system!"
 #endif
-        boost::process::ipstream pipe;
-#ifdef _WIN32
-        boost::process::child child(command, boost::process::std_out > pipe, ::boost::process::windows::hide);
-#else
-        boost::process::child child(
-            boost::process::search_path("bash"), "-c", command,
-            boost::process::std_out > pipe
-        );
-        std::getline(pipe, result);
-        child.wait();
-        if (result.empty()) {
+        std::vector<std::string> stdoutput;
+        fptn::common::system::command::run(command, stdoutput);
+        if (stdoutput.empty()) {
             spdlog::warn("Warning: Default gateway IP address not found.");
             return {};
         }
-        result.erase(result.find_last_not_of(" \n\r\t") + 1);
-        result.erase(0, result.find_first_not_of(" \n\r\t"));
-#endif
+        for (const auto& line : stdoutput) {
+            result = line;
+            result.erase(result.find_last_not_of(" \n\r\t") + 1);
+            result.erase(0, result.find_first_not_of(" \n\r\t"));
+        }
     } catch (const std::exception& ex) {
         spdlog::error("Error: Failed to retrieve the default gateway IP address. {}", ex.what());
     }
@@ -356,28 +310,28 @@ std::string fptn::system::getDefaultNetworkInterfaceName() noexcept
 #if _WIN32
 std::string getWindowsInterfaceNumber(const std::string& interfaceName)
 {
-    std::string result;
     try {
         const std::string command = "powershell -Command \"(Get-NetAdapter -Name '" + interfaceName + "').ifIndex\"";
-        boost::process::ipstream pipe_stream;
-        boost::process::child child(command, boost::process::std_out > pipe_stream, ::boost::process::windows::hide);
-        std::getline(pipe_stream, result);
-        child.wait();
+        std::vector<std::string> stdoutput;
+        fptn::common::system::command::run(command, stdoutput);
 
-        // Check if result is empty
-        if (result.empty()) {
-            std::cerr << "Warning: Interface index not found." << std::endl;
+        if (stdoutput.empty()) {
+            spdlog::warn("Warning: Interface index not found.");
             return {};
         }
-        result.erase(result.find_last_not_of(" \n\r\t") + 1);
-        result.erase(0, result.find_first_not_of(" \n\r\t"));
-        if (result.empty() || !std::all_of(result.begin(), result.end(), ::isdigit)) {
-            std::cerr << "Error: Invalid interface index format." << std::endl;
-            return "";
+        for (const auto& line : stdoutput) {
+            std::string result = line;
+            result.erase(result.find_last_not_of(" \n\r\t") + 1);
+            result.erase(0, result.find_first_not_of(" \n\r\t"));
+            if (!result.empty() && std::all_of(result.begin(), result.end(), ::isdigit)) {
+                return result;
+            }
         }
+        spdlog::error("Error: Invalid interface index format.");
+        return {};
     } catch (const std::exception& ex) {
-        std::cerr << "Error: Failed to retrieve the interface index. " << ex.what() << std::endl;
+        spdlog::error("Error: failed to retrieve the interface index. Msg: {}", ex.what());
     }
-    return result;
+    return {};
 }
 #endif

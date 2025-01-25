@@ -189,8 +189,22 @@
         </message>
 
         <message>
-            <source>Exit</source>
-            <translation>Exit</translation>
+            <source>Close</source>
+            <translation>Close</translation>
+        </message>
+
+        <message>
+            <source>Autostart</source>
+            <translation>Autostart</translation>
+        </message>
+        <message>
+            <source>Auto</source>
+            <translation>Auto</translation>
+        </message>
+
+        <message>
+            <source>New version available</source>
+            <translation>New version available</translation>
         </message>
     </context>
 </TS>

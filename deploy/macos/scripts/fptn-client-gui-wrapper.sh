@@ -11,10 +11,8 @@ EOF
 
 # Function to clean DNS settings
 cleanup_dns() {
-    echo 1 >> /var/logs/1.fptn
     echo "Cleaning up DNS settings..."
     networksetup -listallnetworkservices | grep -v '^An asterisk' | xargs -I {} networksetup -setdnsservers "{}" empty
-    echo 2 >> /var/logs/1.fptn
 }
 
 
@@ -24,7 +22,7 @@ if [ "$(id -u)" -ne 0 ]; then
     osascript <<EOF
 do shell script "$0" with administrator privileges
 EOF
-    exit 1
+    exit 0
 fi
 
 # Copy KEXT if not already present
@@ -69,7 +67,10 @@ else
     echo "Driver is already loaded."
 fi
 
-cd /tmp/
+# cd "Applications/FptnClient" folder
+SCRIPT_PATH=$(dirname "${BASH_SOURCE[0]}")
+cd "${SCRIPT_PATH}" && cd .. && cd ..
+export FPTN_MACOS_APP_PATH="$(pwd)"
 
 export QT_PLUGIN_PATH=/Applications/FptnClient.app/Contents/Frameworks/plugins
 export QT_QPA_PLATFORM_PLUGIN_PATH=/Applications/FptnClient.app/Contents/Frameworks/plugins/platforms
@@ -82,8 +83,6 @@ trap cleanup_dns SIGINT
 trap cleanup_dns SIGHUP
 trap cleanup_dns SIGTERM
 
-exec /Applications/FptnClient.app/Contents/MacOS/fptn-client-gui "$@"
+exec "${FPTN_MACOS_APP_PATH}/Contents/MacOS/fptn-client-gui" "$@"
 
-echo 3 >> /var/logs/1.fptn
 networksetup -listallnetworkservices | grep -v '^An asterisk' | xargs -I {} networksetup -setdnsservers "{}" empty
-echo 4 >> /var/logs/1.fptn

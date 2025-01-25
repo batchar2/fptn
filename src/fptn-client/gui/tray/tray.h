@@ -1,6 +1,7 @@
 #pragma once
 
 #include <mutex>
+#include <future>
 
 #include <QMenu>
 #include <QTimer>
@@ -40,7 +41,7 @@ namespace fptn::gui
             Disconnecting
         };
     public:
-        explicit TrayApp(const SettingsModelPtr &settings, QObject* parent = nullptr);
+        explicit TrayApp(const SettingsModelPtr& settings, QObject* parent = nullptr);
         void stop();
     private:
         QString getSystemLanguageCode() const;
@@ -60,26 +61,30 @@ namespace fptn::gui
         void handleDisconnecting();
         void updateSpeedWidget();
     private:
-        void setUpTrayIcon();
         void updateTrayMenu();
+        void openBrowser(const std::string& url);
     private:
         bool smartConnect_ = false;
         fptn::config::ConfigFile::Server selectedServer_;
 
         SettingsModelPtr settings_;
 
-        QSystemTrayIcon *trayIcon_ = nullptr;
-        QMenu *trayMenu_ = nullptr;
-        QMenu *connectMenu_ = nullptr;
-        QAction *smartConnectAction_ = nullptr;
-        QAction *emptyConfigurationAction_ = nullptr;
-        QAction *disconnectAction_ = nullptr;
-        QAction *settingsAction_ = nullptr;
-        QAction *quitAction_ = nullptr;
-        QAction *connectingAction_ = nullptr;
-        QWidgetAction *speedWidgetAction_ = nullptr;
-        SpeedWidget *speedWidget_ = nullptr;
-        QTimer *updateTimer_ = nullptr;
+        QSystemTrayIcon* trayIcon_ = nullptr;
+        QMenu* trayMenu_ = nullptr;
+        QMenu* connectMenu_ = nullptr;
+        QAction* smartConnectAction_ = nullptr;
+        QAction* emptyConfigurationAction_ = nullptr;
+        QAction* disconnectAction_ = nullptr;
+        QAction* settingsAction_ = nullptr;
+
+        QAction* autoUpdateAction_ = nullptr;
+        QString autoAvailableVersion_;
+
+        QAction* quitAction_ = nullptr;
+        QAction* connectingAction_ = nullptr;
+        QWidgetAction* speedWidgetAction_ = nullptr;
+        SpeedWidget* speedWidget_ = nullptr;
+        QTimer* updateTimer_ = nullptr;
         ConnectionState connectionState_ = ConnectionState::None;
         QString connectedServerAddress_;
 
@@ -88,5 +93,7 @@ namespace fptn::gui
 
         fptn::vpn::VpnClientPtr vpnClient_;
         fptn::system::IPTablesPtr ipTables_;
+
+        std::future<std::pair<bool, std::string>> updateVersionFuture_;
     };
 }

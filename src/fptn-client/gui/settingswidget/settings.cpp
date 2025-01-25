@@ -10,6 +10,7 @@
 
 #include "settings.h"
 
+#include "gui/autostart/autostart.h"
 #include "gui/tokendialog/tokendialog.h"
 #include "gui/translations/translations.h"
 
@@ -21,7 +22,6 @@ SettingsWidget::SettingsWidget(const SettingsModelPtr& settings, QWidget *parent
 {
     setupUi();
     setWindowIcon(QIcon(":/icons/app.ico"));
-
     // show on top
     setWindowFlags(Qt::Window | Qt::WindowStaysOnTopHint);
     setModal(true);
@@ -38,11 +38,11 @@ void SettingsWidget::setupUi()
 
     // Settings tab
     settingsTab_ = new QWidget();
-    QVBoxLayout *settingsLayout = new QVBoxLayout(settingsTab_);
+    QVBoxLayout* settingsLayout = new QVBoxLayout(settingsTab_);
     settingsLayout->setContentsMargins(10, 10, 10, 10);
 
     // Grid Layout for settings
-    QGridLayout *gridLayout = new QGridLayout();
+    QGridLayout* gridLayout = new QGridLayout();
     gridLayout->setContentsMargins(0, 0, 0, 0);
     gridLayout->setHorizontalSpacing(10);
     gridLayout->setVerticalSpacing(10);
@@ -51,28 +51,57 @@ void SettingsWidget::setupUi()
     gridLayout->setColumnStretch(0, 1); // Label column
     gridLayout->setColumnStretch(1, 4); // Field column
 
+    // AUTOSTART (show only for Windows and Linux)
+#if defined(__linux__) || defined(_WIN32)
+    autostartLabel_ = new QLabel(QObject::tr("Autostart"), this);;
+    autostartCheckBox_ = new QCheckBox(" ", this);
+    autostartCheckBox_->setChecked(settings_->autostart());
+    connect(autostartCheckBox_, &QCheckBox::toggled, this, &SettingsWidget::onAutostartChanged);
+    gridLayout->addWidget(autostartLabel_, 0, 0, Qt::AlignLeft);
+    gridLayout->addWidget(autostartCheckBox_, 0, 1, Qt::AlignLeft);
+#endif
+
+    // LANGUAGE
     languageLabel_ = new QLabel(QObject::tr("Language"), this);
     languageComboBox_ = new QComboBox(this);
     languageComboBox_->addItems(settings_->getLanguages());
     languageComboBox_->setCurrentText(settings_->languageName());
     connect(languageComboBox_, &QComboBox::currentTextChanged, this, &SettingsWidget::onLanguageChanged);
-    gridLayout->addWidget(languageLabel_, 0, 0, Qt::AlignLeft);
-    gridLayout->addWidget(languageComboBox_, 0, 1, Qt::AlignLeft);
+    gridLayout->addWidget(languageLabel_, 1, 0, Qt::AlignLeft);
+    gridLayout->addWidget(languageComboBox_, 1, 1, Qt::AlignLeft);
 
+    // INTERFACE
     interfaceLabel_ = new QLabel(QObject::tr("Network Interface (adapter)") + ":  ", this);
     interfaceComboBox_ = new QComboBox(this);
     interfaceComboBox_->addItems(settings_->getNetworkInterfaces());
     interfaceComboBox_->setCurrentText(settings_->networkInterface());
     connect(interfaceComboBox_, &QComboBox::currentTextChanged, this, &SettingsWidget::onInterfaceChanged);
-    gridLayout->addWidget(interfaceLabel_, 1, 0, Qt::AlignLeft);
-    gridLayout->addWidget(interfaceComboBox_, 1, 1, Qt::AlignLeft);
+    gridLayout->addWidget(interfaceLabel_, 2, 0, Qt::AlignLeft);
+    gridLayout->addWidget(interfaceComboBox_, 2, 1, Qt::AlignLeft);
 
+    // GATEWAY
     gatewayLabel_ = new QLabel(QObject::tr("Gateway IP Address (typically your router's address)") + ":", this);
+    gatewayAutoCheckbox_ = new QCheckBox(QObject::tr("Auto"), this);
     gatewayLineEdit_ = new QLineEdit(this);
-    gatewayLineEdit_->setText(settings_->gatewayIp());
-    gridLayout->addWidget(gatewayLabel_, 2, 0, Qt::AlignLeft);
-    gridLayout->addWidget(gatewayLineEdit_, 2, 1, Qt::AlignLeft);
+    if (settings_->gatewayIp().toLower() != "auto") {
+        gatewayAutoCheckbox_->setChecked(false);
+        gatewayLineEdit_->setText(settings_->gatewayIp());
+        gatewayLineEdit_->setEnabled(true);
+    } else {
+        gatewayAutoCheckbox_->setChecked(true);
+        gatewayLineEdit_->setDisabled(true);
+    }
+    connect(gatewayAutoCheckbox_, &QCheckBox::toggled, this, &SettingsWidget::onAutoGatewayChanged);
 
+    QHBoxLayout* gatewayLayout = new QHBoxLayout();
+    gatewayLayout->addWidget(gatewayAutoCheckbox_, Qt::AlignLeft);
+    gatewayLayout->setStretch(0, 1);
+
+    gatewayLayout->addWidget(gatewayLineEdit_, Qt::AlignLeft);
+    gatewayLayout->setStretch(1, 4);
+
+    gridLayout->addWidget(gatewayLabel_, 3, 0);
+    gridLayout->addLayout(gatewayLayout, 3, 1, 1, 2);
     settingsLayout->addLayout(gridLayout);
 
     // Server Table
@@ -92,14 +121,14 @@ void SettingsWidget::setupUi()
     settingsLayout->addWidget(serverTable_);
 
     // Buttons
-    QHBoxLayout *buttonLayout = new QHBoxLayout();
+    QHBoxLayout* buttonLayout = new QHBoxLayout();
     buttonLayout->addStretch();
 
     loadNewTokenButton_ = new QPushButton("  " + QObject::tr("Add token") + "  ", this);
     connect(loadNewTokenButton_, &QPushButton::clicked, this, &SettingsWidget::loadNewConfig);
     buttonLayout->addWidget(loadNewTokenButton_);
 
-    exitButton_ = new QPushButton("  " + QObject::tr("Exit") + "  ", this);
+    exitButton_ = new QPushButton("  " + QObject::tr("Close") + "  ", this);
     connect(exitButton_, &QPushButton::clicked, this, &SettingsWidget::exit);
     buttonLayout->addWidget(exitButton_);
 
@@ -199,6 +228,7 @@ void SettingsWidget::loadNewConfig()
     show();
     activateWindow();
     raise();
+
     if (!token.isEmpty()) {
         try {
             ServiceConfig config = settings_->parseToken(token);
@@ -320,10 +350,16 @@ void SettingsWidget::onLanguageChanged(const QString&)
         loadNewTokenButton_->setText("  " + QObject::tr("Add token") + "  ");
     }
     if (exitButton_) {
-        exitButton_->setText("  " + QObject::tr("Exit") + "  ");
+        exitButton_->setText("  " + QObject::tr("Close") + "  ");
     }
     if (versionLabel_) {
         versionLabel_->setText(QString(QObject::tr("Application Version") + ": %1").arg(FPTN_VERSION));
+    }
+    if (gatewayAutoCheckbox_) {
+        gatewayAutoCheckbox_->setText(QObject::tr("Auto"));
+    }
+    if (autostartLabel_) {
+        autostartLabel_->setText(QObject::tr("Autostart"));
     }
 }
 
@@ -336,5 +372,27 @@ void SettingsWidget::onInterfaceChanged(const QString&)
             QObject::tr("Save Failed"),
             QObject::tr("An error occurred while saving the data.")
         );
+    }
+}
+
+void SettingsWidget::onAutostartChanged(bool checked)
+{
+    if (checked) {
+        fptn::gui::autostart::enable();
+        settings_->setAutostart(true);
+    } else {
+        fptn::gui::autostart::disable();
+        settings_->setAutostart(false);
+    }
+}
+
+void SettingsWidget::onAutoGatewayChanged(bool checked)
+{
+    if (checked) {
+        gatewayLineEdit_->setDisabled(true);
+        gatewayLineEdit_->setText("");
+        settings_->setGatewayIp("auto");
+    } else {
+        gatewayLineEdit_->setEnabled(true);
     }
 }

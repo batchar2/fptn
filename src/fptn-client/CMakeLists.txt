@@ -95,6 +95,8 @@ if("${FPTN_BUILD_WITH_GUI_CLIENT}")
         gui/translations/translations.h gui/translations/translations.cpp
 
         gui/style/style.h gui/style/style.cpp
+        gui/autostart/autostart.h
+        gui/autoupdate/autoupdate.h
         ${PROJECT_RESOURCES}
         ${TRANSLATIONS_OUT}
     )

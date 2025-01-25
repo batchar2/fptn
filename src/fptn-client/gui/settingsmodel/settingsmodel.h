@@ -95,6 +95,9 @@ namespace fptn::gui
         const QString& languageCode() const;
 
         bool existsTranslation(const QString &languageCode) const;
+
+        bool autostart() const;
+        void setAutostart(bool value);
     signals:
         void dataChanged();
     private:
@@ -107,6 +110,8 @@ namespace fptn::gui
         QVector<ServiceConfig> services_;
         QString networkInterface_;
         QString gatewayIp_;
+
+        bool clientAutostart_;
         QString getFilePath() const;
     };
 

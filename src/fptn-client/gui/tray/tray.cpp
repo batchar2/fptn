@@ -8,8 +8,12 @@
 #include <QStyleFactory>
 
 #include <spdlog/spdlog.h>
+#include <QDesktopServices>
+
+#include <common/system/command.h>
 
 #include "gui/style/style.h"
+#include "gui/autoupdate/autoupdate.h"
 #include "gui/translations/translations.h"
 
 #include "tray.h"
@@ -71,8 +75,8 @@ TrayApp::TrayApp(const SettingsModelPtr &settings, QObject* parent)
     });
 #endif
     // Also connect clicking on the icon to the signal processor of this press
-    connect(trayIcon_, SIGNAL(activated(QSystemTrayIcon::ActivationReason)),
-            this, SLOT(iconActivated(QSystemTrayIcon::ActivationReason)));
+//    connect(trayIcon_, SIGNAL(activated(QSystemTrayIcon::ActivationReason)),
+//            this, SLOT(iconActivated(QSystemTrayIcon::ActivationReason)));
 
     const QString selectedLanguage = settings->languageCode();
     if (selectedLanguage.isEmpty()) { // save default language for first start
@@ -86,37 +90,47 @@ TrayApp::TrayApp(const SettingsModelPtr &settings, QObject* parent)
         fptn::gui::setTranslation(selectedLanguage);
     }
 
+    // State
     connect(this, &TrayApp::defaultState, this, &TrayApp::handleDefaultState);
     connect(this, &TrayApp::connecting, this, &TrayApp::handleConnecting);
     connect(this, &TrayApp::connected, this, &TrayApp::handleConnected);
     connect(this, &TrayApp::disconnecting, this, &TrayApp::handleDisconnecting);
 
+    // Settings
     connect(settings_.get(), &SettingsModel::dataChanged, this, &TrayApp::updateTrayMenu);
     connect(updateTimer_, &QTimer::timeout, this, &TrayApp::updateSpeedWidget);
     updateTimer_->start(1000);
 
-    setUpTrayIcon();
-
+    // Settings
     settingsAction_ = new QAction(QObject::tr("Settings"), this);
     connect(settingsAction_, &QAction::triggered, this, &TrayApp::onShowSettings);
 
+    // Autoupdate
+    autoUpdateAction_ = new QAction(QObject::tr("New version available") + " " + autoAvailableVersion_, this);
+    connect(autoUpdateAction_, &QAction::triggered, this, [this] {
+        openBrowser(FPTN_GITHUB_PAGE_LINK);
+    });
+    autoUpdateAction_->setVisible(false);
+
+    // Quit
     quitAction_ = new QAction(QObject::tr("Quit"), this);
     connect(quitAction_, &QAction::triggered, this, &QCoreApplication::quit);
 
+    // Show menu
     trayMenu_->addSeparator();
     trayMenu_->addAction(settingsAction_);
     trayMenu_->addSeparator();
+    trayMenu_->addAction(autoUpdateAction_);
+    trayMenu_->addSeparator();
     trayMenu_->addAction(quitAction_);
+
     trayIcon_->setContextMenu(trayMenu_);
 
     updateTrayMenu();
-
     trayIcon_->show();
-}
 
-void TrayApp::setUpTrayIcon()
-{
-    trayIcon_->show();
+    // check update
+    updateVersionFuture_ = std::async(std::launch::async, fptn::gui::autoupdate::check);
 }
 
 void TrayApp::updateTrayMenu()
@@ -362,9 +376,7 @@ void TrayApp::handleConnecting()
         ? ""
         : settings_->networkInterface().toStdString()
     );
-
     spdlog::debug("--- get server ---");
-
     fptn::config::ConfigFile config;
     if (smartConnect_) { // find the best server
         for (const auto& service : settings_->services()) {
@@ -528,6 +540,17 @@ void TrayApp::updateSpeedWidget()
     if (vpnClient_ && speedWidget_ && connectionState_ == ConnectionState::Connected) {
         speedWidget_->updateSpeed(vpnClient_->getReceiveRate(), vpnClient_->getSendRate());
     }
+
+    if (updateVersionFuture_.valid()) {
+        const auto updateResult = updateVersionFuture_.get();
+        const bool isNewVersion = updateResult.first;
+        const std::string versionName = updateResult.second;
+        if (isNewVersion) {
+            autoAvailableVersion_ = QString::fromStdString(versionName);
+            autoUpdateAction_->setVisible(true);
+            retranslateUi();
+        }
+    }
 }
 
 QString TrayApp::getSystemLanguageCode() const
@@ -567,11 +590,13 @@ void TrayApp::retranslateUi()
             .arg(QString::fromStdString(selectedServer_.serviceName));
         disconnectAction_->setText(disconnectText);
     }
+    if (autoUpdateAction_) {
+        autoUpdateAction_->setText(QObject::tr("New version available") + " " + autoAvailableVersion_);
+    }
 }
 
 void TrayApp::stop()
 {
-    std::cerr << "+ exit +" << std::endl;
     if (vpnClient_) {
         spdlog::info("--- stop VpnClient ---");
         vpnClient_->stop();
@@ -583,4 +608,20 @@ void TrayApp::stop()
         ipTables_.reset();
     }
     spdlog::info("--- exit ---");
+}
+
+void TrayApp::openBrowser(const std::string& url)
+{
+#if __APPLE__
+    QDesktopServices::openUrl(QString::fromStdString(url));
+#elif __linux__
+    const std::string command = fmt::format(
+        R"(bash -c "xhost +SI:localuser:root && (xdg-open \"{0}\" || sensible-browser \"{0}\" || x-www-browser \"{0}\" || gnome-open \"{0}\" ) "  )",
+        url
+    );
+    fptn::common::system::command::run(command);
+#elif _WIN32
+    const std::string command = fmt::format(R"(explorer "{}")", url);
+    fptn::common::system::command::run(command)
+#endif
 }

@@ -18,6 +18,10 @@ add_compile_definitions(FPTN_SERVER_DEFAULT_ADDRESS_IP6=\"fc00:1::1\")
 add_compile_definitions(FPTN_SERVER_DEFAULT_NET_ADDRESS_IP6=\"fc00:1::\")
 add_compile_definitions(FPTN_SERVER_DEFAULT_ADDRESS_IP4=\"172.20.0.1\")
 add_compile_definitions(FPTN_SERVER_DEFAULT_NET_ADDRESS_IP4=\"172.20.0.0\")
+# github
+add_compile_definitions(FPTN_GITHUB_USERNAME=\"batchar2\")
+add_compile_definitions(FPTN_GITHUB_REPOSITORY=\"fptn\")
+add_compile_definitions(FPTN_GITHUB_PAGE_LINK=\"https://batchar2.github.io/fptn/\")
 
 # enable ssl for cpphttp-lib
 add_compile_definitions(CPPHTTPLIB_OPENSSL_SUPPORT)

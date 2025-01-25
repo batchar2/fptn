@@ -129,23 +129,29 @@ def create_app(
         # Create Info.plist
         plist = {
             "CFBundleName": APP_NAME,
+            "CFBundleDisplayName": APP_NAME,
+            "CFBundleShortVersionString": version,
             "CFBundleExecutable": "fptn-client-gui-wrapper.sh",
-            "CFBundleIdentifier": "com.fptn.vpn",
-            "CFBundlePackageType": "APPL",
-            "CFBundleVersion": version,
+            "CFBundleIdentifier": "org.fptn.vpn",
             "CFBundleIconFile": ICON.name,
-            "LSUIElement": True,
-            "LSApplicationCategoryType": "public.app-category.utilities",
-            "LSRequiresNativeExecution": True,
-            "NSHighResolutionCapable": True,
-            "LD_LIBRARY_PATH": "@executable_path/../Frameworks",
-            "RunAtLoad": True,
-            "KeepAlive": True,
-            "UserName": "root",
-            "NSAllowsArbitraryLoads": True,
-            "NSClipboardUsageDescription": "Requires clipboard access to copy and paste data.",
-        }
+            "NSHumanReadableCopyright": "Copyright© 2025 FPTN",
+            "CFBundleDocumentTypes": [
+                {
+                    'CFBundleTypeExtensions': ['fptn'],
+                    'CFBundleTypeName': 'Fptn file',
+                    'CFBundleTypeRole': 'Editor',
+                }
+            ],
+            'NSAppleEventsUsageDescription': 'Your app requires administrative privileges to perform certain tasks',
+            'CFBundleInfoDictionaryVersion': '6.0',
+            'LSMinimumSystemVersion': '10.9',
+            'AppleMagnifiedMode': False,
+            'NSHighResolutionCapable': True,
 
+            "LD_LIBRARY_PATH": "@executable_path/../Frameworks",
+            "LaunchOnlyOnce": True,
+            "LSUIElement": True,
+        }
         with open(app_contents_path / "Info.plist", "wb") as plist_file:
             plistlib.dump(plist, plist_file)
 
@@ -156,7 +162,6 @@ def create_app(
             "RunAtLoad": True,
             "UserName": "root",
         }
-
         with open(resources_path / "net.tunnelblick.tun.plist", "wb") as plist_file:
             plistlib.dump(plist_content, plist_file)
             return True

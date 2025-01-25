@@ -1,11 +1,7 @@
 #include <memory>
 #include <filesystem>
 
-#include <QMap>
-#include <QLocale>
-#include <QTranslator>
 #include <QApplication>
-#include <QStyleFactory>
 
 #if defined(__linux__) || defined(__APPLE__)
 #include <unistd.h>
@@ -58,7 +54,7 @@ int main(int argc, char *argv[])
     std::signal(SIGTERM, signalHandler);
     std::signal(SIGQUIT, signalHandler);
     #if __linux__
-        std::signal(SIGPWR, signalHandler);
+    std::signal(SIGPWR, signalHandler);
     #endif
 #elif defined(_WIN32)
     SetConsoleCtrlHandler(signalHandler, TRUE);
@@ -77,11 +73,14 @@ int main(int argc, char *argv[])
             {"ru", "Русский"}
         }
     );
+
     // Start GUI app
     fptn::gui::TrayApp tray(settings);
     const int code = app.exec();
+
     // Clean resources
     tray.stop();
     spdlog::shutdown();
+
     return code;
 }
