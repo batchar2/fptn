@@ -72,7 +72,9 @@ Filename: "taskkill"; Parameters: "/F /IM fptn-client-cli.exe"; Flags: runhidden
 Name: "{group}\{#APP_NAME}"; Filename: "{app}\fptn-client.exe"
 Name: "{group}\{cm:UninstallProgram,{#APP_NAME}}"; Filename: "{uninstallexe}";
 Name: "{commondesktop}\{#APP_NAME}"; Filename: "{app}\fptn-client.exe"; Tasks: desktopicon
-Name: "{userstartup}\{#APP_NAME}"; Filename: "{app}\fptn-client.exe"; Tasks: startup
+// --- Name: "{userstartup}\{#APP_NAME}"; Filename: "{app}\fptn-client.exe"; Tasks: startup
+Name: "{userstartup}\{#APP_NAME}"; Filename: "{app}\FptnClient.bat"; Tasks: startup
+
 
 [InstallDelete]
 Type: filesandordirs; Name: "{app}\qt"

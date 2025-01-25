@@ -28,6 +28,7 @@ SettingsWidget::SettingsWidget(const SettingsModelPtr& settings, QWidget *parent
     show();
     activateWindow();
     raise();
+    setWindowTitle(QObject::tr("Settings"));
 }
 
 
@@ -318,7 +319,9 @@ void SettingsWidget::closeEvent(QCloseEvent* event)
 
 void SettingsWidget::onLanguageChanged(const QString&)
 {
+    // set language
     settings_->setLanguage(languageComboBox_->currentText());
+    fptn::gui::setTranslation(settings_->languageCode());
     if (!settings_->save()) {
         QMessageBox::critical(
             this,
@@ -326,9 +329,12 @@ void SettingsWidget::onLanguageChanged(const QString&)
             QObject::tr("An error occurred while saving the data.")
         );
     }
-    // set language
-    fptn::gui::setTranslation(settings_->languageCode());
 
+    setWindowTitle(QObject::tr("Settings"));
+    if (tabWidget_) {
+        tabWidget_->setTabText(0, QObject::tr("Settings"));
+        tabWidget_->setTabText(1, QObject::tr("About"));
+    }
     if (languageLabel_) {
         languageLabel_->setText(QObject::tr("Language"));
     }

@@ -1,12 +1,17 @@
 #pragma once
 
 #include <fstream>
+#include <iostream>
 #include <filesystem>
 
 #include <fmt/format.h>
 
 #include <common/system/command.h>
 
+#if _WIN32
+#include <shlobj.h>
+#include <Windows.h>
+#endif
 
 namespace fptn::gui::autostart
 {
@@ -27,9 +32,33 @@ namespace fptn::gui::autostart
     {
         return "/etc/xdg/autostart/fptn-autostart.desktop";
     }
+#elif _WIN32
+    inline std::string getWindowsFullPath()
+    {
+        char fptnPath[MAX_PATH] = {};
+        if (!SUCCEEDED(GetModuleFileName(nullptr, fptnPath, MAX_PATH))) {
+            const DWORD code = GetLastError();
+            spdlog::error("Failed to retrieve the path. Error code: {}", code);
+            return {};
+        }
+        
+        const std::filesystem::path fptnExe(fptnPath);
+        const auto batPath = fptnExe.parent_path() / "FptnClient.bat";
+        return batPath.u8string();
+    }
 
+    inline std::string getWindowsStartupFolder()
+    {
+        char path[MAX_PATH] = {};
+        if (!SUCCEEDED(SHGetFolderPath(nullptr, CSIDL_STARTUP, nullptr, 0, path))) {
+            // if (SUCCEEDED(SHGetFolderPathA(NULL, CSIDL_STARTUP, NULL, 0, path))) {
+            const DWORD code = GetLastError();
+            spdlog::error("Failed to retrieve the startup folder path. Error code: {}", code);
+            return {};
+        }
+        return path;
+    }
 #endif
-
 
     inline bool enable()
     {
@@ -118,11 +147,36 @@ namespace fptn::gui::autostart
             spdlog::error("Unable to write to DesktopEntry file at {}", path.u8string());
             return false;
         }
+#elif _WIN32
+        const std::string fptnPath = getWindowsFullPath();
+        const std::string windowsStartupFolder = getWindowsStartupFolder();
+        if (fptnPath.empty() || windowsStartupFolder.empty()) {
+            return false;
+        }
+        // SET REG
+        const std::string command = fmt::format(
+            R"(reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v "FptnClient" /t REG_SZ /d "{}" /f )",
+            fptnPath
+        );
+        if (!fptn::common::system::command::run(command)) {
+            spdlog::error("Error running command: {}", command);
+            return false;
+        }
+        // SET SHORTCUT
+        // const std::filesystem::path shortcutPath = std::filesystem::path(windowsStartupFolder) / "FptnClient.lnk";
+        // const std::string powershellCommand = fmt::format(
+        //     R"(powershell -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut('{}'); $s.TargetPath = '{}'; $s.Save();")",
+        //     shortcutPath.u8string(), fptnPath
+        // );
+        // if (!fptn::common::system::command::run(powershellCommand)) {
+        //     spdlog::error("Failed to create shortcut: {}", powershellCommand);
+        //     return false;
+        // }
+        // spdlog::info("Shortcut created successfully at: {}", shortcutPath.u8string());
 #endif
         spdlog::info("Autostart successfully enabled");
         return true;
     }
-
 
     inline bool disable()
     {
@@ -132,7 +186,6 @@ namespace fptn::gui::autostart
             spdlog::error("Failed to get the macOS plist path.");
             return false;
         }
-
         if (std::filesystem::exists(plistPath)) {
             const std::string command = fmt::format(R"(launchctl unload "{}" )", plistPath);
             if (!fptn::common::system::command::run(command)) {
@@ -148,6 +201,20 @@ namespace fptn::gui::autostart
                 return false;
             }
         }
+#elif _WIN32
+        // delete reg
+        const std::string command = R"(reg delete "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v "FptnClient" /f )";
+        if (!fptn::common::system::command::run(command)) {
+            spdlog::error("Error running command: {}", command);
+        }
+        // delete shortcut
+        // const std::string windowsStartupFolder = getWindowsStartupFolder();
+        // const std::filesystem::path shortcutPath = std::filesystem::path(windowsStartupFolder) / "FptnClient.lnk";
+        // if (std::filesystem::exists(shortcutPath) && std::filesystem::remove(shortcutPath)) {
+        //     spdlog::info("Shortcut deleted successfully: {}", shortcutPath.u8string());
+        // } else {
+        //     spdlog::info("No shortcut found to delete at: {}", shortcutPath.u8string());
+        // }
 #endif
         spdlog::info("Disable autostart");
         return true;

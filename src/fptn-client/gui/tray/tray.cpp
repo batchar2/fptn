@@ -621,7 +621,7 @@ void TrayApp::openBrowser(const std::string& url)
     );
     fptn::common::system::command::run(command);
 #elif _WIN32
-    const std::string command = fmt::format(R"(explorer "{}")", url);
-    fptn::common::system::command::run(command)
+    const std::string command = fmt::format(R"(explorer "{}" )", url);
+    fptn::common::system::command::run(command);
 #endif
 }
