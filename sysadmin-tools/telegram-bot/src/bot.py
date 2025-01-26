@@ -241,7 +241,7 @@ async def get_access_file(update: Update, context: CallbackContext) -> None:
             "click_to_copy": "📋💾 Скачайте **токен** и в выберите его в настройках  FPTN! ⬇️",
         },
     }
-    user_id = "mac" + update.message.from_user.id
+    user_id = "mac" + str(update.message.from_user.id)
     language_code = update.message.from_user.language_code or "en"
     messages = MESSAGES.get(language_code, MESSAGES["en"])
 
