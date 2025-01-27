@@ -148,20 +148,20 @@ namespace fptn::gui::autostart
             return false;
         }
 #elif _WIN32
-        const std::string fptnPath = getWindowsFullPath();
-        const std::string windowsStartupFolder = getWindowsStartupFolder();
-        if (fptnPath.empty() || windowsStartupFolder.empty()) {
-            return false;
-        }
-        // SET REG
-        const std::string command = fmt::format(
-            R"(reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v "FptnClient" /t REG_SZ /d "{}" /f )",
-            fptnPath
-        );
-        if (!fptn::common::system::command::run(command)) {
-            spdlog::error("Error running command: {}", command);
-            return false;
-        }
+        // const std::string fptnPath = getWindowsFullPath();
+        // const std::string windowsStartupFolder = getWindowsStartupFolder();
+        // if (fptnPath.empty() || windowsStartupFolder.empty()) {
+        //     return false;
+        // }
+        // // SET REG
+        // const std::string command = fmt::format(
+        //     R"(reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v "FptnClient" /t REG_SZ /d "{}" /f )",
+        //     fptnPath
+        // );
+        // if (!fptn::common::system::command::run(command)) {
+        //     spdlog::error("Error running command: {}", command);
+        //     return false;
+        // }
         // SET SHORTCUT
         // const std::filesystem::path shortcutPath = std::filesystem::path(windowsStartupFolder) / "FptnClient.lnk";
         // const std::string powershellCommand = fmt::format(
@@ -203,10 +203,10 @@ namespace fptn::gui::autostart
         }
 #elif _WIN32
         // delete reg
-        const std::string command = R"(reg delete "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v "FptnClient" /f )";
-        if (!fptn::common::system::command::run(command)) {
-            spdlog::error("Error running command: {}", command);
-        }
+        // const std::string command = R"(reg delete "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v "FptnClient" /f )";
+        // if (!fptn::common::system::command::run(command)) {
+        //     spdlog::error("Error running command: {}", command);
+        // }
         // delete shortcut
         // const std::string windowsStartupFolder = getWindowsStartupFolder();
         // const std::filesystem::path shortcutPath = std::filesystem::path(windowsStartupFolder) / "FptnClient.lnk";
