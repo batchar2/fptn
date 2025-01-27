@@ -121,6 +121,7 @@ hv::HttpService* HttpServer::getService()
 int HttpServer::onHomeHandle(HttpRequest* req, HttpResponse* resp) noexcept
 {
     (void)req;
+    setHttpHeaders(resp, "text/html; charset=utf-8");
     return resp->String(html_home_page);
 }
 
