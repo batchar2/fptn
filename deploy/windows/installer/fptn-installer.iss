@@ -62,7 +62,7 @@ Name: "startup"; Description: {cm:AutoStartProgram,{#APP_NAME}};
 
 [Run]
 Filename: "cmd.exe"; Parameters: "/c reg add ""HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters"" /v IPEnableRouter /t REG_DWORD /d 1 /f"; Flags: runhidden
-Filename: "{app}\FptnClient.bat"; Description: "{cm:LaunchProgram,{#APP_NAME}}"; Flags: nowait postinstall skipifdoesntexist
+// --- Filename: "{app}\FptnClient.bat"; Description: "{cm:LaunchProgram,{#APP_NAME}}"; Flags: nowait postinstall skipifdoesntexist
 
 [UninstallRun]
 Filename: "taskkill"; Parameters: "/F /IM fptn-client.exe"; Flags: runhidden waituntilterminated
@@ -73,7 +73,7 @@ Name: "{group}\{#APP_NAME}"; Filename: "{app}\fptn-client.exe"
 Name: "{group}\{cm:UninstallProgram,{#APP_NAME}}"; Filename: "{uninstallexe}";
 Name: "{commondesktop}\{#APP_NAME}"; Filename: "{app}\fptn-client.exe"; Tasks: desktopicon
 // --- Name: "{userstartup}\{#APP_NAME}"; Filename: "{app}\fptn-client.exe"; Tasks: startup
-Name: "{userstartup}\{#APP_NAME}"; Filename: "{app}\FptnClient.bat"; Tasks: startup
+// --- Name: "{userstartup}\{#APP_NAME}"; Filename: "{app}\FptnClient.bat"; Tasks: startup
 
 
 [InstallDelete]

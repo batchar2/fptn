@@ -52,8 +52,8 @@ void SettingsWidget::setupUi()
     gridLayout->setColumnStretch(0, 1); // Label column
     gridLayout->setColumnStretch(1, 4); // Field column
 
-    // AUTOSTART (show only for Windows and Linux)
-#if defined(__linux__) || defined(_WIN32)
+    // AUTOSTART (show only for Linux)
+#if defined(__linux__)
     autostartLabel_ = new QLabel(QObject::tr("Autostart"), this);;
     autostartCheckBox_ = new QCheckBox(" ", this);
     autostartCheckBox_->setChecked(settings_->autostart());
