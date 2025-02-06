@@ -3,7 +3,6 @@
 
 #include <functional>
 
-#include <hv/hlog.h>
 #include <spdlog/spdlog.h>
 
 
@@ -178,7 +177,13 @@ void Server::runSenderThread() noexcept
     while (running_) {
         auto packet = toClient_.waitForPacket(timeout);
         if (packet != nullptr) {
-            //ws_.send(std::move(packet));
+            // find client
+            const std::unique_lock<std::mutex> lock(mutex_);
+
+            auto it = sessions_.find(packet->clientId());
+            if (it != sessions_.end()) {
+                it->second->send(std::move(packet));
+            }
         }
     }
 }
@@ -281,8 +286,10 @@ bool Server::onWsOpenConnection(
         const std::string& accessToken
 ) noexcept
 {
-    (void)url;
-    (void)accessToken;
+    if (url != urlWebSocket_) {
+        spdlog::error("Wrong URL \"{}\"", url);
+        return false;
+    }
 
     if (clientVpnIPv4 != pcpp::IPv4Address("") && clientVpnIPv6 != pcpp::IPv6Address("")) {
         std::string username;
@@ -305,17 +312,17 @@ bool Server::onWsOpenConnection(
                     shaperToClient,
                     shaperFromClient
                 );
-
                 spdlog::info(
-                        "NEW SESSION! Username={} ClientId={} Bandwidth={} ClientIP={} VirtualIPv4={} VirtualIPv6={}",
-                        username,
-                        clientId,
-                        bandwidthBitesSeconds,
-                        clientIP.toString(),
-                        natSession->fakeClientIPv4().toString(),
-                        natSession->fakeClientIPv6().toString()
+                    "NEW SESSION! Username={} ClientId={} Bandwidth={} ClientIP={} VirtualIPv4={} VirtualIPv6={}",
+                    username,
+                    clientId,
+                    bandwidthBitesSeconds,
+                    clientIP.toString(),
+                    natSession->fakeClientIPv4().toString(),
+                    natSession->fakeClientIPv6().toString()
                 );
                 sessions_.insert({clientId, std::move(session)});
+                return true;
             } else {
                 spdlog::warn("Client with same ID already exists!");
             }
@@ -325,7 +332,6 @@ bool Server::onWsOpenConnection(
     } else {
         spdlog::warn("Wrong ClientIP or ClientIPv6");
     }
-
     return false;
 }
 

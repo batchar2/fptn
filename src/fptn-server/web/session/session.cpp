@@ -16,15 +16,18 @@ Session::Session(boost::asio::ip::tcp::socket&& socket,
     const ApiHandleMap& apiHandles,
     WebSocketOpenConnectionCallback wsOpenCallback,
     WebSocketNewIPPacketCallback wsNewIPCallback,
-    WebSocketCloseConnectionCallback wsCloseCallback
+    WebSocketCloseConnectionCallback wsCloseCallback,
+    int timerTimeoutSeconds
 )
     :
+        isRunning_(false),
         ws_(std::move(socket), ctx),
         apiHandles_(apiHandles),
-//        timer_(),
         wsOpenCallback_(wsOpenCallback),
         wsNewIPCallback_(wsNewIPCallback),
-        wsCloseCallback_(wsCloseCallback)
+        wsCloseCallback_(wsCloseCallback),
+        timer_(ws_.get_executor()),
+        timerTimeoutSeconds_(timerTimeoutSeconds)
 {
     ws_.text(false);
     ws_.binary(true); // Only binary
@@ -76,9 +79,34 @@ void Session::send(fptn::common::network::IPPacketPtr packet) noexcept
 void Session::close() noexcept
 {
     try {
+        isRunning_ = false;
         boost::beast::get_lowest_layer(ws_).close();
     } catch (boost::system::system_error& err) {
         spdlog::error("Session::close error: {}", err.what());
+    }
+}
+
+void Session::startTimer()
+{
+    boost::beast::error_code ec;
+    timer_.expires_from_now(std::chrono::seconds(timerTimeoutSeconds_), ec);
+    timer_.async_wait(boost::beast::bind_front_handler(&Session::onTimer, shared_from_this()));
+}
+
+void Session::cancelTimer()
+{
+    boost::beast::error_code ec;
+    timer_.cancel(ec);
+}
+
+void Session::onTimer(boost::beast::error_code ec)
+{
+    if (ec == boost::asio::error::operation_aborted) {
+        return;
+    }
+    close();
+    if (wsCloseCallback_) {
+        wsCloseCallback_(clientId_);
     }
 }
 
@@ -97,7 +125,6 @@ void Session::onRun()
 void Session::onHandshake(boost::beast::error_code ec)
 {
     if (ec) {
-        // spdlog::error("Error handshake: {}", ec.message());
         return;
     }
     auto self = shared_from_this();
@@ -110,58 +137,60 @@ void Session::onHandshake(boost::beast::error_code ec)
                 spdlog::error("Error reading request: {}", ec.message());
                 return;
             }
-            if (boost::beast::websocket::is_upgrade(self->request_)) {
-                if (self->request_.find("Authorization") != self->request_.end() && self->request_.find("ClientIP") != self->request_.end()) {
-                    self->clientId_ = CLIENT_ID++; // Increment the clientId after using it
-
-                    std::string token = self->request_["Authorization"];
-                    boost::replace_first(token, "Bearer ", ""); // clean token string
-
-                    const std::string clientVpnIPv4Str = self->request_["ClientIP"];
-                    // Get the client's IP from the WebSocket connection
-                    const std::string clientIPStr = self->ws_.next_layer().next_layer().socket().remote_endpoint().address().to_string();
-
-                    // Create IPv4Address objects
-                    const pcpp::IPv4Address clientIP(clientIPStr);
-                    const pcpp::IPv4Address clientVpnIPv4(clientVpnIPv4Str);
-
-                    const std::string clientVpnIPv6Str = (
-                        self->request_.find("ClientIPv6") != self->request_.end()
-                        ? self->request_["ClientIPv6"]
-                        : FPTN_CLIENT_DEFAULT_ADDRESS_IP6 // default value
-                    );
-                    const pcpp::IPv6Address clientVpnIPv6(clientVpnIPv6Str);
-
-                    // run
-                    const bool status = self->wsOpenCallback_(
-                        self->clientId_,
-                        clientIP,
-                        clientVpnIPv4,
-                        clientVpnIPv6,
-                        self,
-                        "/",
-                        token
-                    );
-                    if (status) {
-                        self->ws_.async_accept(
-                            self->request_,
-                            [self](boost::beast::error_code ec) {
-                                self->onAccept(ec);
-                            }
-                        );
-                    }
-                }
-            } else {
-                self->handleHttp();
-            }
+            self->checkRequest();
         }
     );
 }
 
-//void Session::handleWebSocket()
-//{
-//    ws_.async_accept(boost::beast::bind_front_handler(&Session::onAccept, shared_from_this()));
-//}
+void Session::checkRequest()
+{
+    if (boost::beast::websocket::is_upgrade(request_)) {
+        if (request_.find("Authorization") != request_.end() && request_.find("ClientIP") != request_.end()) {
+            clientId_ = CLIENT_ID++; // Increment the clientId after using it
+
+            std::string token = request_["Authorization"];
+            boost::replace_first(token, "Bearer ", ""); // clean token string
+
+            const std::string clientVpnIPv4Str = request_["ClientIP"];
+            // Get the client's IP from the WebSocket connection
+            const std::string clientIPStr = ws_.next_layer().next_layer().socket().remote_endpoint().address().to_string();
+
+            // Create IPv4Address objects
+            const pcpp::IPv4Address clientIP(clientIPStr);
+            const pcpp::IPv4Address clientVpnIPv4(clientVpnIPv4Str);
+
+            const std::string clientVpnIPv6Str = (
+                request_.find("ClientIPv6") != request_.end()
+                ? request_["ClientIPv6"]
+                : FPTN_CLIENT_DEFAULT_ADDRESS_IP6 // default value
+            );
+            const pcpp::IPv6Address clientVpnIPv6(clientVpnIPv6Str);
+            // run
+            const bool status = wsOpenCallback_(
+                clientId_,
+                clientIP,
+                clientVpnIPv4,
+                clientVpnIPv6,
+                shared_from_this(),
+                request_.target(),
+                token
+            );
+            if (status) {
+                ws_.async_accept(
+                    request_,
+                    [this](boost::beast::error_code ec) {
+                        onAccept(ec);
+                    }
+                );
+            } else {
+                // close connection
+                close();
+            }
+        }
+    } else {
+        handleHttp();
+    }
+}
 
 void Session::handleHttp()
 {
@@ -214,51 +243,50 @@ void Session::onAccept(boost::beast::error_code ec)
 
 void Session::doRead()
 {
-    ws_.async_read(
-        incomingBuffer_,
-        boost::beast::bind_front_handler(
-            &Session::onRead,
-            shared_from_this()
-        )
-    );
+    if (isRunning_) {
+        startTimer();
+        ws_.async_read(
+            incomingBuffer_,
+            boost::beast::bind_front_handler(
+                &Session::onRead,
+                shared_from_this()
+            )
+        );
+    }
 }
 
 void Session::onRead(boost::beast::error_code ec, std::size_t)
 {
-    std::cerr << "+0" << std::endl;
-    if (ec) {
-        // Check if the error is a close event
-        std::cerr << "+1" << std::endl;
-        if (ec == boost::beast::websocket::error::closed) {
-            std::cerr << "+2" << std::endl;
-            if (wsCloseCallback_) {
-                wsCloseCallback_(clientId_);
+    cancelTimer();
+    if (isRunning_) {
+        if (ec) {
+            if (ec == boost::beast::websocket::error::closed) {
+                if (wsCloseCallback_) {
+                    close();
+                    wsCloseCallback_(clientId_);
+                }
             }
-            std::cerr << "+3" << std::endl;
+            spdlog::error("Error reading WebSocket message: {}", ec.message());
+            return;
         }
-        spdlog::error("Error reading WebSocket message: {}", ec.message());
-        return;
+        // parse data
+        std::string rawdata = boost::beast::buffers_to_string(incomingBuffer_.data());
+        auto packet = fptn::common::network::IPPacket::parse(std::move(rawdata), clientId_);
+        if (packet != nullptr && wsNewIPCallback_) {
+            wsNewIPCallback_(std::move(packet));
+        }
+        // read again
+        doRead();
     }
 }
 
 void Session::onWrite(boost::beast::error_code ec, std::size_t)
 {
-    std::cerr << "++0" << std::endl;
-    if (ec) {
-        std::cerr << "++1" << std::endl;
-        spdlog::error("Error write: {}", ec.message());
-        return;
-    }
-    doRead();
-}
-
-void Session::onClose(boost::beast::error_code ec)
-{
-    if (ec) {
-        spdlog::error("WebSocket closed with error: {}", ec.message());
-    }
-    std::cerr << "CLOSE" << std::endl;
-    if (wsCloseCallback_) {
-        wsCloseCallback_(clientId_);
+    if (isRunning_) {
+        if (ec) {
+            spdlog::error("Error write: {}", ec.message());
+            return;
+        }
+        doRead();
     }
 }

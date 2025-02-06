@@ -53,7 +53,6 @@ target_link_libraries(
     httplib::httplib
 
     tuntap++
-    hv_static
 
     fptn_protocol
     prometheus-cpp::prometheus-cpp

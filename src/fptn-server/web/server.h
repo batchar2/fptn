@@ -83,6 +83,8 @@ namespace fptn::web
         const std::string urlMetrics_="/api/v1/metrics";
         const std::string urlTestFileBin_="/api/v1/test/file.bin";
 
+        const std::string urlWebSocket_="/fptn";
+
         std::mutex mutex_;
         std::atomic<bool> running_;
         std::uint16_t port_;

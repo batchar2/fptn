@@ -54,13 +54,16 @@ class FPTN(ConanFile):
         "boost/*:without_exception": False,
         "boost/*:without_container": False,
         "boost/*:without_filesystem": False,
+
+        "boost/*:without_coroutine": False,
+        "boost/*:without_context": False,
+        "boost/*:without_timer": False,
         "boost/*:without_json": False,
         "boost/*:without_random": False,
+
         "boost/*:without_python": True,
         "boost/*:without_chrono": True,
-        "boost/*:without_context": True,
         "boost/*:without_contract": True,
-        "boost/*:without_coroutine": True,
         "boost/*:without_date_time": True,
         "boost/*:without_fiber": True,
         "boost/*:without_graph": True,
@@ -77,7 +80,7 @@ class FPTN(ConanFile):
         "boost/*:without_stacktrace": True,
         "boost/*:without_test": True,
         "boost/*:without_thread": True,
-        "boost/*:without_timer": True,
+
         "boost/*:without_url": True,
         "boost/*:without_type_erasure": True,
         "boost/*:without_wave": True,
