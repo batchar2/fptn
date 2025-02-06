@@ -29,7 +29,7 @@ namespace fptn::web {
             WebSocketOpenConnectionCallback wsOpenCallback,
             WebSocketNewIPPacketCallback wsNewIPCallback,
             WebSocketCloseConnectionCallback wsCloseCallback,
-            int timerTimeoutSeconds=30
+            int timerTimeoutSeconds=60
         );
         bool run() noexcept;
         void send(fptn::common::network::IPPacketPtr packet) noexcept;
@@ -48,7 +48,9 @@ namespace fptn::web {
         void onRead(boost::beast::error_code ec, std::size_t bytes_transferred);
         void onWrite(boost::beast::error_code ec, std::size_t bytes_transferred);
     private:
+        std::mutex mutex_;
         std::atomic<bool> isRunning_;
+
         boost::beast::websocket::stream<boost::asio::ssl::stream<boost::beast::tcp_stream>> ws_;
         const ApiHandleMap& apiHandles_;
         const WebSocketOpenConnectionCallback wsOpenCallback_;

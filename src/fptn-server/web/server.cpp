@@ -142,11 +142,14 @@ bool Server::start() noexcept
                 }
             );
         }
-
-
-//        serverThread_ = std::thread(&Server::runServerThread, this);
-        //    senderThread_ = std::thread(&Server::runSenderThread, this);
-        //    return serverThread_.joinable() && senderThread_.joinable();
+        senderThreads_.reserve(threadNumber_);
+        for (std::size_t i = 0; i < threadNumber_; i++) {
+            senderThreads_.emplace_back(
+                [this]() {
+                    runSenderThread();
+                }
+            );
+        }
     } catch (boost::system::system_error& err) {
         spdlog::error("Server::start error: {}", err.what());
         return false;
@@ -159,14 +162,21 @@ bool Server::stop() noexcept
 {
     running_ = false;
 
+    const std::unique_lock<std::mutex> lock(mutex_);
+    for (auto& session : sessions_) {
+        session.second->close();
+    }
+
     ioCtx_.stop();
     for (auto& th: iocThreads_) {
         if (th.joinable()) {
             th.join();
         }
     }
-    if (senderThread_.joinable()) {
-        senderThread_.join();
+    for (auto& th: senderThreads_) {
+        if (th.joinable()) {
+            th.join();
+        }
     }
     return true;
 }
@@ -178,11 +188,17 @@ void Server::runSenderThread() noexcept
         auto packet = toClient_.waitForPacket(timeout);
         if (packet != nullptr) {
             // find client
-            const std::unique_lock<std::mutex> lock(mutex_);
+            SessionSPtr session = nullptr;
+            {
+                const std::unique_lock<std::mutex> lock(mutex_);
 
-            auto it = sessions_.find(packet->clientId());
-            if (it != sessions_.end()) {
-                it->second->send(std::move(packet));
+                auto it = sessions_.find(packet->clientId());
+                if (it != sessions_.end()) {
+                    session = it->second;
+                }
+            }
+            if (session != nullptr) {
+                session->send(std::move(packet));
             }
         }
     }
@@ -343,5 +359,10 @@ void Server::onWsNewIPPacket(fptn::common::network::IPPacketPtr packet) noexcept
 void Server::onWsCloseConnection(fptn::ClientID clientId) noexcept
 {
     const std::unique_lock<std::mutex> lock(mutex_);
-    spdlog::info("DEL SESSION! clientId={}", clientId);
+
+    auto it = sessions_.find(clientId);
+    if (it != sessions_.end()) {
+        spdlog::info("DEL SESSION! clientId={}", clientId);
+        sessions_.erase(it);
+    }
 }

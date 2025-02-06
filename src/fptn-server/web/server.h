@@ -43,19 +43,7 @@ namespace fptn::web
     public:
         void send(fptn::common::network::IPPacketPtr packet) noexcept;
         fptn::common::network::IPPacketPtr waitForPacket(const std::chrono::milliseconds& duration) noexcept;
-    private:
-//        void newVpnConnection(
-//            std::uint32_t clientId,
-//            const pcpp::IPv4Address& clientVpnIPv4,
-//            const pcpp::IPv6Address& clientVpnIPv6,
-//            const pcpp::IPv4Address &clientIP,
-//            const std::string& username,
-//            std::size_t bandwidthBitesSeconds
-//        ) noexcept;
-//        void closeVpnConnection(std::uint32_t clientId) noexcept;
-//        void newIPPacketFromVPN(fptn::common::network::IPPacketPtr packet) noexcept;
     protected:
-//        void runServerThread() noexcept;
         void runSenderThread() noexcept;
     protected:
         // http
@@ -105,8 +93,7 @@ namespace fptn::web
         ListenerSPtr listener_;
 
         std::vector<std::thread> iocThreads_;
-
-        std::thread senderThread_;
+        std::vector<std::thread> senderThreads_;
 
         std::unordered_map<fptn::ClientID, SessionSPtr> sessions_;
     };

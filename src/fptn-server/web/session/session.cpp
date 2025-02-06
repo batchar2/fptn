@@ -66,7 +66,7 @@ void Session::send(fptn::common::network::IPPacketPtr packet) noexcept
     const std::string msg = fptn::common::protobuf::protocol::createPacket(std::move(packet));
     const boost::asio::const_buffer buffer(msg.data(), msg.size());
 
-    ws_.text(ws_.got_binary());
+    ws_.binary(true);
     ws_.async_write(
         buffer,
         boost::beast::bind_front_handler(
@@ -104,6 +104,7 @@ void Session::onTimer(boost::beast::error_code ec)
     if (ec == boost::asio::error::operation_aborted) {
         return;
     }
+    std::cerr << "TIMER" << std::endl;
     close();
     if (wsCloseCallback_) {
         wsCloseCallback_(clientId_);
@@ -176,6 +177,7 @@ void Session::checkRequest()
                 token
             );
             if (status) {
+                isRunning_ = true;
                 ws_.async_accept(
                     request_,
                     [this](boost::beast::error_code ec) {
@@ -234,6 +236,8 @@ void Session::handleHttp()
 
 void Session::onAccept(boost::beast::error_code ec)
 {
+    const std::unique_lock<std::mutex> lock(mutex_);
+
     if (ec) {
         spdlog::error("Error accept: {}", ec.message());
         return;
@@ -257,24 +261,42 @@ void Session::doRead()
 
 void Session::onRead(boost::beast::error_code ec, std::size_t)
 {
+    const std::unique_lock<std::mutex> lock(mutex_);
+
     cancelTimer();
     if (isRunning_) {
         if (ec) {
             if (ec == boost::beast::websocket::error::closed) {
-                if (wsCloseCallback_) {
-                    close();
-                    wsCloseCallback_(clientId_);
-                }
+                std::cerr << "CLOSE ON READ" << std::endl;
+//                close();
+//                if (wsCloseCallback_) {
+//                    wsCloseCallback_(clientId_);
+//                }
             }
             spdlog::error("Error reading WebSocket message: {}", ec.message());
             return;
         }
+
         // parse data
-        std::string rawdata = boost::beast::buffers_to_string(incomingBuffer_.data());
-        auto packet = fptn::common::network::IPPacket::parse(std::move(rawdata), clientId_);
-        if (packet != nullptr && wsNewIPCallback_) {
-            wsNewIPCallback_(std::move(packet));
+        try {
+            const std::string rawdata = boost::beast::buffers_to_string(incomingBuffer_.data());
+            incomingBuffer_.consume(incomingBuffer_.size());
+
+            std::string rawip = fptn::common::protobuf::protocol::getPayload(rawdata);
+            auto packet = fptn::common::network::IPPacket::parse(std::move(rawip), clientId_);
+            if (packet != nullptr && wsNewIPCallback_) {
+                wsNewIPCallback_(std::move(packet));
+            }
+        } catch (const fptn::common::protobuf::protocol::ProcessingError &err) {
+            spdlog::error("Processing error: {}", err.what());
+        } catch (const fptn::common::protobuf::protocol::MessageError &err) {
+            spdlog::error("Message error: {}", err.what());
+        } catch (const fptn::common::protobuf::protocol::UnsoportedProtocolVersion &err) {
+            spdlog::error("Unsupported protocol version: {}", err.what());
+        } catch(...) {
+            spdlog::error("Unexpected error");
         }
+
         // read again
         doRead();
     }
@@ -282,10 +304,12 @@ void Session::onRead(boost::beast::error_code ec, std::size_t)
 
 void Session::onWrite(boost::beast::error_code ec, std::size_t)
 {
+    const std::unique_lock<std::mutex> lock(mutex_);
+
     if (isRunning_) {
         if (ec) {
             spdlog::error("Error write: {}", ec.message());
-            return;
+//            return;
         }
         doRead();
     }
