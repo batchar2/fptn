@@ -29,12 +29,12 @@ namespace fptn::logger
                 return false;
             }
         }
-        const std::filesystem::path logFile = logDir / (appName + ".log");
+        //const std::filesystem::path logFile = logDir / (appName + ".log");
         try {
             auto consoleSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-            auto fileSink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(logFile.string(), 12*1024*1024, 3, true);
+            //auto fileSink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(logFile.string(), 12*1024*1024, 3, true);
 
-            auto logger = std::make_shared<spdlog::logger>(appName, spdlog::sinks_init_list{consoleSink, fileSink});
+            auto logger = std::make_shared<spdlog::logger>(appName, spdlog::sinks_init_list{consoleSink});//, fileSink});
             logger->flush_on(spdlog::level::debug);
 
             spdlog::register_logger(logger);

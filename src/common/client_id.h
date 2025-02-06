@@ -1,9 +1,11 @@
 #pragma once
 
-#include <cstdint> 
+#include <cstdint>
 
 
 namespace fptn
 {
-    using ClientID = std::uint32_t;
+    using ClientID = std::uint64_t;
+
+    #define  MAX_CLIENT_ID (UINT64_MAX)
 }

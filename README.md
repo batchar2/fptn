@@ -128,9 +128,10 @@ cd /etc/fptn/
 Generate the required keys using OpenSSL:
 
 ```bash
-openssl genrsa -out server.key 2048
-openssl req -new -x509 -key server.key -out server.crt -days 365
-openssl rsa -in server.key -pubout -out server.pub
+#openssl genrsa -out server.key 2048
+#openssl req -new -x509 -key server.key -out server.crt -days 365
+#openssl rsa -in server.key -pubout -out server.pub
+
 ```
 
 ##### Step 4: Configure the Server

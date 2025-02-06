@@ -21,9 +21,10 @@ add_executable("${PROJECT_NAME}"
     network/virtual_interface.h network/virtual_interface.cpp
     traffic_shaper/leaky_bucket.h traffic_shaper/leaky_bucket.cpp
     system/iptables.h system/iptables.cpp
-    web/server.h web/server.cpp 
-    web/http/http_server.h web/http/http_server.cpp
-    web/websocket/websocket_server.h web/websocket/websocket_server.cpp
+
+    web/listener/listener.h web/listener/listener.cpp
+    web/session/session.h web/session/session.cpp
+    web/server.h web/server.cpp
 
     filter/manager.h filter/manager.cpp
     filter/packets/base.h
