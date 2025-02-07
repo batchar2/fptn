@@ -1,24 +1,49 @@
 #pragma once
 
+//#define BOOST_ASIO_USE_TS_EXECUTOR_AS_DEFAULT
+#include <boost/asio/awaitable.hpp>
+
 #include <memory>
 
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 #include <openssl/x509.h>
 
+#include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
-#include <boost/beast/ssl.hpp>
-#include <boost/beast/core.hpp>
-#include <boost/asio/io_context.hpp>
+#include <boost/beast.hpp>
 #include <boost/beast/websocket.hpp>
+#include <boost/asio/awaitable.hpp>
+#include <boost/asio/co_spawn.hpp>
+#include <boost/asio/detached.hpp>
+#include <boost/beast/core.hpp>
+
+#include <boost/coroutine/all.hpp>
+
+#include <boost/asio/co_spawn.hpp>
+#include <boost/asio/detached.hpp>
+
 
 #include <common/protobuf/protocol.h>
 #include <common/jwt_token/token_manager.h>
 
 #include "web/api/handle.h"
 
+#include <boost/asio.hpp>
 
-namespace fptn::web {
+#include <boost/asio/awaitable.hpp>
+
+#include <boost/asio/experimental/awaitable_operators.hpp>
+
+#include <boost/asio/experimental/channel.hpp>
+
+
+
+
+
+namespace fptn::web
+{
+
     class Session : public std::enable_shared_from_this<Session>
     {
     public:
@@ -28,27 +53,18 @@ namespace fptn::web {
             const ApiHandleMap& apiHandles,
             WebSocketOpenConnectionCallback wsOpenCallback,
             WebSocketNewIPPacketCallback wsNewIPCallback,
-            WebSocketCloseConnectionCallback wsCloseCallback,
-            int timerTimeoutSeconds=60
+            WebSocketCloseConnectionCallback wsCloseCallback
         );
-        bool run() noexcept;
-        void send(fptn::common::network::IPPacketPtr packet) noexcept;
+        boost::asio::awaitable<void> run();
         void close() noexcept;
+        void send(fptn::common::network::IPPacketPtr packet) noexcept;
     protected:
-        void checkRequest();
-        void doRead();
-        void handleHttp();
-        void startTimer();
-        void cancelTimer();
-        void onTimer(boost::beast::error_code ec);
+        boost::asio::awaitable<bool> handshake();
+        boost::asio::awaitable<bool> handleHttp(const boost::beast::http::request<boost::beast::http::string_body>& request);
+        boost::asio::awaitable<bool> handleWebSocket(const boost::beast::http::request<boost::beast::http::string_body>& request);
+    protected:
+        fptn::ClientID clientId_ = MAX_CLIENT_ID;
 
-        void onRun();
-        void onHandshake(boost::beast::error_code ec);
-        void onAccept(boost::beast::error_code ec);
-        void onRead(boost::beast::error_code ec, std::size_t bytes_transferred);
-        void onWrite(boost::beast::error_code ec, std::size_t bytes_transferred);
-    private:
-        std::mutex mutex_;
         std::atomic<bool> isRunning_;
 
         boost::beast::websocket::stream<boost::asio::ssl::stream<boost::beast::tcp_stream>> ws_;
@@ -56,14 +72,6 @@ namespace fptn::web {
         const WebSocketOpenConnectionCallback wsOpenCallback_;
         const WebSocketNewIPPacketCallback wsNewIPCallback_;
         const WebSocketCloseConnectionCallback wsCloseCallback_;
-
-        boost::asio::steady_timer timer_;
-        const int timerTimeoutSeconds_;
-
-        boost::beast::flat_buffer incomingBuffer_;
-        boost::beast::http::request<boost::beast::http::string_body> request_;
-
-        fptn::ClientID clientId_ = MAX_CLIENT_ID;
     };
 
     using SessionSPtr = std::shared_ptr<Session>;

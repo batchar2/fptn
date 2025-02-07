@@ -2,6 +2,19 @@
 
 #include "listener.h"
 
+#include <boost/asio.hpp>
+#include <boost/asio/ssl.hpp>
+#include <boost/beast.hpp>
+#include <boost/beast/websocket.hpp>
+#include <boost/asio/awaitable.hpp>
+#include <boost/asio/co_spawn.hpp>
+#include <boost/asio/detached.hpp>
+#include <boost/beast/core.hpp>
+
+using boost::asio::co_spawn;
+using boost::asio::detached;
+using boost::asio::use_awaitable;
+namespace this_coro = boost::asio::this_coro;
 
 using namespace fptn::web;
 
@@ -47,6 +60,7 @@ bool Listener::run()
 {
     try {
         acceptor_.open(endpoint_.protocol());
+        acceptor_.set_option(boost::asio::ip::tcp::no_delay(true));
         acceptor_.set_option(boost::asio::socket_base::reuse_address(true));
         acceptor_.bind(endpoint_);
         acceptor_.listen(boost::asio::socket_base::max_listen_connections);
@@ -95,12 +109,40 @@ void Listener::doAccept()
 
 void Listener::doSession(boost::asio::ip::tcp::socket socket)
 {
-    std::make_shared<Session>(
+//    auto& io (server->get_io_service());
+    auto session = std::make_shared<Session>(
         std::move(socket),
         ctx_,
         apiHandles_,
         wsOpenCallback_,
         wsNewIPCallback_,
         wsCloseCallback_
-    )->run();
+    );
+//    boost::asio::co_spawn(
+//        ioc_,   // Executor to run the coroutine on
+//        session->run(),          // Coroutine method to run
+//        boost::asio::detached    // Detached completion handler (if you want to not wait for it)
+//    );
+// Use a completion handler to ensure session is not destroyed prematurely
+//    boost::asio::co_spawn(
+//            ioc_, // Executor to run the coroutine on
+//            [session](boost::asio::yield_context yield) {
+//                try {
+//                    // Run the session's run method within the coroutine
+//                    co_await session->run(yield);
+//                } catch (const std::exception& e) {
+//                    spdlog::error("Exception in session run: {}", e.what());
+//                    // Handle error, possibly close the session
+//                    session->close();
+//                }
+//            },
+//            boost::asio::detached // Detached handler since we don't need to wait on the result
+//    );
+    boost::asio::co_spawn(
+            ioc_,   // Executor to run the coroutine on
+            [session]() -> boost::asio::awaitable<void> {
+                co_await session->run();  // Run the session coroutine
+            },
+            boost::asio::detached  // Detached completion handler (if you want to not wait for it)
+    );
 }

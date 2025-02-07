@@ -4,11 +4,38 @@
 #include <spdlog/spdlog.h>
 #include <boost/algorithm/string/replace.hpp>
 
+#include <boost/asio.hpp>
+#include <boost/asio/ssl.hpp>
+#include <boost/beast.hpp>
+#include <boost/beast/websocket.hpp>
+#include <boost/asio/awaitable.hpp>
+#include <boost/asio/co_spawn.hpp>
+#include <boost/asio/detached.hpp>
+#include <boost/beast/core.hpp>
+
+
 
 using namespace fptn::web;
 
 
+//using boost::asio::io_context;
+//using boost::asio::ip::tcp;
+//using boost::asio::signal_set;
+//using boost::asio::write;
+//using boost::asio::detached;
+
+
+//using boost::asio::detached;
+//using boost::asio::co_spawn;
+//using boost::asio::use_awaitable;
+
 static std::atomic<fptn::ClientID> CLIENT_ID = 0;
+
+//using boost::asio::co_await;
+using boost::asio::co_spawn;
+using boost::asio::detached;
+using boost::asio::use_awaitable;
+namespace this_coro = boost::asio::this_coro;
 
 
 Session::Session(boost::asio::ip::tcp::socket&& socket,
@@ -16,8 +43,7 @@ Session::Session(boost::asio::ip::tcp::socket&& socket,
     const ApiHandleMap& apiHandles,
     WebSocketOpenConnectionCallback wsOpenCallback,
     WebSocketNewIPPacketCallback wsNewIPCallback,
-    WebSocketCloseConnectionCallback wsCloseCallback,
-    int timerTimeoutSeconds
+    WebSocketCloseConnectionCallback wsCloseCallback
 )
     :
         isRunning_(false),
@@ -25,14 +51,16 @@ Session::Session(boost::asio::ip::tcp::socket&& socket,
         apiHandles_(apiHandles),
         wsOpenCallback_(wsOpenCallback),
         wsNewIPCallback_(wsNewIPCallback),
-        wsCloseCallback_(wsCloseCallback),
-        timer_(ws_.get_executor()),
-        timerTimeoutSeconds_(timerTimeoutSeconds)
+        wsCloseCallback_(wsCloseCallback)
 {
+    boost::beast::get_lowest_layer(ws_).socket().set_option(
+        boost::asio::ip::tcp::no_delay(true)
+    ); // отключение алгоритма Нейгла
+
     ws_.text(false);
     ws_.binary(true); // Only binary
-    ws_.auto_fragment(false); // Disable autofragment
-    ws_.read_message_max(64 * 1024); // MaxSize (64 KB)
+    ws_.auto_fragment(false); // !!! FALSE Disable autofragment
+    ws_.read_message_max(512 * 1024); // MaxSize (512 KB)
     ws_.set_option(
         boost::beast::websocket::stream_base::timeout::suggested(
             boost::beast::role_type::server
@@ -41,163 +69,97 @@ Session::Session(boost::asio::ip::tcp::socket&& socket,
     ws_.set_option(
         boost::beast::websocket::stream_base::timeout{
             std::chrono::seconds(10), // Handshake timeout
-            std::chrono::seconds(30), // Idle timeout
+            std::chrono::minutes(30), // Idle timeout
             true                      // Enable ping timeout
         }
     );
     boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::minutes(30));
 }
 
-bool Session::run() noexcept
+boost::asio::awaitable<void> Session::run()
 {
-    boost::asio::dispatch(
-        ws_.get_executor(),
-        boost::beast::bind_front_handler(
-            &Session::onRun,
-            shared_from_this()
-        )
-    );
-    return true;
-}
+    boost::system::error_code ec;
+    boost::beast::flat_buffer buffer;
+    boost::beast::http::request<boost::beast::http::string_body> request;
 
-void Session::send(fptn::common::network::IPPacketPtr packet) noexcept
-{
-    // FIXME REDUNDANT COPY
-    const std::string msg = fptn::common::protobuf::protocol::createPacket(std::move(packet));
-    const boost::asio::const_buffer buffer(msg.data(), msg.size());
-
-    ws_.binary(true);
-    ws_.async_write(
-        buffer,
-        boost::beast::bind_front_handler(
-            &Session::onWrite,
-            shared_from_this()
-        )
-    );
-}
-
-void Session::close() noexcept
-{
     try {
-        isRunning_ = false;
-        boost::beast::get_lowest_layer(ws_).close();
-    } catch (boost::system::system_error& err) {
-        spdlog::error("Session::close error: {}", err.what());
-    }
-}
-
-void Session::startTimer()
-{
-    boost::beast::error_code ec;
-    timer_.expires_from_now(std::chrono::seconds(timerTimeoutSeconds_), ec);
-    timer_.async_wait(boost::beast::bind_front_handler(&Session::onTimer, shared_from_this()));
-}
-
-void Session::cancelTimer()
-{
-    boost::beast::error_code ec;
-    timer_.cancel(ec);
-}
-
-void Session::onTimer(boost::beast::error_code ec)
-{
-    if (ec == boost::asio::error::operation_aborted) {
-        return;
-    }
-    std::cerr << "TIMER" << std::endl;
-    close();
-    if (wsCloseCallback_) {
-        wsCloseCallback_(clientId_);
-    }
-}
-
-void Session::onRun()
-{
-    // SSL Handshake
-    ws_.next_layer().async_handshake(
-        boost::asio::ssl::stream_base::server,
-        boost::beast::bind_front_handler(
-            &Session::onHandshake,
-            shared_from_this()
-        )
-    );
-}
-
-void Session::onHandshake(boost::beast::error_code ec)
-{
-    if (ec) {
-        return;
-    }
-    auto self = shared_from_this();
-    boost::beast::http::async_read(
-        ws_.next_layer(),
-        incomingBuffer_,
-        request_,
-        [self](boost::beast::error_code ec, std::size_t) mutable {
-            if (ec) {
-                spdlog::error("Error reading request: {}", ec.message());
-                return;
+        co_await ws_.next_layer().async_handshake(
+            boost::asio::ssl::stream_base::server,
+            boost::asio::redirect_error(boost::asio::use_awaitable, ec)
+        );
+        isRunning_ = co_await handshake();
+        while(isRunning_) {
+            try {
+                co_await ws_.async_read(buffer, boost::asio::redirect_error(boost::asio::use_awaitable, ec));
+                if (ec) {
+                    break;
+                }
+                // parse
+                std::string rawdata = boost::beast::buffers_to_string(buffer.data());
+                std::string rawip = fptn::common::protobuf::protocol::getPayload(std::move(rawdata));
+                auto packet = fptn::common::network::IPPacket::parse(std::move(rawip), clientId_);
+                if (packet != nullptr && wsNewIPCallback_) {
+                    wsNewIPCallback_(std::move(packet));
+                }
+                buffer.consume(buffer.size()); // flush
+            } catch (const fptn::common::protobuf::protocol::ProcessingError &err) {
+                spdlog::error("Session::run Processing error: {}", err.what());
+            } catch (const fptn::common::protobuf::protocol::MessageError &err) {
+                spdlog::error("Session::run Message error: {}", err.what());
+            } catch (const fptn::common::protobuf::protocol::UnsoportedProtocolVersion &err) {
+                spdlog::error("Session::run Unsupported protocol version: {}", err.what());
+            } catch (boost::system::system_error& err) {
+                spdlog::error("Session::run error: {}", err.what());
+            } catch(...) {
+                spdlog::error("Session::run Unexpected error");
+                break;
             }
-            self->checkRequest();
         }
-    );
+    } catch (const std::exception& e) {
+        spdlog::error("Exception in run: {}", e.what());
+    }
+    close();
 }
 
-void Session::checkRequest()
+
+boost::asio::awaitable<bool> Session::handshake()
 {
-    if (boost::beast::websocket::is_upgrade(request_)) {
-        if (request_.find("Authorization") != request_.end() && request_.find("ClientIP") != request_.end()) {
-            clientId_ = CLIENT_ID++; // Increment the clientId after using it
+    bool status = false;
+    boost::system::error_code ec;
+    boost::beast::flat_buffer buffer;
+    boost::beast::http::request<boost::beast::http::string_body> request;
 
-            std::string token = request_["Authorization"];
-            boost::replace_first(token, "Bearer ", ""); // clean token string
+    co_await boost::beast::http::async_read(
+        ws_.next_layer(),
+        buffer,
+        request,
+        boost::asio::redirect_error(boost::asio::use_awaitable, ec)
+    );
 
-            const std::string clientVpnIPv4Str = request_["ClientIP"];
-            // Get the client's IP from the WebSocket connection
-            const std::string clientIPStr = ws_.next_layer().next_layer().socket().remote_endpoint().address().to_string();
+    // FIXME check ec
 
-            // Create IPv4Address objects
-            const pcpp::IPv4Address clientIP(clientIPStr);
-            const pcpp::IPv4Address clientVpnIPv4(clientVpnIPv4Str);
-
-            const std::string clientVpnIPv6Str = (
-                request_.find("ClientIPv6") != request_.end()
-                ? request_["ClientIPv6"]
-                : FPTN_CLIENT_DEFAULT_ADDRESS_IP6 // default value
+    if (boost::beast::websocket::is_upgrade(request)) {
+        status = co_await handleWebSocket(std::move(request));
+        if (status) {
+            co_await ws_.async_accept(
+                request,
+                boost::asio::redirect_error(boost::asio::use_awaitable, ec)
             );
-            const pcpp::IPv6Address clientVpnIPv6(clientVpnIPv6Str);
-            // run
-            const bool status = wsOpenCallback_(
-                clientId_,
-                clientIP,
-                clientVpnIPv4,
-                clientVpnIPv6,
-                shared_from_this(),
-                request_.target(),
-                token
-            );
-            if (status) {
-                isRunning_ = true;
-                ws_.async_accept(
-                    request_,
-                    [this](boost::beast::error_code ec) {
-                        onAccept(ec);
-                    }
-                );
-            } else {
-                // close connection
-                close();
-            }
         }
     } else {
-        handleHttp();
+        status = co_await handleHttp(std::move(request));
     }
+    co_return status;
 }
 
-void Session::handleHttp()
+boost::asio::awaitable<bool> Session::handleHttp(const boost::beast::http::request<boost::beast::http::string_body>& request)
 {
-    const std::string url = request_.target();
-    const std::string method = request_.method_string();
+    const std::string url = request.target();
+    const std::string method = request.method_string();
+
+    if (method.empty() && url.empty()) {
+        co_return false;
+    }
 
     spdlog::info("HTTP {} {}", method, url);
 
@@ -213,7 +175,7 @@ void Session::handleHttp()
 
     const ApiHandle handler = getApiHandle(apiHandles_, url, method);
     if (handler) {
-        int status = handler(request_, resp);
+        int status = handler(request, resp);
         resp.result(status);
     } else {
         // Return 404 if no handler found
@@ -224,93 +186,76 @@ void Session::handleHttp()
 
     auto self = shared_from_this();
     auto res_ptr = std::make_shared<boost::beast::http::response<boost::beast::http::string_body>>(std::move(resp));
-    boost::beast::http::async_write(
-        ws_.next_layer(), *res_ptr,
-        [self, res_ptr](boost::beast::error_code ec, std::size_t) {
-            if (ec) {
-                spdlog::error("Error writing HTTP response: {}", ec.message());
-            }
-        }
-    );
-}
-
-void Session::onAccept(boost::beast::error_code ec)
-{
-    const std::unique_lock<std::mutex> lock(mutex_);
-
-    if (ec) {
-        spdlog::error("Error accept: {}", ec.message());
-        return;
+    try {
+        co_await boost::beast::http::async_write(ws_.next_layer(), *res_ptr, boost::asio::use_awaitable);
+    } catch (const boost::beast::system_error& e) {
+       //  spdlog::error("Error writing HTTP response: {}", e.what());
     }
-    doRead();
+    co_return false;
 }
 
-void Session::doRead()
+boost::asio::awaitable<bool> Session::handleWebSocket(const boost::beast::http::request<boost::beast::http::string_body>& request)
 {
-    if (isRunning_) {
-        startTimer();
-        ws_.async_read(
-            incomingBuffer_,
-            boost::beast::bind_front_handler(
-                &Session::onRead,
-                shared_from_this()
-            )
+    if (request.find("Authorization") != request.end() && request.find("ClientIP") != request.end()) {
+        clientId_ = CLIENT_ID++; // Increment the clientId after using it
+
+        std::string token = request["Authorization"];
+        boost::replace_first(token, "Bearer ", ""); // clean token string
+
+        const std::string clientVpnIPv4Str = request["ClientIP"];
+        const std::string clientIPStr = ws_.next_layer().next_layer().socket().remote_endpoint().address().to_string();
+
+        // Create IPv4Address objects
+        const pcpp::IPv4Address clientIP(clientIPStr);
+        const pcpp::IPv4Address clientVpnIPv4(clientVpnIPv4Str);
+
+        const std::string clientVpnIPv6Str = (
+            request.find("ClientIPv6") != request.end()
+            ? request["ClientIPv6"]
+            : FPTN_CLIENT_DEFAULT_ADDRESS_IP6 // default value
         );
+        const pcpp::IPv6Address clientVpnIPv6(clientVpnIPv6Str);
+        // run
+        const bool status = wsOpenCallback_(
+            clientId_,
+            clientIP,
+            clientVpnIPv4,
+            clientVpnIPv6,
+            shared_from_this(),
+            request.target(),
+            token
+        );
+        co_return status;
+    }
+    co_return false;
+}
+
+void Session::close() noexcept
+{
+    try {
+        isRunning_ = false;
+        wsCloseCallback_(clientId_);
+        boost::beast::get_lowest_layer(ws_).close();
+    } catch (boost::system::system_error &err) {
+        spdlog::error("Session::close error: {}", err.what());
     }
 }
 
-void Session::onRead(boost::beast::error_code ec, std::size_t)
+void Session::send(fptn::common::network::IPPacketPtr packet) noexcept
 {
-    const std::unique_lock<std::mutex> lock(mutex_);
+    // FIXME REDUNDANT COPY
+    const std::string msg = fptn::common::protobuf::protocol::createPacket(std::move(packet));
+    const boost::asio::const_buffer buffer(msg.data(), msg.size());
 
-    cancelTimer();
-    if (isRunning_) {
-        if (ec) {
-            if (ec == boost::beast::websocket::error::closed) {
-                std::cerr << "CLOSE ON READ" << std::endl;
-//                close();
-//                if (wsCloseCallback_) {
-//                    wsCloseCallback_(clientId_);
-//                }
-            }
-            spdlog::error("Error reading WebSocket message: {}", ec.message());
-            return;
-        }
-
-        // parse data
-        try {
-            const std::string rawdata = boost::beast::buffers_to_string(incomingBuffer_.data());
-            incomingBuffer_.consume(incomingBuffer_.size());
-
-            std::string rawip = fptn::common::protobuf::protocol::getPayload(rawdata);
-            auto packet = fptn::common::network::IPPacket::parse(std::move(rawip), clientId_);
-            if (packet != nullptr && wsNewIPCallback_) {
-                wsNewIPCallback_(std::move(packet));
-            }
-        } catch (const fptn::common::protobuf::protocol::ProcessingError &err) {
-            spdlog::error("Processing error: {}", err.what());
-        } catch (const fptn::common::protobuf::protocol::MessageError &err) {
-            spdlog::error("Message error: {}", err.what());
-        } catch (const fptn::common::protobuf::protocol::UnsoportedProtocolVersion &err) {
-            spdlog::error("Unsupported protocol version: {}", err.what());
-        } catch(...) {
-            spdlog::error("Unexpected error");
-        }
-
-        // read again
-        doRead();
-    }
-}
-
-void Session::onWrite(boost::beast::error_code ec, std::size_t)
-{
-    const std::unique_lock<std::mutex> lock(mutex_);
-
-    if (isRunning_) {
-        if (ec) {
-            spdlog::error("Error write: {}", ec.message());
-//            return;
-        }
-        doRead();
-    }
+    boost::asio::co_spawn(
+        ws_.get_executor(),
+        [this, buffer = std::move(buffer)]() -> boost::asio::awaitable<void> {
+            boost::system::error_code ec;
+            co_await ws_.async_write(
+                buffer,
+                boost::asio::redirect_error(boost::asio::use_awaitable, ec)
+            );
+        },
+        boost::asio::detached
+    );
 }
