@@ -120,9 +120,16 @@ Server::Server(
     listener_->httpRegister(urlHome_, "GET", std::bind(&Server::onApiHandleHome, this, _1, _2));
     listener_->httpRegister(urlDns_, "GET", std::bind(&Server::onApiHandleDns, this, _1, _2));
     listener_->httpRegister(urlLogin_, "POST", std::bind(&Server::onApiHandleLogin, this, _1, _2));
-    listener_->httpRegister(urlMetrics_, "GET", std::bind(&Server::onApiHandleMetrics, this, _1, _2));
     listener_->httpRegister(urlTestFileBin_, "GET", std::bind(&Server::onApiHandleonTestFile, this, _1, _2));
-
+    if (!prometheusAccessKey.empty()) {
+        // Construct the URL for accessing Prometheus statistics by appending the access key
+        const std::string metrics = urlMetrics_ + '/' + prometheusAccessKey;
+        listener_->httpRegister(
+             metrics,
+             "GET",
+             std::bind(&Server::onApiHandleMetrics, this, _1, _2)
+        );
+    }
     toClient_ = std::make_unique<fptn::common::data::ChannelAsync>(ioc_);
     fromClient_ = std::make_unique<fptn::common::data::Channel>();
 }
@@ -376,5 +383,6 @@ void Server::onWsCloseConnection(fptn::ClientID clientId) noexcept
     if (it != sessions_.end()) {
         spdlog::info("DEL SESSION! clientId={}", clientId);
         sessions_.erase(it);
+        natTable_->delClientSession(clientId);
     }
 }

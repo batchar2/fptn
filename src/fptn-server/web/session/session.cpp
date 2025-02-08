@@ -232,7 +232,7 @@ boost::asio::awaitable<bool> Session::handleWebSocket(const boost::beast::http::
 
 void Session::close() noexcept
 {
-    if (isRunning_ == false) {
+    if (isRunning_ == true) {
         isRunning_ = false;
         try {
             boost::system::error_code ec;
