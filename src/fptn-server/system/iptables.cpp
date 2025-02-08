@@ -91,7 +91,6 @@ bool IPTables::clean() noexcept
     const std::unique_lock<std::mutex> lock(mutex_);
 
     if (!init_) {
-        spdlog::info("No need to clean rules!");
         return true;
     }
 #ifdef __linux__ 

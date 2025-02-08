@@ -36,7 +36,7 @@ bool Manager::stop() noexcept
     if (collectStatistics_.joinable()) {
         collectStatistics_.join();
     }
-    return (networkInterface_->stop() && webServer_->stop());
+    return (webServer_->stop() && networkInterface_->stop());
 }
 
 

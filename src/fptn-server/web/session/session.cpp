@@ -38,27 +38,36 @@ Session::Session(boost::asio::ip::tcp::socket&& socket,
         wsNewIPCallback_(wsNewIPCallback),
         wsCloseCallback_(wsCloseCallback)
 {
-    boost::beast::get_lowest_layer(ws_).socket().set_option(
-        boost::asio::ip::tcp::no_delay(true)
-    ); // turn off the Nagle algorithm.
+    try {
+        boost::beast::get_lowest_layer(ws_).socket().set_option(
+                boost::asio::ip::tcp::no_delay(true)
+        ); // turn off the Nagle algorithm.
 
-    ws_.text(false);
-    ws_.binary(true); // Only binary
-    ws_.auto_fragment(false); // !!! FALSE Disable autofragment
-    ws_.read_message_max(16 * 1024); // MaxSize (16 KB)
-    ws_.set_option(
-        boost::beast::websocket::stream_base::timeout::suggested(
-            boost::beast::role_type::server
-        )
-    );
-    ws_.set_option(
-        boost::beast::websocket::stream_base::timeout{
-            std::chrono::seconds(10), // Handshake timeout
-            std::chrono::minutes(30), // Idle timeout
-            true                      // Enable ping timeout
-        }
-    );
-    boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::minutes(30));
+        ws_.text(false);
+        ws_.binary(true); // Only binary
+        ws_.auto_fragment(false); // !!! FALSE Disable autofragment
+        ws_.read_message_max(64 * 1024); // MaxSize (64 KB)
+        ws_.set_option(
+            boost::beast::websocket::stream_base::timeout::suggested(
+                boost::beast::role_type::server
+            )
+        );
+        ws_.set_option(
+            boost::beast::websocket::stream_base::timeout{
+                std::chrono::seconds(10), // Handshake timeout
+                std::chrono::minutes(30), // Idle timeout
+                true                      // Enable ping timeout
+            }
+        );
+        boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::minutes(30));
+    }  catch (const std::exception& e) {
+        spdlog::error("Session prepare: {}", e.what());
+    }
+}
+
+Session::~Session()
+{
+    close();
 }
 
 boost::asio::awaitable<void> Session::run()
@@ -66,7 +75,6 @@ boost::asio::awaitable<void> Session::run()
     boost::system::error_code ec;
     boost::beast::flat_buffer buffer;
     boost::beast::http::request<boost::beast::http::string_body> request;
-
     try {
         co_await ws_.next_layer().async_handshake(
             boost::asio::ssl::stream_base::server,
@@ -75,9 +83,9 @@ boost::asio::awaitable<void> Session::run()
         isRunning_ = co_await handshake();
         while(isRunning_) {
             try {
+                // read
                 co_await ws_.async_read(buffer, boost::asio::redirect_error(boost::asio::use_awaitable, ec));
                 if (ec) {
-                    std::cerr << "ERROR READ" << ec.what() << std::endl;
                     break;
                 }
                 // parse
@@ -89,8 +97,6 @@ boost::asio::awaitable<void> Session::run()
                         wsNewIPCallback_(std::move(packet));
                     }
                     buffer.consume(buffer.size()); // flush
-                } else {
-                    std::cerr << "empty" << std::endl;
                 }
             } catch (const fptn::common::protobuf::protocol::ProcessingError &err) {
                 spdlog::error("Session::run Processing error: {}", err.what());
@@ -115,29 +121,34 @@ boost::asio::awaitable<void> Session::run()
 boost::asio::awaitable<bool> Session::handshake()
 {
     bool status = false;
-    boost::system::error_code ec;
-    boost::beast::flat_buffer buffer;
-    boost::beast::http::request<boost::beast::http::string_body> request;
 
-    co_await boost::beast::http::async_read(
-        ws_.next_layer(),
-        buffer,
-        request,
-        boost::asio::redirect_error(boost::asio::use_awaitable, ec)
-    );
+    try {
+        boost::system::error_code ec;
+        boost::beast::flat_buffer buffer;
+        boost::beast::http::request<boost::beast::http::string_body> request;
 
-    // FIXME check ec
+        co_await boost::beast::http::async_read(
+            ws_.next_layer(),
+            buffer,
+            request,
+            boost::asio::redirect_error(boost::asio::use_awaitable, ec)
+        );
 
-    if (boost::beast::websocket::is_upgrade(request)) {
-        status = co_await handleWebSocket(std::move(request));
-        if (status) {
-            co_await ws_.async_accept(
-                request,
-                boost::asio::redirect_error(boost::asio::use_awaitable, ec)
-            );
+        // FIXME check ec
+
+        if (boost::beast::websocket::is_upgrade(request)) {
+            status = co_await handleWebSocket(std::move(request));
+            if (status) {
+                co_await ws_.async_accept(
+                    request,
+                    boost::asio::redirect_error(boost::asio::use_awaitable, ec)
+                );
+            }
+        } else {
+            status = co_await handleHttp(std::move(request));
         }
-    } else {
-        status = co_await handleHttp(std::move(request));
+    } catch (boost::system::system_error& err) {
+        spdlog::error("Session::handshake error: {}", err.what());
     }
     co_return status;
 }
@@ -221,24 +232,30 @@ boost::asio::awaitable<bool> Session::handleWebSocket(const boost::beast::http::
 
 void Session::close() noexcept
 {
-    isRunning_ = false;
-    try {
-        boost::system::error_code ec;
-        if (ws_.is_open()) {
-            ws_.close(boost::beast::websocket::close_code::normal, ec);
-        }
-        auto& ssl = ws_.next_layer();
-        if (!SSL_shutdown(ssl.native_handle())) {
-            spdlog::error("SSL shutdown error");
-        }
+    if (isRunning_ == false) {
+        isRunning_ = false;
+        try {
+            boost::system::error_code ec;
+            if (ws_.is_open()) {
+                ws_.close(boost::beast::websocket::close_code::normal, ec);
+            }
+            auto &ssl = ws_.next_layer();
+            if (!SSL_shutdown(ssl.native_handle())) {
+                // spdlog::error("SSL shutdown error");
+            }
 
-        auto& tcp = ssl.next_layer();
-        tcp.socket().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
-        tcp.socket().close(ec);
+            auto &tcp = ssl.next_layer();
+            tcp.socket().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
+            tcp.socket().close(ec);
 
-        ws_.next_layer().lowest_layer().close(ec);
-    } catch (boost::system::system_error &err) {
-        spdlog::error("Session::close error: {}", err.what());
+            ws_.next_layer().lowest_layer().close(ec);
+
+            if (wsCloseCallback_) {
+                wsCloseCallback_(clientId_);
+            }
+        } catch (boost::system::system_error &err) {
+            spdlog::error("Session::close error: {}", err.what());
+        }
     }
 }
 

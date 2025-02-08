@@ -47,6 +47,7 @@ namespace fptn::web
             WebSocketNewIPPacketCallback wsNewIPCallback,
             WebSocketCloseConnectionCallback wsCloseCallback
         );
+        virtual ~Session();
         boost::asio::awaitable<void> run();
         void close() noexcept;
         boost::asio::awaitable<void> send(fptn::common::network::IPPacketPtr packet);
@@ -54,7 +55,7 @@ namespace fptn::web
         boost::asio::awaitable<bool> handshake();
         boost::asio::awaitable<bool> handleHttp(const boost::beast::http::request<boost::beast::http::string_body>& request);
         boost::asio::awaitable<bool> handleWebSocket(const boost::beast::http::request<boost::beast::http::string_body>& request);
-    protected:
+    private:
         fptn::ClientID clientId_ = MAX_CLIENT_ID;
 
         std::atomic<bool> isRunning_;

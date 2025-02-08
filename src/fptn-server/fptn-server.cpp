@@ -2,10 +2,7 @@
 
 #include <boost/asio.hpp>
 
-#include <common/data/channel.h>
 #include <common/logger/logger.h>
-#include <common/network/ip_packet.h>
-#include <common/network/net_interface.h>
 #include <common/jwt_token/token_manager.h>
 
 #include "nat/table.h"
@@ -21,15 +18,11 @@
 #include "filter/packets/antiscan/antiscan.h"
 #include "filter/packets/bittorrent/bittorrent.h"
 
-//
-//#if defined(SIGQUIT)
-//signals_.add(SIGQUIT);
-//#endif // defined(SIGQUIT)
 
 inline void waitForSignal() 
 {
     boost::asio::io_context io_context;
-    boost::asio::signal_set signals(io_context, SIGINT, SIGTERM);
+    boost::asio::signal_set signals(io_context, SIGINT, SIGTERM /*, SIGQUIT*/);
     signals.async_wait(
         [&](auto, auto) {
             spdlog::info("Signal received");
@@ -42,10 +35,10 @@ inline void waitForSignal()
 int main(int argc, char* argv[]) 
 {
 #if defined(__linux__) || defined(__APPLE__)
-//    if (geteuid() != 0) {
-//        std::cerr << "You must be root to run this program." << std::endl;
-//        return EXIT_FAILURE;
-//    }
+    if (geteuid() != 0) {
+        std::cerr << "You must be root to run this program." << std::endl;
+        return EXIT_FAILURE;
+    }
 #endif
     /* Check options */
     auto options = std::make_shared<fptn::cmd::CmdOptions>(argc, argv);
@@ -117,7 +110,6 @@ int main(int argc, char* argv[])
         options->getTunInterfaceIPv4(),
         options->getTunInterfaceIPv6()
     );
-//     webServer->start(); // tmp
 
     /* init packet filter */
     auto filterManager = std::make_shared<fptn::filter::FilterManager>();
@@ -163,6 +155,7 @@ int main(int argc, char* argv[])
     manager.start();
     waitForSignal();
     manager.stop();
+
     spdlog::shutdown();
 
     return EXIT_SUCCESS;

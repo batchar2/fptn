@@ -198,10 +198,15 @@ bool Server::stop() noexcept
 {
     running_ = false;
 
-    const std::unique_lock<std::mutex> lock(mutex_);
     for (auto& session : sessions_) {
         session.second->close();
     }
+
+    {
+        const std::unique_lock<std::mutex> lock(mutex_);
+        sessions_.clear();
+    }
+
     ioc_.stop();
     for (auto& th: iocThreads_) {
         if (th.joinable()) {

@@ -13,8 +13,6 @@
 #include <boost/circular_buffer/space_optimized.hpp>
 
 #include <boost/asio.hpp>
-//#include <boost/asio/future.hpp>
-//#include <boost/asio/use_future.hpp>
 #include <boost/asio/co_spawn.hpp>
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/use_future.hpp>
@@ -94,29 +92,31 @@ namespace fptn::common::data
 
         boost::asio::awaitable<void> asyncWaitUntil(const std::chrono::steady_clock::duration &timeout)
         {
-            auto executor = co_await boost::asio::this_coro::executor;
-            boost::asio::steady_timer timer(executor, timeout);
+            boost::asio::steady_timer timer(ioc_, timeout);
 
             co_await timer.async_wait(boost::asio::use_awaitable);
-//            // Get the current coroutine's executor.
-//            auto executor = co_await boost::asio::this_coro::executor;
-//            auto buffer = &buffer_;
-//            // Use async_initiate to create an awaitable asynchronous operation.
-//            co_await boost::asio::async_initiate<decltype(boost::asio::use_awaitable),
-//                    void(boost::system::error_code)>(
-//                    // The initiating lambda captures references to cv, lock and the duration.
-//                    [&cv, &lock, &duration, executor, buffer](auto &&handler) mutable {
-//                        // Post a lambda to the executor (or to a thread pool if you have one)
-//                        boost::asio::post(executor, [&, handler = std::move(handler)]() mutable {
-//                            // Perform the blocking wait in the background thread.
-//                            cv.wait_for(lock, duration, [] { return !buffer_->empty(); });
-//                            // Invoke the completion handler with a default error_code (i.e. success)
-//                            handler(boost::system::error_code{});
-//                        });
-//                    },
-//                    boost::asio::use_awaitable);
-//
-//            co_return;
+            /*
+            // Get the current coroutine's executor.
+            auto executor = co_await boost::asio::this_coro::executor;
+            auto buffer = &buffer_;
+            // Use async_initiate to create an awaitable asynchronous operation.
+            co_await boost::asio::async_initiate<decltype(boost::asio::use_awaitable),
+                void(boost::system::error_code)>(
+                // The initiating lambda captures references to cv, lock and the duration.
+                [&cv, &lock, &duration, executor, buffer](auto &&handler) mutable {
+                    // Post a lambda to the executor (or to a thread pool if you have one)
+                    boost::asio::post(executor, [&, handler = std::move(handler)]() mutable {
+                        // Perform the blocking wait in the background thread.
+                        cv.wait_for(lock, duration, [] { return !buffer_->empty(); });
+                        // Invoke the completion handler with a default error_code (i.e. success)
+                        handler(boost::system::error_code{});
+                        }
+                    );
+                },
+                boost::asio::use_awaitable
+            );
+            */
+            co_return;
         }
     protected:
         boost::asio::io_context& ioc_;

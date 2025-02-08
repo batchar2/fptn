@@ -66,37 +66,42 @@ boost::asio::awaitable<void> Listener::run()
         acceptor_.bind(endpoint_);
         acceptor_.listen(boost::asio::socket_base::max_listen_connections);
     } catch (boost::system::system_error& err) {
-        spdlog::error("Listener::run error: {}", err.what());
+        spdlog::error("Listener::prepare error: {}", err.what());
         co_return;
     }
     isRunning_ = true;
 
     boost::system::error_code ec;
     while (isRunning_) {
-        boost::asio::ip::tcp::socket socket(ioc_);
-        co_await acceptor_.async_accept(
-            socket,
-            boost::asio::redirect_error(boost::asio::use_awaitable, ec)
-        );
-        if(!ec) {
-            auto session = std::make_shared<Session>(
-                std::move(socket),
-                ctx_,
-                apiHandles_,
-                wsOpenCallback_,
-                wsNewIPCallback_,
-                wsCloseCallback_
+        try {
+            boost::asio::ip::tcp::socket socket(ioc_);
+            co_await acceptor_.async_accept(
+                socket,
+                boost::asio::redirect_error(boost::asio::use_awaitable, ec)
             );
-            // FIXME
-            boost::asio::co_spawn(
-                ioc_,
-                [session]() -> boost::asio::awaitable<void> {
-                    co_await session->run();
-                },
-                boost::asio::detached
-            );
-        } else {
-            spdlog::error("Error onAccept: {}", ec.message());
+            if (!ec) {
+                auto session = std::make_shared<Session>(
+                    std::move(socket),
+                    ctx_,
+                    apiHandles_,
+                    wsOpenCallback_,
+                    wsNewIPCallback_,
+                    wsCloseCallback_
+                );
+                // run coroutine
+                boost::asio::co_spawn(
+                    ioc_,
+                    [session]() -> boost::asio::awaitable<void> {
+                        co_await session->run();
+                    },
+                    boost::asio::detached
+                );
+            } else {
+                spdlog::error("Error onAccept: {}", ec.message());
+            }
+        } catch (boost::system::system_error& err) {
+            spdlog::error("Listener::run error: {}", err.what());
+            co_return;
         }
     }
     co_return;
