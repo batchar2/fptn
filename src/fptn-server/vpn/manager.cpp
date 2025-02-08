@@ -19,12 +19,10 @@ Manager::Manager(
 {
 }
 
-
 Manager::~Manager()
 {
     stop();
 }
-
 
 bool Manager::stop() noexcept
 {
@@ -61,7 +59,7 @@ bool Manager::start() noexcept
 
 void Manager::runToClient() noexcept
 {
-    const std::chrono::milliseconds timeout{300};
+    const std::chrono::milliseconds timeout{30};
     while (running_) {
         auto packet = networkInterface_->waitForPacket(timeout);
         if (!packet) {
@@ -96,7 +94,7 @@ void Manager::runToClient() noexcept
 
 void Manager::runFromClient() noexcept
 {
-    constexpr std::chrono::milliseconds timeout{300};
+    constexpr std::chrono::milliseconds timeout{30};
     while (running_) {
         auto packet = webServer_->waitForPacket(timeout);
         if (!packet) {

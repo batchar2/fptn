@@ -14,7 +14,7 @@ else()
 endif()
 
 #find_package(Boost COMPONENTS coroutines timer boost asio thread REQUIRED)
-find_package(Boost 1.83 REQUIRED COMPONENTS asio coroutines)
+find_package(Boost 1.83 REQUIRED COMPONENTS asio coroutines future)
 find_package(OpenSSL REQUIRED)
 find_package(argparse REQUIRED)
 find_package(spdlog REQUIRED)

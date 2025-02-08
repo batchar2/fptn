@@ -28,21 +28,14 @@ namespace fptn::network
         bool check() noexcept;
         bool start() noexcept;
         bool stop() noexcept;
-    public:
-        inline void send(fptn::common::network::IPPacketPtr packet) noexcept
-        {
-            toNetwork_.push(std::move(packet));
-        }
-        inline fptn::common::network::IPPacketPtr waitForPacket(const std::chrono::milliseconds& duration)  noexcept
-        {
-            return fromNetwork_.waitForPacket(duration);
-        }
-    private:
+        void send(fptn::common::network::IPPacketPtr packet) noexcept;
+        fptn::common::network::IPPacketPtr waitForPacket(const std::chrono::milliseconds& duration) noexcept;
+    protected:
         void run() noexcept;
         void newIPPacketFromNetwork(fptn::common::network::IPPacketPtr packet) noexcept;
     private:
+        std::atomic<bool> running_;
         fptn::system::IPTablesPtr iptables_;
-        std::atomic<bool> running_ = false; 
         fptn::common::data::Channel toNetwork_;
         fptn::common::data::Channel fromNetwork_;
         fptn::common::network::TunInterfacePtr virtualNetworkInterface_;

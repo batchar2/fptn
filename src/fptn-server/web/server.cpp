@@ -106,11 +106,11 @@ Server::Server(
         dnsServerIPv4_(dnsServerIPv4),
         dnsServerIPv6_(dnsServerIPv6),
         threadNumber_(std::max<std::size_t>(1, threadNumber)),
-        ioCtx_(threadNumber_)
+        ioc_(threadNumber_)
 {
     using namespace std::placeholders;
     listener_ = std::make_shared<Listener>(
-        ioCtx_,
+        ioc_,
         port_,
         tokenManager_,
         std::bind(&Server::onWsOpenConnection, this, _1, _2, _3, _4, _5, _6, _7),
@@ -122,6 +122,9 @@ Server::Server(
     listener_->httpRegister(urlLogin_, "POST", std::bind(&Server::onApiHandleLogin, this, _1, _2));
     listener_->httpRegister(urlMetrics_, "GET", std::bind(&Server::onApiHandleMetrics, this, _1, _2));
     listener_->httpRegister(urlTestFileBin_, "GET", std::bind(&Server::onApiHandleonTestFile, this, _1, _2));
+
+    toClient_ = std::make_unique<fptn::common::data::ChannelAsync>(ioc_);
+    fromClient_ = std::make_unique<fptn::common::data::Channel>();
 }
 
 Server::~Server()
@@ -132,22 +135,31 @@ Server::~Server()
 bool Server::start() noexcept
 {
     try {
-        listener_->run();
-
+        // run listener
+        boost::asio::co_spawn(
+                ioc_,
+                [this]() -> boost::asio::awaitable<void> {
+                    co_await listener_->run();
+                },
+                boost::asio::detached
+        );
+        // run senders
+        for (std::size_t i = 0; i < threadNumber_; i++) {
+            boost::asio::co_spawn(
+                    ioc_,
+                    [this]() -> boost::asio::awaitable<void> {
+                        co_await runSender();
+                    },
+                    boost::asio::detached
+            );
+        }
+        // run threads
         iocThreads_.reserve(threadNumber_);
         for (std::size_t i = 0; i < threadNumber_; i++) {
             iocThreads_.emplace_back(
-                [this]() {
-                    ioCtx_.run();
-                }
-            );
-        }
-        senderThreads_.reserve(threadNumber_);
-        for (std::size_t i = 0; i < threadNumber_; i++) {
-            senderThreads_.emplace_back(
-                [this]() {
-                    runSenderThread();
-                }
+                    [this]() {
+                        ioc_.run();
+                    }
             );
         }
     } catch (boost::system::system_error& err) {
@@ -158,6 +170,30 @@ bool Server::start() noexcept
     return true;
 }
 
+boost::asio::awaitable<void> Server::runSender()
+{
+    const std::chrono::milliseconds timeout{5};
+    while (running_) {
+        auto optpacket = co_await toClient_->waitForPacketAsync(timeout);
+        if (optpacket) {
+            // find client
+            SessionSPtr session = nullptr;
+            {
+                const std::unique_lock<std::mutex> lock(mutex_);
+
+                auto it = sessions_.find(optpacket->get()->clientId());
+                if (it != sessions_.end()) {
+                    session = it->second;
+                }
+            }
+            if (session != nullptr) {
+                co_await session->send(std::move(*optpacket));
+            }
+        }
+    }
+    co_return;
+}
+
 bool Server::stop() noexcept
 {
     running_ = false;
@@ -166,14 +202,8 @@ bool Server::stop() noexcept
     for (auto& session : sessions_) {
         session.second->close();
     }
-
-    ioCtx_.stop();
+    ioc_.stop();
     for (auto& th: iocThreads_) {
-        if (th.joinable()) {
-            th.join();
-        }
-    }
-    for (auto& th: senderThreads_) {
         if (th.joinable()) {
             th.join();
         }
@@ -181,37 +211,14 @@ bool Server::stop() noexcept
     return true;
 }
 
-void Server::runSenderThread() noexcept
-{
-    const std::chrono::milliseconds timeout{300};
-    while (running_) {
-        auto packet = toClient_.waitForPacket(timeout);
-        if (packet != nullptr) {
-            // find client
-            SessionSPtr session = nullptr;
-            {
-                const std::unique_lock<std::mutex> lock(mutex_);
-
-                auto it = sessions_.find(packet->clientId());
-                if (it != sessions_.end()) {
-                    session = it->second;
-                }
-            }
-            if (session != nullptr) {
-                session->send(std::move(packet));
-            }
-        }
-    }
-}
-
 void Server::send(fptn::common::network::IPPacketPtr packet) noexcept
 {
-    toClient_.push(std::move(packet));
+    toClient_->push(std::move(packet));
 }
 
 fptn::common::network::IPPacketPtr Server::waitForPacket(const std::chrono::milliseconds& duration) noexcept
 {
-    return fromClient_.waitForPacket(duration);
+    return fromClient_->waitForPacket(duration);
 }
 
 int Server::onApiHandleHome(const http::request& req, http::response& resp) noexcept
@@ -353,7 +360,7 @@ bool Server::onWsOpenConnection(
 
 void Server::onWsNewIPPacket(fptn::common::network::IPPacketPtr packet) noexcept
 {
-    fromClient_.push(std::move(packet));
+    fromClient_->push(std::move(packet));
 }
 
 void Server::onWsCloseConnection(fptn::ClientID clientId) noexcept

@@ -18,7 +18,7 @@
 namespace fptn::web
 {
 
-    class Listener : public std::enable_shared_from_this<Listener>
+    class Listener //: public std::enable_shared_from_this<Listener>
     {
     public:
         explicit Listener(
@@ -29,15 +29,11 @@ namespace fptn::web
             WebSocketNewIPPacketCallback wsNewIPCallback,
             WebSocketCloseConnectionCallback wsCloseCallback
         );
-        bool run();
+        boost::asio::awaitable<void> run();
         bool stop();
         void httpRegister(const std::string& url, const std::string& method, const ApiHandle& handle);
     protected:
-        void onAccept(boost::beast::error_code ec, boost::asio::ip::tcp::socket socket);
-    private:
-        void doSession(boost::asio::ip::tcp::socket socket);
-        void doAccept();
-    private:
+        std::atomic<bool> isRunning_;
         ApiHandleMap apiHandles_;
 
         boost::asio::io_context& ioc_;

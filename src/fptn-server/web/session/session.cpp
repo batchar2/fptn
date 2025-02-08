@@ -13,25 +13,10 @@
 #include <boost/asio/detached.hpp>
 #include <boost/beast/core.hpp>
 
-
-
 using namespace fptn::web;
-
-
-//using boost::asio::io_context;
-//using boost::asio::ip::tcp;
-//using boost::asio::signal_set;
-//using boost::asio::write;
-//using boost::asio::detached;
-
-
-//using boost::asio::detached;
-//using boost::asio::co_spawn;
-//using boost::asio::use_awaitable;
 
 static std::atomic<fptn::ClientID> CLIENT_ID = 0;
 
-//using boost::asio::co_await;
 using boost::asio::co_spawn;
 using boost::asio::detached;
 using boost::asio::use_awaitable;
@@ -55,12 +40,12 @@ Session::Session(boost::asio::ip::tcp::socket&& socket,
 {
     boost::beast::get_lowest_layer(ws_).socket().set_option(
         boost::asio::ip::tcp::no_delay(true)
-    ); // отключение алгоритма Нейгла
+    ); // turn off the Nagle algorithm.
 
     ws_.text(false);
     ws_.binary(true); // Only binary
     ws_.auto_fragment(false); // !!! FALSE Disable autofragment
-    ws_.read_message_max(512 * 1024); // MaxSize (512 KB)
+    ws_.read_message_max(16 * 1024); // MaxSize (16 KB)
     ws_.set_option(
         boost::beast::websocket::stream_base::timeout::suggested(
             boost::beast::role_type::server
@@ -92,16 +77,21 @@ boost::asio::awaitable<void> Session::run()
             try {
                 co_await ws_.async_read(buffer, boost::asio::redirect_error(boost::asio::use_awaitable, ec));
                 if (ec) {
+                    std::cerr << "ERROR READ" << ec.what() << std::endl;
                     break;
                 }
                 // parse
-                std::string rawdata = boost::beast::buffers_to_string(buffer.data());
-                std::string rawip = fptn::common::protobuf::protocol::getPayload(std::move(rawdata));
-                auto packet = fptn::common::network::IPPacket::parse(std::move(rawip), clientId_);
-                if (packet != nullptr && wsNewIPCallback_) {
-                    wsNewIPCallback_(std::move(packet));
+                if (buffer.size() != 0) {
+                    std::string rawdata = boost::beast::buffers_to_string(buffer.data());
+                    std::string rawip = fptn::common::protobuf::protocol::getPayload(std::move(rawdata));
+                    auto packet = fptn::common::network::IPPacket::parse(std::move(rawip), clientId_);
+                    if (packet != nullptr && wsNewIPCallback_) {
+                        wsNewIPCallback_(std::move(packet));
+                    }
+                    buffer.consume(buffer.size()); // flush
+                } else {
+                    std::cerr << "empty" << std::endl;
                 }
-                buffer.consume(buffer.size()); // flush
             } catch (const fptn::common::protobuf::protocol::ProcessingError &err) {
                 spdlog::error("Session::run Processing error: {}", err.what());
             } catch (const fptn::common::protobuf::protocol::MessageError &err) {
@@ -184,7 +174,6 @@ boost::asio::awaitable<bool> Session::handleHttp(const boost::beast::http::reque
     }
     resp.prepare_payload();
 
-    auto self = shared_from_this();
     auto res_ptr = std::make_shared<boost::beast::http::response<boost::beast::http::string_body>>(std::move(resp));
     try {
         co_await boost::beast::http::async_write(ws_.next_layer(), *res_ptr, boost::asio::use_awaitable);
@@ -232,30 +221,37 @@ boost::asio::awaitable<bool> Session::handleWebSocket(const boost::beast::http::
 
 void Session::close() noexcept
 {
+    isRunning_ = false;
     try {
-        isRunning_ = false;
-        wsCloseCallback_(clientId_);
-        boost::beast::get_lowest_layer(ws_).close();
+        boost::system::error_code ec;
+        if (ws_.is_open()) {
+            ws_.close(boost::beast::websocket::close_code::normal, ec);
+        }
+        auto& ssl = ws_.next_layer();
+        if (!SSL_shutdown(ssl.native_handle())) {
+            spdlog::error("SSL shutdown error");
+        }
+
+        auto& tcp = ssl.next_layer();
+        tcp.socket().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
+        tcp.socket().close(ec);
+
+        ws_.next_layer().lowest_layer().close(ec);
     } catch (boost::system::system_error &err) {
         spdlog::error("Session::close error: {}", err.what());
     }
 }
 
-void Session::send(fptn::common::network::IPPacketPtr packet) noexcept
+boost::asio::awaitable<void> Session::send(fptn::common::network::IPPacketPtr packet)
 {
     // FIXME REDUNDANT COPY
+    boost::system::error_code ec;
     const std::string msg = fptn::common::protobuf::protocol::createPacket(std::move(packet));
     const boost::asio::const_buffer buffer(msg.data(), msg.size());
 
-    boost::asio::co_spawn(
-        ws_.get_executor(),
-        [this, buffer = std::move(buffer)]() -> boost::asio::awaitable<void> {
-            boost::system::error_code ec;
-            co_await ws_.async_write(
-                buffer,
-                boost::asio::redirect_error(boost::asio::use_awaitable, ec)
-            );
-        },
-        boost::asio::detached
+    co_await ws_.async_write(
+        buffer,
+        boost::asio::redirect_error(boost::asio::use_awaitable, ec)
     );
+    co_return;
 }

@@ -18,6 +18,7 @@
 #include "user/user_manager.h"
 
 #include "listener/listener.h"
+#include "common/data/channel_async.h"
 #include "common/jwt_token/token_manager.h"
 
 
@@ -35,7 +36,7 @@ namespace fptn::web
             const std::string& prometheusAccessKey,
             const pcpp::IPv4Address& dnsServerIPv4,
             const pcpp::IPv6Address& dnsServerIPv6,
-            std::size_t threadNumber = 1
+            std::size_t threadNumber = 4
         );
         ~Server();
         bool start() noexcept;
@@ -44,7 +45,7 @@ namespace fptn::web
         void send(fptn::common::network::IPPacketPtr packet) noexcept;
         fptn::common::network::IPPacketPtr waitForPacket(const std::chrono::milliseconds& duration) noexcept;
     protected:
-        void runSenderThread() noexcept;
+        boost::asio::awaitable<void> runSender();
     protected:
         // http
         int onApiHandleHome(const http::request& req, http::response& resp) noexcept;
@@ -86,15 +87,13 @@ namespace fptn::web
         const pcpp::IPv6Address dnsServerIPv6_;
         const std::size_t threadNumber_;
 
-        boost::asio::io_context ioCtx_;
-        fptn::common::data::Channel toClient_;
-        fptn::common::data::Channel fromClient_;
+        boost::asio::io_context ioc_;
+        fptn::common::data::ChannelPtr fromClient_;
+        fptn::common::data::ChannelAsyncPtr toClient_;
 
         ListenerSPtr listener_;
 
         std::vector<std::thread> iocThreads_;
-        std::vector<std::thread> senderThreads_;
-
         std::unordered_map<fptn::ClientID, SessionSPtr> sessions_;
     };
 

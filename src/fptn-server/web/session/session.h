@@ -1,6 +1,5 @@
 #pragma once
 
-//#define BOOST_ASIO_USE_TS_EXECUTOR_AS_DEFAULT
 #include <boost/asio/awaitable.hpp>
 
 #include <memory>
@@ -9,14 +8,18 @@
 #include <openssl/err.h>
 #include <openssl/x509.h>
 
-#include <boost/asio.hpp>
-#include <boost/asio/ssl.hpp>
 #include <boost/beast.hpp>
+#include <boost/asio/ssl.hpp>
+#include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/co_spawn.hpp>
 #include <boost/asio/detached.hpp>
-#include <boost/beast/core.hpp>
+
+#include <boost/asio.hpp>
+#include <boost/asio/awaitable.hpp>
+#include <boost/asio/experimental/channel.hpp>
+#include <boost/asio/experimental/awaitable_operators.hpp>
 
 #include <boost/coroutine/all.hpp>
 
@@ -28,17 +31,6 @@
 #include <common/jwt_token/token_manager.h>
 
 #include "web/api/handle.h"
-
-#include <boost/asio.hpp>
-
-#include <boost/asio/awaitable.hpp>
-
-#include <boost/asio/experimental/awaitable_operators.hpp>
-
-#include <boost/asio/experimental/channel.hpp>
-
-
-
 
 
 namespace fptn::web
@@ -57,7 +49,7 @@ namespace fptn::web
         );
         boost::asio::awaitable<void> run();
         void close() noexcept;
-        void send(fptn::common::network::IPPacketPtr packet) noexcept;
+        boost::asio::awaitable<void> send(fptn::common::network::IPPacketPtr packet);
     protected:
         boost::asio::awaitable<bool> handshake();
         boost::asio::awaitable<bool> handleHttp(const boost::beast::http::request<boost::beast::http::string_body>& request);

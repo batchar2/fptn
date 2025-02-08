@@ -28,6 +28,7 @@ Listener::Listener(
     WebSocketCloseConnectionCallback wsCloseCallback
 )
     :
+        isRunning_(false),
         ioc_(ioc),
         ctx_(boost::asio::ssl::context::tlsv12),
         acceptor_(ioc_),
@@ -56,7 +57,7 @@ void Listener::httpRegister(const std::string& url, const std::string& method, c
     addApiHandle(apiHandles_, url, method, handle);
 }
 
-bool Listener::run()
+boost::asio::awaitable<void> Listener::run()
 {
     try {
         acceptor_.open(endpoint_.protocol());
@@ -64,12 +65,41 @@ bool Listener::run()
         acceptor_.set_option(boost::asio::socket_base::reuse_address(true));
         acceptor_.bind(endpoint_);
         acceptor_.listen(boost::asio::socket_base::max_listen_connections);
-        doAccept();
     } catch (boost::system::system_error& err) {
         spdlog::error("Listener::run error: {}", err.what());
-        return false;
+        co_return;
     }
-    return true;
+    isRunning_ = true;
+
+    boost::system::error_code ec;
+    while (isRunning_) {
+        boost::asio::ip::tcp::socket socket(ioc_);
+        co_await acceptor_.async_accept(
+            socket,
+            boost::asio::redirect_error(boost::asio::use_awaitable, ec)
+        );
+        if(!ec) {
+            auto session = std::make_shared<Session>(
+                std::move(socket),
+                ctx_,
+                apiHandles_,
+                wsOpenCallback_,
+                wsNewIPCallback_,
+                wsCloseCallback_
+            );
+            // FIXME
+            boost::asio::co_spawn(
+                ioc_,
+                [session]() -> boost::asio::awaitable<void> {
+                    co_await session->run();
+                },
+                boost::asio::detached
+            );
+        } else {
+            spdlog::error("Error onAccept: {}", ec.message());
+        }
+    }
+    co_return;
 }
 
 bool Listener::stop()
@@ -81,68 +111,4 @@ bool Listener::stop()
         return false;
     }
     return true;
-}
-
-void Listener::onAccept(boost::beast::error_code ec, boost::asio::ip::tcp::socket socket)
-{
-    (void)socket;
-    if (ec) {
-        spdlog::error("Error onAccept: {}", ec.message());
-        if(ec == boost::asio::error::operation_aborted) {
-            return;
-        }
-    }
-    doSession(std::move(socket));
-    doAccept();
-}
-
-void Listener::doAccept()
-{
-    acceptor_.async_accept(
-        boost::asio::make_strand(ioc_),
-        boost::beast::bind_front_handler(
-            &Listener::onAccept,
-            shared_from_this()
-        )
-    );
-}
-
-void Listener::doSession(boost::asio::ip::tcp::socket socket)
-{
-//    auto& io (server->get_io_service());
-    auto session = std::make_shared<Session>(
-        std::move(socket),
-        ctx_,
-        apiHandles_,
-        wsOpenCallback_,
-        wsNewIPCallback_,
-        wsCloseCallback_
-    );
-//    boost::asio::co_spawn(
-//        ioc_,   // Executor to run the coroutine on
-//        session->run(),          // Coroutine method to run
-//        boost::asio::detached    // Detached completion handler (if you want to not wait for it)
-//    );
-// Use a completion handler to ensure session is not destroyed prematurely
-//    boost::asio::co_spawn(
-//            ioc_, // Executor to run the coroutine on
-//            [session](boost::asio::yield_context yield) {
-//                try {
-//                    // Run the session's run method within the coroutine
-//                    co_await session->run(yield);
-//                } catch (const std::exception& e) {
-//                    spdlog::error("Exception in session run: {}", e.what());
-//                    // Handle error, possibly close the session
-//                    session->close();
-//                }
-//            },
-//            boost::asio::detached // Detached handler since we don't need to wait on the result
-//    );
-    boost::asio::co_spawn(
-            ioc_,   // Executor to run the coroutine on
-            [session]() -> boost::asio::awaitable<void> {
-                co_await session->run();  // Run the session coroutine
-            },
-            boost::asio::detached  // Detached completion handler (if you want to not wait for it)
-    );
 }

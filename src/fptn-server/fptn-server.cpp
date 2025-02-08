@@ -117,7 +117,7 @@ int main(int argc, char* argv[])
         options->getTunInterfaceIPv4(),
         options->getTunInterfaceIPv6()
     );
-    // webServer->start(); // tmp
+//     webServer->start(); // tmp
 
     /* init packet filter */
     auto filterManager = std::make_shared<fptn::filter::FilterManager>();
@@ -162,7 +162,7 @@ int main(int argc, char* argv[])
     /* start/wait/stop */
     manager.start();
     waitForSignal();
-//    manager.stop();
+    manager.stop();
     spdlog::shutdown();
 
     return EXIT_SUCCESS;
