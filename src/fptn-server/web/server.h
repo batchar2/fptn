@@ -76,11 +76,11 @@ namespace fptn::web
 
         std::mutex mutex_;
         std::atomic<bool> running_;
-        std::uint16_t port_;
+        const std::uint16_t port_;
 
         const fptn::nat::TableSPtr& natTable_;
         const fptn::user::UserManagerSPtr& userManager_;
-        fptn::common::jwt_token::TokenManagerSPtr tokenManager_;
+        const fptn::common::jwt_token::TokenManagerSPtr tokenManager_;
         const fptn::statistic::MetricsSPtr& prometheus_;
         const std::string prometheusAccessKey_;
         const pcpp::IPv4Address dnsServerIPv4_;
@@ -98,5 +98,4 @@ namespace fptn::web
     };
 
     using ServerPtr = std::unique_ptr<Server>;
-    
 }

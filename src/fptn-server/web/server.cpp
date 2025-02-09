@@ -144,29 +144,29 @@ bool Server::start() noexcept
     try {
         // run listener
         boost::asio::co_spawn(
-                ioc_,
-                [this]() -> boost::asio::awaitable<void> {
-                    co_await listener_->run();
-                },
-                boost::asio::detached
+            ioc_,
+            [this]() -> boost::asio::awaitable<void> {
+                co_await listener_->run();
+            },
+            boost::asio::detached
         );
         // run senders
         for (std::size_t i = 0; i < threadNumber_; i++) {
             boost::asio::co_spawn(
-                    ioc_,
-                    [this]() -> boost::asio::awaitable<void> {
-                        co_await runSender();
-                    },
-                    boost::asio::detached
+                ioc_,
+                [this]() -> boost::asio::awaitable<void> {
+                    co_await runSender();
+                },
+                boost::asio::detached
             );
         }
         // run threads
         iocThreads_.reserve(threadNumber_);
         for (std::size_t i = 0; i < threadNumber_; i++) {
             iocThreads_.emplace_back(
-                    [this]() {
-                        ioc_.run();
-                    }
+                [this]() {
+                    ioc_.run();
+                }
             );
         }
     } catch (boost::system::system_error& err) {
