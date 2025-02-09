@@ -36,17 +36,18 @@ Session::Session(boost::asio::ip::tcp::socket&& socket,
         apiHandles_(apiHandles),
         wsOpenCallback_(wsOpenCallback),
         wsNewIPCallback_(wsNewIPCallback),
-        wsCloseCallback_(wsCloseCallback)
+        wsCloseCallback_(wsCloseCallback),
+        isInitComplete_(false)
 {
     try {
         boost::beast::get_lowest_layer(ws_).socket().set_option(
-                boost::asio::ip::tcp::no_delay(true)
+            boost::asio::ip::tcp::no_delay(true)
         ); // turn off the Nagle algorithm.
 
         ws_.text(false);
         ws_.binary(true); // Only binary
-        ws_.auto_fragment(false); // !!! FALSE Disable autofragment
-        ws_.read_message_max(64 * 1024); // MaxSize (64 KB)
+        ws_.auto_fragment(true); // FIXME NEED CHECK
+        ws_.read_message_max(128 * 1024); // MaxSize (128 KB)
         ws_.set_option(
             boost::beast::websocket::stream_base::timeout::suggested(
                 boost::beast::role_type::server
@@ -54,14 +55,17 @@ Session::Session(boost::asio::ip::tcp::socket&& socket,
         );
         ws_.set_option(
             boost::beast::websocket::stream_base::timeout{
-                std::chrono::seconds(10), // Handshake timeout
+                std::chrono::seconds(60), // Handshake timeout
                 std::chrono::minutes(30), // Idle timeout
                 true                      // Enable ping timeout
             }
         );
         boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::minutes(30));
-    }  catch (const std::exception& e) {
-        spdlog::error("Session prepare: {}", e.what());
+        isInitComplete_ = true;
+    } catch (boost::system::system_error& err) {
+        spdlog::error("Session::init error: {}", err.what());
+    } catch (const std::exception& e) {
+        spdlog::error("Session::init prepare: {}", e.what());
     }
 }
 
@@ -70,55 +74,68 @@ Session::~Session()
     close();
 }
 
-boost::asio::awaitable<void> Session::run()
+boost::asio::awaitable<void> Session::run() noexcept
 {
     boost::system::error_code ec;
     boost::beast::flat_buffer buffer;
     boost::beast::http::request<boost::beast::http::string_body> request;
-    try {
-        co_await ws_.next_layer().async_handshake(
-            boost::asio::ssl::stream_base::server,
-            boost::asio::redirect_error(boost::asio::use_awaitable, ec)
-        );
-        isRunning_ = co_await handshake();
-        while(isRunning_) {
-            try {
-                // read
-                co_await ws_.async_read(buffer, boost::asio::redirect_error(boost::asio::use_awaitable, ec));
-                if (ec) {
-                    break;
-                }
-                // parse
-                if (buffer.size() != 0) {
-                    std::string rawdata = boost::beast::buffers_to_string(buffer.data());
-                    std::string rawip = fptn::common::protobuf::protocol::getPayload(std::move(rawdata));
-                    auto packet = fptn::common::network::IPPacket::parse(std::move(rawip), clientId_);
-                    if (packet != nullptr && wsNewIPCallback_) {
-                        wsNewIPCallback_(std::move(packet));
-                    }
-                    buffer.consume(buffer.size()); // flush
-                }
-            } catch (const fptn::common::protobuf::protocol::ProcessingError &err) {
-                spdlog::error("Session::run Processing error: {}", err.what());
-            } catch (const fptn::common::protobuf::protocol::MessageError &err) {
-                spdlog::error("Session::run Message error: {}", err.what());
-            } catch (const fptn::common::protobuf::protocol::UnsoportedProtocolVersion &err) {
-                spdlog::error("Session::run Unsupported protocol version: {}", err.what());
-            } catch (boost::system::system_error& err) {
-                spdlog::error("Session::run error: {}", err.what());
-            } catch(...) {
-                spdlog::error("Session::run Unexpected error");
+
+    // check init status
+    if (!isInitComplete_) {
+        spdlog::error("Session is not initialized. Closing session.");
+        close();
+        co_return;
+    }
+
+    // do handshake
+    co_await ws_.next_layer().async_handshake(
+        boost::asio::ssl::stream_base::server,
+        boost::asio::redirect_error(boost::asio::use_awaitable, ec)
+    );
+    if (ec) {
+        spdlog::error("Session handshake failed: {} ({})", ec.what(), ec.value());
+        close();
+        co_return;
+    }
+    isRunning_ = co_await processRequest();
+
+    while(isRunning_) {
+        try {
+            // read
+            co_await ws_.async_read(buffer, boost::asio::redirect_error(boost::asio::use_awaitable, ec));
+            if (ec) {
                 break;
             }
+            // parse
+            if (buffer.size() != 0) {
+                std::string rawdata = boost::beast::buffers_to_string(buffer.data());
+                std::string rawip = fptn::common::protobuf::protocol::getPayload(std::move(rawdata));
+                auto packet = fptn::common::network::IPPacket::parse(std::move(rawip), clientId_);
+                if (packet != nullptr && wsNewIPCallback_) {
+                    wsNewIPCallback_(std::move(packet));
+                }
+                buffer.consume(buffer.size()); // flush
+            }
+        } catch (const fptn::common::protobuf::protocol::ProcessingError &err) {
+            spdlog::error("Session::run Processing error: {}", err.what());
+        } catch (const fptn::common::protobuf::protocol::MessageError &err) {
+            spdlog::error("Session::run Message error: {}", err.what());
+        } catch (const fptn::common::protobuf::protocol::UnsoportedProtocolVersion &err) {
+            spdlog::error("Session::run Unsupported protocol version: {}", err.what());
+        } catch (boost::system::system_error& err) {
+            spdlog::error("Session::run error: {}", err.what());
+        } catch (const std::exception& e) {
+            spdlog::error("Exception in run: {}", e.what());
+        } catch(...) {
+            spdlog::error("Session::run Unexpected error");
+            break;
         }
-    } catch (const std::exception& e) {
-        spdlog::error("Exception in run: {}", e.what());
     }
     close();
 }
 
 
-boost::asio::awaitable<bool> Session::handshake()
+boost::asio::awaitable<bool> Session::processRequest() noexcept
 {
     bool status = false;
 
@@ -153,7 +170,7 @@ boost::asio::awaitable<bool> Session::handshake()
     co_return status;
 }
 
-boost::asio::awaitable<bool> Session::handleHttp(const boost::beast::http::request<boost::beast::http::string_body>& request)
+boost::asio::awaitable<bool> Session::handleHttp(const boost::beast::http::request<boost::beast::http::string_body>& request) noexcept
 {
     const std::string url = request.target();
     const std::string method = request.method_string();
@@ -194,7 +211,7 @@ boost::asio::awaitable<bool> Session::handleHttp(const boost::beast::http::reque
     co_return false;
 }
 
-boost::asio::awaitable<bool> Session::handleWebSocket(const boost::beast::http::request<boost::beast::http::string_body>& request)
+boost::asio::awaitable<bool> Session::handleWebSocket(const boost::beast::http::request<boost::beast::http::string_body>& request) noexcept
 {
     if (request.find("Authorization") != request.end() && request.find("ClientIP") != request.end()) {
         clientId_ = CLIENT_ID++; // Increment the clientId after using it
@@ -232,43 +249,55 @@ boost::asio::awaitable<bool> Session::handleWebSocket(const boost::beast::http::
 
 void Session::close() noexcept
 {
-    if (isRunning_ == true) {
-        isRunning_ = false;
-        try {
-            boost::system::error_code ec;
-            if (ws_.is_open()) {
-                ws_.close(boost::beast::websocket::close_code::normal, ec);
-            }
-            auto &ssl = ws_.next_layer();
-            if (!SSL_shutdown(ssl.native_handle())) {
-                // spdlog::error("SSL shutdown error");
-            }
+    if (!isRunning_) {
+        return;
+    }
 
-            auto &tcp = ssl.next_layer();
+    isRunning_ = false;
+    try {
+        boost::system::error_code ec;
+        if (ws_.is_open()) {
+            spdlog::info("--- close wss ---");
+            ws_.close(boost::beast::websocket::close_code::normal, ec);
+        }
+        auto &ssl = ws_.next_layer();
+        if (ssl.native_handle()) {
+            spdlog::info("--- shutdown ssl ---");
+            SSL_shutdown(ssl.native_handle());
+        }
+
+        auto &tcp = ssl.next_layer();
+        if (tcp.socket().is_open()) {
+            spdlog::info("--- close tcp socket ---");
             tcp.socket().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
             tcp.socket().close(ec);
-
-            ws_.next_layer().lowest_layer().close(ec);
-
-            if (wsCloseCallback_) {
-                wsCloseCallback_(clientId_);
-            }
-        } catch (boost::system::system_error &err) {
-            spdlog::error("Session::close error: {}", err.what());
         }
+        if (clientId_ != MAX_CLIENT_ID && wsCloseCallback_) {
+            spdlog::info("--- run callback ---");
+            wsCloseCallback_(clientId_);
+        }
+        spdlog::info("--- close sucessfull ---");
+    } catch (boost::system::system_error &err) {
+        spdlog::error("Session::close error: {}", err.what());
     }
 }
 
-boost::asio::awaitable<void> Session::send(fptn::common::network::IPPacketPtr packet)
+boost::asio::awaitable<void> Session::send(fptn::common::network::IPPacketPtr packet) noexcept
 {
     // FIXME REDUNDANT COPY
     boost::system::error_code ec;
     const std::string msg = fptn::common::protobuf::protocol::createPacket(std::move(packet));
     const boost::asio::const_buffer buffer(msg.data(), msg.size());
 
-    co_await ws_.async_write(
-        buffer,
-        boost::asio::redirect_error(boost::asio::use_awaitable, ec)
-    );
+    if (isRunning_) {
+        co_await ws_.async_write(
+            buffer,
+            boost::asio::redirect_error(boost::asio::use_awaitable, ec)
+        );
+        if (ec) {
+            spdlog::error("Session::send error: {}", ec.what());
+            close();
+        }
+    }
     co_return;
 }

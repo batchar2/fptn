@@ -48,13 +48,13 @@ namespace fptn::web
             WebSocketCloseConnectionCallback wsCloseCallback
         );
         virtual ~Session();
-        boost::asio::awaitable<void> run();
+        boost::asio::awaitable<void> run() noexcept;
+        boost::asio::awaitable<void> send(fptn::common::network::IPPacketPtr packet) noexcept;
         void close() noexcept;
-        boost::asio::awaitable<void> send(fptn::common::network::IPPacketPtr packet);
     protected:
-        boost::asio::awaitable<bool> handshake();
-        boost::asio::awaitable<bool> handleHttp(const boost::beast::http::request<boost::beast::http::string_body>& request);
-        boost::asio::awaitable<bool> handleWebSocket(const boost::beast::http::request<boost::beast::http::string_body>& request);
+        boost::asio::awaitable<bool> processRequest() noexcept;
+        boost::asio::awaitable<bool> handleHttp(const boost::beast::http::request<boost::beast::http::string_body>& request) noexcept;
+        boost::asio::awaitable<bool> handleWebSocket(const boost::beast::http::request<boost::beast::http::string_body>& request) noexcept;
     private:
         fptn::ClientID clientId_ = MAX_CLIENT_ID;
 
@@ -65,6 +65,8 @@ namespace fptn::web
         const WebSocketOpenConnectionCallback wsOpenCallback_;
         const WebSocketNewIPPacketCallback wsNewIPCallback_;
         const WebSocketCloseConnectionCallback wsCloseCallback_;
+
+        bool isInitComplete_;
     };
 
     using SessionSPtr = std::shared_ptr<Session>;
