@@ -3,6 +3,7 @@
 [![Ubuntu](https://img.shields.io/badge/Ubuntu-E95420?style=for-the-badge\&logo=ubuntu\&logoColor=white)](https://github.com/batchar2/fptn/releases)
 [![Mac OS](https://img.shields.io/badge/mac%20os-000000?style=for-the-badge\&logo=macos\&logoColor=F0F0F0)](https://github.com/batchar2/fptn/releases)
 [![Windows](https://img.shields.io/badge/Windows-0078D6?style=for-the-badge\&logo=windows\&logoColor=white)](https://github.com/batchar2/fptn/releases)
+[![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=Android&logoColor=white)](https://github.com/batchar2/fptn/releases)
 
 
 [![Build and Test](https://github.com/batchar2/fptn/actions/workflows/main.yml/badge.svg)](https://github.com/batchar2/fptn/actions/workflows/main.yml) [![Github All Releases](https://img.shields.io/github/downloads/batchar2/fptn/total.svg)]()
@@ -22,11 +23,11 @@ Initially launched as a research project, FPTN actively helps people gain access
 * ✅ `Grafana & Prometheus Integration`: Collects and visualizes service metrics with Grafana and Prometheus.
 * ✅ `Chrome Ciphers`: Utilizes Chrome's cipher suite to reduce the risk of traffic detection.
 * ✅ `Cross-Platform Support`: Client compatible with Windows, Ubuntu, and macOS.
+* ✅ `Android Application`: Android app. [WebSite](http://batchar2.github.io/fptn/)
 
 
 ##### Next Steps
 
-* 💡 `Android Application`: Expanding the solution to mobile devices.
 * 💡 `Traffic Divider`: Introducing tools for managing traffic flow.
 * 💡 `iOS Application`: Bringing the application to iOS platforms.
 * 💡 `... Your Proposal!` We welcome new ideas and contributions!
