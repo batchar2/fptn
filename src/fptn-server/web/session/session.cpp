@@ -56,7 +56,7 @@ Session::Session(boost::asio::ip::tcp::socket&& socket,
         ws_.set_option(
             boost::beast::websocket::stream_base::timeout{
                 std::chrono::seconds(60), // Handshake timeout
-                std::chrono::minutes(30), // Idle timeout
+                std::chrono::hours(24),   // Idle timeout
                 true                      // Enable ping timeout
             }
         );

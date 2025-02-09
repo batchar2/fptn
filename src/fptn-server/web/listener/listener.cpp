@@ -40,8 +40,9 @@ Listener::Listener(
 
 {
     ctx_.set_options(boost::asio::ssl::context::default_workarounds
-                            | boost::asio::ssl::context::no_sslv2
-                            | boost::asio::ssl::context::single_dh_use);
+                     | boost::asio::ssl::context::no_sslv2
+                     | boost::asio::ssl::context::no_sslv3
+                     | boost::asio::ssl::context::single_dh_use);
 
     ctx_.use_certificate_chain_file(tokenManager->serverCrtPath());
     ctx_.use_private_key_file(tokenManager->serverKeyPath(), boost::asio::ssl::context::pem);
