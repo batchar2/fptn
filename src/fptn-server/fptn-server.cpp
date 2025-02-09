@@ -2,10 +2,7 @@
 
 #include <boost/asio.hpp>
 
-#include <common/data/channel.h>
 #include <common/logger/logger.h>
-#include <common/network/ip_packet.h>
-#include <common/network/net_interface.h>
 #include <common/jwt_token/token_manager.h>
 
 #include "nat/table.h"
@@ -25,7 +22,7 @@
 inline void waitForSignal() 
 {
     boost::asio::io_context io_context;
-    boost::asio::signal_set signals(io_context, SIGINT, SIGTERM);
+    boost::asio::signal_set signals(io_context, SIGINT, SIGTERM /*, SIGQUIT*/);
     signals.async_wait(
         [&](auto, auto) {
             spdlog::info("Signal received");
@@ -102,10 +99,10 @@ int main(int argc, char* argv[])
         options->getTunInterfaceNetworkIPv6Mask()
     );
     auto prometheus = std::make_shared<fptn::statistic::Metrics>();
+
     auto webServer = std::make_unique<fptn::web::Server>(
-        natTable,
         options->getServerPort(),
-        options->useHttps(),
+        natTable,
         userManager,
         tokenManager,
         prometheus,
@@ -158,6 +155,7 @@ int main(int argc, char* argv[])
     manager.start();
     waitForSignal();
     manager.stop();
+
     spdlog::shutdown();
 
     return EXIT_SUCCESS;

@@ -11,7 +11,7 @@ VirtualInterface::VirtualInterface(
     const int ipv6Netmask,
     fptn::system::IPTablesPtr iptables
 )
-    : iptables_(std::move(iptables))
+    : running_(false), iptables_(std::move(iptables))
 {
     auto callback = std::bind(&VirtualInterface::newIPPacketFromNetwork, this, std::placeholders::_1);
     virtualNetworkInterface_ = std::make_unique<fptn::common::network::TunInterface>(
@@ -47,6 +47,16 @@ bool VirtualInterface::stop() noexcept
         return true;
     }
     return false;
+}
+
+void VirtualInterface::send(fptn::common::network::IPPacketPtr packet) noexcept
+{
+    toNetwork_.push(std::move(packet));
+}
+
+fptn::common::network::IPPacketPtr VirtualInterface::waitForPacket(const std::chrono::milliseconds& duration) noexcept
+{
+    return fromNetwork_.waitForPacket(duration);
 }
 
 void VirtualInterface::run() noexcept

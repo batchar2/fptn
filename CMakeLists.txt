@@ -5,6 +5,11 @@ set(FPTN_SERVER_PATH "${CMAKE_CURRENT_SOURCE_DIR}/src/fptn-server")
 
 enable_testing()
 
+#add_definitions(-DBOOST_ASIO_ENABLE_COROUTINES)
+#add_definitions(-DBOOST_ASIO_HAS_CO_AWAIT)
+
+#add_definitions(-DBOOST_ASIO_NO_CXX20_COROUTINE)
+
 add_compile_definitions(FPTN_VERSION=\"${FPTN_VERSION}\")
 add_compile_definitions(FPTN_MTU_SIZE=1500)
 add_compile_definitions(FPTN_IP_PACKET_MAX_SIZE=1450)
@@ -54,7 +59,7 @@ endif()
 # --- depends: base64 ---
 include(depends/cmake/FetchBase64.cmake)
 # --- depends: libhv ---
-include(depends/cmake/FetchLibhv.cmake)
+#include(depends/cmake/FetchLibhv.cmake)
 
 
 # --- protobuf ---

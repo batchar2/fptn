@@ -17,7 +17,7 @@ endif()
 set(LIBS
     GTest::gtest GTest::gtest_main
     Boost::boost OpenSSL::SSL OpenSSL::Crypto nlohmann_json::nlohmann_json jwt-cpp::jwt-cpp
-    spdlog::spdlog fmt::fmt PcapPlusPlus::PcapPlusPlus hv_static fptn_protocol
+    spdlog::spdlog fmt::fmt PcapPlusPlus::PcapPlusPlus fptn_protocol
     prometheus-cpp::prometheus-cpp
     ${TUNTAP_LIB}
 )

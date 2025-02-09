@@ -49,7 +49,7 @@ target_link_libraries(
     spdlog::spdlog
     fmt::fmt
     PcapPlusPlus::PcapPlusPlus
-    hv_static
+
     fptn_protocol
 
     ${TUNTAP_LIB}
@@ -116,7 +116,6 @@ if("${FPTN_BUILD_WITH_GUI_CLIENT}")
         fmt::fmt
         PcapPlusPlus::PcapPlusPlus
 
-        hv_static
         fptn_protocol
 
         Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Network

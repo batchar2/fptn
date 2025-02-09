@@ -137,17 +137,16 @@ def create_app(
             "NSHumanReadableCopyright": "Copyright© 2025 FPTN",
             "CFBundleDocumentTypes": [
                 {
-                    'CFBundleTypeExtensions': ['fptn'],
-                    'CFBundleTypeName': 'Fptn file',
-                    'CFBundleTypeRole': 'Editor',
+                    "CFBundleTypeExtensions": ["fptn"],
+                    "CFBundleTypeName": "Fptn file",
+                    "CFBundleTypeRole": "Editor",
                 }
             ],
-            'NSAppleEventsUsageDescription': 'Your app requires administrative privileges to perform certain tasks',
-            'CFBundleInfoDictionaryVersion': '6.0',
-            'LSMinimumSystemVersion': '10.9',
-            'AppleMagnifiedMode': False,
-            'NSHighResolutionCapable': True,
-
+            "NSAppleEventsUsageDescription": "Your app requires administrative privileges to perform certain tasks",
+            "CFBundleInfoDictionaryVersion": "6.0",
+            "LSMinimumSystemVersion": "10.9",
+            "AppleMagnifiedMode": False,
+            "NSHighResolutionCapable": True,
             "LD_LIBRARY_PATH": "@executable_path/../Frameworks",
             "LaunchOnlyOnce": True,
             "LSUIElement": True,
