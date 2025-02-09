@@ -89,10 +89,21 @@
             background-color: white;
             margin-right: 32px;
             transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
         }
         .tablink.active {
             border-bottom: 1px solid #19191c;
             color: #19191c;
+        }
+        .tablink.active path{
+            fill: #19191c;
+            fill-opacity: 1;
+        }
+        .tablink svg {
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
         }
         .download {
             align-items: center;
@@ -392,9 +403,113 @@
                 </div>
 
                 <div class="tabs">
-                    <button class="tablink active" onclick="openTab('win')">Windows</button>
-                    <button class="tablink" onclick="openTab('macos')">MacOS</button>
-                    <button class="tablink" onclick="openTab('linux')">Linux</button>
+                    <button class="tablink active" onclick="openTab('android')">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M3 20.5V3.50002C3 2.91002 3.34 2.39002 3.84 2.15002L13.69 12L3.84 21.85C3.34 21.6 3 21.09 3 20.5ZM16.81 15.12L6.05 21.34L14.54 12.85L16.81 15.12ZM20.16 10.81C20.5 11.08 20.75 11.5 20.75 12C20.75 12.5 20.53 12.9 20.18 13.18L17.89 14.5L15.39 12L17.89 9.50002L20.16 10.81ZM6.05 2.66002L16.81 8.88002L14.54 11.15L6.05 2.66002Z" fill="#19191C" fill-opacity="0.4"/>
+                        </svg>
+                         Android</button>
+                    <button class="tablink" onclick="openTab('win')">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M3.001 5.479L10.378 4.463V11.59H3L3.001 5.479ZM3.001 18.521L10.378 19.538V12.498H3L3.001 18.521ZM11.189 19.646L21.001 21V12.498H11.189V19.646ZM11.189 4.354V11.59H21.001V3L11.189 4.354Z" fill="#19191C" fill-opacity="0.4"/>
+                        </svg>
+                        Windows
+                    </button>
+                    <button class="tablink" onclick="openTab('macos')">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M21.18 16.5222C20.6828 17.623 20.445 18.1152 19.8065 19.0879C18.9144 20.4465 17.6549 22.1417 16.0977 22.1533C14.7125 22.165 14.355 21.2496 12.4752 21.2645C10.5954 21.2737 10.2039 22.1699 8.81708 22.1558C7.25987 22.1417 6.06764 20.6144 5.17471 19.2584C2.67802 15.4547 2.41447 10.9968 3.95754 8.62477C5.04917 6.94285 6.77682 5.95515 8.39888 5.95515C10.0509 5.95515 11.0893 6.86303 12.4553 6.86303C13.7805 6.86303 14.5878 5.95265 16.4984 5.95265C17.9434 5.95265 19.4715 6.73999 20.5631 8.09849C16.9914 10.0556 17.5717 15.1571 21.18 16.5222ZM15.0484 4.43451C15.7435 3.54242 16.2706 2.28368 16.0794 1C14.9453 1.07732 13.6192 1.80147 12.8444 2.73929C12.1427 3.59314 11.5607 4.86185 11.7877 6.089C13.0248 6.12891 14.3052 5.39146 15.0484 4.43451Z" fill="#19191C" fill-opacity="0.4"/>
+                        </svg>
+                        MacOS
+                    </button>
+                    <button class="tablink" onclick="openTab('linux')">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M22 12C22 14.6522 20.9464 17.1957 19.0711 19.0711C17.1957 20.9464 14.6522 22 12 22C10.6868 22 9.38642 21.7413 8.17317 21.2388C6.95991 20.7362 5.85752 19.9997 4.92893 19.0711C3.05357 17.1957 2 14.6522 2 12C2 9.34784 3.05357 6.8043 4.92893 4.92893C6.8043 3.05357 9.34784 2 12 2C13.3132 2 14.6136 2.25866 15.8268 2.7612C17.0401 3.26375 18.1425 4.00035 19.0711 4.92893C19.9997 5.85752 20.7362 6.95991 21.2388 8.17317C21.7413 9.38642 22 10.6868 22 12ZM14.34 7.74C14.92 8.07 15.65 7.87 16 7.3C16.31 6.73 16.12 6 15.54 5.66C14.97 5.33 14.23 5.5 13.9 6.1C13.57 6.67 13.77 7.41 14.34 7.74ZM11.88 15.5C11.35 15.5 10.85 15.39 10.41 15.18L9.57 16.68C10.27 17 11.05 17.22 11.88 17.22C12.37 17.22 12.83 17.15 13.28 17.03C13.36 16.54 13.64 16.1 14.1 15.84C14.56 15.57 15.08 15.55 15.54 15.72C16.43 14.85 17 13.66 17.09 12.33L15.38 12.31C15.301 13.183 14.8978 13.9947 14.25 14.5852C13.6021 15.1757 12.7566 15.5021 11.88 15.5ZM11.88 8.5C13.72 8.5 15.22 9.89 15.38 11.69L17.09 11.66C17.0076 10.3808 16.4556 9.17711 15.54 8.28C15.08 8.45 14.55 8.42 14.1 8.16C13.64 7.9 13.36 7.45 13.28 6.97C12.83 6.85 12.37 6.78 11.88 6.78C11.05 6.78 10.27 6.97 9.57 7.32L10.41 8.82C10.85 8.61 11.35 8.5 11.88 8.5ZM8.37 12C8.37 10.81 8.96 9.76 9.86 9.13L9 7.65C7.92648 8.36101 7.15364 9.44371 6.83 10.69C7.21 11 7.45 11.47 7.45 12C7.45 12.53 7.21 13 6.83 13.31C7.15412 14.5534 7.92714 15.6328 9 16.34L9.86 14.87C8.96 14.24 8.37 13.19 8.37 12ZM14.34 16.26C13.77 16.59 13.57 17.32 13.9 17.9C14.23 18.47 14.97 18.67 15.54 18.34C16.12 18 16.31 17.27 16 16.7C15.65 16.12 14.92 15.93 14.34 16.26ZM5.76 10.8C5.1 10.8 4.56 11.34 4.56 12C4.56 12.66 5.1 13.2 5.76 13.2C6.43 13.2 6.96 12.66 6.96 12C6.96 11.34 6.43 10.8 5.76 10.8Z" fill="#19191C" fill-opacity="0.4"/>
+                        </svg>
+                        Linux
+                    </button>
+                </div>
+                <div class="download active android">
+                    <div class="wrapper">
+<!--                        <div class="item">-->
+<!--                            <p>-->
+<!--                                <span class="language-en">Google play</span>-->
+<!--                                <span class="language-ru">Google play</span>-->
+<!--                            </p>-->
+<!--                            <div class="dropdown">-->
+<!--                                <a class="dropdown-button download_2 language-ru" onclick="downloadUrl('w_client')">Скачать</a>-->
+<!--                                <a class="dropdown-button download_2 language-en" onclick="downloadUrl('w_client')">Download</a>-->
+<!--                            </div>-->
+<!--                        </div>-->
+                        <div class="item">
+                            <p>
+                                <span class="language-en">Download Android app from the site</span>
+                                <span class="language-ru">Скачать Android приложение с сайта</span>
+                            </p>
+                            <div class="dropdown">
+                                <a class="dropdown-button download_2 language-ru" onclick="downloadUrl('android_apk')">Скачать</a>
+                                <a class="dropdown-button download_2 language-en" onclick="downloadUrl('android_apk')">Download</a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="toolbox-ad language-ru">
+                        <h3>Установка и настройка</h3>
+                        <br/>
+
+                        <p>
+                            Из <a target="_blank" href="https://t.me/fptn_bot">Telegram-бота</a> скопируйте токен.
+                            <br/><br/>
+                            <img style="width: 100%; max-width: 400px" class="img-center" src="images/telegram_token_win_ru.png" alt="Settings"/>
+                            <br/>
+                            Вставьте токен в соответствующее поле.
+                            <br/><br/>
+                            <img style="width: 100%; max-width: 300px" class="img-center" src="images/android/ru/01.jpeg" alt="Application"/>
+                            <br/>
+                            Войдите в приложение, используя полученный токен.
+                            <br/><br/>
+                            <img style="width: 100%; max-width: 300px" class="img-center" src="images/android/ru/02.jpeg" alt="Application"/>
+                            <br/>
+                            Выберите VPN-сервер из списка доступных (Режим "Авто" подберет наиболее оптимальный сервер или можете выбрать сервер из списка доступных). Для включения VPN-сервиса нажмите на кнопку в центре экрана, которая активирует подключение к выбранному серверу.
+                            <br/><br/>
+                            <img style="width: 100%; max-width: 300px" class="img-center" src="images/android/ru/03.jpeg" alt="Application"/>
+                            <br/>
+                            Готово!
+                            <br/><br/>
+                            <img style="width: 100%; max-width: 300px" class="img-center" src="images/android/ru/04.jpeg" alt="Application"/>
+
+                        </p>
+
+                    </div>
+
+                    <div class="toolbox-ad language-en">
+                        <h3>Installation and Setup</h3>
+                        <br/>
+
+                        <p>
+                            Copy the token from the <a target="_blank" href="https://t.me/fptn_bot">Telegram bot</a>.
+                            <br/><br/>
+                            <img style="width: 100%; max-width: 400px" class="img-center" src="images/telegram_token_win_en.png" alt="Settings"/>
+
+                            <br/>
+                            Insert the token into the appropriate field.
+                            <br/><br/>
+                            <img style="width: 100%; max-width: 300px" class="img-center" src="images/android/en/01.jpeg" alt="Application"/>
+                            <br/>
+                            Log into the application using the obtained token.
+                            <br/><br/>
+                            <img style="width: 100%; max-width: 300px" class="img-center" src="images/android/en/02.jpeg" alt="Application"/>
+                            <br/>
+                            Select a VPN server from the list of available servers (the "Auto" mode will choose the most optimal server, or you can manually select a server from the list). To enable the VPN service, press the button in the center of the screen, which will activate the connection to the selected server.
+                            <br/><br/>
+                            <img style="width: 100%; max-width: 300px" class="img-center" src="images/android/en/03.jpeg" alt="Application"/>
+                            <br/>
+                            Done!
+                            <br/><br/>
+                            <img style="width: 100%; max-width: 300px" class="img-center" src="images/android/en/04.jpeg" alt="Application"/>
+                        </p>
+
+                    </div>
+
+
                 </div>
                 <div class="download macos">
                     <p>
@@ -643,7 +758,7 @@
 
 
                 </div>
-                <div class="download active win">
+                <div class="download win">
                     <p>
                         <span class="language-en">Download the client for Windows (supports Windows 10 and Windows 11, x86_64 architecture)</span>
                         <span class="language-ru">Скачать клиент для Windows (поддерживаются Windows 10 и Windows 11, архитектура x86_64)</span>
@@ -856,6 +971,9 @@
         break;
       case 'notes':
         url = `https://github.com/${owner}/${repo}/releases/latest`
+        break;
+      case 'android_apk':
+        url = `https://dev.fptn.online/fptn-client.apk`
         break;
       default:
     }
