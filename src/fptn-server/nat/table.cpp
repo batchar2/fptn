@@ -70,21 +70,28 @@ bool Table::delClientSession(ClientID clientId) noexcept
         const IPv4INT ipv4Int = it->second->fakeClientIPv4().toInt();
         const std::string ipv6Str = it->second->fakeClientIPv6().toString();
         clientIdToSessions_.erase(it);
+
         // delete ipv4 -> session
+        bool ipv4Status = false;
         {
             auto it_ipv4 = ipv4ToSessions_.find(ipv4Int);
             if (it_ipv4 != ipv4ToSessions_.end()) {
                 ipv4ToSessions_.erase(it_ipv4);
-                clientNumber_ -= 1;
-                return true;
+                ipv4Status = true;
             }
         }
         // delete ipv6 -> session
+        bool ipv6Status = false;
         {
             auto it_ipv6 = ipv6ToSessions_.find(ipv6Str);
             if (it_ipv6 != ipv6ToSessions_.end()) {
                 ipv6ToSessions_.erase(it_ipv6);
+                ipv6Status = true;
             }
+        }
+        if (ipv4Status && ipv6Status) {
+            clientNumber_ -= 1;
+            return true;
         }
     }
     return false;
@@ -154,10 +161,10 @@ void Table::updateStatistic(fptn::statistic::MetricsSPtr& prometheus) noexcept
         auto clientID = client.first;
         auto& session = client.second;
         prometheus->updateStatistics(
-                clientID,
-                session->userName(),
-                session->getTrafficShaperToClient()->fullDataAmount(),
-                session->getTrafficShaperFromClient()->fullDataAmount()
+            clientID,
+            session->userName(),
+            session->getTrafficShaperToClient()->fullDataAmount(),
+            session->getTrafficShaperFromClient()->fullDataAmount()
         );
     }
 }
