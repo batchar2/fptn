@@ -38,10 +38,10 @@ def save_tunnelblick_tun_driver(target_dir: pathlib.Path) -> bool:
         print("Cloning repository...")
         run_command(f"git clone --depth 1 -b master {repo_url}", cwd=temp_git_dir)
         source_folder = (
-            pathlib.Path(temp_git_dir)
-            / "Tunnelblick"
-            / "third_party"
-            / "tun-notarized.kext"
+                pathlib.Path(temp_git_dir)
+                / "Tunnelblick"
+                / "third_party"
+                / "tun-notarized.kext"
         )
         if source_folder.exists():
             print(f"Copying folder '{source_folder}' to target directory...")
@@ -52,10 +52,10 @@ def save_tunnelblick_tun_driver(target_dir: pathlib.Path) -> bool:
 
 
 def create_app(
-    app_path: pathlib.Path,
-    fptn_client_cli: pathlib.Path,
-    fptn_client_gui: pathlib.Path,
-    version: str,
+        app_path: pathlib.Path,
+        fptn_client_cli: pathlib.Path,
+        fptn_client_gui: pathlib.Path,
+        version: str,
 ) -> bool:
     print(app_path)
     try:
@@ -78,7 +78,7 @@ def create_app(
         os.chmod(binary_dest, 0o755)
         # copy wrapper of program
         fptn_client_cli_wrapper_sh = (
-            SCRIPT_FOLDER / "scripts" / "fptn-client-cli-wrapper.sh"
+                SCRIPT_FOLDER / "scripts" / "fptn-client-cli-wrapper.sh"
         )
         fptn_client_cli_wrapper_sh_dest = macos_path / "fptn-client-cli-wrapper.sh"
         shutil.copy(fptn_client_cli_wrapper_sh, fptn_client_cli_wrapper_sh_dest)
@@ -94,7 +94,7 @@ def create_app(
 
         os.chmod(binary_dest, 0o755)
         fptn_client_gui_wrapper_sh = (
-            SCRIPT_FOLDER / "scripts" / "fptn-client-gui-wrapper.sh"
+                SCRIPT_FOLDER / "scripts" / "fptn-client-gui-wrapper.sh"
         )
         fptn_client_gui_wrapper_sh_dest = macos_path / "fptn-client-gui-wrapper.sh"
         shutil.copy(fptn_client_gui_wrapper_sh, fptn_client_gui_wrapper_sh_dest)
@@ -129,28 +129,23 @@ def create_app(
         # Create Info.plist
         plist = {
             "CFBundleName": APP_NAME,
-            "CFBundleDisplayName": APP_NAME,
-            "CFBundleShortVersionString": version,
             "CFBundleExecutable": "fptn-client-gui-wrapper.sh",
-            "CFBundleIdentifier": "org.fptn.vpn",
+            "CFBundleIdentifier": "com.fptn.vpn",
+            "CFBundlePackageType": "APPL",
+            "CFBundleVersion": version,
             "CFBundleIconFile": ICON.name,
-            "NSHumanReadableCopyright": "Copyright© 2025 FPTN",
-            "CFBundleDocumentTypes": [
-                {
-                    "CFBundleTypeExtensions": ["fptn"],
-                    "CFBundleTypeName": "Fptn file",
-                    "CFBundleTypeRole": "Editor",
-                }
-            ],
-            "NSAppleEventsUsageDescription": "Your app requires administrative privileges to perform certain tasks",
-            "CFBundleInfoDictionaryVersion": "6.0",
-            "LSMinimumSystemVersion": "10.9",
-            "AppleMagnifiedMode": False,
+            "LSUIElement": True,
+            "LSApplicationCategoryType": "public.app-category.utilities",
+            "LSRequiresNativeExecution": True,
             "NSHighResolutionCapable": True,
             "LD_LIBRARY_PATH": "@executable_path/../Frameworks",
-            "LaunchOnlyOnce": True,
-            "LSUIElement": True,
+            "RunAtLoad": True,
+            "KeepAlive": True,
+            "UserName": "root",
+            "NSAllowsArbitraryLoads": True,
+            "NSClipboardUsageDescription": "Requires clipboard access to copy and paste data.",
         }
+
         with open(app_contents_path / "Info.plist", "wb") as plist_file:
             plistlib.dump(plist, plist_file)
 
@@ -161,6 +156,7 @@ def create_app(
             "RunAtLoad": True,
             "UserName": "root",
         }
+
         with open(resources_path / "net.tunnelblick.tun.plist", "wb") as plist_file:
             plistlib.dump(plist_content, plist_file)
             return True

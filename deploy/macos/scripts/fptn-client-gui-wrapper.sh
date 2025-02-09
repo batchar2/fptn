@@ -22,7 +22,7 @@ if [ "$(id -u)" -ne 0 ]; then
     osascript <<EOF
 do shell script "$0" with administrator privileges
 EOF
-    exit 0
+    exit 1
 fi
 
 # Copy KEXT if not already present
@@ -67,10 +67,7 @@ else
     echo "Driver is already loaded."
 fi
 
-# cd "Applications/FptnClient" folder
-SCRIPT_PATH=$(dirname "${BASH_SOURCE[0]}")
-cd "${SCRIPT_PATH}" && cd .. && cd ..
-export FPTN_MACOS_APP_PATH="$(pwd)"
+cd /tmp/
 
 export QT_PLUGIN_PATH=/Applications/FptnClient.app/Contents/Frameworks/plugins
 export QT_QPA_PLATFORM_PLUGIN_PATH=/Applications/FptnClient.app/Contents/Frameworks/plugins/platforms
@@ -79,10 +76,6 @@ export LD_LIBRARY_PATH=/Applications/FptnClient.app/Contents/Frameworks
 networksetup -listallnetworkservices | grep -v '^An asterisk' | xargs -I {} networksetup -setdnsservers "{}" empty
 
 trap cleanup_dns EXIT
-trap cleanup_dns SIGINT
-trap cleanup_dns SIGHUP
-trap cleanup_dns SIGTERM
-
-exec "${FPTN_MACOS_APP_PATH}/Contents/MacOS/fptn-client-gui" "$@"
+exec /Applications/FptnClient.app/Contents/MacOS/fptn-client-gui "$@"
 
 networksetup -listallnetworkservices | grep -v '^An asterisk' | xargs -I {} networksetup -setdnsservers "{}" empty

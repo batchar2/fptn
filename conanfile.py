@@ -13,7 +13,7 @@ class FPTN(ConanFile):
         "fmt/11.0.2",
         "boost/1.83.0",
         "argparse/3.1",
-        "openssl/3.3.2",
+        "openssl/3.2.2",
         "jwt-cpp/0.7.0",
         "spdlog/1.15.0",
         "protobuf/5.27.0",
