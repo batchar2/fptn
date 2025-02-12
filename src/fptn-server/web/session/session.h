@@ -49,13 +49,14 @@ namespace fptn::web
         );
         virtual ~Session();
         boost::asio::awaitable<void> run() noexcept;
-        boost::asio::awaitable<void> send(fptn::common::network::IPPacketPtr packet) noexcept;
+        boost::asio::awaitable<bool> send(fptn::common::network::IPPacketPtr packet) noexcept;
         void close() noexcept;
     protected:
         boost::asio::awaitable<bool> processRequest() noexcept;
         boost::asio::awaitable<bool> handleHttp(const boost::beast::http::request<boost::beast::http::string_body>& request) noexcept;
         boost::asio::awaitable<bool> handleWebSocket(const boost::beast::http::request<boost::beast::http::string_body>& request) noexcept;
     private:
+        std::mutex mutex_;
         fptn::ClientID clientId_ = MAX_CLIENT_ID;
 
         std::atomic<bool> isRunning_;

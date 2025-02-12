@@ -141,6 +141,7 @@ Server::~Server()
 
 bool Server::start() noexcept
 {
+    running_ = true;
     try {
         // run listener
         boost::asio::co_spawn(
@@ -171,21 +172,22 @@ bool Server::start() noexcept
         }
     } catch (boost::system::system_error& err) {
         spdlog::error("Server::start error: {}", err.what());
+        running_ = false;
         return false;
     }
-    running_ = true;
     return true;
 }
 
 boost::asio::awaitable<void> Server::runSender()
 {
-    const std::chrono::milliseconds timeout{5};
+    const std::chrono::milliseconds timeout{10};
+
     while (running_) {
         auto optpacket = co_await toClient_->waitForPacketAsync(timeout);
-        if (optpacket) {
-            // find client
-            SessionSPtr session = nullptr;
-            {
+        if (optpacket && running_) {
+            SessionSPtr session;
+
+            { // mutex
                 const std::unique_lock<std::mutex> lock(mutex_);
 
                 auto it = sessions_.find(optpacket->get()->clientId());
@@ -193,8 +195,12 @@ boost::asio::awaitable<void> Server::runSender()
                     session = it->second;
                 }
             }
-            if (session != nullptr) {
-                co_await session->send(std::move(*optpacket));
+
+            if (session) {
+                const bool status = co_await session->send(std::move(*optpacket));
+                if (!status) {
+                    session->close();
+                }
             }
         }
     }
@@ -204,6 +210,7 @@ boost::asio::awaitable<void> Server::runSender()
 bool Server::stop() noexcept
 {
     running_ = false;
+    spdlog::info("Server stop");
 
     for (auto& session : sessions_) {
         session.second->close();
@@ -377,12 +384,19 @@ void Server::onWsNewIPPacket(fptn::common::network::IPPacketPtr packet) noexcept
 
 void Server::onWsCloseConnection(fptn::ClientID clientId) noexcept
 {
-    const std::unique_lock<std::mutex> lock(mutex_);
+    SessionSPtr session;
+    {
+        const std::unique_lock<std::mutex> lock(mutex_);
 
-    auto it = sessions_.find(clientId);
-    if (it != sessions_.end()) {
-        spdlog::info("DEL SESSION! clientId={}", clientId);
-        sessions_.erase(it);
-        natTable_->delClientSession(clientId);
+        auto it = sessions_.find(clientId);
+        if (it != sessions_.end()) {
+            session = std::move(it->second);
+            sessions_.erase(it);
+        }
     }
+    if (session != nullptr) {
+        session->close();
+        spdlog::info("DEL SESSION! clientId={}", clientId);
+    }
+    natTable_->delClientSession(clientId);
 }

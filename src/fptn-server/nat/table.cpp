@@ -63,38 +63,36 @@ fptn::client::SessionSPtr Table::createClientSession(ClientID clientId,
 
 bool Table::delClientSession(ClientID clientId) noexcept
 {
-    const std::unique_lock<std::mutex> lock(mutex_);
+    fptn::client::SessionSPtr ipv4Session;
+    fptn::client::SessionSPtr ipv6Session;
+    {
+        const std::unique_lock<std::mutex> lock(mutex_);
 
-    auto it = clientIdToSessions_.find(clientId);
-    if (it != clientIdToSessions_.end()) {
-        const IPv4INT ipv4Int = it->second->fakeClientIPv4().toInt();
-        const std::string ipv6Str = it->second->fakeClientIPv6().toString();
-        clientIdToSessions_.erase(it);
+        auto it = clientIdToSessions_.find(clientId);
+        if (it != clientIdToSessions_.end()) {
+            const IPv4INT ipv4Int = it->second->fakeClientIPv4().toInt();
+            const std::string ipv6Str = it->second->fakeClientIPv6().toString();
+            clientIdToSessions_.erase(it);
 
-        // delete ipv4 -> session
-        bool ipv4Status = false;
-        {
-            auto it_ipv4 = ipv4ToSessions_.find(ipv4Int);
-            if (it_ipv4 != ipv4ToSessions_.end()) {
-                ipv4ToSessions_.erase(it_ipv4);
-                ipv4Status = true;
+            // delete ipv4 -> session
+            {
+                auto it_ipv4 = ipv4ToSessions_.find(ipv4Int);
+                if (it_ipv4 != ipv4ToSessions_.end()) {
+                    ipv4Session = std::move(it_ipv4->second);
+                    ipv4ToSessions_.erase(it_ipv4);
+                }
             }
-        }
-        // delete ipv6 -> session
-        bool ipv6Status = false;
-        {
-            auto it_ipv6 = ipv6ToSessions_.find(ipv6Str);
-            if (it_ipv6 != ipv6ToSessions_.end()) {
-                ipv6ToSessions_.erase(it_ipv6);
-                ipv6Status = true;
+            // delete ipv6 -> session
+            {
+                auto it_ipv6 = ipv6ToSessions_.find(ipv6Str);
+                if (it_ipv6 != ipv6ToSessions_.end()) {
+                    ipv6Session = std::move(it_ipv6->second);
+                    ipv6ToSessions_.erase(it_ipv6);
+                }
             }
-        }
-        if (ipv4Status && ipv6Status) {
-            clientNumber_ -= 1;
-            return true;
         }
     }
-    return false;
+    return ipv4Session != nullptr && ipv6Session != nullptr;
 }
 
 fptn::client::SessionSPtr Table::getSessionByFakeIPv4(const pcpp::IPv4Address& ip) noexcept

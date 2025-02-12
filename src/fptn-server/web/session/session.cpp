@@ -257,32 +257,32 @@ void Session::close() noexcept
     try {
         boost::system::error_code ec;
         if (ws_.is_open()) {
-            spdlog::info("--- close wss ---");
+            spdlog::info("--- close wss {} --- ", clientId_);
             ws_.close(boost::beast::websocket::close_code::normal, ec);
         }
         auto &ssl = ws_.next_layer();
         if (ssl.native_handle()) {
-            spdlog::info("--- shutdown ssl ---");
+            spdlog::info("--- shutdown ssl {} ---", clientId_);
             SSL_shutdown(ssl.native_handle());
         }
 
         auto &tcp = ssl.next_layer();
         if (tcp.socket().is_open()) {
-            spdlog::info("--- close tcp socket ---");
+            spdlog::info("--- close tcp socket {} ---", clientId_);
             tcp.socket().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
             tcp.socket().close(ec);
         }
         if (clientId_ != MAX_CLIENT_ID && wsCloseCallback_) {
-            spdlog::info("--- run callback ---");
+            spdlog::info("--- run callback {} ---", clientId_);
             wsCloseCallback_(clientId_);
         }
-        spdlog::info("--- close sucessfull ---");
+        spdlog::info("--- close sucessfull {} ---", clientId_);
     } catch (boost::system::system_error &err) {
         spdlog::error("Session::close error: {}", err.what());
     }
 }
 
-boost::asio::awaitable<void> Session::send(fptn::common::network::IPPacketPtr packet) noexcept
+boost::asio::awaitable<bool> Session::send(fptn::common::network::IPPacketPtr packet) noexcept
 {
     // FIXME REDUNDANT COPY
     boost::system::error_code ec;
@@ -290,14 +290,15 @@ boost::asio::awaitable<void> Session::send(fptn::common::network::IPPacketPtr pa
     const boost::asio::const_buffer buffer(msg.data(), msg.size());
 
     if (isRunning_) {
+        const std::unique_lock<std::mutex> lock(mutex_);
         co_await ws_.async_write(
             buffer,
             boost::asio::redirect_error(boost::asio::use_awaitable, ec)
         );
         if (ec) {
             spdlog::error("Session::send error: {}", ec.what());
-            close();
+            co_return false;
         }
     }
-    co_return;
+    co_return true;
 }

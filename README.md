@@ -128,9 +128,9 @@ cd /etc/fptn/
 Generate the required keys using OpenSSL:
 
 ```bash
-#openssl genrsa -out server.key 2048
-#openssl req -new -x509 -key server.key -out server.crt -days 365
-#openssl rsa -in server.key -pubout -out server.pub
+openssl genrsa -out server.key 2048
+openssl req -new -x509 -key server.key -out server.crt -days 365
+openssl rsa -in server.key -pubout -out server.pub
 
 ```
 
@@ -179,6 +179,10 @@ To start the server, use the following command:
 ```bash
 sudo systemctl enable fptn-server
 sudo systemctl start fptn-server
+
+# Disable kernel logs for "fptn0" interface
+echo ':msg, contains, "fptn0" stop' | sudo tee -a /etc/rsyslog.d/10-block-tun.conf
+sudo systemctl restart rsyslog
 ```
 
 Check the server status with:
