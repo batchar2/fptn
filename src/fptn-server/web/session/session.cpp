@@ -33,6 +33,9 @@ Session::Session(boost::asio::ip::tcp::socket&& socket,
     :
         isRunning_(false),
         ws_(std::move(socket), ctx),
+        strand_(ws_.get_executor()),
+//        write_lock_(ws_.get_executor(), 1),
+        write_channel_(ws_.get_executor(), 64),
         apiHandles_(apiHandles),
         wsOpenCallback_(wsOpenCallback),
         wsNewIPCallback_(wsNewIPCallback),
@@ -77,8 +80,8 @@ Session::~Session()
 boost::asio::awaitable<void> Session::run() noexcept
 {
     boost::system::error_code ec;
-    boost::beast::flat_buffer buffer;
-    boost::beast::http::request<boost::beast::http::string_body> request;
+
+    // boost::beast::http::request<boost::beast::http::string_body> request;
 
     // check init status
     if (!isInitComplete_) {
@@ -98,7 +101,29 @@ boost::asio::awaitable<void> Session::run() noexcept
         co_return;
     }
     isRunning_ = co_await processRequest();
+    if (isRunning_) {
+        auto self = shared_from_this();
+        boost::asio::co_spawn(
+            strand_,
+            [self]() mutable -> boost::asio::awaitable<void> {
+                return self->runReader();
+            },
+            boost::asio::detached
+        );
+        boost::asio::co_spawn(
+            strand_,
+            [self]() mutable -> boost::asio::awaitable<void> {
+                return self->runSender();
+            },
+            boost::asio::detached
+        );
+    }
+}
 
+boost::asio::awaitable<void> Session::runReader() noexcept
+{
+    boost::system::error_code ec;
+    boost::beast::flat_buffer buffer;
     while(isRunning_) {
         try {
             // read
@@ -134,6 +159,37 @@ boost::asio::awaitable<void> Session::run() noexcept
     close();
 }
 
+boost::asio::awaitable<void> Session::runSender() noexcept
+{
+    boost::system::error_code ec;
+
+    auto token = boost::asio::redirect_error(boost::asio::use_awaitable, ec);
+
+    std::string msg;
+    msg.reserve(4096);
+
+    while (isRunning_ && ws_.is_open()) {
+        // read
+        auto packet = co_await write_channel_.async_receive(token);
+        if (!isRunning_ || !write_channel_.is_open() || ec) {
+            spdlog::error("Session::runSender close, ec = {}", ec.value());
+            break;
+        }
+        if (packet != nullptr) {
+            // send
+            msg = fptn::common::protobuf::protocol::createPacket(std::move(packet));
+            if (!msg.empty() ) {
+                co_await ws_.async_write(boost::asio::buffer(msg.data(), msg.size()), token);
+                if (ec) {
+                    spdlog::error("Session::send async_write error: {}", ec.what());
+                    break;
+                }
+                msg.clear();
+            }
+        }
+    }
+    co_return;
+}
 
 boost::asio::awaitable<bool> Session::processRequest() noexcept
 {
@@ -253,7 +309,12 @@ void Session::close() noexcept
         return;
     }
 
+    const std::unique_lock<std::mutex> lock(mutex_);
+
     isRunning_ = false;
+    // write_lock_.cancel();
+    write_channel_.close();
+
     try {
         boost::system::error_code ec;
         if (ws_.is_open()) {
@@ -286,15 +347,9 @@ boost::asio::awaitable<bool> Session::send(fptn::common::network::IPPacketPtr pa
 {
     // FIXME REDUNDANT COPY
     boost::system::error_code ec;
-    const std::string msg = fptn::common::protobuf::protocol::createPacket(std::move(packet));
-    const boost::asio::const_buffer buffer(msg.data(), msg.size());
-
+    auto token = boost::asio::redirect_error(boost::asio::use_awaitable, ec);
     if (isRunning_) {
-        const std::unique_lock<std::mutex> lock(mutex_);
-        co_await ws_.async_write(
-            buffer,
-            boost::asio::redirect_error(boost::asio::use_awaitable, ec)
-        );
+        co_await write_channel_.async_send({}, std::move(packet), token);
         if (ec) {
             spdlog::error("Session::send error: {}", ec.what());
             co_return false;

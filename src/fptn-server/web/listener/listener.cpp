@@ -92,7 +92,7 @@ boost::asio::awaitable<void> Listener::run()
                 // run coroutine
                 boost::asio::co_spawn(
                     ioc_,
-                    [session]() -> boost::asio::awaitable<void> {
+                    [session]() mutable -> boost::asio::awaitable<void> {
                         co_await session->run();
                     },
                     boost::asio::detached

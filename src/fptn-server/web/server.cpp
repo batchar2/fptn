@@ -152,7 +152,7 @@ bool Server::start() noexcept
             boost::asio::detached
         );
         // run senders
-        for (std::size_t i = 0; i < threadNumber_; i++) {
+        for (std::size_t i = 0; i < 1/*threadNumber_*/; i++) {
             boost::asio::co_spawn(
                 ioc_,
                 [this]() -> boost::asio::awaitable<void> {
@@ -180,7 +180,7 @@ bool Server::start() noexcept
 
 boost::asio::awaitable<void> Server::runSender()
 {
-    const std::chrono::milliseconds timeout{10};
+    const std::chrono::milliseconds timeout{5};
 
     while (running_) {
         auto optpacket = co_await toClient_->waitForPacketAsync(timeout);
