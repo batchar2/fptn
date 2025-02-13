@@ -35,12 +35,13 @@ Session::Session(boost::asio::ip::tcp::socket&& socket,
         ws_(std::move(socket), ctx),
         strand_(ws_.get_executor()),
 //        write_lock_(ws_.get_executor(), 1),
-        write_channel_(ws_.get_executor(), 64),
+        write_channel_(ws_.get_executor(), 256),
         apiHandles_(apiHandles),
         wsOpenCallback_(wsOpenCallback),
         wsNewIPCallback_(wsNewIPCallback),
         wsCloseCallback_(wsCloseCallback),
-        isInitComplete_(false)
+        isInitComplete_(false),
+        isQueueFull_(false)
 {
     try {
         boost::beast::get_lowest_layer(ws_).socket().set_option(
@@ -142,17 +143,17 @@ boost::asio::awaitable<void> Session::runReader() noexcept
                 buffer.consume(buffer.size()); // flush
             }
         } catch (const fptn::common::protobuf::protocol::ProcessingError &err) {
-            spdlog::error("Session::run Processing error: {}", err.what());
+            spdlog::error("Session::runReader Processing error: {}", err.what());
         } catch (const fptn::common::protobuf::protocol::MessageError &err) {
-            spdlog::error("Session::run Message error: {}", err.what());
+            spdlog::error("Session::runReader Message error: {}", err.what());
         } catch (const fptn::common::protobuf::protocol::UnsoportedProtocolVersion &err) {
-            spdlog::error("Session::run Unsupported protocol version: {}", err.what());
+            spdlog::error("Session::runReader Unsupported protocol version: {}", err.what());
         } catch (boost::system::system_error& err) {
-            spdlog::error("Session::run error: {}", err.what());
+            spdlog::error("Session::runReader error: {}", err.what());
         } catch (const std::exception& e) {
-            spdlog::error("Exception in run: {}", e.what());
+            spdlog::error("Exception in runReader: {}", e.what());
         } catch(...) {
-            spdlog::error("Session::run Unexpected error");
+            spdlog::error("Session::runReader Unexpected error");
             break;
         }
     }
@@ -181,7 +182,7 @@ boost::asio::awaitable<void> Session::runSender() noexcept
             if (!msg.empty() ) {
                 co_await ws_.async_write(boost::asio::buffer(msg.data(), msg.size()), token);
                 if (ec) {
-                    spdlog::error("Session::send async_write error: {}", ec.what());
+                    spdlog::error("Session::runSender async_write error: {}", ec.what());
                     break;
                 }
                 msg.clear();
@@ -345,15 +346,20 @@ void Session::close() noexcept
 
 boost::asio::awaitable<bool> Session::send(fptn::common::network::IPPacketPtr packet) noexcept
 {
-    // FIXME REDUNDANT COPY
-    boost::system::error_code ec;
-    auto token = boost::asio::redirect_error(boost::asio::use_awaitable, ec);
-    if (isRunning_) {
-        co_await write_channel_.async_send({}, std::move(packet), token);
-        if (ec) {
-            spdlog::error("Session::send error: {}", ec.what());
-            co_return false;
+    try {
+        if (isRunning_ && write_channel_.is_open()) {
+            const bool status = write_channel_.try_send(boost::system::error_code(), std::move(packet));
+            if (status) {
+                isQueueFull_ = false;
+            } else if (!isQueueFull_) {
+                // Log a warning only once when the queue first becomes full
+                isQueueFull_ = true;
+                spdlog::warn("Session::send the queue is full");
+            }
         }
+    } catch (boost::system::system_error& err) {
+        spdlog::error("Session::send error: {}", err.what());
+        co_return false;
     }
     co_return true;
 }

@@ -78,6 +78,7 @@ namespace fptn::web
         const WebSocketCloseConnectionCallback wsCloseCallback_;
 
         bool isInitComplete_;
+        std::atomic<bool> isQueueFull_;
     };
 
     using SessionSPtr = std::shared_ptr<Session>;
