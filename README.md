@@ -8,9 +8,7 @@
 
 [![Build and Test](https://github.com/batchar2/fptn/actions/workflows/main.yml/badge.svg)](https://github.com/batchar2/fptn/actions/workflows/main.yml) [![Github All Releases](https://img.shields.io/github/downloads/batchar2/fptn/total.svg)]()
 
-FPTN is a VPN service specifically designed to bypass censorship.
-Initially launched as a research project, FPTN actively helps people gain access to a free internet.
-
+FPTN is a non-commercial VPN, a volunteer project for bypassing censorship.
 
 ##### Features
 
