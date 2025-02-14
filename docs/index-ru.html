@@ -285,18 +285,6 @@
                 right: 0;
                 left: initial!important;
             }
-            .tabs {
-                overflow: scroll;
-                padding-bottom: 8px;
-            }
-            .tabs .tablink {
-                font-size: 14px;
-                margin-right: 14px;
-                padding: 8px;
-            }
-            .content {
-                padding: 0;
-            }
         }
     </style>
 </head>
@@ -333,10 +321,10 @@
                     </svg>
                 </a>
             </div>
-            <div class="col info col-lg-2 center-flex" onclick="window.open('https://t.me/fptn_project', '_blank').focus()">
-                <a class="navbar-brand" href="https://t.me/fptn_project" target="_blank">
-                    <span class="language-ru">Наш Telegram</span>
-                    <span class="language-en">Our Telegram</span>
+            <div class="col info col-lg-2 center-flex" onclick="window.open('https://t.me/fptn_chat', '_blank').focus()">
+                <a class="navbar-brand" href="https://t.me/fptn_chat" target="_blank">
+                    <span class="language-ru">Чат</span>
+                    <span class="language-en">Chat</span>
                     <svg style="fill: white; height: 32px" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512">
                         <path d="m248 8c-137 0-248 111-248 248s111 248 248 248 248-111 248-248-111-248-248-248zm121.8 169.9-40.7 191.8c-3 13.6-11.1 16.9-22.4 10.5l-62-45.7-29.9 28.8c-3.3 3.3-6.1 6.1-12.5 6.1l4.4-63.1 114.9-103.8c5-4.4-1.1-6.9-7.7-2.5l-142 89.4-61.2-19.1c-13.3-4.2-13.6-13.3 2.8-19.7l239.1-92.2c11.1-4 20.8 2.7 17.2 19.5z"/>
                     </svg>
@@ -375,13 +363,8 @@
                     </p>
 
                     <p>
-                        The VPN-client is a mobile application or a compact application with an interface located in the system tray.
-                        No registration process is required! We will send the access token via the <a target="_blank" href="https://t.me/fptn_bot">bot</a> on Telegram.
+                        The client is a mobile application or a compact application with an interface located in the system tray. No registration required!
                         <img style="width: 100%; max-width: 400px" class="img-center" src="images/tray_view_en.png" alt="Application"/>
-                    </p>
-
-                    <p>
-                        <img style="width: 100%; max-width: 350px" class="img-center" src="images/android/en/04.jpeg" alt="Application"/>
                     </p>
 
                     <p>
@@ -400,12 +383,8 @@
                     </p>
 
                     <p>
-                        VPN-клиент — мобильное приложение или миниатюрная программа для ПК, интерфейс которой размещается в трее. Здесь нет процесса регистрации! Мы пришлем токен доступа через <a target="_blank" href="https://t.me/fptn_bot">бота</a> в Telegram
+                        Клиент — миниатюрное приложение, интерфейс которого размещается в трее. Здесь нет регистрации!
                         <img style="width: 100%; max-width: 400px" class="img-center" src="images/tray_view_ru.png" alt="Application"/>
-                    </p>
-
-                    <p>
-                        <img style="width: 100%; max-width: 350px" class="img-center" src="images/android/ru/04.jpeg" alt="Application"/>
                     </p>
 
                     <p>
@@ -450,16 +429,16 @@
                 </div>
                 <div class="download active android">
                     <div class="wrapper">
-                        <div class="item">
-                            <p>
-                                <span class="language-en">Google play</span>
-                                <span class="language-ru">Google play</span>
-                            </p>
-                            <div class="dropdown">
-                                <a class="dropdown-button download_2 language-ru" onclick="downloadUrl('google_play')">Скачать</a>
-                                <a class="dropdown-button download_2 language-en" onclick="downloadUrl('google_play')">Download</a>
-                            </div>
-                        </div>
+                        <!--                        <div class="item">-->
+                        <!--                            <p>-->
+                        <!--                                <span class="language-en">Google play</span>-->
+                        <!--                                <span class="language-ru">Google play</span>-->
+                        <!--                            </p>-->
+                        <!--                            <div class="dropdown">-->
+                        <!--                                <a class="dropdown-button download_2 language-ru" onclick="downloadUrl('w_client')">Скачать</a>-->
+                        <!--                                <a class="dropdown-button download_2 language-en" onclick="downloadUrl('w_client')">Download</a>-->
+                        <!--                            </div>-->
+                        <!--                        </div>-->
                         <div class="item">
                             <p>
                                 <span class="language-en">Download Android app from the site</span>
@@ -906,8 +885,8 @@
 
                         <img style="width: 100%" src="images/orangepi.jpg" alt="Settings"/>
                     </p>
-                    <p>Любую помощь можно получить в <a href="https://t.me/fptn_project" target="_blank">
-                        нашем Telegram чате</a>!</p>
+                    <p>Любую помощь можно получить в <a href="https://t.me/fptn_chat" target="_blank">
+                        нашем чате</a>!</p>
 
                 </div>
                 <div class="toolbox-ad shared-info language-en">
@@ -918,8 +897,8 @@
 
                         <img style="width: 100%" src="images/orangepi.jpg" alt="Settings"/>
                     </p>
-                    <p>For any assistance, feel free to join <a href="https://t.me/fptn_project" target="_blank">
-                        our Telegram chat</a>!</p>
+                    <p>For any assistance, feel free to join <a href="https://t.me/fptn_chat" target="_blank">
+                        our chat</a>!</p>
                 </div>
             </main>
         </div>
@@ -995,9 +974,6 @@
         break;
       case 'android_apk':
         url = `https://dev.fptn.online/fptn-client.apk`
-        break;
-      case 'google_play':
-        url = `https://play.google.com/store/apps/details?id=org.fptn.vpn`
         break;
       default:
     }
