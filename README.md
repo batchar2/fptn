@@ -33,7 +33,7 @@ FPTN is a non-commercial VPN, a volunteer project for bypassing censorship.
 
 ##### Join us team! 
 
-We welcome new ideas and people! Join our [Telegram chat](https://t.me/fptn_chat)
+We welcome new ideas and people! Join our [Telegram chat](https://t.me/fptn_project)
 
 FPTN operates by securely routing network traffic from your device through a VPN server to bypass censorship and access restricted content.
 The process involves encapsulating your traffic within a secure WebSocket tunnel, which is then processed by the VPN server.
