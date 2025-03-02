@@ -285,6 +285,18 @@
                 right: 0;
                 left: initial!important;
             }
+            .tabs {
+                overflow: scroll;
+                padding-bottom: 8px;
+            }
+            .tabs .tablink {
+                font-size: 14px;
+                margin-right: 14px;
+                padding: 8px;
+            }
+            .content {
+                padding: 0;
+            }
         }
     </style>
 </head>
@@ -438,16 +450,16 @@
                 </div>
                 <div class="download active android">
                     <div class="wrapper">
-<!--                        <div class="item">-->
-<!--                            <p>-->
-<!--                                <span class="language-en">Google play</span>-->
-<!--                                <span class="language-ru">Google play</span>-->
-<!--                            </p>-->
-<!--                            <div class="dropdown">-->
-<!--                                <a class="dropdown-button download_2 language-ru" onclick="downloadUrl('w_client')">Скачать</a>-->
-<!--                                <a class="dropdown-button download_2 language-en" onclick="downloadUrl('w_client')">Download</a>-->
-<!--                            </div>-->
-<!--                        </div>-->
+                        <div class="item">
+                            <p>
+                                <span class="language-en">Google play</span>
+                                <span class="language-ru">Google play</span>
+                            </p>
+                            <div class="dropdown">
+                                <a class="dropdown-button download_2 language-ru" onclick="downloadUrl('google_play')">Скачать</a>
+                                <a class="dropdown-button download_2 language-en" onclick="downloadUrl('google_play')">Download</a>
+                            </div>
+                        </div>
                         <div class="item">
                             <p>
                                 <span class="language-en">Download Android app from the site</span>
@@ -983,6 +995,9 @@
         break;
       case 'android_apk':
         url = `https://dev.fptn.online/fptn-client.apk`
+        break;
+      case 'google_play':
+        url = `https://play.google.com/store/apps/details?id=org.fptn.vpn`
         break;
       default:
     }
