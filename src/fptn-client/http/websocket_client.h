@@ -26,6 +26,7 @@ namespace fptn::http
     using AsioSslContextPtr = std::shared_ptr<boost::asio::ssl::context>;
     using AsioMessagePtr = websocketpp::config::asio_client::message_type::ptr;
     using AsioClient = websocketpp::client<websocketpp::config::asio_tls_client>;
+    using AsioSocketType = websocketpp::transport::asio::tls_socket::connection::socket_type;
 
     class WebSocketClient final
     {
@@ -38,7 +39,8 @@ namespace fptn::http
             const pcpp::IPv4Address& tunInterfaceAddressIPv4,
             const pcpp::IPv6Address& tunInterfaceAddressIPv6,
             bool useSsl = true,
-            const NewIPPacketCallback& newIPPktCallback = nullptr
+            const NewIPPacketCallback& newIPPktCallback = nullptr,
+            const std::string& sni = "fptn.org"
         );
         bool login(const std::string& username, const std::string& password) noexcept;
         std::pair<pcpp::IPv4Address, pcpp::IPv6Address> getDns() noexcept;
@@ -46,12 +48,17 @@ namespace fptn::http
         bool stop() noexcept;
         bool send(fptn::common::network::IPPacketPtr packet) noexcept;
         void setNewIPPacketCallback(const NewIPPacketCallback& callback) noexcept;
-    private:
+        const std::string& sni() const noexcept;
+    protected:
         void run() noexcept;
         httplib::Headers getRealBrowserHeaders() noexcept;
-    private:
+    protected:
         AsioSslContextPtr onTlsInit() noexcept;
         void onMessage(websocketpp::connection_hdl hdl, AsioMessagePtr msg) noexcept;
+        void onHandleSocketInit(websocketpp::connection_hdl hdl, AsioSocketType& socket) noexcept;
+        // SNI
+        bool setupSni(SSL_CTX* ctx) noexcept;
+        bool setupHttplibSSL(httplib::SSLClient& cli, int timeoutSec=5) noexcept;
     private:
         std::thread th_;
         mutable std::mutex mutex_;
@@ -66,6 +73,7 @@ namespace fptn::http
         const pcpp::IPv4Address tunInterfaceAddressIPv4_;
         const pcpp::IPv6Address tunInterfaceAddressIPv6_;
         NewIPPacketCallback newIPPktCallback_;
+        const std::string sni_;
 
         std::string token_;
     };
