@@ -29,13 +29,17 @@ static const char *chromeCiphers = "ECDHE-ECDSA-AES128-GCM-SHA256:"
 using namespace fptn::http;
 
 
+static int onSetServerNameCallback(SSL* ssl, int* ad, void* arg) noexcept;
+
+
 WebSocketClient::WebSocketClient(
     const pcpp::IPv4Address& vpnServerIP,
     int vpnServerPort,
     const pcpp::IPv4Address& tunInterfaceAddressIPv4,
     const pcpp::IPv6Address& tunInterfaceAddressIPv6,
     bool useSsl,
-    const NewIPPacketCallback& newIPPktCallback 
+    const NewIPPacketCallback& newIPPktCallback,
+    const std::string& sni
 )
     :
         connection_(nullptr),
@@ -44,7 +48,8 @@ WebSocketClient::WebSocketClient(
         vpnServerPort_(vpnServerPort),
         tunInterfaceAddressIPv4_(tunInterfaceAddressIPv4),
         tunInterfaceAddressIPv6_(tunInterfaceAddressIPv6),
-        newIPPktCallback_(newIPPktCallback)
+        newIPPktCallback_(newIPPktCallback),
+        sni_(sni)
 {
     (void)useSsl;
     // Set logging
@@ -65,20 +70,85 @@ WebSocketClient::WebSocketClient(
             std::placeholders::_2
         )
     );
+    ws_.set_socket_init_handler(
+        websocketpp::lib::bind(
+            &WebSocketClient::onHandleSocketInit,
+            this,
+            websocketpp::lib::placeholders::_1,
+            websocketpp::lib::placeholders::_2
+        )
+    );
+}
+
+void WebSocketClient::onHandleSocketInit(websocketpp::connection_hdl hdl, AsioSocketType& socket) noexcept
+{
+    std::cerr << "+++" << sni_ << std::endl;
+    (void)hdl;
+    if (!SSL_set_tlsext_host_name(reinterpret_cast<SSL*>(socket.native_handle()), sni_.c_str())) {
+        spdlog::info("Failed to set SNI host name... this might go awry");
+    }
+}
+
+
+
+bool WebSocketClient::setupSni(SSL_CTX* ctx) noexcept
+{
+    if (SSL_CTX_set_cipher_list(ctx, chromeCiphers) != 1) {
+        spdlog::error("Failed to set cipher list");
+        return false;
+    }
+    if (SSL_CTX_set_tlsext_servername_callback(ctx, &onSetServerNameCallback) != 1) {
+        spdlog::error("Failed to set SNI callback");
+        return false;
+    }
+    SSL_CTX_set_tlsext_servername_arg(ctx, this);
+    return true;
+}
+
+bool WebSocketClient::setupHttplibSSL(httplib::SSLClient& cli, int timeoutSec) noexcept
+{
+    // set timeout
+    cli.enable_server_certificate_verification(false); // NEED TO FIX
+    cli.set_connection_timeout(timeoutSec, 0);
+    cli.set_read_timeout(timeoutSec, 0);
+    cli.set_write_timeout(timeoutSec, 0);
+
+    // setup SNI
+    return setupSni(cli.ssl_context());
+}
+
+int onSetServerNameCallback(SSL* ssl, int* ad, void* arg) noexcept
+{
+    (void)ad;
+    std::cerr << "+1" << std::endl;
+    if (!ssl || !arg) {
+        return SSL_TLSEXT_ERR_NOACK;
+    }
+    std::cerr << "+2" << std::endl;
+    const auto* client = static_cast<WebSocketClient*>(arg);
+    const std::string& sni = client->sni();
+    if (!sni.empty()) {
+        std::cerr << "+3>" << sni << std::endl;
+
+        if (SSL_set_tlsext_host_name(ssl, sni.c_str()) != 1) {
+            spdlog::error("Failed to set SNI: {}", ERR_reason_error_string(ERR_get_error()));
+        }
+
+    }
+    std::cerr << "+4" << std::endl;
+    return SSL_TLSEXT_ERR_OK;
+}
+
+const std::string& WebSocketClient::sni() const noexcept
+{
+    return sni_;
 }
 
 bool WebSocketClient::login(const std::string& username, const std::string& password) noexcept
 {
     httplib::SSLClient cli(vpnServerIP_.toString(), vpnServerPort_);
-    {
-        cli.enable_server_certificate_verification(false); // NEED TO FIX
-        cli.set_connection_timeout(5, 0); // 5 seconds
-        cli.set_read_timeout(5, 0);  // 5 seconds
-        cli.set_write_timeout(5, 0); // 5 seconds
-        if (SSL_CTX_set_cipher_list(cli.ssl_context(), chromeCiphers) != 1) {
-            spdlog::error("Failed to set cipher list");
-            return false;
-        }
+    if (!setupHttplibSSL(cli)) {
+        return false;
     }
     spdlog::info("Login. Connect to {}:{}", vpnServerIP_.toString(), vpnServerPort_);
     const std::string request = fmt::format(R"({{ "username": "{}", "password": "{}" }})", username, password);
@@ -110,39 +180,31 @@ std::pair<pcpp::IPv4Address, pcpp::IPv6Address> WebSocketClient::getDns() noexce
 {
     spdlog::info("DNS. Connect to {}:{}", vpnServerIP_.toString(), vpnServerPort_);
     httplib::SSLClient cli(vpnServerIP_.toString(), vpnServerPort_);
-    {
-        cli.enable_server_certificate_verification(false); // NEED TO FIX
-        cli.set_connection_timeout(5, 0); // 5 seconds
-        cli.set_read_timeout(5, 0);  // 5 seconds
-        cli.set_write_timeout(5, 0); // 5 seconds
-        if (SSL_CTX_set_cipher_list(cli.ssl_context(), chromeCiphers) != 1) {
-            spdlog::info("Failed to set cipher list");
-            return {pcpp::IPv4Address("0.0.0.0"), pcpp::IPv6Address("")};
-        }
-    }
-    if (auto res = cli.Get("/api/v1/dns", getRealBrowserHeaders())) {
-        if (res->status == httplib::StatusCode::OK_200) {
-            try {
-                auto response = nlohmann::json::parse(res->body);
-                if (response.contains("dns")) {
-                    const std::string dnsServerIPv4 = response["dns"];
-                    const std::string dnsServerIPv6 = (
-                        response.contains("dns_ipv6")
-                        ? response["dns_ipv6"]
-                        : FPTN_SERVER_DEFAULT_ADDRESS_IP6 // default for old servers
-                    );
-                    return {pcpp::IPv4Address(dnsServerIPv4), pcpp::IPv6Address(dnsServerIPv6)};
-                } else {
-                    spdlog::error("Error: dns not found in the response. Check your conection");
+    if (setupHttplibSSL(cli)) {
+        if (auto res = cli.Get("/api/v1/dns", getRealBrowserHeaders())) {
+            if (res->status == httplib::StatusCode::OK_200) {
+                try {
+                    auto response = nlohmann::json::parse(res->body);
+                    if (response.contains("dns")) {
+                        const std::string dnsServerIPv4 = response["dns"];
+                        const std::string dnsServerIPv6 = (
+                                response.contains("dns_ipv6")
+                                ? response["dns_ipv6"]
+                                : FPTN_SERVER_DEFAULT_ADDRESS_IP6 // default for old servers
+                        );
+                        return {pcpp::IPv4Address(dnsServerIPv4), pcpp::IPv6Address(dnsServerIPv6)};
+                    } else {
+                        spdlog::error("Error: dns not found in the response. Check your conection");
+                    }
+                } catch (const nlohmann::json::parse_error &e) {
+                    spdlog::error("Error parsing JSON response: {} {}", e.what(), res->body);
                 }
-            } catch (const nlohmann::json::parse_error& e) {
-                spdlog::error("Error parsing JSON response: {} {}", e.what(), res->body);
+            } else {
+                spdlog::error("Error: {}", res->body);
             }
         } else {
-            spdlog::error("Error: {}", res->body);
+            spdlog::error("Error: Request failed or response is null.");
         }
-    } else {
-        spdlog::error("Error: Request failed or response is null.");
     }
     return {pcpp::IPv4Address("0.0.0.0"), pcpp::IPv6Address("")};
 }
@@ -156,13 +218,28 @@ AsioSslContextPtr WebSocketClient::onTlsInit() noexcept
                          boost::asio::ssl::context::no_sslv2 |
                          boost::asio::ssl::context::no_sslv3
         );
-        if (SSL_CTX_set_cipher_list(ctx->native_handle(), chromeCiphers) != 1) {
-            spdlog::error("Failed to set cipher list");
+//        if (!SSL_set_tlsext_host_name(ctx->native_handle(), sni_.c_str())) {
+//            spdlog::error("Failed to set SNI");
+//        }
+//        if (!SSL_set_tlsext_host_name(ws_.next_layer().native_handle(), server_.host.c_str()))
+//        {
+//            LOG(ERROR, LOG_TAG) << "Failed to set SNI Hostname\n";
+//            return boost::system::error_code(static_cast<int>(::ERR_get_error()), boost::asio::error::get_ssl_category());
+//        }
+        std::cerr << "SETUP SNI" << std::endl;
+//        if (!SSL_set_tlsext_host_name(ctx->native_handle(), sni_.c_str())) {
+//            spdlog::error("Failed to set SNI");
+//        }
+        if (setupSni(ctx->native_handle()))
+        {
+            if (SSL_CTX_set_cipher_list(ctx->native_handle(), chromeCiphers) != 1) {
+                spdlog::error("Failed to set cipher list");
+            }
+            ctx->set_verify_mode(boost::asio::ssl::verify_none);
+            // to trust
+            // ctx->load_verify_file("path_to_your_cert.pem");
+            // ctx->set_verify_mode(boost::asio::ssl::verify_peer);
         }
-        ctx->set_verify_mode(boost::asio::ssl::verify_none);
-        // to trust
-        // ctx->load_verify_file("path_to_your_cert.pem");
-        // ctx->set_verify_mode(boost::asio::ssl::verify_peer);
     } catch (std::exception &e) {
         spdlog::error("Error in context pointer: {}", e.what());
     }
@@ -346,3 +423,43 @@ httplib::Headers WebSocketClient::getRealBrowserHeaders() noexcept
     #error "Unsupported system!"
 #endif
 }
+
+//bool WebSocketClient::setupHttplibSSL(httplib::SSLClient& cli, int timeoutSec) noexcept
+//{
+//    SSL_CTX* ctx = cli.ssl_context();
+//    if (!ctx) {
+//        spdlog::error("Failed to get SSL context");
+//        return false;
+//    }
+//
+//    // Store SNI for reference
+////    sni_ = sni;
+//
+//    // Set TLS options
+//    cli.enable_server_certificate_verification(true);
+//    cli.set_connection_timeout(timeoutSec, 0);
+//    cli.set_read_timeout(timeoutSec, 0);
+//    cli.set_write_timeout(timeoutSec, 0);
+//
+//    // **Directly set SNI before connection starts**
+//    if (SSL_CTX_set_tlsext_servername_callback(ctx, nullptr) != 1) {
+//        spdlog::error("Failed to disable SNI callback (not needed)");
+//    }
+//
+//    SSL* ssl = SSL_new(ctx);
+//    if (!ssl) {
+//        spdlog::error("Failed to create SSL structure");
+//        return false;
+//    }
+//
+//    if (SSL_set_tlsext_host_name(ssl, sni_.c_str()) != 1) {
+//        spdlog::error("Failed to set SNI to {}", sni_);
+//        SSL_free(ssl);
+//        return false;
+//    }
+//
+//    spdlog::info("SNI successfully set to {}", sni_);
+//
+//    SSL_free(ssl);  // Cleanup temporary SSL structure
+//    return true;
+//}
