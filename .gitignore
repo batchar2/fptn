@@ -13,6 +13,7 @@ build*/
 cmake-build-*/
 .idea/
 libhv.*
+macos-build/
 linux-build/
 linux-build22/
 linux-build24/

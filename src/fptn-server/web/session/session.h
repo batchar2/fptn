@@ -19,7 +19,9 @@
 #include <boost/asio.hpp>
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/experimental/channel.hpp>
+#include <boost/asio/experimental/concurrent_channel.hpp>
 #include <boost/asio/experimental/awaitable_operators.hpp>
+
 
 #include <boost/coroutine/all.hpp>
 
@@ -48,25 +50,35 @@ namespace fptn::web
             WebSocketCloseConnectionCallback wsCloseCallback
         );
         virtual ~Session();
-        boost::asio::awaitable<void> run() noexcept;
-        boost::asio::awaitable<void> send(fptn::common::network::IPPacketPtr packet) noexcept;
         void close() noexcept;
+
+        // async
+        boost::asio::awaitable<void> run() noexcept;
+        boost::asio::awaitable<bool> send(fptn::common::network::IPPacketPtr packet) noexcept;
     protected:
+        boost::asio::awaitable<void> runReader() noexcept;
+        boost::asio::awaitable<void> runSender() noexcept;
+
         boost::asio::awaitable<bool> processRequest() noexcept;
         boost::asio::awaitable<bool> handleHttp(const boost::beast::http::request<boost::beast::http::string_body>& request) noexcept;
         boost::asio::awaitable<bool> handleWebSocket(const boost::beast::http::request<boost::beast::http::string_body>& request) noexcept;
     private:
+        std::mutex mutex_;
         fptn::ClientID clientId_ = MAX_CLIENT_ID;
 
         std::atomic<bool> isRunning_;
 
         boost::beast::websocket::stream<boost::asio::ssl::stream<boost::beast::tcp_stream>> ws_;
+        boost::asio::strand<boost::asio::any_io_executor> strand_;
+//        boost::asio::experimental::concurrent_channel<void()> write_lock_;
+        boost::asio::experimental::concurrent_channel<void(boost::system::error_code, fptn::common::network::IPPacketPtr)> write_channel_;
         const ApiHandleMap& apiHandles_;
         const WebSocketOpenConnectionCallback wsOpenCallback_;
         const WebSocketNewIPPacketCallback wsNewIPCallback_;
         const WebSocketCloseConnectionCallback wsCloseCallback_;
 
         bool isInitComplete_;
+        std::atomic<bool> isQueueFull_;
     };
 
     using SessionSPtr = std::shared_ptr<Session>;

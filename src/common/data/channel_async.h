@@ -95,27 +95,15 @@ namespace fptn::common::data
             boost::asio::steady_timer timer(ioc_, timeout);
 
             co_await timer.async_wait(boost::asio::use_awaitable);
-            /*
-            // Get the current coroutine's executor.
-            auto executor = co_await boost::asio::this_coro::executor;
-            auto buffer = &buffer_;
-            // Use async_initiate to create an awaitable asynchronous operation.
-            co_await boost::asio::async_initiate<decltype(boost::asio::use_awaitable),
-                void(boost::system::error_code)>(
-                // The initiating lambda captures references to cv, lock and the duration.
-                [&cv, &lock, &duration, executor, buffer](auto &&handler) mutable {
-                    // Post a lambda to the executor (or to a thread pool if you have one)
-                    boost::asio::post(executor, [&, handler = std::move(handler)]() mutable {
-                        // Perform the blocking wait in the background thread.
-                        cv.wait_for(lock, duration, [] { return !buffer_->empty(); });
-                        // Invoke the completion handler with a default error_code (i.e. success)
-                        handler(boost::system::error_code{});
-                        }
-                    );
-                },
-                boost::asio::use_awaitable
-            );
-            */
+
+            // while (!mutex_.try_lock()) {
+            //     if (std::chrono::steady_clock::now() - start > std::chrono::seconds(3)) {
+            //         spdlog::error("Session::send: failed to acquire lock within timeout");
+            //         co_return false;
+            //     }
+            //     std::this_thread::yield();  // Yield to avoid busy waiting
+            // }
+
             co_return;
         }
     protected:

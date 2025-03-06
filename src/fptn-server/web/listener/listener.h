@@ -29,6 +29,7 @@ namespace fptn::web
             WebSocketNewIPPacketCallback wsNewIPCallback,
             WebSocketCloseConnectionCallback wsCloseCallback
         );
+        //virtual ~Listener() = default;
         boost::asio::awaitable<void> run();
         bool stop();
         void httpRegister(const std::string& url, const std::string& method, const ApiHandle& handle);

@@ -36,7 +36,7 @@ namespace fptn::web
             const std::string& prometheusAccessKey,
             const pcpp::IPv4Address& dnsServerIPv4,
             const pcpp::IPv6Address& dnsServerIPv6,
-            std::size_t threadNumber = 4
+            std::size_t threadNumber = 8
         );
         ~Server();
         bool start() noexcept;
