@@ -319,26 +319,21 @@ void Session::close() noexcept
     try {
         boost::system::error_code ec;
         if (ws_.is_open()) {
-            spdlog::info("--- close wss {} --- ", clientId_);
             ws_.close(boost::beast::websocket::close_code::normal, ec);
         }
         auto &ssl = ws_.next_layer();
         if (ssl.native_handle()) {
-            spdlog::info("--- shutdown ssl {} ---", clientId_);
             SSL_shutdown(ssl.native_handle());
         }
 
         auto &tcp = ssl.next_layer();
         if (tcp.socket().is_open()) {
-            spdlog::info("--- close tcp socket {} ---", clientId_);
             tcp.socket().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
             tcp.socket().close(ec);
         }
         if (clientId_ != MAX_CLIENT_ID && wsCloseCallback_) {
-            spdlog::info("--- run callback {} ---", clientId_);
             wsCloseCallback_(clientId_);
         }
-        spdlog::info("--- close sucessfull {} ---", clientId_);
     } catch (boost::system::system_error &err) {
         spdlog::error("Session::close error: {}", err.what());
     }
