@@ -1,5 +1,15 @@
 project(fptn-client)
 
+if(APPLE)
+    add_compile_definitions(FPTN_USER_OS=\"MacOS\")
+elseif(WIN32)
+    add_compile_definitions(FPTN_USER_OS=\"Windows\")
+elseif(UNIX)
+    add_compile_definitions(FPTN_USER_OS=\"Linux\")
+else()
+    message(FATAL_ERROR "Unsupported platform")
+endif()
+
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 if(APPLE OR UNIX)
@@ -13,6 +23,7 @@ find_package(OpenSSL REQUIRED)
 find_package(argparse REQUIRED)
 find_package(spdlog REQUIRED)
 find_package(fmt REQUIRED)
+find_package(CURL REQUIRED)
 find_package(PcapPlusPlus REQUIRED)
 find_package(Boost REQUIRED COMPONENTS random filesystem)
 
@@ -29,9 +40,10 @@ add_executable(
     "${PROJECT_NAME}-cli"
     fptn-client-cli.cpp
     vpn/vpn_client.h vpn/vpn_client.cpp
-    http/websocket_client.h http/websocket_client.cpp
+        http/client.h http/client.cpp
     system/iptables.h system/iptables.cpp
     config/config_file.cpp config/config_file.h
+    http/websocket/websocket.h http/websocket/websocket.cpp
 )
 target_link_libraries(
     "${PROJECT_NAME}-cli"
@@ -49,6 +61,7 @@ target_link_libraries(
     spdlog::spdlog
     fmt::fmt
     PcapPlusPlus::PcapPlusPlus
+    CURL::libcurl
 
     fptn_protocol
 
@@ -82,7 +95,7 @@ if("${FPTN_BUILD_WITH_GUI_CLIENT}")
     add_executable("${PROJECT_NAME}-gui" ${QT_ADDITIONAL_PARAMS}
         fptn-client-gui.cpp
         vpn/vpn_client.h vpn/vpn_client.cpp
-        http/websocket_client.h http/websocket_client.cpp
+            http/client.h http/client.cpp
         system/iptables.h system/iptables.cpp
         config/config_file.cpp config/config_file.h
 
@@ -116,9 +129,11 @@ if("${FPTN_BUILD_WITH_GUI_CLIENT}")
         fmt::fmt
         PcapPlusPlus::PcapPlusPlus
 
-        fptn_protocol
-
         Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Network
+
+        CURL::libcurl
+
+        fptn_protocol
 
         ${TUNTAP_LIB}
     )

@@ -4,7 +4,7 @@
 #include <common/network/ip_packet.h>
 #include <common/network/net_interface.h>
 
-#include "http/websocket_client.h"
+#include "http/client.h"
 
 
 namespace fptn::vpn
@@ -13,7 +13,7 @@ namespace fptn::vpn
     {
     public:
         explicit VpnClient(
-            fptn::http::WebSocketClientPtr webSocket,
+            fptn::http::ClientPtr webSocket,
             fptn::common::network::BaseNetInterfacePtr virtualNetworkInterface,
             const pcpp::IPv4Address& dnsServerIPv4,
             const pcpp::IPv6Address& dnsServerIPv6
@@ -27,7 +27,7 @@ namespace fptn::vpn
         void packetFromVirtualNetworkInterface(fptn::common::network::IPPacketPtr packet) noexcept;
         void packetFromWebSocket(fptn::common::network::IPPacketPtr packet) noexcept;
     private:
-        fptn::http::WebSocketClientPtr webSocket_;
+        fptn::http::ClientPtr webSocket_;
         fptn::common::network::BaseNetInterfacePtr virtualNetworkInterface_;
         const pcpp::IPv4Address dnsServerIPv4_;
         const pcpp::IPv6Address dnsServerIPv6_;
