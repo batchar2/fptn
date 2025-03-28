@@ -14,7 +14,7 @@
 #include "vpn/vpn_client.h"
 #include "system/iptables.h"
 #include "config/config_file.h"
-#include "http/websocket_client.h"
+#include "http/client.h"
 
 
 inline void waitForSignal() 
@@ -29,11 +29,6 @@ inline void waitForSignal()
     io_context.run();
 }
 
-inline void showVersionAndExit()
-{
-    std::cerr << "Version: " << FPTN_VERSION << std::endl;
-    std::exit(EXIT_SUCCESS);
-}
 
 int main(int argc, char* argv[])
 {
@@ -43,7 +38,7 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
 #endif
-    argparse::ArgumentParser args("fptn-client");
+    argparse::ArgumentParser args("fptn-client", FPTN_VERSION);
     // Required arguments
     args.add_argument("--access-token")
         .required()
@@ -64,18 +59,15 @@ int main(int argc, char* argv[])
     args.add_argument("--tun-interface-ipv6")
         .default_value(FPTN_CLIENT_DEFAULT_ADDRESS_IP6)
         .help("Network interface IPv6 address");
-    args.add_argument("--version")
-        .help("Show version information");
-
+    args.add_argument("--tun-interface-ipv6")
+        .default_value(FPTN_CLIENT_DEFAULT_ADDRESS_IP6)
+        .help("Network interface IPv6 address");
+    args.add_argument("--sni")
+        .default_value("tv.telecom.kz")
+        .help("Domain name for SNI in TLS handshake (used to obfuscate VPN traffic)");
     try {
         args.parse_args(argc, argv);
-        if (args.is_used("--version")) {
-            showVersionAndExit();
-        }
     } catch (const std::runtime_error& err) {
-        if (args.is_used("--version")) {
-            showVersionAndExit();
-        }
         std::cerr << err.what() << std::endl;
         std::cerr << args;
         return EXIT_FAILURE;
@@ -94,6 +86,7 @@ int main(int argc, char* argv[])
     const auto tunInterfaceName = args.get<std::string>("--tun-interface-name");
     const auto tunInterfaceAddressIPv4 = pcpp::IPv4Address(args.get<std::string>("--tun-interface-ip"));
     const auto tunInterfaceAddressIPv6 = pcpp::IPv6Address(args.get<std::string>("--tun-interface-ipv6"));
+    const auto sni = args.get<std::string>("--sni");
 
     /* check gateway address */
     const auto usingGatewayIP = (
@@ -129,8 +122,9 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
 
-    spdlog::info(
+    spdlog::info("\n--- Starting client ---\n"
         "VERSION:            {}\n"
+        "SNI:                {}\n"
         "GATEWAY IP:         {}\n"
         "NETWORK INTERFACE:  {}\n"
         "VPN SERVER NAME:    {}\n"
@@ -139,6 +133,7 @@ int main(int argc, char* argv[])
         "TUN INTERFACE IPv4: {}\n"
         "TUN INTERFACE IPv6: {}\n",
         FPTN_VERSION,
+        sni,
         usingGatewayIP.toString(),
         outNetworkInterfaceName,
         selectedServer.name,
@@ -149,19 +144,19 @@ int main(int argc, char* argv[])
     );
 
     /* auth & dns */
-    auto webSocketClient = std::make_unique<fptn::http::WebSocketClient>(
+    auto httpClient = std::make_unique<fptn::http::Client>(
         serverIP,
         serverPort,
         tunInterfaceAddressIPv4,
         tunInterfaceAddressIPv6,
-        true
+        sni
     );
-    const bool status = webSocketClient->login(config.getUsername(), config.getPassword());
+    const bool status = httpClient->login(config.getUsername(), config.getPassword());
     if (!status) {
         spdlog::error("The username or password you entered is incorrect");
         return EXIT_FAILURE;
     }
-    const auto [dnsServerIPv4, dnsServerIPv6] = webSocketClient->getDns();
+    const auto [dnsServerIPv4, dnsServerIPv6] = httpClient->getDns();
     if (dnsServerIPv4 == pcpp::IPv4Address("0.0.0.0") || dnsServerIPv6 == pcpp::IPv6Address("")) {
         spdlog::error("DNS server error! Check your connection!");
         return EXIT_FAILURE;
@@ -190,7 +185,7 @@ int main(int argc, char* argv[])
 
     /* vpn client */
     fptn::vpn::VpnClient vpnClient(
-        std::move(webSocketClient),
+        std::move(httpClient),
         std::move(virtualNetworkInterface),
         dnsServerIPv4,
         dnsServerIPv6

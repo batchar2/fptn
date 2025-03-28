@@ -10,7 +10,7 @@ using namespace fptn::vpn;
 
 
 VpnClient::VpnClient(
-    fptn::http::WebSocketClientPtr webSocket,
+    fptn::http::ClientPtr webSocket,
     fptn::common::network::BaseNetInterfacePtr virtualNetworkInterface,
     const pcpp::IPv4Address& dnsServerIPv4,
     const pcpp::IPv6Address& dnsServerIPv6
