@@ -89,20 +89,29 @@ void SettingsModel::load()
     if (serviceObj.contains("network_interface")) {
         networkInterface_ = serviceObj["network_interface"].toString();
     }
-    if (serviceObj.contains("language")) {
-        selectedLanguage_ = serviceObj["language"].toString();
-    }
     if (networkInterface_.isEmpty()) {
         networkInterface_ = "auto";
+    }
+
+    if (serviceObj.contains("language")) {
+        selectedLanguage_ = serviceObj["language"].toString();
     }
     if (serviceObj.contains("autostart")) {
         clientAutostart_ = serviceObj["autostart"].toInt();
     }
+
     if (serviceObj.contains("gateway_ip")) {
         gatewayIp_ = serviceObj["gateway_ip"].toString();
     }
     if (gatewayIp_.isEmpty()) {
         gatewayIp_ = "auto";
+    }
+
+    if (serviceObj.contains("sni")) {
+        sni_ = serviceObj["sni"].toString();
+    }
+    if (sni_.isEmpty()) {
+        sni_ = FPTN_DEFAULT_SNI;
     }
 }
 
@@ -195,6 +204,7 @@ bool SettingsModel::save()
     jsonObject["network_interface"] = networkInterface_;
     jsonObject["gateway_ip"] = gatewayIp_;
     jsonObject["autostart"] = clientAutostart_ ? 1 : 0;
+    jsonObject["sni"] = sni_;
     QJsonDocument document(jsonObject);
     auto len = file.write(document.toJson());
     file.close();
@@ -257,11 +267,22 @@ void SettingsModel::setNetworkInterface(const QString &interface) {
 }
 
 QString SettingsModel::gatewayIp() const {
-    return (gatewayIp_.isEmpty() ? "auto" : gatewayIp_);
+    return gatewayIp_.isEmpty() ? "auto" : gatewayIp_;
 }
 
 void SettingsModel::setGatewayIp(const QString &ip) {
-    gatewayIp_ = (ip.isEmpty() ? "auto" : ip);
+    gatewayIp_ = ip.isEmpty() ? "auto" : ip;
+    save();
+}
+
+QString SettingsModel::SNI() const
+{
+    return sni_.isEmpty() ? FPTN_DEFAULT_SNI : sni_;
+}
+
+void SettingsModel::setSNI(const QString &sni)
+{
+    sni_ = sni;
     save();
 }
 

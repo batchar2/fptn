@@ -52,6 +52,9 @@ namespace fptn::gui
         QCheckBox* gatewayAutoCheckbox_ = nullptr;
         QLabel* gatewayLabel_ = nullptr;
 
+        QLabel* sniLabel_ = nullptr;
+        QLineEdit* sniLineEdit_ = nullptr;
+
         QPushButton *loadNewTokenButton_ = nullptr;
 
         QPushButton* exitButton_ = nullptr;

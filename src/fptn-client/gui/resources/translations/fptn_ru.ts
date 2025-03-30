@@ -206,5 +206,10 @@
             <source>New version available</source>
             <translation>Доступна новая версия</translation>
         </message>
+
+        <message>
+            <source>Fake SNI to bypass censorship (hides the VPN)</source>
+            <translation>Фейковый SNI для обхода блокировок (скрывает VPN)</translation>
+        </message>
     </context>
 </TS>

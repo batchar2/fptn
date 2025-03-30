@@ -70,7 +70,7 @@ ConfigFile::Server ConfigFile::findFastestServer() const
     std::vector<std::future<std::uint64_t>> futures;
     
     for (const auto& server : servers_) {
-        futures.push_back(std::async(std::launch::async, [this, server, timeout]() {
+        futures.push_back(std::async(std::launch::async, [this, server]() {
             return getDownloadTimeMs(server, timeout-1);
         }));
     }
