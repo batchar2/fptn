@@ -66,14 +66,16 @@ bool ConfigFile::parse()
 
 ConfigFile::Server ConfigFile::findFastestServer() const
 {
-    constexpr int timeout = 5;
+    const int timeout = 5;
     std::vector<std::future<std::uint64_t>> futures;
-    
+
     for (const auto& server : servers_) {
-        futures.push_back(std::async(std::launch::async, [this, server]() {
-            return getDownloadTimeMs(server, timeout-1);
+        futures.push_back(std::async(std::launch::async, [this, server, timeout]() {
+            (void)timeout;
+            return getDownloadTimeMs(server, timeout);
         }));
     }
+
     std::vector<std::uint64_t> times(servers_.size());
     for (std::size_t i = 0; i < futures.size(); ++i) {
         auto& future = futures[i];
