@@ -2,6 +2,7 @@
 #include <filesystem>
 
 #include <QApplication>
+#include <QStyleFactory>
 
 #if defined(__linux__) || defined(__APPLE__)
 #include <unistd.h>
@@ -65,6 +66,8 @@ int main(int argc, char *argv[])
     QApplication::setQuitOnLastWindowClosed(false);
 #if __APPLE__
     QApplication::setAttribute(Qt::AA_MacDontSwapCtrlAndMeta, false);
+#elif defined(_WIN32)
+    QApplication::setStyle(QStyleFactory::create("windowsvista"));
 #endif
     QApplication app(argc, argv);
     auto settings = std::make_shared<fptn::gui::SettingsModel>(

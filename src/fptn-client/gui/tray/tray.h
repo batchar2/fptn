@@ -25,7 +25,7 @@
 #include "vpn/vpn_client.h"
 #include "system/iptables.h"
 #include "config/config_file.h"
-#include "http/websocket_client.h"
+#include "http/client.h"
 
 
 namespace fptn::gui

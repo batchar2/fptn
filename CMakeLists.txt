@@ -5,13 +5,9 @@ set(FPTN_SERVER_PATH "${CMAKE_CURRENT_SOURCE_DIR}/src/fptn-server")
 
 enable_testing()
 
-#add_definitions(-DBOOST_ASIO_ENABLE_COROUTINES)
-#add_definitions(-DBOOST_ASIO_HAS_CO_AWAIT)
-
-#add_definitions(-DBOOST_ASIO_NO_CXX20_COROUTINE)
-
 add_compile_definitions(FPTN_VERSION=\"${FPTN_VERSION}\")
 add_compile_definitions(FPTN_MTU_SIZE=1500)
+add_compile_definitions(FPTN_DEFAULT_SNI=\"tv.telecom.kz\")
 add_compile_definitions(FPTN_IP_PACKET_MAX_SIZE=1450)
 add_compile_definitions(FPTN_ENABLE_PACKET_PADDING=1)
 add_compile_definitions(FPTN_PROTOBUF_PROTOCOL_VERSION=0x01)
@@ -30,6 +26,8 @@ add_compile_definitions(FPTN_GITHUB_PAGE_LINK=\"https://batchar2.github.io/fptn/
 
 # enable ssl for cpphttp-lib
 add_compile_definitions(CPPHTTPLIB_OPENSSL_SUPPORT)
+add_compile_definitions(BOOST_IOSTREAMS_USE_BZIP2)
+add_compile_definitions(BOOST_IOSTREAMS_USE_ZLIB)
 
 # cmake_policy(SET CMP0077 NEW)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)

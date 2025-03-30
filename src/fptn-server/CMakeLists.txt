@@ -13,8 +13,8 @@ else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fcoroutines")
 endif()
 
-#find_package(Boost COMPONENTS coroutines timer boost asio thread REQUIRED)
 find_package(Boost 1.83 REQUIRED COMPONENTS asio coroutines future)
+find_package(ZLIB REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_package(argparse REQUIRED)
 find_package(spdlog REQUIRED)
@@ -23,7 +23,6 @@ find_package(PcapPlusPlus REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(jwt-cpp REQUIRED)
 find_package(prometheus-cpp REQUIRED)
-find_package(httplib REQUIRED)
 
 # Include Boost directory
 include_directories(${Boost_INCLUDE_DIRS})
@@ -53,11 +52,8 @@ add_executable("${PROJECT_NAME}"
 
 target_link_libraries(
     "${PROJECT_NAME}"
+    ZLIB::ZLIB
     Boost::boost
-         # Boost::coroutines Boost::timer Boost::asio
-
-    #Boost::asio Boost::filesystem Boost::thread
-
     OpenSSL::SSL 
     OpenSSL::Crypto
     argparse::argparse
@@ -68,17 +64,9 @@ target_link_libraries(
     spdlog::spdlog
     fmt::fmt
     PcapPlusPlus::PcapPlusPlus
-    httplib::httplib
 
     tuntap++
 
     fptn_protocol
     prometheus-cpp::prometheus-cpp
 )
-
-
-#target_compile_definitions("${PROJECT_NAME}" PRIVATE
-#        BOOST_ASIO_HAS_CO_AWAIT
-#        BOOST_ASIO_HAS_CO_SPAWN
-#        BOOST_ASIO_HAS_COROUTINES
-#)

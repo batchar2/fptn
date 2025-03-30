@@ -22,8 +22,9 @@ namespace fptn::config
             std::string serviceName;
         };
     public:
-        ConfigFile() = default;
-        explicit ConfigFile(const std::string token);
+        explicit ConfigFile(std::string sni);
+        explicit ConfigFile(std::string token, std::string sni);
+
         bool parse();
         Server findFastestServer() const;
         bool addServer(const Server &s);
@@ -34,9 +35,10 @@ namespace fptn::config
         std::string getPassword() const  noexcept;
         std::vector<Server> getServers() const noexcept;
     public:
-        std::uint64_t getDownloadTimeMs(const Server& server) const noexcept;
+        std::uint64_t getDownloadTimeMs(const Server& server, int timeout = 4) const noexcept;
     private:
-        std::string token_;
+        const std::string token_;
+        const std::string sni_;
 
         int version_;
         std::string serviceName_;

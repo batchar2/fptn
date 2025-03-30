@@ -10,13 +10,13 @@ using namespace fptn::vpn;
 
 
 VpnClient::VpnClient(
-    fptn::http::WebSocketClientPtr webSocket,
+    fptn::http::ClientPtr httpClient,
     fptn::common::network::BaseNetInterfacePtr virtualNetworkInterface,
     const pcpp::IPv4Address& dnsServerIPv4,
     const pcpp::IPv6Address& dnsServerIPv6
 )
     :
-        webSocket_(std::move(webSocket)),
+        httpClient_(std::move(httpClient)),
         virtualNetworkInterface_(std::move(virtualNetworkInterface)),
         dnsServerIPv4_(dnsServerIPv4),
         dnsServerIPv6_(dnsServerIPv6)
@@ -28,9 +28,14 @@ VpnClient::~VpnClient()
     stop();
 }
 
+bool VpnClient::isStarted() noexcept
+{
+    return httpClient_ && httpClient_->isStarted();
+}
+
 void VpnClient::start() noexcept
 {
-    webSocket_->setNewIPPacketCallback(
+    httpClient_->setNewIPPacketCallback(
         std::bind(&VpnClient::packetFromWebSocket, this, std::placeholders::_1)
     );
 
@@ -38,15 +43,15 @@ void VpnClient::start() noexcept
         std::bind(&VpnClient::packetFromVirtualNetworkInterface, this, std::placeholders::_1)
     );
 
-    webSocket_->start();
+    httpClient_->start();
     virtualNetworkInterface_->start();
 }
 
 void VpnClient::stop() noexcept
 {
-    if (webSocket_) {
-        webSocket_->stop();
-        webSocket_.reset();
+    if (httpClient_) {
+        httpClient_->stop();
+        httpClient_.reset();
     }
     if (virtualNetworkInterface_) {
         virtualNetworkInterface_->stop();
@@ -66,7 +71,7 @@ std::size_t VpnClient::getReceiveRate() noexcept
 
 void VpnClient::packetFromVirtualNetworkInterface(fptn::common::network::IPPacketPtr packet) noexcept
 {
-    webSocket_->send(std::move(packet));
+    httpClient_->send(std::move(packet));
 }
 
 void VpnClient::packetFromWebSocket(fptn::common::network::IPPacketPtr packet) noexcept

@@ -334,15 +334,11 @@ void TrayApp::handleConnecting()
     spdlog::debug("Handling connecting state");
     updateTrayMenu();
 
-    spdlog::debug("--- setIcon ---");
-
     trayIcon_->setIcon(QIcon(inactiveIconPath_));
 
     const pcpp::IPv4Address tunInterfaceAddressIPv4(FPTN_CLIENT_DEFAULT_ADDRESS_IP4);
     const pcpp::IPv6Address tunInterfaceAddressIPv6(FPTN_CLIENT_DEFAULT_ADDRESS_IP6);
     const std::string tunInterfaceName = "tun0";
-
-    spdlog::debug("--- get gatewayIp ---");
 
     /* check gateway address */
     const auto usingGatewayIP = (
@@ -350,8 +346,6 @@ void TrayApp::handleConnecting()
         ? fptn::system::getDefaultGatewayIPAddress()
         : pcpp::IPv4Address(settings_->gatewayIp().toStdString())
     );
-
-    spdlog::debug("--- check gatewayIp ---");
 
     if (usingGatewayIP == pcpp::IPv4Address("0.0.0.0")) {
         showError(
@@ -368,7 +362,6 @@ void TrayApp::handleConnecting()
         updateTrayMenu();
         return;
     }
-    spdlog::debug("--- get networkInterface ---");
 
     /* config */
     const std::string networkInterface = (
@@ -376,8 +369,9 @@ void TrayApp::handleConnecting()
         ? ""
         : settings_->networkInterface().toStdString()
     );
-    spdlog::debug("--- get server ---");
-    fptn::config::ConfigFile config;
+
+    const std::string sni = !settings_->SNI().isEmpty() ? settings_->SNI().toStdString() : FPTN_DEFAULT_SNI;
+    fptn::config::ConfigFile config(sni); // SET SNI
     if (smartConnect_) { // find the best server
         for (const auto& service : settings_->services()) {
             for (const auto &s: service.servers) {
@@ -415,7 +409,7 @@ void TrayApp::handleConnecting()
             return;
         }
     }
-    spdlog::debug("--- resolveDomain ---");
+
     const int serverPort = selectedServer_.port;
     const auto serverIP = fptn::system::resolveDomain(selectedServer_.host);
     if (serverIP == pcpp::IPv4Address("0.0.0.0")) {
@@ -427,22 +421,15 @@ void TrayApp::handleConnecting()
         return;
     }
 
-    spdlog::debug("--- WebSocketClient ---");
-
-    auto webSocketClient = std::make_unique<fptn::http::WebSocketClient>(
+    auto httpClient = std::make_unique<fptn::http::Client>(
         serverIP,
         serverPort,
         tunInterfaceAddressIPv4,
         tunInterfaceAddressIPv6,
-        true
+        sni
     );
-
-    spdlog::debug("--- login ---");
-    bool loginStatus = webSocketClient->login(
-        selectedServer_.username,
-        selectedServer_.password
-    );
-
+    // login
+    bool loginStatus = httpClient->login(selectedServer_.username, selectedServer_.password);
     if (!loginStatus) {
         showError(
             QObject::tr("Connection Error"),
@@ -453,8 +440,8 @@ void TrayApp::handleConnecting()
         return;
     }
 
-    spdlog::debug("--- getDns ---");
-    const auto [dnsServerIPv4, dnsServerIPv6] = webSocketClient->getDns();
+    // get dns
+    const auto [dnsServerIPv4, dnsServerIPv6] = httpClient->getDns();
     if (dnsServerIPv4 == pcpp::IPv4Address("0.0.0.0") || dnsServerIPv6 == pcpp::IPv6Address("")) {
         showError(
             QObject::tr("Connection error"),
@@ -465,8 +452,7 @@ void TrayApp::handleConnecting()
         return;
     }
 
-    spdlog::debug("--- IPTables ---");
-
+    // setup ip tables
     ipTables_ = std::make_unique<fptn::system::IPTables>(
         networkInterface,
         tunInterfaceName,
@@ -477,8 +463,8 @@ void TrayApp::handleConnecting()
         tunInterfaceAddressIPv4,
         tunInterfaceAddressIPv6
     );
-    spdlog::debug("--- TunInterface ---");
 
+    // setup tun interface
     auto virtualNetworkInterface = std::make_unique<fptn::common::network::TunInterface>(
         tunInterfaceName,
         /* IPv4 */
@@ -486,32 +472,35 @@ void TrayApp::handleConnecting()
         /* IPv6 */
         tunInterfaceAddressIPv6, 126
     );
-    spdlog::debug("--- VpnClient ---");
+
+    // setup vpn client
     vpnClient_ = std::make_unique<fptn::vpn::VpnClient>(
-        std::move(webSocketClient),
+        std::move(httpClient),
         std::move(virtualNetworkInterface),
         dnsServerIPv4,
         dnsServerIPv6
     );
 
-    spdlog::debug("--- VpnClient.start ---");
-
+    // Wait for the WebSocket tunnel to establish
     vpnClient_->start();
-    std::this_thread::sleep_for(std::chrono::seconds(3)); // FIX IT!
-
-    spdlog::debug("--- ipTables_.apply ---");
+    constexpr auto TIMEOUT = std::chrono::seconds(5);
+    const auto start = std::chrono::steady_clock::now();
+    while (!vpnClient_->isStarted()) {
+        if (std::chrono::steady_clock::now() - start > TIMEOUT) {
+            showError(QObject::tr("Connection error"), QObject::tr("Couldn't open websocket tunnel!"));
+            connectionState_ = ConnectionState::None;
+            updateTrayMenu();
+            return;
+        }
+        std::this_thread::sleep_for(std::chrono::microseconds(200));
+    }
 
     ipTables_->apply();
 
     connectionState_ = ConnectionState::Connected;
-    spdlog::debug("--- updateTrayMenu ---");
     updateTrayMenu();
 
-    spdlog::debug("--- emit connected ---");
-
     emit connected();
-
-    spdlog::debug("--- finish ---");
 }
 
 void TrayApp::handleConnected()
@@ -598,16 +587,13 @@ void TrayApp::retranslateUi()
 void TrayApp::stop()
 {
     if (vpnClient_) {
-        spdlog::info("--- stop VpnClient ---");
         vpnClient_->stop();
         vpnClient_.reset();
     }
     if (ipTables_) {
-        spdlog::info("--- stop IpTables ---");
         ipTables_->clean();
         ipTables_.reset();
     }
-    spdlog::info("--- exit ---");
 }
 
 void TrayApp::openBrowser(const std::string& url)
