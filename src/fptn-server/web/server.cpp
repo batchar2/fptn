@@ -1,9 +1,11 @@
-#include "server.h"
-#include "common/utils/utils.h"
 
 #include <functional>
 
 #include <spdlog/spdlog.h>
+
+#include <common/utils/utils.h>
+
+#include "server.h"
 
 
 using namespace fptn::web;

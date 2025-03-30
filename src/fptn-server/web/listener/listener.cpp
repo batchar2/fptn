@@ -1,7 +1,5 @@
 #include <spdlog/spdlog.h>
 
-#include "listener.h"
-
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/beast.hpp>
@@ -10,6 +8,8 @@
 #include <boost/asio/co_spawn.hpp>
 #include <boost/asio/detached.hpp>
 #include <boost/beast/core.hpp>
+
+#include "listener.h"
 
 using boost::asio::co_spawn;
 using boost::asio::detached;

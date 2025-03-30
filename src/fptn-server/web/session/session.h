@@ -1,7 +1,5 @@
 #pragma once
 
-#include <boost/asio/awaitable.hpp>
-
 #include <memory>
 
 #include <openssl/ssl.h>
@@ -12,22 +10,16 @@
 #include <boost/asio/ssl.hpp>
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
-#include <boost/asio/awaitable.hpp>
-#include <boost/asio/co_spawn.hpp>
-#include <boost/asio/detached.hpp>
 
 #include <boost/asio.hpp>
+#include <boost/asio/co_spawn.hpp>
+#include <boost/asio/detached.hpp>
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/experimental/channel.hpp>
 #include <boost/asio/experimental/concurrent_channel.hpp>
 #include <boost/asio/experimental/awaitable_operators.hpp>
 
-
 #include <boost/coroutine/all.hpp>
-
-#include <boost/asio/co_spawn.hpp>
-#include <boost/asio/detached.hpp>
-
 
 #include <common/protobuf/protocol.h>
 #include <common/jwt_token/token_manager.h>
@@ -70,7 +62,6 @@ namespace fptn::web
 
         boost::beast::websocket::stream<boost::asio::ssl::stream<boost::beast::tcp_stream>> ws_;
         boost::asio::strand<boost::asio::any_io_executor> strand_;
-//        boost::asio::experimental::concurrent_channel<void()> write_lock_;
         boost::asio::experimental::concurrent_channel<void(boost::system::error_code, fptn::common::network::IPPacketPtr)> write_channel_;
         const ApiHandleMap& apiHandles_;
         const WebSocketOpenConnectionCallback wsOpenCallback_;
