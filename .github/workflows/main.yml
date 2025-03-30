@@ -176,9 +176,14 @@ jobs:
         run: |
           cd build
           cmake --build . --config Release --target build-installer
+      - name: Zip the .exe
+        shell: powershell
+        run: |
+          $exePath = Get-ChildItem -Path "." -Filter "FptnClientInstaller-*-windows-x64_x86.exe" | Select-Object -First 1
+          Compress-Archive -Path $exePath.FullName -DestinationPath "FptnClientInstaller-$env:RELEASE_VERSION-windows-x64_x86.zip"
       - name: Upload Windows installer
         if: github.event_name == 'release'
         uses: AButler/upload-release-assets@v3.0
         with:
-          files: "*.exe"
+          files: "*.zip"
           repo-token: ${{ secrets.CI_TOKEN }}
