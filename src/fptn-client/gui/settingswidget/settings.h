@@ -60,5 +60,9 @@ namespace fptn::gui
         QPushButton* exitButton_ = nullptr;
 
         QLabel* versionLabel_ = nullptr;
+
+        QLabel* projectInfoLabel_ = nullptr;
+        QLabel* websiteLinkLabel_ = nullptr;
+        QLabel* telegramGroupLabel_ = nullptr;
     };
 }

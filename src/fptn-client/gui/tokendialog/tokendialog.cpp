@@ -10,6 +10,7 @@ using namespace fptn::gui;
 TokenDialog::TokenDialog(QWidget* parent)
     : QDialog(parent)
 {
+    setWindowTitle("Token");
     label_ = new QLabel(QObject::tr("Paste your token") + ": ", this);
     tokenField_ = new QLineEdit(this);
     tokenField_->setPlaceholderText(QObject::tr("Token") + "...");

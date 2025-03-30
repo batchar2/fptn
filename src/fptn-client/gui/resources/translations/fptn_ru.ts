@@ -105,8 +105,8 @@
             <translation>Удалить</translation>
         </message>
         <message>
-            <source>Application Version</source>
-            <translation>Версия приложения</translation>
+            <source>Version</source>
+            <translation>Версия</translation>
         </message>
         <message>
             <source>Save Successful</source>
@@ -211,5 +211,29 @@
             <source>Fake SNI to bypass censorship (hides the VPN)</source>
             <translation>Фейковый SNI для обхода блокировок (скрывает VPN)</translation>
         </message>
+
+        <message>
+            <source>FPTN_DESCRIPTION</source>
+            <translation>FPTN — это некоммерческий VPN, волонтерский проект для обхода цензуры. FPTN работает через протокол HTTPS, эффективно маскируя трафик и позволяя обходить ограничения цензуры. Исходный код проекта доступен на Github.</translation>
+        </message>
+
+        <message>
+            <source>FPTN_WEBSITE_DESCRIPTION</source>
+            <translation>
+            <![CDATA[
+                Наш сайт <a href="https://fptn.org">fptn.org</a></translation>
+            ]]>
+            </translation>
+        </message>
+
+        <message>
+            <source>FPTN_TELEGRAM_DESCRIPTION</source>
+            <translation>
+                <![CDATA[
+                    Наша группа в Telegram <a href="https://t.me/fptn_project">@fptn_project</a>
+                ]]>
+            </translation>
+        </message>
+
     </context>
 </TS>
