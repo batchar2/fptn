@@ -285,6 +285,18 @@
                 right: 0;
                 left: initial!important;
             }
+            .tabs {
+                overflow: scroll;
+                padding-bottom: 8px;
+            }
+            .tabs .tablink {
+                font-size: 14px;
+                margin-right: 14px;
+                padding: 8px;
+            }
+            .content {
+                padding: 0;
+            }
         }
     </style>
 </head>
@@ -364,12 +376,12 @@
 
                     <p>
                         The VPN-client is a mobile application or a compact desktop application with an interface located in the system tray.
-                        No registration process is required! We will send the access token via the <a target="_blank" href="https://t.me/fptn_bot">bot</a> on
+                        No registration process is required! We will send the access token via the <a target="_blank" href="https://t.me/fptn_bot">bot</a> on Telegram.
                         <img style="width: 100%; max-width: 400px" class="img-center" src="images/tray_view_en.png" alt="Application"/>
                     </p>
 
                     <p>
-                        <img style="width: 100%; max-width: 300px" class="img-center" src="images/android/en/04.jpeg" alt="Application"/>
+                        <img style="width: 100%; max-width: 350px" class="img-center" src="images/android/en/04.jpeg" alt="Application"/>
                     </p>
 
                     <p>
@@ -394,7 +406,7 @@
                     </p>
 
                     <p>
-                        <img style="width: 100%; max-width: 300px" class="img-center" src="images/android/ru/04.jpeg" alt="Application"/>
+                        <img style="width: 100%; max-width: 350px" class="img-center" src="images/android/ru/04.jpeg" alt="Application"/>
                     </p>
 
                     <p>
@@ -439,16 +451,16 @@
                 </div>
                 <div class="download active android">
                     <div class="wrapper">
-                        <!--                        <div class="item">-->
-                        <!--                            <p>-->
-                        <!--                                <span class="language-en">Google play</span>-->
-                        <!--                                <span class="language-ru">Google play</span>-->
-                        <!--                            </p>-->
-                        <!--                            <div class="dropdown">-->
-                        <!--                                <a class="dropdown-button download_2 language-ru" onclick="downloadUrl('w_client')">Скачать</a>-->
-                        <!--                                <a class="dropdown-button download_2 language-en" onclick="downloadUrl('w_client')">Download</a>-->
-                        <!--                            </div>-->
-                        <!--                        </div>-->
+                        <div class="item">
+                            <p>
+                                <span class="language-en">Google play</span>
+                                <span class="language-ru">Google play</span>
+                            </p>
+                            <div class="dropdown">
+                                <a class="dropdown-button download_2 language-ru" onclick="downloadUrl('google_play')">Скачать</a>
+                                <a class="dropdown-button download_2 language-en" onclick="downloadUrl('google_play')">Download</a>
+                            </div>
+                        </div>
                         <div class="item">
                             <p>
                                 <span class="language-en">Download Android app from the site</span>
@@ -925,104 +937,107 @@
 </footer>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 <script>
-  const owner = 'batchar2';
-  const repo = 'fptn';
-  let tag_name = ''
+    const owner = 'batchar2';
+    const repo = 'fptn';
+    let tag_name = ''
 
-  fetch(`https://api.github.com/repos/${owner}/${repo}/releases/latest`)
-    .then(response => response.json())
-    .then(data => {
-      const releaseInfo = document.getElementById('version');
-      releaseInfo.innerHTML = data.tag_name;
-      tag_name = data.tag_name
-    })
-    .catch(error => {
-      console.error('Error fetching release data:', error);
-      document.getElementById('release-info').textContent = 'Failed to load release information.';
-    })
-  function openTab(tabName) {
-    const tabs = document.getElementsByClassName('tablink');
-    const downloads = document.getElementsByClassName('download');
-    for (let i = 0; i < tabs.length; i++) {
-      tabs[i].classList.remove('active');
-      downloads[i].classList.remove('active');
-      if (downloads[i].classList.contains(tabName)) {
-        downloads[i].classList.add('active');
-      }
+    fetch(`https://api.github.com/repos/${owner}/${repo}/releases/latest`)
+        .then(response => response.json())
+        .then(data => {
+            const releaseInfo = document.getElementById('version');
+            releaseInfo.innerHTML = data.tag_name;
+            tag_name = data.tag_name
+        })
+        .catch(error => {
+            console.error('Error fetching release data:', error);
+            document.getElementById('release-info').textContent = 'Failed to load release information.';
+        })
+    function openTab(tabName) {
+        const tabs = document.getElementsByClassName('tablink');
+        const downloads = document.getElementsByClassName('download');
+        for (let i = 0; i < tabs.length; i++) {
+            tabs[i].classList.remove('active');
+            downloads[i].classList.remove('active');
+            if (downloads[i].classList.contains(tabName)) {
+                downloads[i].classList.add('active');
+            }
+        }
+        document.querySelector(`[onclick="openTab('${tabName}')"]`).classList.add('active');
     }
-    document.querySelector(`[onclick="openTab('${tabName}')"]`).classList.add('active');
-  }
-  function downloadUrl(name) {
-    let url = ''
-    switch (name) {
-      case 'macos':
-        url = `https://github.com/${owner}/${repo}/releases/latest/download/fptn-client-${tag_name}-apple-silicon.pkg`
-        break;
-      case 'linux_l_server':
-        url = `https://github.com/${owner}/${repo}/releases/latest/download/fptn-server-${tag_name}-ubuntu22.04-amd64.deb`
-        break;
-      case 'linux_a_server':
-        url = `https://github.com/${owner}/${repo}/releases/latest/download/fptn-server-${tag_name}-ubuntu22.04-arm64.deb`
-        break;
-      case 'linux_l_client':
-        url = `https://github.com/${owner}/${repo}/releases/latest/download/fptn-client-${tag_name}-ubuntu22.04-amd64.deb`
-        break;
-      case 'linux_a_client':
-        url = `https://github.com/${owner}/${repo}/releases/latest/download/fptn-client-${tag_name}-ubuntu22.04-arm64.deb`
-        break;
-      case 'linux_l_client_cli':
-        url = `https://github.com/${owner}/${repo}/releases/latest/download/fptn-client-cli-${tag_name}-ubuntu22.04-amd64.deb`
-        break;
-      case 'linux_a_client_cli':
-        url = `https://github.com/${owner}/${repo}/releases/latest/download/fptn-client-cli-${tag_name}-ubuntu22.04-arm64.deb`
-        break;
-      case 'w_client':
-        url = `https://github.com/${owner}/${repo}/releases/latest/download/FptnClientInstaller-${tag_name}-windows-x64_x86.zip`
-        break;
-      case 'notes':
-        url = `https://github.com/${owner}/${repo}/releases/latest`
-        break;
-      case 'android_apk':
-        url = `https://dev.fptn.online/fptn-client.apk`
-        break;
-      default:
+    function downloadUrl(name) {
+        let url = ''
+        switch (name) {
+            case 'macos':
+                url = `https://github.com/${owner}/${repo}/releases/latest/download/fptn-client-${tag_name}-apple-silicon.pkg`
+                break;
+            case 'linux_l_server':
+                url = `https://github.com/${owner}/${repo}/releases/latest/download/fptn-server-${tag_name}-ubuntu22.04-amd64.deb`
+                break;
+            case 'linux_a_server':
+                url = `https://github.com/${owner}/${repo}/releases/latest/download/fptn-server-${tag_name}-ubuntu22.04-arm64.deb`
+                break;
+            case 'linux_l_client':
+                url = `https://github.com/${owner}/${repo}/releases/latest/download/fptn-client-${tag_name}-ubuntu22.04-amd64.deb`
+                break;
+            case 'linux_a_client':
+                url = `https://github.com/${owner}/${repo}/releases/latest/download/fptn-client-${tag_name}-ubuntu22.04-arm64.deb`
+                break;
+            case 'linux_l_client_cli':
+                url = `https://github.com/${owner}/${repo}/releases/latest/download/fptn-client-cli-${tag_name}-ubuntu22.04-amd64.deb`
+                break;
+            case 'linux_a_client_cli':
+                url = `https://github.com/${owner}/${repo}/releases/latest/download/fptn-client-cli-${tag_name}-ubuntu22.04-arm64.deb`
+                break;
+            case 'w_client':
+                url = `https://github.com/${owner}/${repo}/releases/latest/download/FptnClientInstaller-${tag_name}-windows-x64_x86.exe`
+                break;
+            case 'notes':
+                url = `https://github.com/${owner}/${repo}/releases/latest`
+                break;
+            case 'android_apk':
+                url = `https://dev.fptn.online/fptn-client.apk`
+                break;
+            case 'google_play':
+                url = `https://play.google.com/store/apps/details?id=org.fptn.vpn`
+                break;
+            default:
+        }
+        window.open(url, '_blank').focus();
     }
-    window.open(url, '_blank').focus();
-  }
 
-  let language = window.navigator.language;
-  let languageFistTwo = language.substr(0,2);
-  let lanDiv = document.querySelector('.dropdown-toggle');
+    let language = window.navigator.language;
+    let languageFistTwo = language.substr(0,2);
+    let lanDiv = document.querySelector('.dropdown-toggle');
 
-  function hideBlocks(lan) {
-    if (lan === 'ru'){
-      const elements = document.querySelectorAll('.language-ru')
-      elements.forEach(elem => {
-        elem.classList.add('active')
-      })
-      const elementsA = document.querySelectorAll('.language-en')
-      elementsA.forEach(elem => {
-        elem.classList.remove('active')
-      })
-      lanDiv.textContent = 'Русский'
-    } else {
-      const elements = document.querySelectorAll('.language-en')
-      elements.forEach(elem => {
-        elem.classList.add('active')
-      })
-      const elementsA = document.querySelectorAll('.language-ru')
-      elementsA.forEach(elem => {
-        elem.classList.remove('active')
-      })
-      lanDiv.textContent = 'English'
+    function hideBlocks(lan) {
+        if (lan === 'ru'){
+            const elements = document.querySelectorAll('.language-ru')
+            elements.forEach(elem => {
+                elem.classList.add('active')
+            })
+            const elementsA = document.querySelectorAll('.language-en')
+            elementsA.forEach(elem => {
+                elem.classList.remove('active')
+            })
+            lanDiv.textContent = 'Русский'
+        } else {
+            const elements = document.querySelectorAll('.language-en')
+            elements.forEach(elem => {
+                elem.classList.add('active')
+            })
+            const elementsA = document.querySelectorAll('.language-ru')
+            elementsA.forEach(elem => {
+                elem.classList.remove('active')
+            })
+            lanDiv.textContent = 'English'
+        }
     }
-  }
 
-  hideBlocks(languageFistTwo)
+    hideBlocks(languageFistTwo)
 
-  function editLan(lan) {
-    hideBlocks(lan)
-  }
+    function editLan(lan) {
+        hideBlocks(lan)
+    }
 </script>
 </body>
 </html>
