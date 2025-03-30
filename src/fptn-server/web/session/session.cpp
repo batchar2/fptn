@@ -60,7 +60,7 @@ Session::Session(boost::asio::ip::tcp::socket&& socket,
                 true                      // Enable ping timeout
             }
         );
-        boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::minutes(30));
+        boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::hours(12));
         isInitComplete_ = true;
     } catch (boost::system::system_error& err) {
         spdlog::error("Session::init error: {}", err.what());
@@ -134,7 +134,6 @@ boost::asio::awaitable<void> Session::run() noexcept
     close();
 }
 
-
 boost::asio::awaitable<bool> Session::processRequest() noexcept
 {
     bool status = false;
@@ -152,7 +151,6 @@ boost::asio::awaitable<bool> Session::processRequest() noexcept
         );
 
         // FIXME check ec
-
         if (boost::beast::websocket::is_upgrade(request)) {
             status = co_await handleWebSocket(std::move(request));
             if (status) {
