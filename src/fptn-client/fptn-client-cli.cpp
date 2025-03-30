@@ -63,7 +63,7 @@ int main(int argc, char* argv[])
         .default_value(FPTN_CLIENT_DEFAULT_ADDRESS_IP6)
         .help("Network interface IPv6 address");
     args.add_argument("--sni")
-        .default_value("tv.telecom.kz")
+        .default_value(FPTN_DEFAULT_SNI)
         .help("Domain name for SNI in TLS handshake (used to obfuscate VPN traffic)");
     try {
         args.parse_args(argc, argv);
@@ -106,7 +106,7 @@ int main(int argc, char* argv[])
 
     /* check config */
     const auto accessToken = args.get<std::string>("--access-token");
-    fptn::config::ConfigFile config(accessToken);
+    fptn::config::ConfigFile config(accessToken, sni);
     fptn::config::ConfigFile::Server selectedServer;
     try{
         config.parse();
@@ -193,9 +193,20 @@ int main(int argc, char* argv[])
 
     /* loop */
     vpnClient.start();
-    std::this_thread::sleep_for(std::chrono::seconds(2)); // FIX IT!
-    iptables->apply();
 
+    // Wait for the WebSocket tunnel to establish
+    constexpr auto TIMEOUT = std::chrono::seconds(5);
+    const auto start = std::chrono::steady_clock::now();
+    while (!vpnClient.isStarted()) {
+        if (std::chrono::steady_clock::now() - start > TIMEOUT) {
+            spdlog::error("Couldn't open websocket tunnel!");
+            return EXIT_FAILURE;
+        }
+        std::this_thread::sleep_for(std::chrono::microseconds(200));
+    }
+
+    // start
+    iptables->apply();
     waitForSignal();
 
     /* clean */

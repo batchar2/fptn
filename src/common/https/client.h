@@ -1,13 +1,15 @@
 #pragma once
 
-#include <tuple>
 #include <string>
-#include <optional>
+#include <memory>
+#include <sstream>
 #include <unordered_map>
 
 #include <fmt/format.h>
 #include <openssl/ssl.h>
 #include <nlohmann/json.hpp>
+
+#include <zlib.h>
 
 #include <boost/asio/strand.hpp>
 #include <boost/asio/ip/tcp.hpp>
@@ -19,6 +21,11 @@
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
 #include <boost/beast/version.hpp>
+
+#include <boost/iostreams/copy.hpp>
+#include <boost/iostreams/filter/gzip.hpp>
+#include <boost/iostreams/filtering_stream.hpp>
+#include <boost/iostreams/filtering_streambuf.hpp>
 
 
 namespace fptn::common::https
@@ -43,6 +50,69 @@ namespace fptn::common::https
     }
 
     using Headers = std::unordered_map<std::string, std::string>;
+    inline Headers realBrowserHeaders(const std::string& host, int port) noexcept
+    {
+        /* Just to ensure that FPTN is as similar to a web browser as possible. */
+        const std::string hostHeader = (port == 443 ? host : fmt::format("{}:{}", host, port));
+#ifdef __linux__// chromium ubuntu arm
+        return {
+            {"Host", hostHeader},
+            {"User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"},
+            {"Accept-Language", "en-US,en;q=0.9"},
+            {"Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"},
+            {"Referer", "https://www.google.com/"},
+            {"Accept-Encoding", "gzip, deflate, br, zstd"},
+            {"Sec-Ch-Ua", R"("Not:A-Brand";v="24", "Chromium";v="134")"},
+            {"Sec-Ch-Ua-Mobile", "?0"},
+            {"Sec-Ch-Ua-Platform", R"("Linux")"},
+            {"Upgrade-Insecure-Requests", "1"},
+            {"Sec-Fetch-Site", "cross-site"},
+            {"Sec-Fetch-Mode", "navigate"},
+            {"Sec-Fetch-User", "?1"},
+            {"Sec-Fetch-Dest", "document"},
+            {"Priority", "u=0, i"}
+        };
+#elif __APPLE__
+        // apple silicon chrome
+        return {
+            {"Host", hostHeader},
+            {"sec-ch-ua", R"("Chromium";v="128", "Not;A=Brand";v="24", "Google Chrome";v="128")"},
+            {"sec-ch-ua-platform", "\"macOS\""},
+            {"sec-ch-ua-mobile", "?0"},
+            {"upgrade-insecure-requests", "1"},
+            {"User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"},
+            {"Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"},
+            {"sec-fetch-site", "none"},
+            {"sec-fetch-mode", "no-cors"},
+            {"sec-fetch-dest", "empty"},
+            {"Referer", "https://www.google.com/"},
+            {"Accept-Encoding", "gzip, deflate, br"},
+            {"Accept-Language", "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7"},
+            {"priority", "u=4, i"}
+        };
+#elif _WIN32
+        // chrome windows amd64
+        return {
+            {"Host", hostHeader},
+            {"sec-ch-ua", R"("Chromium";v="128", "Not;A=Brand";v="24", "Google Chrome";v="128")"},
+            {"sec-ch-ua-mobile", "?0"},
+            {"sec-ch-ua-platform", "\"Windows\""},
+            {"upgrade-insecure-requests", "1"},
+            {"User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"},
+            {"Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"},
+            {"sec-fetch-site", "cross-site"},
+            {"sec-fetch-mode", "navigate"},
+            {"sec-fetch-user", "?1"},
+            {"sec-fetch-dest", "document"},
+            {"Referer", "https://www.google.com/"},
+            {"Accept-Encoding", "gzip, deflate, br, zstd"},
+            {"Accept-Language", "en-US,en;q=0.9,ru;q=0.8"},
+            {"priority", "u=0, i"}
+        };
+#else
+    #error "Unsupported system!"
+#endif
+    }
 
     struct Response final
     {
@@ -70,12 +140,12 @@ namespace fptn::common::https
         {
         }
 
-        explicit Client(const std::string& host, int port, const std::string& sni)
-            : host_(host), port_(port), sni_(sni)
+        explicit Client(std::string host, int port, std::string sni)
+            : host_(std::move(host)), port_(port), sni_(std::move(sni))
         {
         }
 
-        Response get(const std::string& handle, int timeout = 5)
+        Response get(const std::string& handle, int timeout = 5) noexcept
         {
             std::string body;
             std::string error;
@@ -108,7 +178,7 @@ namespace fptn::common::https
                         boost::beast::error_code(
                             static_cast<int>(::ERR_get_error()), boost::asio::error::get_ssl_category()
                         ),
-                        "Failed to set SNI"
+                        fmt::format(R"(Failed to set SNI "{}" for host "{}" (GET "{}"))", sni_, host_, handle)
                     );
                 }
                 stream.handshake(boost::asio::ssl::stream_base::client);
@@ -118,7 +188,7 @@ namespace fptn::common::https
                     boost::beast::http::verb::get, handle, 11
                 };
                 // set http headers
-                for (const auto& [key, value] : realBrowserHeaders()) {
+                for (const auto& [key, value] : realBrowserHeaders(sni_, port_)) {
                     req.set(key, value);
                 }
                 // send request
@@ -128,8 +198,8 @@ namespace fptn::common::https
                 boost::beast::http::response<boost::beast::http::dynamic_body> res;
                 boost::beast::http::read(stream, buffer, res);
 
-                respcode =  static_cast<int>(res.result_int());
-                body = boost::beast::buffers_to_string(res.body().data());
+                respcode = static_cast<int>(res.result_int());
+                body = getHttpBody(res);
 
                 boost::beast::error_code ec;
                 stream.shutdown(ec);
@@ -148,10 +218,9 @@ namespace fptn::common::https
         }
 
         Response post(const std::string& handle,
-            const std::string& request,
-            const std::string& contentType,
-            int timeout = 5
-        )
+                      const std::string& request,
+                      const std::string& contentType,
+                      int timeout = 5) noexcept
         {
             std::string body;
             std::string error;
@@ -181,7 +250,7 @@ namespace fptn::common::https
                         boost::beast::error_code(
                             static_cast<int>(::ERR_get_error()), boost::asio::error::get_ssl_category()
                         ),
-                        "Failed to set SNI"
+                        fmt::format(R"(Failed to set SNI "{}" for host "{}" (POST "{}"))", sni_, host_, handle)
                     );
                 }
                 stream.handshake(boost::asio::ssl::stream_base::client);
@@ -192,7 +261,7 @@ namespace fptn::common::https
                 req.set(boost::beast::http::field::host, host_);
                 req.set(boost::beast::http::field::content_type, contentType);
                 req.set(boost::beast::http::field::content_length, std::to_string(request.size()));
-                for (const auto& [key, value] : realBrowserHeaders()) {
+                for (const auto& [key, value] : realBrowserHeaders(sni_, port_)) {
                     req.set(key, value);
                 }
                 req.body() = request;
@@ -205,7 +274,7 @@ namespace fptn::common::https
                 boost::beast::http::read(stream, buffer, res);
 
                 respcode = static_cast<int>(res.result_int());
-                body = boost::beast::buffers_to_string(res.body().data());
+                body = getHttpBody(res);
 
                 boost::beast::error_code ec;
                 stream.shutdown(ec);
@@ -222,70 +291,52 @@ namespace fptn::common::https
             }
             return { body, respcode, error };
         }
-
-        Headers realBrowserHeaders() noexcept
+    protected:
+        std::string decompressGzip(const std::string& compressed)
         {
-            /* Just to ensure that FPTN is as similar to a web browser as possible. */
-#ifdef __linux__// firefox ubuntu arm
-            return {
-                {"Host", (vpnServerPort_ == 443 ? vpnServerIP_.toString() : fmt::format("{}:{}", vpnServerIP_.toString(), vpnServerPort_))},
-                {"User-Agent", "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0"},
-                {"Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/png,image/svg+xml,*/*;q=0.8"},
-                {"Accept-Language", "en-US,en;q=0.5"},
-                {"Accept-Encoding", "gzip, deflate, br, zstd"},
-                {"Referer", "https://www.google.com/"},
-                {"upgrade-insecure-requests", "1"},
-                {"sec-fetch-dest", "document"},
-                {"sec-fetch-mode", "navigate"},
-                {"sec-fetch-site", "cross-site"},
-                {"sec-fetch-user", "?1"},
-                {"priority", "u=0, i"},
-                {"te", "trailers"}
-            };
-#elif __APPLE__
-            // apple silicon chrome
-            return {
-                {"Host", (port_ == 443 ? host_ : fmt::format("{}:{}", host_, port_))},
-                {"sec-ch-ua", R"("Chromium";v="128", "Not;A=Brand";v="24", "Google Chrome";v="128")"},
-                {"sec-ch-ua-platform", "\"macOS\""},
-                {"sec-ch-ua-mobile", "?0"},
-                {"upgrade-insecure-requests", "1"},
-                {"User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"},
-                {"Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"},
-                {"sec-fetch-site", "none"},
-                {"sec-fetch-mode", "no-cors"},
-                {"sec-fetch-dest", "empty"},
-                {"Referer", "https://www.google.com/"},
-                {"Accept-Encoding", "gzip, deflate, br"},
-                {"Accept-Language", "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7"},
-                {"priority", "u=4, i"}
-            };
-#elif _WIN32
-            // chrome windows amd64
-            return {
-                {"Host", (vpnServerPort_ == 443 ? vpnServerIP_.toString() : fmt::format("{}:{}", vpnServerIP_.toString(), vpnServerPort_))},
-                {"sec-ch-ua", R"("Chromium";v="128", "Not;A=Brand";v="24", "Google Chrome";v="128")"},
-                {"sec-ch-ua-mobile", "?0"},
-                {"sec-ch-ua-platform", "\"Windows\""},
-                {"upgrade-insecure-requests", "1"},
-                {"User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"},
-                {"Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"},
-                {"sec-fetch-site", "cross-site"},
-                {"sec-fetch-mode", "navigate"},
-                {"sec-fetch-user", "?1"},
-                {"sec-fetch-dest", "document"},
-                {"Referer", "https://www.google.com/"},
-                {"Accept-Encoding", "gzip, deflate, br, zstd"},
-                {"Accept-Language", "en-US,en;q=0.9,ru;q=0.8"},
-                {"priority", "u=0, i"}
-            };
-#else
-    #error "Unsupported system!"
-#endif
+            constexpr size_t CHUNK_SIZE = 4096;
+
+            std::vector<char> buffer(CHUNK_SIZE);
+
+            z_stream strm{};
+            strm.next_in = reinterpret_cast<Bytef*>(const_cast<char*>(compressed.data()));
+            strm.avail_in = compressed.size();
+
+            if (inflateInit2(&strm, 16 + MAX_WBITS) != Z_OK) {
+                return {};
+            }
+
+            std::string decompressed;
+            int ret = 0;
+            do {
+                strm.next_out = reinterpret_cast<Bytef*>(buffer.data());
+                strm.avail_out = buffer.size();
+                ret = inflate(&strm, Z_NO_FLUSH);
+
+                if (ret == Z_STREAM_ERROR || ret == Z_DATA_ERROR || ret == Z_MEM_ERROR) {
+                    inflateEnd(&strm);
+                    return {}; // decompression error
+                }
+                decompressed.append(buffer.data(), buffer.size() - strm.avail_out);
+            } while (ret != Z_STREAM_END);
+
+            inflateEnd(&strm);
+            return decompressed;
+        }
+
+        std::string getHttpBody(const boost::beast::http::response<boost::beast::http::dynamic_body>& res)
+        {
+            const auto body = boost::beast::buffers_to_string(res.body().data());
+            if (res[boost::beast::http::field::content_encoding] == "gzip") {
+                return decompressGzip(body);
+            }
+            return body;
         }
     private:
         const std::string host_;
         const int port_;
         const std::string sni_;
     };
+
+    using ClientPtr = std::unique_ptr<Client>;
 }

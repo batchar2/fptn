@@ -1,8 +1,8 @@
 #pragma once
 
 #include <memory>
-#include <httplib/httplib.h>
 
+#include <common/https/client.h>
 #include <common/user/common_user_manager.h>
 
 
@@ -54,7 +54,7 @@ namespace fptn::user {
         const int remoteServerPort_;
 
         /// HTTP client for sending requests to the remote authentication server.
-        std::unique_ptr<httplib::SSLClient> httpClient_;
+        fptn::common::https::ClientPtr httpClient_;
 
         /// Local user manager for handling authentication using a local user file.
         fptn::common::user::CommonUserManagerPtr commonManager_;

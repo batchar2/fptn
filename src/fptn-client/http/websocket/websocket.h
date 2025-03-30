@@ -16,6 +16,7 @@
 
 #include <common/network/ip_packet.h>
 
+
 namespace fptn::http
 {
     class Websocket : public std::enable_shared_from_this<Websocket>
@@ -23,8 +24,8 @@ namespace fptn::http
     public:
         using NewIPPacketCallback = std::function<void(fptn::common::network::IPPacketPtr packet)>;
         explicit Websocket(
-            const pcpp::IPv4Address& vpnServerIP,
-            int vpnServerPort,
+            const pcpp::IPv4Address& serverIP_,
+            int serverPort,
             const pcpp::IPv4Address& tunInterfaceAddressIPv4,
             const pcpp::IPv6Address& tunInterfaceAddressIPv6,
             const NewIPPacketCallback& newIPPktCallback,
@@ -34,9 +35,8 @@ namespace fptn::http
         void run() noexcept;
         bool stop() noexcept;
         bool send(fptn::common::network::IPPacketPtr packet) noexcept;
+        bool isStarted() noexcept;
     protected:
-        void writeRun() noexcept;
-
         void onResolve(
             boost::beast::error_code ec,
             boost::asio::ip::tcp::resolver::results_type results
@@ -55,9 +55,6 @@ namespace fptn::http
 
         void doRead();
         void doWrite();
-
-        void onClose(boost::beast::error_code ec);
-
         void fail(boost::beast::error_code ec, char const* what) noexcept;
     private:
         boost::asio::io_context ioc_;
@@ -68,14 +65,14 @@ namespace fptn::http
         boost::beast::flat_buffer buffer_;
 
         const std::size_t sendQueueMaxSize_ = 128;
-        std::queue<fptn::common::network::IPPacketPtr> sendQueue_;
+        mutable std::queue<fptn::common::network::IPPacketPtr> sendQueue_;
 
         std::thread th_;
         mutable std::mutex mutex_;
         mutable std::atomic<bool> running_;
 
-        const pcpp::IPv4Address vpnServerIP_;
-        const int vpnServerPort_;
+        const pcpp::IPv4Address serverIP_;
+        const int serverPort_;
 
         const pcpp::IPv4Address tunInterfaceAddressIPv4_;
         const pcpp::IPv6Address tunInterfaceAddressIPv6_;

@@ -9,6 +9,7 @@
 
 using namespace fptn::http;
 
+
 Websocket::Websocket(
     const pcpp::IPv4Address& vpnServerIP,
     int vpnServerPort,
@@ -23,8 +24,8 @@ Websocket::Websocket(
     ws_(boost::asio::make_strand(ioc_), ctx_),
     strand_(ioc_.get_executor()),
     running_(false),
-    vpnServerIP_(vpnServerIP),
-    vpnServerPort_(vpnServerPort),
+    serverIP_(vpnServerIP),
+    serverPort_(vpnServerPort),
     tunInterfaceAddressIPv4_(tunInterfaceAddressIPv4),
     tunInterfaceAddressIPv6_(tunInterfaceAddressIPv6),
     newIPPktCallback_(newIPPktCallback),
@@ -44,10 +45,10 @@ Websocket::Websocket(
 
 void Websocket::run() noexcept
 {
-    const std::string port_str = std::to_string(vpnServerPort_);
+    const std::string port_str = std::to_string(serverPort_);
     auto self = shared_from_this();
     resolver_.async_resolve(
-        vpnServerIP_.toString(),
+        serverIP_.toString(),
         port_str,
         [self](boost::beast::error_code ec, boost::asio::ip::tcp::resolver::results_type results) {
             if (ec) {
@@ -63,6 +64,7 @@ void Websocket::run() noexcept
         ioc_.restart();
     }
     ioc_.run();
+    running_ = false;
 }
 
 bool Websocket::stop() noexcept
@@ -138,7 +140,6 @@ void Websocket::onConnect(boost::beast::error_code ec,
 
 void Websocket::onSslHandshake(boost::beast::error_code ec)
 {
-    std::cerr << "=== onSslHandshake" << std::endl;
     if (ec) {
         return fail(ec, "onSslHandshake");
     }
@@ -158,11 +159,17 @@ void Websocket::onSslHandshake(boost::beast::error_code ec)
         boost::beast::websocket::stream_base::decorator(
             [this](boost::beast::websocket::request_type& req)
             {
+                // set browser headers
+                const auto headers = fptn::common::https::realBrowserHeaders(sni_, serverPort_);
+                for (const auto& [key, value] : headers) {
+                    req.set(key, value);
+                }
+                // set custom headers
                 req.set("Authorization", "Bearer " + token_);
                 req.set("ClientIP", tunInterfaceAddressIPv4_.toString());
                 req.set("ClientIPv6", tunInterfaceAddressIPv6_.toString());
                 req.set(
-                    "UserAgent",
+                    "Client-Agent",
                     fmt::format("FptnClient({}/{})", FPTN_USER_OS, FPTN_VERSION)
                 );
             }
@@ -171,7 +178,7 @@ void Websocket::onSslHandshake(boost::beast::error_code ec)
 
     // Perform the websocket handshake
     ws_.async_handshake(
-        vpnServerIP_.toString(), "/fptn",
+        serverIP_.toString(), "/fptn",
         boost::beast::bind_front_handler(
             &Websocket::onHandshake,
             shared_from_this()
@@ -201,13 +208,6 @@ void Websocket::onRead(boost::beast::error_code ec, std::size_t transferred)
     }
     buffer_.consume(transferred);
     doRead();
-}
-
-void Websocket::onClose(boost::beast::error_code ec)
-{
-    if (ec) {
-        return fail(ec, "close");
-    }
 }
 
 void Websocket::fail(boost::beast::error_code ec, char const* what) noexcept
@@ -278,8 +278,13 @@ void Websocket::onWrite(boost::beast::error_code ec, std::size_t)
 
     const std::unique_lock<std::mutex> lock(mutex_);
 
-    sendQueue_.pop(); // remove writen item
+    sendQueue_.pop(); // remove written item
     if (!sendQueue_.empty() && running_) {
         doWrite(); // send next message
     }
+}
+
+bool Websocket::isStarted() noexcept
+{
+    return running_;
 }

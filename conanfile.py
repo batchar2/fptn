@@ -2,7 +2,7 @@ from conan import ConanFile
 from conan.tools.cmake import CMakeToolchain, CMake
 
 
-# CI will replace automaticaly
+# CI will replace this automatically
 FPTN_VERSION = "0.0.0"
 
 
@@ -10,6 +10,7 @@ class FPTN(ConanFile):
     name = "fptn"
     version = FPTN_VERSION
     requires = (
+        "zlib/1.3.1",
         "fmt/11.0.2",
         "boost/1.83.0",
         "argparse/3.1",
@@ -57,6 +58,11 @@ class FPTN(ConanFile):
         "boost/*:without_timer": False,
         "boost/*:without_json": False,
         "boost/*:without_random": False,
+        "boost/*:without_iostreams": False,
+        "boost/*:without_regex": False,
+
+        "boost/*:without_zlib": False,
+
         "boost/*:without_python": True,
         "boost/*:without_chrono": True,
         "boost/*:without_contract": True,
@@ -64,14 +70,14 @@ class FPTN(ConanFile):
         "boost/*:without_fiber": True,
         "boost/*:without_graph": True,
         "boost/*:without_graph_parallel": True,
-        "boost/*:without_iostreams": True,
+        # "boost/*:without_iostreams": True,
         "boost/*:without_locale": True,
         "boost/*:without_log": True,
         "boost/*:without_math": True,
         "boost/*:without_mpi": True,
         "boost/*:without_nowide": True,
         "boost/*:without_program_options": True,
-        "boost/*:without_regex": True,
+        # "boost/*:without_regex": True,
         "boost/*:without_serialization": True,
         "boost/*:without_stacktrace": True,
         "boost/*:without_test": True,
@@ -79,7 +85,7 @@ class FPTN(ConanFile):
         "boost/*:without_url": True,
         "boost/*:without_type_erasure": True,
         "boost/*:without_wave": True,
-        # --- Qt (only for MacOS and Windows) ---
+        # --- Qt ---
         "qt/*:shared": True,
         "qt/*:qttools": True,
         "qt/*:with_harfbuzz": False,
