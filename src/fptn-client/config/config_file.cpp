@@ -14,7 +14,7 @@
 using namespace fptn::config;
 
 
-constexpr std::uint64_t MAX_TIMEOUT = std::numeric_limits<std::uint64_t>::max();
+constexpr std::uint64_t MAX_TIMEOUT = static_cast<std::uint64_t>(-1);
 
 
 ConfigFile::ConfigFile(std::string sni)
@@ -66,39 +66,53 @@ bool ConfigFile::parse()
 
 ConfigFile::Server ConfigFile::findFastestServer() const
 {
+    constexpr int timeout = 5;
     std::vector<std::future<std::uint64_t>> futures;
+    
     for (const auto& server : servers_) {
-        futures.push_back(std::async(std::launch::async, [this, server]() {
-            return getDownloadTimeMs(server);
+        futures.push_back(std::async(std::launch::async, [this, server, timeout]() {
+            return getDownloadTimeMs(server, timeout-1);
         }));
     }
     std::vector<std::uint64_t> times(servers_.size());
-    for (size_t i = 0; i < futures.size(); ++i) {
-        const std::uint64_t time = futures[i].get();
-        times[i] = time;
-        if (time != MAX_TIMEOUT) {
+    for (std::size_t i = 0; i < futures.size(); ++i) {
+        auto& future = futures[i];
+        const auto status = future.wait_for(std::chrono::seconds(timeout));
+        if (status == std::future_status::ready) {
+            times[i] = future.get();
+        } else {
+            times[i] = MAX_TIMEOUT;
+        }
+
+        if (times[i] != MAX_TIMEOUT) {
             spdlog::info("Server reachable: {} at {}:{} - Download time: {}ms",
-                         servers_[i].name, servers_[i].host, servers_[i].port, time);
+                         servers_[i].name, servers_[i].host, servers_[i].port, times[i]);
         } else {
             spdlog::warn("Server unreachable: {} at {}:{}",
                          servers_[i].name, servers_[i].host, servers_[i].port);
         }
     }
-    auto minTimeIt = std::min_element(times.begin(), times.end());
+    const auto minTimeIt = std::min_element(times.begin(), times.end());
     if (minTimeIt == times.end() || *minTimeIt == MAX_TIMEOUT) {
         throw std::runtime_error("All servers unavailable!");
     }
-    std::size_t fastestServerIndex = std::distance(times.begin(), minTimeIt);
+    const std::size_t fastestServerIndex = std::distance(times.begin(), minTimeIt);
+
+    // wait futures in detached stream
+    std::thread([futures = std::move(futures)]() mutable {
+        (void)futures;
+    }).detach();
+
     return servers_[fastestServerIndex];
 }
 
-std::uint64_t ConfigFile::getDownloadTimeMs(const Server& server) const noexcept
+std::uint64_t ConfigFile::getDownloadTimeMs(const Server& server, const int timeout) const noexcept
 {
     fptn::common::https::Client cli(server.host, server.port, sni_);
 
     const auto start = std::chrono::high_resolution_clock::now(); // start
 
-    const auto resp = cli.get("/api/v1/test/file.bin");
+    const auto resp = cli.get("/api/v1/test/file.bin", timeout);
     if (resp.code == 200) {
         const auto end = std::chrono::high_resolution_clock::now();
         return  std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();

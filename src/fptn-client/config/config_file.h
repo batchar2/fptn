@@ -35,7 +35,7 @@ namespace fptn::config
         std::string getPassword() const  noexcept;
         std::vector<Server> getServers() const noexcept;
     public:
-        std::uint64_t getDownloadTimeMs(const Server& server) const noexcept;
+        std::uint64_t getDownloadTimeMs(const Server& server, int timeout = 4) const noexcept;
     private:
         const std::string token_;
         const std::string sni_;

@@ -2,6 +2,7 @@
 #include <filesystem>
 
 #include <QApplication>
+#include <QStyleFactory>
 
 #if defined(__linux__) || defined(__APPLE__)
 #include <unistd.h>

@@ -154,7 +154,7 @@ QMenu {
 QMenu::item {
     background-color: #ffffff;
     color: #000000;
-    padding: 4px 8px;
+    padding: 2px 8px;
     border-radius: 3px;
 }
 QMenu::item:selected {
@@ -171,7 +171,7 @@ QMenu QWidget {
     background-color: #ffffff;
     color: #000000; 
     border: none;
-    padding: 4px;
+    padding: 1px 4px;
 }
 QMenu::item:disabled {
     background-color: #ffffff; 

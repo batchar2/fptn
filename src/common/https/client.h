@@ -11,6 +11,15 @@
 
 #include <zlib.h>
 
+#ifdef _WIN32
+    #pragma warning(push)
+    #pragma warning(disable: 4996)
+    #pragma warning(disable: 4267)
+    #pragma warning(disable: 4244)
+    #pragma warning(disable: 4702)
+#endif
+
+#include <boost/asio/buffer.hpp>
 #include <boost/asio/strand.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/connect.hpp>
@@ -26,6 +35,10 @@
 #include <boost/iostreams/filter/gzip.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
 #include <boost/iostreams/filtering_streambuf.hpp>
+
+#ifdef _WIN32
+    #pragma warning(pop)
+#endif
 
 
 namespace fptn::common::https
@@ -168,9 +181,8 @@ namespace fptn::common::https
 
                 const std::string port = std::to_string(port_);
                 auto const results = resolver.resolve(host_, port);
+                boost::beast::get_lowest_layer(stream).expires_after(std::chrono::seconds(timeout)); // Set timeout for the operation
                 boost::beast::get_lowest_layer(stream).connect(results);
-                // Set timeout for the operation
-                boost::beast::get_lowest_layer(stream).expires_after(std::chrono::seconds(timeout));
 
                 // set SNI
                 if (!SSL_set_tlsext_host_name(stream.native_handle(), sni_.c_str())) {
@@ -192,6 +204,7 @@ namespace fptn::common::https
                     req.set(key, value);
                 }
                 // send request
+                boost::beast::get_lowest_layer(stream).expires_after(std::chrono::seconds(timeout)); // write timeout
                 boost::beast::http::write(stream, req);
                 // read answer
                 boost::beast::flat_buffer buffer;
@@ -241,9 +254,8 @@ namespace fptn::common::https
 
                 const std::string port = std::to_string(port_);
                 auto const results = resolver.resolve(host_, port);
+                boost::beast::get_lowest_layer(stream).expires_after(std::chrono::seconds(timeout)); // Set timeout for the operation
                 boost::beast::get_lowest_layer(stream).connect(results);
-                // Set timeout for the operation
-                boost::beast::get_lowest_layer(stream).expires_after(std::chrono::seconds(timeout));
 
                 if (!SSL_set_tlsext_host_name(stream.native_handle(), sni_.c_str())) {
                     throw boost::beast::system_error(
@@ -267,6 +279,8 @@ namespace fptn::common::https
                 req.body() = request;
                 req.prepare_payload();
 
+                // send request
+                boost::beast::get_lowest_layer(stream).expires_after(std::chrono::seconds(timeout)); // write timeout
                 boost::beast::http::write(stream, req);
 
                 boost::beast::flat_buffer buffer;
@@ -300,7 +314,7 @@ namespace fptn::common::https
 
             z_stream strm{};
             strm.next_in = reinterpret_cast<Bytef*>(const_cast<char*>(compressed.data()));
-            strm.avail_in = compressed.size();
+            strm.avail_in = static_cast<unsigned int>(compressed.size());
 
             if (inflateInit2(&strm, 16 + MAX_WBITS) != Z_OK) {
                 return {};
@@ -310,7 +324,7 @@ namespace fptn::common::https
             int ret = 0;
             do {
                 strm.next_out = reinterpret_cast<Bytef*>(buffer.data());
-                strm.avail_out = buffer.size();
+                strm.avail_out = static_cast<unsigned int>(buffer.size());
                 ret = inflate(&strm, Z_NO_FLUSH);
 
                 if (ret == Z_STREAM_ERROR || ret == Z_DATA_ERROR || ret == Z_MEM_ERROR) {

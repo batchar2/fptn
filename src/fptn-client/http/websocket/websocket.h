@@ -7,12 +7,25 @@
 #include <iostream>
 #include <functional>
 
-#include <boost/beast/core.hpp>
+#ifdef _WIN32
+    #pragma warning(push)
+    #pragma warning(disable: 4996)
+    #pragma warning(disable: 4267)
+    #pragma warning(disable: 4244)
+    #pragma warning(disable: 4702)
+    //#pragma warning(disable: 2220)  // Disable "warning treated as error"
+#endif
 
 #include <boost/beast/ssl.hpp>
+#include <boost/beast/core.hpp>
+#include <boost/asio/buffer.hpp>
 #include <boost/beast/websocket.hpp>
 #include <boost/beast/websocket/ssl.hpp>
 #include <boost/beast/core/flat_buffer.hpp>
+
+#ifdef _WIN32
+    #pragma warning(pop)
+#endif
 
 #include <common/network/ip_packet.h>
 

@@ -1,5 +1,4 @@
 #include <spdlog/spdlog.h>
-#include <boost/asio/strand.hpp>
 
 #include "common/https/client.h"
 #include "common/protobuf/protocol.h"
