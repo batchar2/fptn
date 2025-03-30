@@ -34,6 +34,7 @@ namespace fptn::http
         bool stop() noexcept;
         bool send(fptn::common::network::IPPacketPtr packet) noexcept;
         void setNewIPPacketCallback(const NewIPPacketCallback& callback) noexcept;
+        bool isStarted() noexcept;
     protected:
         void run() noexcept;
     private:

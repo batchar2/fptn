@@ -18,7 +18,6 @@ else()
     set(TUNTAP_LIB Wintun rpcrt4 iphlpapi Kernel32.lib)
 endif()
 
-#find_package(Base64 REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_package(argparse REQUIRED)
 find_package(spdlog REQUIRED)
@@ -27,12 +26,10 @@ find_package(CURL REQUIRED)
 find_package(PcapPlusPlus REQUIRED)
 find_package(Boost REQUIRED COMPONENTS random filesystem)
 
-find_package(httplib REQUIRED)
-find_package(websocketpp REQUIRED)
+find_package(ZLIB REQUIRED)
+
 find_package(nlohmann_json REQUIRED)
 
-include_directories(${httplib_INCLUDE_DIRS})
-include_directories(${websocketpp_INCLUDE_DIRS})
 include_directories(${nlohmann_json_INCLUDE_DIRS})
 
 #### fptn-client-cli
@@ -40,13 +37,15 @@ add_executable(
     "${PROJECT_NAME}-cli"
     fptn-client-cli.cpp
     vpn/vpn_client.h vpn/vpn_client.cpp
-        http/client.h http/client.cpp
+    http/client.h http/client.cpp
+    http/websocket/websocket.h http/websocket/websocket.cpp
+
     system/iptables.h system/iptables.cpp
     config/config_file.cpp config/config_file.h
-    http/websocket/websocket.h http/websocket/websocket.cpp
 )
 target_link_libraries(
     "${PROJECT_NAME}-cli"
+    ZLIB::ZLIB
     Boost::boost
     Boost::random
     Boost::filesystem
@@ -54,14 +53,12 @@ target_link_libraries(
     OpenSSL::SSL
     OpenSSL::Crypto
     argparse::argparse
-    websocketpp::websocketpp
-    httplib::httplib
     nlohmann_json::nlohmann_json
 
     spdlog::spdlog
     fmt::fmt
     PcapPlusPlus::PcapPlusPlus
-    CURL::libcurl
+
 
     fptn_protocol
 
@@ -95,7 +92,8 @@ if("${FPTN_BUILD_WITH_GUI_CLIENT}")
     add_executable("${PROJECT_NAME}-gui" ${QT_ADDITIONAL_PARAMS}
         fptn-client-gui.cpp
         vpn/vpn_client.h vpn/vpn_client.cpp
-            http/client.h http/client.cpp
+        http/client.h http/client.cpp
+        http/websocket/websocket.h http/websocket/websocket.cpp
         system/iptables.h system/iptables.cpp
         config/config_file.cpp config/config_file.h
 
@@ -115,6 +113,7 @@ if("${FPTN_BUILD_WITH_GUI_CLIENT}")
     )
     target_link_libraries(
         "${PROJECT_NAME}-gui"
+        ZLIB::ZLIB
         Boost::boost
         Boost::random
         Boost::filesystem
@@ -122,17 +121,12 @@ if("${FPTN_BUILD_WITH_GUI_CLIENT}")
         OpenSSL::SSL
         OpenSSL::Crypto
         argparse::argparse
-        websocketpp::websocketpp
-        httplib::httplib
 
         spdlog::spdlog
         fmt::fmt
         PcapPlusPlus::PcapPlusPlus
 
         Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Network
-
-        CURL::libcurl
-
         fptn_protocol
 
         ${TUNTAP_LIB}

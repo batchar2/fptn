@@ -1,5 +1,4 @@
 #include <fmt/format.h>
-#include <openssl/ssl.h>
 #include <spdlog/spdlog.h>
 #include <nlohmann/json.hpp>
 
@@ -124,8 +123,10 @@ void Client::run() noexcept
         }
         ws_->run();
 
-        std::this_thread::sleep_for(std::chrono::seconds(2));
-        spdlog::error("Connection closed");
+        if (running_) {
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+            spdlog::error("Connection closed");
+        }
     }
 }
 
@@ -148,4 +149,11 @@ bool Client::stop() noexcept
         return true;
     }
     return false;
+}
+
+bool Client::isStarted() noexcept
+{
+    const std::unique_lock<std::mutex> lock(mutex_);
+
+    return ws_ && ws_->isStarted();
 }

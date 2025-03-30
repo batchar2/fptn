@@ -4,9 +4,9 @@
 
 #include <spdlog/spdlog.h>
 #include <nlohmann/json.hpp>
-#include <httplib/httplib.h>
 
 #include <common/utils/utils.h>
+#include <common/https/client.h>
 #include <common/utils/base64.h>
 
 #include "config_file.h"
@@ -14,8 +14,16 @@
 using namespace fptn::config;
 
 
-ConfigFile::ConfigFile(std::string token)
-    : token_(std::move(token)), version_(0)
+constexpr std::uint64_t MAX_TIMEOUT = std::numeric_limits<std::uint64_t>::max();
+
+
+ConfigFile::ConfigFile(std::string sni)
+    : sni_(std::move(sni)), version_(0)
+{
+}
+
+ConfigFile::ConfigFile(std::string token, std::string sni)
+    : token_(std::move(token)), sni_(std::move(sni)), version_(0)
 {
 }
 
@@ -68,7 +76,7 @@ ConfigFile::Server ConfigFile::findFastestServer() const
     for (size_t i = 0; i < futures.size(); ++i) {
         const std::uint64_t time = futures[i].get();
         times[i] = time;
-        if (time != static_cast<std::uint64_t>(-1)) {
+        if (time != MAX_TIMEOUT) {
             spdlog::info("Server reachable: {} at {}:{} - Download time: {}ms",
                          servers_[i].name, servers_[i].host, servers_[i].port, time);
         } else {
@@ -77,7 +85,7 @@ ConfigFile::Server ConfigFile::findFastestServer() const
         }
     }
     auto minTimeIt = std::min_element(times.begin(), times.end());
-    if (minTimeIt == times.end() || *minTimeIt == static_cast<std::uint64_t>(-1)) {
+    if (minTimeIt == times.end() || *minTimeIt == MAX_TIMEOUT) {
         throw std::runtime_error("All servers unavailable!");
     }
     std::size_t fastestServerIndex = std::distance(times.begin(), minTimeIt);
@@ -86,29 +94,19 @@ ConfigFile::Server ConfigFile::findFastestServer() const
 
 std::uint64_t ConfigFile::getDownloadTimeMs(const Server& server) const noexcept
 {
-    try {
-        httplib::SSLClient cli(server.host, server.port);
-        cli.enable_server_certificate_verification(false); // NEED TO FIX
-        cli.set_connection_timeout(5, 0); // 5 seconds
-        cli.set_read_timeout(5, 0);  // 5 seconds
-        cli.set_write_timeout(5, 0); // 5 seconds
+    fptn::common::https::Client cli(server.host, server.port, sni_);
 
-        auto start = std::chrono::high_resolution_clock::now(); // start
-        if (auto res = cli.Get("/api/v1/test/file.bin")) {
-            if (res->status == 200) {
-                auto end = std::chrono::high_resolution_clock::now();
-                auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-                return duration;
-            }
-            spdlog::error("Server responded with an error: {} {} ({}:{})",
-                          std::to_string(res->status), server.name, server.host, server.port);
-        } else {
-            spdlog::error("Failed to connect to the server: {} ({}:{})", server.name, server.host, server.port);
-        }
-    } catch (const std::exception& e) {
-        spdlog::error("Error while downloading from server: {}", e.what());
+    const auto start = std::chrono::high_resolution_clock::now(); // start
+
+    const auto resp = cli.get("/api/v1/test/file.bin");
+    if (resp.code == 200) {
+        const auto end = std::chrono::high_resolution_clock::now();
+        return  std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+    } else {
+        spdlog::error("Server responded with an error: {} {}, {} ({}:{})",
+            std::to_string(resp.code), resp.errmsg, server.name, server.host, server.port);
     }
-    return static_cast<std::uint64_t>(-1);
+    return MAX_TIMEOUT;
 }
 
 int ConfigFile::getVersion() const noexcept

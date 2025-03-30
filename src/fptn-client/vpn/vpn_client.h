@@ -13,7 +13,7 @@ namespace fptn::vpn
     {
     public:
         explicit VpnClient(
-            fptn::http::ClientPtr webSocket,
+            fptn::http::ClientPtr httpClient,
             fptn::common::network::BaseNetInterfacePtr virtualNetworkInterface,
             const pcpp::IPv4Address& dnsServerIPv4,
             const pcpp::IPv6Address& dnsServerIPv6
@@ -23,11 +23,12 @@ namespace fptn::vpn
         void stop() noexcept;
         std::size_t getSendRate() noexcept;
         std::size_t getReceiveRate() noexcept;
+        bool isStarted() noexcept;
     private:
         void packetFromVirtualNetworkInterface(fptn::common::network::IPPacketPtr packet) noexcept;
         void packetFromWebSocket(fptn::common::network::IPPacketPtr packet) noexcept;
     private:
-        fptn::http::ClientPtr webSocket_;
+        fptn::http::ClientPtr httpClient_;
         fptn::common::network::BaseNetInterfacePtr virtualNetworkInterface_;
         const pcpp::IPv4Address dnsServerIPv4_;
         const pcpp::IPv6Address dnsServerIPv6_;
