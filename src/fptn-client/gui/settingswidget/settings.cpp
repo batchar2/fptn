@@ -155,10 +155,30 @@ void SettingsWidget::setupUi()
     QVBoxLayout *aboutLayout = new QVBoxLayout(aboutTab_);
     aboutLayout->setContentsMargins(10, 10, 10, 10);
     aboutLayout->setSpacing(10);
-
-    versionLabel_ = new QLabel(QString(QObject::tr("Application Version") + ": %1").arg(FPTN_VERSION), this);
+    // FPTN label
+    QLabel* fptnLabel_ = new QLabel("FPTN", this);
+    fptnLabel_->setAlignment(Qt::AlignCenter);
+    aboutLayout->addWidget(fptnLabel_);
+    // Version Label - centered horizontally
+    versionLabel_ = new QLabel(QString(QObject::tr("Version") + ": %1").arg(FPTN_VERSION), this);
     versionLabel_->setAlignment(Qt::AlignCenter);
     aboutLayout->addWidget(versionLabel_);
+    // Project Information - justified
+    projectInfoLabel_ = new QLabel(QObject::tr("FPTN_DESCRIPTION"), this);
+    projectInfoLabel_->setWordWrap(true);
+    projectInfoLabel_->setAlignment(Qt::AlignJustify);
+    aboutLayout->addWidget(projectInfoLabel_);
+    // Add a link (optional)
+    websiteLinkLabel_ = new QLabel(QObject::tr("FPTN_WEBSITE_DESCRIPTION"), this);
+    websiteLinkLabel_->setOpenExternalLinks(true);
+    aboutLayout->addWidget(websiteLinkLabel_);
+    // Add group information (optional)
+    telegramGroupLabel_ = new QLabel(QObject::tr("FPTN_TELEGRAM_DESCRIPTION"), this);
+    telegramGroupLabel_->setOpenExternalLinks(true);
+    aboutLayout->addWidget(telegramGroupLabel_);
+    // stretch
+    aboutLayout->addStretch(1);
+    // Add About Tab to TabWidget
     tabWidget_->addTab(aboutTab_, QObject::tr("About"));
 
     // Main Layout
@@ -372,9 +392,6 @@ void SettingsWidget::onLanguageChanged(const QString&)
     if (exitButton_) {
         exitButton_->setText("  " + QObject::tr("Close") + "  ");
     }
-    if (versionLabel_) {
-        versionLabel_->setText(QString(QObject::tr("Application Version") + ": %1").arg(FPTN_VERSION));
-    }
     if (gatewayAutoCheckbox_) {
         gatewayAutoCheckbox_->setText(QObject::tr("Auto"));
     }
@@ -383,6 +400,19 @@ void SettingsWidget::onLanguageChanged(const QString&)
     }
     if (sniLabel_) {
         sniLabel_->setText(QObject::tr("Fake SNI to bypass censorship (hides the VPN)") + ": ");
+    }
+    // about
+    if (versionLabel_) {
+        versionLabel_->setText(QString(QObject::tr("Version") + ": %1").arg(FPTN_VERSION));
+    }
+    if (projectInfoLabel_) {
+        projectInfoLabel_->setText(QObject::tr("FPTN_DESCRIPTION"));
+    }
+    if (websiteLinkLabel_) {
+        websiteLinkLabel_->setText(QObject::tr("FPTN_WEBSITE_DESCRIPTION"));
+    }
+    if (telegramGroupLabel_) {
+        telegramGroupLabel_->setText(QObject::tr("FPTN_TELEGRAM_DESCRIPTION"));
     }
 }
 

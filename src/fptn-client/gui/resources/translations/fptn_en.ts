@@ -105,8 +105,8 @@
             <translation>Delete</translation>
         </message>
         <message>
-            <source>Application Version</source>
-            <translation>Application Version</translation>
+            <source>Version</source>
+            <translation>Version</translation>
         </message>
         <message>
             <source>Save Successful</source>
@@ -210,6 +210,29 @@
         <message>
             <source>Fake SNI to bypass censorship (hides the VPN)</source>
             <translation>Fake SNI to bypass censorship (hides the VPN)</translation>
+        </message>
+
+        <message>
+            <source>FPTN_DESCRIPTION</source>
+            <translation>FPTN is a non-commercial VPN, a volunteer project for bypassing censorship. FPTN operates over the HTTPS protocol, effectively masking traffic and enabling users to bypass censorship restrictions. The project's source code is available on GitHub.</translation>
+        </message>
+
+        <message>
+            <source>FPTN_WEBSITE_DESCRIPTION</source>
+            <translation>
+                <![CDATA[
+                    Our website <a href="https://fptn.org">fptn.org</a></translation>
+                ]]>
+            </translation>
+        </message>
+
+        <message>
+            <source>FPTN_TELEGRAM_DESCRIPTION</source>
+            <translation>
+            <![CDATA[
+                Our Telegram group <a href="https://t.me/fptn_project">@fptn_project</a>
+            ]]>
+            </translation>
         </message>
     </context>
 </TS>
