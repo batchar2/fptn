@@ -76,6 +76,9 @@ namespace fptn::gui
         QString gatewayIp() const;
         void setGatewayIp(const QString &ip);
 
+        QString SNI() const;
+        void setSNI(const QString &sni);
+
         QVector<QString> getNetworkInterfaces() const;
 
         const QVector<ServiceConfig>& services() const;
@@ -110,6 +113,7 @@ namespace fptn::gui
         QVector<ServiceConfig> services_;
         QString networkInterface_;
         QString gatewayIp_;
+        QString sni_;
 
         bool clientAutostart_;
         QString getFilePath() const;

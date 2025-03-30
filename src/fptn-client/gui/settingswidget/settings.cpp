@@ -105,6 +105,19 @@ void SettingsWidget::setupUi()
     gridLayout->addLayout(gatewayLayout, 3, 1, 1, 2);
     settingsLayout->addLayout(gridLayout);
 
+    // SNI
+    sniLabel_ = new QLabel(QObject::tr("Fake SNI to bypass censorship (hides the VPN)") + ": ", this);
+    sniLineEdit_ = new QLineEdit(this);
+    sniLineEdit_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    sniLineEdit_->setText(settings_->SNI());
+    connect(sniLineEdit_, &QLineEdit::textChanged, this, [this](const QString &sni) {
+        settings_->setSNI(sni);
+    });
+
+    gridLayout->addWidget(sniLabel_, 4, 0, Qt::AlignLeft);
+    gridLayout->addWidget(sniLineEdit_, 4, 1, 1, 2);
+    settings_->setSNI(sniLineEdit_->text());
+
     // Server Table
     serverTable_ = new QTableWidget(0, 4, this);
     serverTable_->setHorizontalHeaderLabels({
@@ -190,6 +203,7 @@ void SettingsWidget::exit()
     settings_->setNetworkInterface(interfaceComboBox_->currentText());
     settings_->setLanguage(languageComboBox_->currentText());
     settings_->setGatewayIp(gatewayLineEdit_->text());
+    settings_->setSNI(sniLineEdit_->text());
     if (!settings_->save()) {
         QMessageBox::critical(
             this,
@@ -366,6 +380,9 @@ void SettingsWidget::onLanguageChanged(const QString&)
     }
     if (autostartLabel_) {
         autostartLabel_->setText(QObject::tr("Autostart"));
+    }
+    if (sniLabel_) {
+        sniLabel_->setText(QObject::tr("Fake SNI to bypass censorship (hides the VPN)") + ": ");
     }
 }
 

@@ -370,7 +370,8 @@ void TrayApp::handleConnecting()
         : settings_->networkInterface().toStdString()
     );
 
-    fptn::config::ConfigFile config(FPTN_DEFAULT_SNI);
+    const std::string sni = !settings_->SNI().isEmpty() ? settings_->SNI().toStdString() : FPTN_DEFAULT_SNI;
+    fptn::config::ConfigFile config(sni); // SET SNI
     if (smartConnect_) { // find the best server
         for (const auto& service : settings_->services()) {
             for (const auto &s: service.servers) {
@@ -425,7 +426,7 @@ void TrayApp::handleConnecting()
         serverPort,
         tunInterfaceAddressIPv4,
         tunInterfaceAddressIPv6,
-        FPTN_DEFAULT_SNI
+        sni
     );
     // login
     bool loginStatus = httpClient->login(selectedServer_.username, selectedServer_.password);
