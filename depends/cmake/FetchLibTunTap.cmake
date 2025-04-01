@@ -11,7 +11,7 @@ set(ENABLE_PYTHON OFF CACHE BOOL "Disable Python support" FORCE)
 set(LIBTUNTAP_DISABLE_TESTS ON CACHE BOOL "Disable library tests" FORCE)
 
 include(FetchContent)
-FetchContent_Declare(Libtuntap URL https://github.com/LaKabane/libtuntap/archive/refs/heads/master.zip)
+FetchContent_Declare(Libtuntap URL https://github.com/LaKabane/libtuntap/archive/ec1213733eb2e66e033ff8864d9fd476f9e35ffe.zip)
 FetchContent_GetProperties(Libtuntap)
 if (NOT Libtuntap_POPULATED)
     FetchContent_Populate(Libtuntap)
