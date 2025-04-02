@@ -34,7 +34,8 @@ cat <<EOL > "$CLIENT_TMP_DIR/etc/fptn-client/client.conf"
 # Configuration for FPTN client (required)
 ACCESS_TOKEN=
 
-
+# Required: Fake VPN domain name for SNI
+SNI=tv.telecom.kz
 
 # Optional: Specify the network interface
 NETWORK_INTERFACE=
@@ -51,7 +52,7 @@ After=network.target
 
 [Service]
 EnvironmentFile=/etc/fptn-client/client.conf
-ExecStart=/usr/bin/$(basename "$CLIENT_CLI") --access-token=\${ACCESS_TOKEN} --out-network-interface=\${NETWORK_INTERFACE} --gateway-ip=\${GATEWAY_IP}
+ExecStart=/usr/bin/$(basename "$CLIENT_CLI") --access-token=\${ACCESS_TOKEN} --out-network-interface=\${NETWORK_INTERFACE} --gateway-ip=\${GATEWAY_IP} --sni=\${SNI}
 Restart=always
 RestartSec=5
 User=root
