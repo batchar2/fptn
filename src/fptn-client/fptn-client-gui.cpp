@@ -42,7 +42,7 @@ int main(int argc, char *argv[])
 #endif
     // Initialize logger
     if (fptn::logger::init("fptn-client-gui")) {
-        spdlog::info("Application started successfully.");
+        SPDLOG_INFO("Application started successfully.");
     } else {
         std::cerr << "Logger initialization failed. Exiting application." << std::endl;
         return EXIT_FAILURE;

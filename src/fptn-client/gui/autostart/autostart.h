@@ -38,7 +38,7 @@ namespace fptn::gui::autostart
         char fptnPath[MAX_PATH] = {};
         if (!SUCCEEDED(GetModuleFileName(nullptr, fptnPath, MAX_PATH))) {
             const DWORD code = GetLastError();
-            spdlog::error("Failed to retrieve the path. Error code: {}", code);
+            SPDLOG_ERROR("Failed to retrieve the path. Error code: {}", code);
             return {};
         }
         
@@ -53,7 +53,7 @@ namespace fptn::gui::autostart
         if (!SUCCEEDED(SHGetFolderPath(nullptr, CSIDL_STARTUP, nullptr, 0, path))) {
             // if (SUCCEEDED(SHGetFolderPathA(NULL, CSIDL_STARTUP, NULL, 0, path))) {
             const DWORD code = GetLastError();
-            spdlog::error("Failed to retrieve the startup folder path. Error code: {}", code);
+            SPDLOG_ERROR("Failed to retrieve the startup folder path. Error code: {}", code);
             return {};
         }
         return path;
@@ -104,22 +104,22 @@ namespace fptn::gui::autostart
         const auto plist = fmt::format(autostartTemplate, scriptPath.u8string());
         const std::string plistPath = getMacOsPlistPath();
         if (plistPath.empty()) {
-            spdlog::error("Failed to get the macOS plist path.");
+            SPDLOG_ERROR("Failed to get the macOS plist path.");
             return false;
         }
-        spdlog::info("Plist path: {}", plistPath);
+        SPDLOG_INFO("Plist path: {}", plistPath);
         std::ofstream file(plistPath);
         if (file.is_open()) {
             file << plist;
             file.close();
-            spdlog::info("Plist file written successfully at {}", plistPath);
+            SPDLOG_INFO("Plist file written successfully at {}", plistPath);
         } else {
-            spdlog::error("Unable to write to plist file at {}", plistPath);
+            SPDLOG_ERROR("Unable to write to plist file at {}", plistPath);
             return false;
         }
         const std::string command = fmt::format(R"(launchctl load "{}" )", plistPath);
         if (!fptn::common::system::command::run(command)) {
-            spdlog::error("Failed to load plist using launchctl. Command: {}", command);
+            SPDLOG_ERROR("Failed to load plist using launchctl. Command: {}", command);
             return false;
         }
 #elif __linux__
@@ -134,17 +134,17 @@ namespace fptn::gui::autostart
 
         const auto path = std::filesystem::path(getLinuxDesktopEntryPath());
         if (path.empty()) {
-            spdlog::error("Failed to get the macOS plist path.");
+            SPDLOG_ERROR("Failed to get the macOS plist path.");
             return false;
         }
-        spdlog::info("DesktopEntry path: {}", path.u8string());
+        SPDLOG_INFO("DesktopEntry path: {}", path.u8string());
         std::ofstream file(path);
         if (file.is_open()) {
             file << entry;
             file.close();
-            spdlog::info("DesktopEntry file written successfully at {}", path.u8string());
+            SPDLOG_INFO("DesktopEntry file written successfully at {}", path.u8string());
         } else {
-            spdlog::error("Unable to write to DesktopEntry file at {}", path.u8string());
+            SPDLOG_ERROR("Unable to write to DesktopEntry file at {}", path.u8string());
             return false;
         }
 #elif _WIN32
@@ -159,7 +159,7 @@ namespace fptn::gui::autostart
         //     fptnPath
         // );
         // if (!fptn::common::system::command::run(command)) {
-        //     spdlog::error("Error running command: {}", command);
+        //     SPDLOG_ERROR("Error running command: {}", command);
         //     return false;
         // }
         // SET SHORTCUT
@@ -169,12 +169,12 @@ namespace fptn::gui::autostart
         //     shortcutPath.u8string(), fptnPath
         // );
         // if (!fptn::common::system::command::run(powershellCommand)) {
-        //     spdlog::error("Failed to create shortcut: {}", powershellCommand);
+        //     SPDLOG_ERROR("Failed to create shortcut: {}", powershellCommand);
         //     return false;
         // }
-        // spdlog::info("Shortcut created successfully at: {}", shortcutPath.u8string());
+        // SPDLOG_INFO("Shortcut created successfully at: {}", shortcutPath.u8string());
 #endif
-        spdlog::info("Autostart successfully enabled");
+        SPDLOG_INFO("Autostart successfully enabled");
         return true;
     }
 
@@ -183,7 +183,7 @@ namespace fptn::gui::autostart
 #if __APPLE__
         const std::string plistPath = getMacOsPlistPath();
         if (plistPath.empty()) {
-            spdlog::error("Failed to get the macOS plist path.");
+            SPDLOG_ERROR("Failed to get the macOS plist path.");
             return false;
         }
         if (std::filesystem::exists(plistPath)) {
@@ -205,18 +205,18 @@ namespace fptn::gui::autostart
         // delete reg
         // const std::string command = R"(reg delete "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v "FptnClient" /f )";
         // if (!fptn::common::system::command::run(command)) {
-        //     spdlog::error("Error running command: {}", command);
+        //     SPDLOG_ERROR("Error running command: {}", command);
         // }
         // delete shortcut
         // const std::string windowsStartupFolder = getWindowsStartupFolder();
         // const std::filesystem::path shortcutPath = std::filesystem::path(windowsStartupFolder) / "FptnClient.lnk";
         // if (std::filesystem::exists(shortcutPath) && std::filesystem::remove(shortcutPath)) {
-        //     spdlog::info("Shortcut deleted successfully: {}", shortcutPath.u8string());
+        //     SPDLOG_INFO("Shortcut deleted successfully: {}", shortcutPath.u8string());
         // } else {
-        //     spdlog::info("No shortcut found to delete at: {}", shortcutPath.u8string());
+        //     SPDLOG_INFO("No shortcut found to delete at: {}", shortcutPath.u8string());
         // }
 #endif
-        spdlog::info("Disable autostart");
+        SPDLOG_INFO("Disable autostart");
         return true;
     }
 }

@@ -67,7 +67,7 @@ boost::asio::awaitable<void> Listener::run()
         acceptor_.bind(endpoint_);
         acceptor_.listen(boost::asio::socket_base::max_listen_connections);
     } catch (boost::system::system_error& err) {
-        spdlog::error("Listener::prepare error: {}", err.what());
+        SPDLOG_ERROR("Listener::prepare error: {}", err.what());
         co_return;
     }
     isRunning_ = true;
@@ -98,10 +98,10 @@ boost::asio::awaitable<void> Listener::run()
                     boost::asio::detached
                 );
             } else {
-                spdlog::error("Error onAccept: {}", ec.message());
+                SPDLOG_ERROR("Error onAccept: {}", ec.message());
             }
         } catch (boost::system::system_error& err) {
-            spdlog::error("Listener::run error: {}", err.what());
+            SPDLOG_ERROR("Listener::run error: {}", err.what());
             co_return;
         }
     }
@@ -113,7 +113,7 @@ bool Listener::stop()
     try {
         acceptor_.close();
     } catch (boost::system::system_error& err) {
-        spdlog::error("Listener::stop error: {}", err.what());
+        SPDLOG_ERROR("Listener::stop error: {}", err.what());
         return false;
     }
     return true;

@@ -99,7 +99,7 @@ bool CmdOptions::parse() noexcept
         return true;
     } catch (const std::runtime_error& err) {
         const std::string help = args_.help().str();
-        spdlog::error("Argument parsing error: {}\n{}", err.what(), help);
+        SPDLOG_ERROR("Argument parsing error: {}\n{}", err.what(), help);
     }
     return false;
 }

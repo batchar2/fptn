@@ -31,7 +31,7 @@ Websocket::Websocket(
     sni_(sni),
     token_(token)
 {
-    spdlog::info("Init new connection: {}:{}", serverIP_.toString(), serverPort_);
+    SPDLOG_INFO("Init new connection: {}:{}", serverIP_.toString(), serverPort_);
     ctx_.set_options(boost::asio::ssl::context::no_sslv2 |
                     boost::asio::ssl::context::no_sslv3 |
                     boost::asio::ssl::context::no_tlsv1 |
@@ -52,7 +52,7 @@ void Websocket::run() noexcept
         port_str,
         [self](boost::beast::error_code ec, boost::asio::ip::tcp::resolver::results_type results) {
             if (ec) {
-                spdlog::error("Resolve error: {}", ec.message());
+                SPDLOG_ERROR("Resolve error: {}", ec.message());
             } else {
                 self->onResolve(ec, std::move(results));
             }
@@ -132,7 +132,7 @@ void Websocket::onConnect(boost::beast::error_code ec,
             )
         );
     } catch (boost::system::system_error& err) {
-        spdlog::error("onConnect error: {}", err.what());
+        SPDLOG_ERROR("onConnect error: {}", err.what());
         stop();
     }
 }
@@ -214,10 +214,10 @@ void Websocket::onRead(boost::beast::error_code ec, std::size_t transferred)
 
 void Websocket::fail(boost::beast::error_code ec, char const* what) noexcept
 {
-    spdlog::error("fail: {} {}", what, ec.what());
+    SPDLOG_ERROR("fail: {} {}", what, ec.what());
 
     if (!ws_.is_open()) {
-        spdlog::error("Client is stopping");
+        SPDLOG_ERROR("Client is stopping");
         if (!ioc_.stopped()) {
             ioc_.stop();
         }
@@ -274,9 +274,9 @@ void Websocket::doWrite()
             );
         }
     } catch (boost::system::system_error& err) {
-        spdlog::error("doWrite system_error: {}", err.what());
+        SPDLOG_ERROR("doWrite system_error: {}", err.what());
     } catch (const std::exception& e) {
-        spdlog::error("doWrite error: {}", e.what());
+        SPDLOG_ERROR("doWrite error: {}", e.what());
     }
 }
 

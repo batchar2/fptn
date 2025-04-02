@@ -87,10 +87,10 @@ ConfigFile::Server ConfigFile::findFastestServer() const
         }
 
         if (times[i] != MAX_TIMEOUT) {
-            spdlog::info("Server reachable: {} at {}:{} - Download time: {}ms",
+            SPDLOG_INFO("Server reachable: {} at {}:{} - Download time: {}ms",
                          servers_[i].name, servers_[i].host, servers_[i].port, times[i]);
         } else {
-            spdlog::warn("Server unreachable: {} at {}:{}",
+            SPDLOG_WARN("Server unreachable: {} at {}:{}",
                          servers_[i].name, servers_[i].host, servers_[i].port);
         }
     }
@@ -119,7 +119,7 @@ std::uint64_t ConfigFile::getDownloadTimeMs(const Server& server, const int time
         const auto end = std::chrono::high_resolution_clock::now();
         return  std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
     } else {
-        spdlog::error("Server responded with an error: {} {}, {} ({}:{})",
+        SPDLOG_ERROR("Server responded with an error: {} {}, {} ({}:{})",
             std::to_string(resp.code), resp.errmsg, server.name, server.host, server.port);
     }
     return MAX_TIMEOUT;

@@ -30,7 +30,7 @@ bool UserManager::login(const std::string &username, const std::string &password
 {
     bandwidthBit = 0; // reset
     if (useRemoteServer_) {
-        spdlog::info("Login request to {}:{}", remoteServerIP_, remoteServerPort_);
+        SPDLOG_INFO("Login request to {}:{}", remoteServerIP_, remoteServerPort_);
 
         const std::string request = fmt::format(R"({{ "username": "{}", "password": "{}" }})",username, password);
         const auto resp = httpClient_->post("/api/v1/login", request, "application/json");
@@ -42,12 +42,12 @@ bool UserManager::login(const std::string &username, const std::string &password
                     bandwidthBit = msg["bandwidth_bit"].get<int>();
                     return true;
                 }
-                spdlog::info("User manager error: Access token not found in the response. Check your connection");
+                SPDLOG_INFO("User manager error: Access token not found in the response. Check your connection");
             } catch (const nlohmann::json::parse_error& e) {
-                spdlog::info("User manager: Error parsing JSON response: {}\n{}", e.what(), resp.body);
+                SPDLOG_INFO("User manager: Error parsing JSON response: {}\n{}", e.what(), resp.body);
             }
         } else {
-            spdlog::info("User manager: request failed or response is null. Code: {} Msg: {}", resp.code, resp.errmsg);
+            SPDLOG_INFO("User manager: request failed or response is null. Code: {} Msg: {}", resp.code, resp.errmsg);
         }
     } else if (commonManager_->authenticate(username, password)) {
         bandwidthBit = commonManager_->getUserBandwidthBit(username);

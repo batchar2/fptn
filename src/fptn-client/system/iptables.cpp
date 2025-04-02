@@ -59,11 +59,11 @@ bool IPTables::apply() noexcept
 #endif
     findOutGatewayIp_ = (gatewayIp_ == pcpp::IPv4Address("0.0.0.0") ? getDefaultGatewayIPAddress() : gatewayIp_);
 
-    spdlog::info("=== Setting up routing ===");
-    spdlog::info("IPTABLES VPN SERVER IP:         {}", vpnServerIP_.toString());
-    spdlog::info("IPTABLES OUT NETWORK INTERFACE: {}", findOutInterfaceName_);
-    spdlog::info("IPTABLES GATEWAY IP:            {}", findOutGatewayIp_.toString());
-    spdlog::info("IPTABLES DNS SERVER:            {}", dnsServerIPv4_.toString());
+    SPDLOG_INFO("=== Setting up routing ===");
+    SPDLOG_INFO("IPTABLES VPN SERVER IP:         {}", vpnServerIP_.toString());
+    SPDLOG_INFO("IPTABLES OUT NETWORK INTERFACE: {}", findOutInterfaceName_);
+    SPDLOG_INFO("IPTABLES GATEWAY IP:            {}", findOutGatewayIp_.toString());
+    SPDLOG_INFO("IPTABLES DNS SERVER:            {}", dnsServerIPv4_.toString());
 #ifdef __linux__
     const std::vector<std::string> commands = {
         // forwarding
@@ -149,7 +149,7 @@ bool IPTables::apply() noexcept
     for (const auto& cmd : commands) {
         fptn::common::system::command::run(cmd);
     }
-    spdlog::info("=== Routing setup completed successfully ===");
+    SPDLOG_INFO("=== Routing setup completed successfully ===");
     return true;
 }
 
@@ -158,7 +158,7 @@ bool IPTables::clean() noexcept
     const std::unique_lock<std::mutex> lock(mutex_);
 
     if (!init_) {
-        spdlog::info("No need to clean rules!");
+        SPDLOG_INFO("No need to clean rules!");
         return true;
     }
 #ifdef __linux__
@@ -238,7 +238,7 @@ pcpp::IPv4Address fptn::system::resolveDomain(const std::string& domain) noexcep
             return endpoint.endpoint().address().to_string();
         }
     } catch (const std::exception& e) {
-        spdlog::error("Error resolving domain: {}", e.what());
+        SPDLOG_ERROR("Error resolving domain: {}", e.what());
     }
     return domain;
 }
@@ -273,7 +273,7 @@ pcpp::IPv4Address fptn::system::getDefaultGatewayIPAddress() noexcept
             }
         }
     } catch (const std::exception& ex) {
-        spdlog::error("Error: Failed to retrieve the default gateway IP address. {}", ex.what());
+        SPDLOG_ERROR("Error: Failed to retrieve the default gateway IP address. {}", ex.what());
     }
     return {};
 }
@@ -302,7 +302,7 @@ std::string fptn::system::getDefaultNetworkInterfaceName() noexcept
             result.erase(0, result.find_first_not_of(" \n\r\t"));
         }
     } catch (const std::exception& ex) {
-        spdlog::error("Error: Failed to retrieve the default gateway IP address. {}", ex.what());
+        SPDLOG_ERROR("Error: Failed to retrieve the default gateway IP address. {}", ex.what());
     }
     return result;
 }
@@ -327,10 +327,10 @@ std::string getWindowsInterfaceNumber(const std::string& interfaceName)
                 return result;
             }
         }
-        spdlog::error("Error: Invalid interface index format.");
+        SPDLOG_ERROR("Error: Invalid interface index format.");
         return {};
     } catch (const std::exception& ex) {
-        spdlog::error("Error: failed to retrieve the interface index. Msg: {}", ex.what());
+        SPDLOG_ERROR("Error: failed to retrieve the interface index. Msg: {}", ex.what());
     }
     return {};
 }

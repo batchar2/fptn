@@ -25,7 +25,7 @@ inline void waitForSignal()
     boost::asio::signal_set signals(io_context, SIGINT, SIGTERM /*, SIGQUIT*/);
     signals.async_wait(
         [&](auto, auto) {
-            spdlog::info("Signal received");
+            SPDLOG_INFO("Signal received");
             io_context.stop();
         });
     io_context.run();
@@ -49,13 +49,13 @@ int main(int argc, char* argv[])
         || !std::filesystem::exists(options->getServerKey())
         || !std::filesystem::exists(options->getServerPub())
     ) {
-        spdlog::error("SSL certificate or key file does not exist!");
+        SPDLOG_ERROR("SSL certificate or key file does not exist!");
         return EXIT_FAILURE;
     }
 
     /* Init logger */
     if (fptn::logger::init("fptn-server")) {
-        spdlog::info("Application started successfully.");
+        SPDLOG_INFO("Application started successfully.");
     } else {
         std::cerr << "Logger initialization failed. Exiting application." << std::endl;
         return EXIT_FAILURE;
@@ -138,7 +138,7 @@ int main(int argc, char* argv[])
         prometheus
     );
 
-    spdlog::info("\n--- Starting server---\n"
+    SPDLOG_INFO("\n--- Starting server---\n"
         "VERSION:           {}\n"
         "NETWORK INTERFACE: {}\n"
         "VPN NETWORK IPv4:  {}\n"
