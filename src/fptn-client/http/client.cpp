@@ -2,8 +2,6 @@
 #include <spdlog/spdlog.h>
 #include <nlohmann/json.hpp>
 
-#include <common/protobuf/protocol.h>
-
 #include "system/iptables.h"
 
 #include "client.h"
@@ -42,23 +40,23 @@ bool Client::login(const std::string& username, const std::string& password) noe
             const auto msg = resp.json();
             if (msg.contains("access_token")) {
                 token_ = msg["access_token"];
-                spdlog::info("Login successful");
+                SPDLOG_INFO("Login successful");
                 return true;
             } else {
-                spdlog::error("Error: Access token not found in the response. Check your conection");
+                SPDLOG_ERROR("Error: Access token not found in the response. Check your conection");
             }
         }  catch (const nlohmann::json::parse_error& e) {
-            spdlog::error("Error parsing JSON response: {} ", e.what());
+            SPDLOG_ERROR("Error parsing JSON response: {} ", e.what());
         }
     } else {
-        spdlog::error("Error: Request failed code: {} msg: {}", resp.code, resp.errmsg);
+        SPDLOG_ERROR("Error: Request failed code: {} msg: {}", resp.code, resp.errmsg);
     }
     return false;
 }
 
 std::pair<pcpp::IPv4Address, pcpp::IPv6Address> Client::getDns() noexcept
 {
-    spdlog::info("DNS. Connect to {}:{}", serverIP_.toString(), serverPort_);
+    SPDLOG_INFO("DNS. Connect to {}:{}", serverIP_.toString(), serverPort_);
 
     fptn::common::https::Client cli(serverIP_.toString(), serverPort_, sni_);
     const auto resp = cli.get("/api/v1/dns");
@@ -74,13 +72,13 @@ std::pair<pcpp::IPv4Address, pcpp::IPv6Address> Client::getDns() noexcept
                 );
                 return {pcpp::IPv4Address(dnsServerIPv4), pcpp::IPv6Address(dnsServerIPv6)};
             } else {
-                spdlog::error("Error: dns not found in the response. Check your conection");
+                SPDLOG_ERROR("Error: dns not found in the response. Check your conection");
             }
         } catch (const nlohmann::json::parse_error &e) {
-            spdlog::error("Error parsing JSON response: {}", e.what());
+            SPDLOG_ERROR("Error parsing JSON response: {}", e.what());
         }
     } else {
-        spdlog::error("Error: Request failed code: {} msg: {}", resp.code, resp.errmsg);
+        SPDLOG_ERROR("Error: Request failed code: {} msg: {}", resp.code, resp.errmsg);
     }
     return {pcpp::IPv4Address("0.0.0.0"), pcpp::IPv6Address("")};
 }
@@ -98,9 +96,9 @@ bool Client::send(fptn::common::network::IPPacketPtr packet) noexcept
             return true;
         }
     } catch (const std::runtime_error &err) {
-        spdlog::error("Send error: {}", err.what());
+        SPDLOG_ERROR("Send error: {}", err.what());
     } catch (const std::exception &e) {
-        spdlog::error("Exception occurred: {}", e.what());
+        SPDLOG_ERROR("Exception occurred: {}", e.what());
     }
     return false;
 }
@@ -125,7 +123,7 @@ void Client::run() noexcept
 
         if (running_) {
             std::this_thread::sleep_for(std::chrono::seconds(2));
-            spdlog::error("Connection closed");
+            SPDLOG_ERROR("Connection closed");
         }
     }
 }

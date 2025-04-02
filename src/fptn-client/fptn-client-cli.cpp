@@ -23,7 +23,7 @@ inline void waitForSignal()
     boost::asio::signal_set signals(io_context, SIGINT, SIGTERM);
     signals.async_wait(
         [&](auto, auto) {
-            spdlog::info("Signal received");
+            SPDLOG_INFO("Signal received");
             io_context.stop();
         });
     io_context.run();
@@ -74,7 +74,7 @@ int main(int argc, char* argv[])
     }
 
     if (fptn::logger::init("fptn-client-cli")) {
-        spdlog::info("Application started successfully.");
+        SPDLOG_INFO("Application started successfully.");
     } else {
         std::cerr << "Logger initialization failed. Exiting application." << std::endl;
         return EXIT_FAILURE;
@@ -95,7 +95,7 @@ int main(int argc, char* argv[])
         : pcpp::IPv4Address(gatewayIP)
     );
     if (usingGatewayIP == pcpp::IPv4Address("0.0.0.0")) {
-        spdlog::error("Unable to find the default gateway IP address. "
+        SPDLOG_ERROR("Unable to find the default gateway IP address. "
                       "Please check your connection and make sure no other VPN is active. "
                       "If the error persists, specify the gateway address in the FPTN settings using your router's IP "
                       "address with the \"--gateway-ip\" option. If the issue "
@@ -112,17 +112,17 @@ int main(int argc, char* argv[])
         config.parse();
         selectedServer = config.findFastestServer();
     } catch (std::runtime_error &err) {
-        spdlog::error("Config error: {}", err.what());
+        SPDLOG_ERROR("Config error: {}", err.what());
         return EXIT_FAILURE;
     }
     const int serverPort = selectedServer.port;
     const auto serverIP = fptn::system::resolveDomain(selectedServer.host);
     if (serverIP == pcpp::IPv4Address("0.0.0.0")) {
-        spdlog::error("DNS resolve error: {}", selectedServer.host);
+        SPDLOG_ERROR("DNS resolve error: {}", selectedServer.host);
         return EXIT_FAILURE;
     }
 
-    spdlog::info("\n--- Starting client ---\n"
+    SPDLOG_INFO("\n--- Starting client ---\n"
         "VERSION:            {}\n"
         "SNI:                {}\n"
         "GATEWAY IP:         {}\n"
@@ -153,12 +153,12 @@ int main(int argc, char* argv[])
     );
     const bool status = httpClient->login(config.getUsername(), config.getPassword());
     if (!status) {
-        spdlog::error("The username or password you entered is incorrect");
+        SPDLOG_ERROR("The username or password you entered is incorrect");
         return EXIT_FAILURE;
     }
     const auto [dnsServerIPv4, dnsServerIPv6] = httpClient->getDns();
     if (dnsServerIPv4 == pcpp::IPv4Address("0.0.0.0") || dnsServerIPv6 == pcpp::IPv6Address("")) {
-        spdlog::error("DNS server error! Check your connection!");
+        SPDLOG_ERROR("DNS server error! Check your connection!");
         return EXIT_FAILURE;
     }
 
@@ -199,7 +199,7 @@ int main(int argc, char* argv[])
     const auto start = std::chrono::steady_clock::now();
     while (!vpnClient.isStarted()) {
         if (std::chrono::steady_clock::now() - start > TIMEOUT) {
-            spdlog::error("Couldn't open websocket tunnel!");
+            SPDLOG_ERROR("Couldn't open websocket tunnel!");
             return EXIT_FAILURE;
         }
         std::this_thread::sleep_for(std::chrono::microseconds(200));

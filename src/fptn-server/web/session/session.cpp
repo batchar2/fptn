@@ -69,9 +69,9 @@ Session::Session(boost::asio::ip::tcp::socket&& socket,
         boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::hours(2));
         isInitComplete_ = true;
     } catch (boost::system::system_error& err) {
-        spdlog::error("Session::init error: {}", err.what());
+        SPDLOG_ERROR("Session::init error: {}", err.what());
     } catch (const std::exception& e) {
-        spdlog::error("Session::init prepare: {}", e.what());
+        SPDLOG_ERROR("Session::init prepare: {}", e.what());
     }
 }
 
@@ -86,7 +86,7 @@ boost::asio::awaitable<void> Session::run() noexcept
 
     // check init status
     if (!isInitComplete_) {
-        spdlog::error("Session is not initialized. Closing session.");
+        SPDLOG_ERROR("Session is not initialized. Closing session.");
         close();
         co_return;
     }
@@ -97,7 +97,7 @@ boost::asio::awaitable<void> Session::run() noexcept
             boost::asio::redirect_error(boost::asio::use_awaitable, ec)
     );
     if (ec) {
-        spdlog::error("Session handshake failed: {} ({})", ec.what(), ec.value());
+        SPDLOG_ERROR("Session handshake failed: {} ({})", ec.what(), ec.value());
         close();
         co_return;
     }
@@ -143,17 +143,17 @@ boost::asio::awaitable<void> Session::runReader() noexcept
                 buffer.consume(buffer.size()); // flush
             }
         } catch (const fptn::common::protobuf::protocol::ProcessingError &err) {
-            spdlog::error("Session::runReader Processing error: {}", err.what());
+            SPDLOG_ERROR("Session::runReader Processing error: {}", err.what());
         } catch (const fptn::common::protobuf::protocol::MessageError &err) {
-            spdlog::error("Session::runReader Message error: {}", err.what());
+            SPDLOG_ERROR("Session::runReader Message error: {}", err.what());
         } catch (const fptn::common::protobuf::protocol::UnsoportedProtocolVersion &err) {
-            spdlog::error("Session::runReader Unsupported protocol version: {}", err.what());
+            SPDLOG_ERROR("Session::runReader Unsupported protocol version: {}", err.what());
         } catch (boost::system::system_error& err) {
-            spdlog::error("Session::runReader error: {}", err.what());
+            SPDLOG_ERROR("Session::runReader error: {}", err.what());
         } catch (const std::exception& e) {
-            spdlog::error("Exception in runReader: {}", e.what());
+            SPDLOG_ERROR("Exception in runReader: {}", e.what());
         } catch(...) {
-            spdlog::error("Session::runReader Unexpected error");
+            SPDLOG_ERROR("Session::runReader Unexpected error");
             break;
         }
     }
@@ -173,7 +173,7 @@ boost::asio::awaitable<void> Session::runSender() noexcept
         // read
         auto packet = co_await write_channel_.async_receive(token);
         if (!isRunning_ || !write_channel_.is_open() || ec) {
-            spdlog::error("Session::runSender close, ec = {}", ec.value());
+            SPDLOG_ERROR("Session::runSender close, ec = {}", ec.value());
             break;
         }
         if (packet != nullptr) {
@@ -182,7 +182,7 @@ boost::asio::awaitable<void> Session::runSender() noexcept
             if (!msg.empty() ) {
                 co_await ws_.async_write(boost::asio::buffer(msg.data(), msg.size()), token);
                 if (ec) {
-                    spdlog::error("Session::runSender async_write error: {}", ec.what());
+                    SPDLOG_ERROR("Session::runSender async_write error: {}", ec.what());
                     break;
                 }
                 msg.clear();
@@ -222,7 +222,7 @@ boost::asio::awaitable<bool> Session::processRequest() noexcept
             status = co_await handleHttp(std::move(request));
         }
     } catch (boost::system::system_error& err) {
-        spdlog::error("Session::handshake error: {}", err.what());
+        SPDLOG_ERROR("Session::handshake error: {}", err.what());
     }
     co_return status;
 }
@@ -236,7 +236,7 @@ boost::asio::awaitable<bool> Session::handleHttp(const boost::beast::http::reque
         co_return false;
     }
 
-    spdlog::info("HTTP {} {}", method, url);
+    SPDLOG_INFO("HTTP {} {}", method, url);
 
     // default content types
     boost::beast::http::response<boost::beast::http::string_body> resp;
@@ -263,7 +263,7 @@ boost::asio::awaitable<bool> Session::handleHttp(const boost::beast::http::reque
     try {
         co_await boost::beast::http::async_write(ws_.next_layer(), *res_ptr, boost::asio::use_awaitable);
     } catch (const boost::beast::system_error& e) {
-        //  spdlog::error("Error writing HTTP response: {}", e.what());
+        //  SPDLOG_ERROR("Error writing HTTP response: {}", e.what());
     }
     co_return false;
 }
@@ -317,28 +317,28 @@ void Session::close() noexcept
     try {
         boost::system::error_code ec;
         if (ws_.is_open()) {
-            spdlog::info("--- close wss {} --- ", clientId_);
+            SPDLOG_INFO("--- close wss {} --- ", clientId_);
             ws_.close(boost::beast::websocket::close_code::normal, ec);
         }
         auto &ssl = ws_.next_layer();
         if (ssl.native_handle()) {
-            spdlog::info("--- shutdown ssl {} ---", clientId_);
+            SPDLOG_INFO("--- shutdown ssl {} ---", clientId_);
             SSL_shutdown(ssl.native_handle());
         }
 
         auto &tcp = ssl.next_layer();
         if (tcp.socket().is_open()) {
-            spdlog::info("--- close tcp socket {} ---", clientId_);
+            SPDLOG_INFO("--- close tcp socket {} ---", clientId_);
             tcp.socket().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
             tcp.socket().close(ec);
         }
         if (clientId_ != MAX_CLIENT_ID && wsCloseCallback_) {
-            spdlog::info("--- run callback {} ---", clientId_);
+            SPDLOG_INFO("--- run callback {} ---", clientId_);
             wsCloseCallback_(clientId_);
         }
-        spdlog::info("--- close sucessfull {} ---", clientId_);
+        SPDLOG_INFO("--- close sucessfull {} ---", clientId_);
     } catch (boost::system::system_error &err) {
-        spdlog::error("Session::close error: {}", err.what());
+        SPDLOG_ERROR("Session::close error: {}", err.what());
     }
 }
 
@@ -356,7 +356,7 @@ boost::asio::awaitable<bool> Session::send(fptn::common::network::IPPacketPtr pa
             }
         }
     } catch (boost::system::system_error& err) {
-        spdlog::error("Session::send error: {}", err.what());
+        SPDLOG_ERROR("Session::send error: {}", err.what());
         co_return false;
     }
     co_return true;

@@ -54,7 +54,7 @@ void SettingsModel::load()
         spdlog::warn("Failed to open file for reading: {}", filePath.toStdString());
         return;
     }
-    spdlog::info("Settings: {}", filePath.toStdString());
+    SPDLOG_INFO("Settings: {}", filePath.toStdString());
 
     QByteArray data = file.readAll();
     file.close();
@@ -174,7 +174,7 @@ bool SettingsModel::save()
     QString filePath = getFilePath();
     QFile file(filePath);
     if (!file.open(QIODevice::WriteOnly)) {
-        spdlog::error("Failed to open file for writing: {}", filePath.toStdString());
+        SPDLOG_ERROR("Failed to open file for writing: {}", filePath.toStdString());
         return false;
     }
 
@@ -210,7 +210,7 @@ bool SettingsModel::save()
     file.close();
 
     if (len > 0) {
-        spdlog::info("Success save: {}", filePath.toStdString());
+        SPDLOG_INFO("Success save: {}", filePath.toStdString());
     }
     // load saved data
     load();

@@ -76,13 +76,13 @@ bool IPTables::apply() noexcept
 #else
     #error "Unsupported system!"
 #endif
-    spdlog::info("=== Setting up routing ===");
+    SPDLOG_INFO("=== Setting up routing ===");
     for (const auto& cmd : commands) {
         if (!runCommand(cmd)) {
-            spdlog::error("COMMAND ERORR: {}", cmd);
+            SPDLOG_ERROR("COMMAND ERORR: {}", cmd);
         }
     }
-    spdlog::info("=== Routing setup completed successfully ===");
+    SPDLOG_INFO("=== Routing setup completed successfully ===");
     return true;
 }
 
@@ -129,7 +129,7 @@ static bool runCommand(const std::string& command)
             return true;
         }
     } catch (const std::exception& e) {
-        spdlog::error("IPTables error: {}", e.what());
+        SPDLOG_ERROR("IPTables error: {}", e.what());
     }
     return false;
 }
