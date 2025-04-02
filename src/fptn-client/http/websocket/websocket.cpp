@@ -10,8 +10,8 @@ using namespace fptn::http;
 
 
 Websocket::Websocket(
-    const pcpp::IPv4Address& vpnServerIP,
-    int vpnServerPort,
+    const pcpp::IPv4Address& serverIP,
+    int serverPort,
     const pcpp::IPv4Address& tunInterfaceAddressIPv4,
     const pcpp::IPv6Address& tunInterfaceAddressIPv6,
     const NewIPPacketCallback& newIPPktCallback,
@@ -23,14 +23,15 @@ Websocket::Websocket(
     ws_(boost::asio::make_strand(ioc_), ctx_),
     strand_(ioc_.get_executor()),
     running_(false),
-    serverIP_(vpnServerIP),
-    serverPort_(vpnServerPort),
+    serverIP_(serverIP),
+    serverPort_(serverPort),
     tunInterfaceAddressIPv4_(tunInterfaceAddressIPv4),
     tunInterfaceAddressIPv6_(tunInterfaceAddressIPv6),
     newIPPktCallback_(newIPPktCallback),
     sni_(sni),
     token_(token)
 {
+    spdlog::info("Init new connection: {}:{}", serverIP_.toString(), serverPort_);
     ctx_.set_options(boost::asio::ssl::context::no_sslv2 |
                     boost::asio::ssl::context::no_sslv3 |
                     boost::asio::ssl::context::no_tlsv1 |
@@ -70,12 +71,11 @@ bool Websocket::stop() noexcept
 {
     const std::unique_lock<std::mutex> lock(mutex_);
 
-    if (running_) {
-        running_ = false;
+    running_ = false;
+    if (!ioc_.stopped()) {
         ioc_.stop();
-        return true;
     }
-    return false;
+    return true;
 }
 
 void Websocket::onResolve(boost::beast::error_code ec, boost::asio::ip::tcp::resolver::results_type results)
@@ -198,20 +198,31 @@ void Websocket::onRead(boost::beast::error_code ec, std::size_t transferred)
     if (ec) {
         return fail(ec, "read");
     }
-    // FIXME REDUNDANT COPY
-    const auto data = boost::beast::buffers_to_string(buffer_.data());
-    std::string raw = fptn::common::protobuf::protocol::getPayload(data);
-    auto packet = fptn::common::network::IPPacket::parse(std::move(raw));
-    if (packet) {
-        newIPPktCallback_(std::move(packet));
+    if (running_) {
+        // FIXME REDUNDANT COPY
+        const auto data = boost::beast::buffers_to_string(buffer_.data());
+        std::string raw = fptn::common::protobuf::protocol::getPayload(data);
+        auto packet = fptn::common::network::IPPacket::parse(std::move(raw));
+        if (packet) {
+            newIPPktCallback_(std::move(packet));
+        }
+        buffer_.consume(transferred);
+
+        doRead();
     }
-    buffer_.consume(transferred);
-    doRead();
 }
 
 void Websocket::fail(boost::beast::error_code ec, char const* what) noexcept
 {
-    spdlog::error("fail {}:", what, ec.what());
+    spdlog::error("fail: {} {}", what, ec.what());
+
+    if (!ws_.is_open()) {
+        spdlog::error("Client is stopping");
+        if (!ioc_.stopped()) {
+            ioc_.stop();
+        }
+        running_ = false;
+    }
 }
 
 void Websocket::doRead()
@@ -227,7 +238,7 @@ void Websocket::doRead()
 
 bool Websocket::send(fptn::common::network::IPPacketPtr packet) noexcept
 {
-    if (sendQueue_.size() < sendQueueMaxSize_) {
+    if (sendQueue_.size() < sendQueueMaxSize_ && running_) {
         boost::asio::post(
             strand_,
             [self = shared_from_this(), msg = std::move(packet)]() mutable {
@@ -248,7 +259,7 @@ bool Websocket::send(fptn::common::network::IPPacketPtr packet) noexcept
 void Websocket::doWrite()
 {
     try {
-        if (!sendQueue_.empty()) {
+        if (!sendQueue_.empty() && running_) {
             // PACK DATA
             fptn::common::network::IPPacketPtr packet = std::move(sendQueue_.front());
             const std::string msg = fptn::common::protobuf::protocol::createPacket(std::move(packet));
@@ -272,14 +283,16 @@ void Websocket::doWrite()
 void Websocket::onWrite(boost::beast::error_code ec, std::size_t)
 {
     if (ec) {
-        fail(ec, "onWrite");
+        return fail(ec, "onWrite");
     }
 
-    const std::unique_lock<std::mutex> lock(mutex_);
+    if (running_) {
+        const std::unique_lock<std::mutex> lock(mutex_);
 
-    sendQueue_.pop(); // remove written item
-    if (!sendQueue_.empty() && running_) {
-        doWrite(); // send next message
+        sendQueue_.pop(); // remove written item
+        if (!sendQueue_.empty() && running_) {
+            doWrite(); // send next message
+        }
     }
 }
 

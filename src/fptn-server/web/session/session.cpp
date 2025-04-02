@@ -65,7 +65,8 @@ Session::Session(boost::asio::ip::tcp::socket&& socket,
                 true                      // Enable ping timeout
             }
         );
-        boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::minutes(30));
+        // Set a timeout to force reconnection every 2 hours
+        boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::hours(2));
         isInitComplete_ = true;
     } catch (boost::system::system_error& err) {
         spdlog::error("Session::init error: {}", err.what());
