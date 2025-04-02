@@ -30,7 +30,7 @@ namespace fptn::common::network
     public:
         IPv6AddressGenerator(const pcpp::IPv6Address &netAddress, std::uint32_t subnetMask)
         {
-            const auto netAddressBoost = boost::asio::ip::address_v6::from_string(netAddress.toString());
+            const auto netAddressBoost = boost::asio::ip::make_address_v6(netAddress.toString());
             netAddr_ = ipv6::toUInt128(netAddressBoost);
             maxAddr_ = netAddr_ | ((boost::multiprecision::uint128_t(1) << (128 - subnetMask)) - 1);
             currentAddr_ = netAddr_;

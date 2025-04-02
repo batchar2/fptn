@@ -28,8 +28,8 @@ namespace fptn::common::network
     public:
         IPv4AddressGenerator(const pcpp::IPv4Address &netAddress, std::uint32_t subnetMask)
         {
-            ip_ = boost::asio::ip::address_v4::from_string(netAddress.toString());
-            netAddr_ = boost::asio::ip::address_v4::from_string(netAddress.toString());
+            ip_ = boost::asio::ip::make_address_v4(netAddress.toString());
+            netAddr_ = boost::asio::ip::make_address_v4(netAddress.toString());
             netmask_ = boost::asio::ip::address_v4((subnetMask == 0) ? 0 : (~uint32_t(0) << (32 - subnetMask)));
 
             uint32_t ip_num = ip_.to_uint();
