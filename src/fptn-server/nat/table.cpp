@@ -33,7 +33,7 @@ fptn::client::SessionSPtr Table::createClientSession(ClientID clientId,
 
     if (clientIdToSessions_.find(clientId) == clientIdToSessions_.end()) {
         if (clientNumber_ >= ipv4Generator_.numAvailableAddresses() /* ||  clientNumber_ >= ipv6Generator_.numAvailableAddresses() */) {
-            spdlog::info("Client limit was exceeded");
+            SPDLOG_INFO("Client limit was exceeded");
             return nullptr;
         }
         clientNumber_ += 1;
@@ -55,7 +55,7 @@ fptn::client::SessionSPtr Table::createClientSession(ClientID clientId,
             ipv6ToSessions_.insert({fakeIPv6.toString(), session}); // ipv6 -> session
             return session;
         } catch(const std::runtime_error& err) {
-            spdlog::info("Client error: {}", err.what());
+            SPDLOG_INFO("Client error: {}", err.what());
         }
     }
     return nullptr;

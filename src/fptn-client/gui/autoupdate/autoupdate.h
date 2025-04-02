@@ -59,7 +59,7 @@ namespace fptn::gui::autoupdate
                     return {false, versionName};
                 }
             } catch (const nlohmann::json::parse_error& e) {
-                spdlog::error("autoupdate:check Error parsing JSON response: {}  {}", e.what(), resp.body);
+                SPDLOG_ERROR("autoupdate:check Error parsing JSON response: {}  {}", e.what(), resp.body);
             }
         }
         return {false, {}};

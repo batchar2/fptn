@@ -173,7 +173,7 @@ bool Server::start() noexcept
             );
         }
     } catch (boost::system::system_error& err) {
-        spdlog::error("Server::start error: {}", err.what());
+        SPDLOG_ERROR("Server::start error: {}", err.what());
         running_ = false;
         return false;
     }
@@ -212,7 +212,7 @@ boost::asio::awaitable<void> Server::runSender()
 bool Server::stop() noexcept
 {
     running_ = false;
-    spdlog::info("Server stop");
+    SPDLOG_INFO("Server stop");
 
     for (auto& session : sessions_) {
         session.second->close();
@@ -272,7 +272,7 @@ int Server::onApiHandleLogin(const http::request& req, http::response& resp) noe
         const auto password = request.at("password").get<std::string>();
         int bandwidthBit = 0;
         if (userManager_->login(username, password, bandwidthBit)) {
-            spdlog::info("Successful login for user {}", username);
+            SPDLOG_INFO("Successful login for user {}", username);
             const auto tokens = tokenManager_->generate(username, bandwidthBit);
             resp.body() = fmt::format(
                 R"({{ "access_token": "{}", "refresh_token": "{}", "bandwidth_bit": {} }})",
@@ -285,15 +285,15 @@ int Server::onApiHandleLogin(const http::request& req, http::response& resp) noe
         spdlog::warn("Wrong password for user: \"{}\" ", username);
         resp.body() = R"({"status": "error", "message": "Invalid login or password."})";
     } catch (const nlohmann::json::exception& e) {
-        spdlog::error("HTTP JSON AUTH ERROR: {}", e.what());
+        SPDLOG_ERROR("HTTP JSON AUTH ERROR: {}", e.what());
         resp.body() = R"({"status": "error", "message": "Invalid JSON format."})";
         return 400;
     } catch (const std::exception& e) {
-        spdlog::error("HTTP AUTH ERROR: {}", e.what());
+        SPDLOG_ERROR("HTTP AUTH ERROR: {}", e.what());
         resp.body() = R"({"status": "error", "message": "An unexpected error occurred."})";
         return 500;
     } catch(...) {
-        spdlog::error("UNDEFINED SERVER ERROR");
+        SPDLOG_ERROR("UNDEFINED SERVER ERROR");
         resp.body() =R"({"status": "error", "message": "Undefined server error"})";
         return 501;
     }
@@ -331,7 +331,7 @@ bool Server::onWsOpenConnection(
 ) noexcept
 {
     if (url != urlWebSocket_) {
-        spdlog::error("Wrong URL \"{}\"", url);
+        SPDLOG_ERROR("Wrong URL \"{}\"", url);
         return false;
     }
 
@@ -356,7 +356,7 @@ bool Server::onWsOpenConnection(
                     shaperToClient,
                     shaperFromClient
                 );
-                spdlog::info(
+                SPDLOG_INFO(
                     "NEW SESSION! Username={} ClientId={} Bandwidth={} ClientIP={} VirtualIPv4={} VirtualIPv6={}",
                     username,
                     clientId,
@@ -398,7 +398,7 @@ void Server::onWsCloseConnection(fptn::ClientID clientId) noexcept
     }
     if (session != nullptr) {
         session->close();
-        spdlog::info("DEL SESSION! clientId={}", clientId);
+        SPDLOG_INFO("DEL SESSION! clientId={}", clientId);
     }
     natTable_->delClientSession(clientId);
 }

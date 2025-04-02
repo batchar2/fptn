@@ -331,7 +331,7 @@ void TrayApp::handleDefaultState()
 
 void TrayApp::handleConnecting()
 {
-    spdlog::debug("Handling connecting state");
+    SPDLOG_DEBUG("Handling connecting state");
     updateTrayMenu();
 
     trayIcon_->setIcon(QIcon(inactiveIconPath_));

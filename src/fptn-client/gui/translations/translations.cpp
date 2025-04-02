@@ -14,7 +14,7 @@ bool fptn::gui::setTranslation(const QString &languageCode)
     qApp->removeTranslator(&translator);
     if (translator.load(translationFile, ":/translations")) {
         if (qApp->installTranslator(&translator)) {
-            spdlog::info("Successfully loaded language: {}", languageCode.toStdString());
+            SPDLOG_INFO("Successfully loaded language: {}", languageCode.toStdString());
             return true;
         } else {
             spdlog::warn("Failed to install translator for language: {}", languageCode.toStdString());
