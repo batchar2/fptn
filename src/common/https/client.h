@@ -7,6 +7,8 @@
 
 #include <fmt/format.h>
 #include <openssl/ssl.h>
+#include <openssl/ssl3.h>
+#include <openssl/rand.h>
 #include <nlohmann/json.hpp>
 
 #include <zlib.h>
@@ -46,6 +48,24 @@ namespace fptn::common::https
 
     inline std::string chromeCiphers() noexcept
     {
+//        Cipher Suites (16 suites)
+//        Cipher Suite: Reserved (GREASE) (0x2a2a)
+//        Cipher Suite: TLS_AES_128_GCM_SHA256 (0x1301)
+//        Cipher Suite: TLS_AES_256_GCM_SHA384 (0x1302)
+//        Cipher Suite: TLS_CHACHA20_POLY1305_SHA256 (0x1303)
+//        Cipher Suite: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 (0xc02b)
+//        Cipher Suite: TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 (0xc02f)
+//        Cipher Suite: TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384 (0xc02c)
+//        Cipher Suite: TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 (0xc030)
+//        Cipher Suite: TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256 (0xcca9)
+//        Cipher Suite: TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256 (0xcca8)
+//        Cipher Suite: TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA (0xc013)
+//        Cipher Suite: TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA (0xc014)
+//        Cipher Suite: TLS_RSA_WITH_AES_128_GCM_SHA256 (0x009c)
+//        Cipher Suite: TLS_RSA_WITH_AES_256_GCM_SHA384 (0x009d)
+//        Cipher Suite: TLS_RSA_WITH_AES_128_CBC_SHA (0x002f)
+//        Cipher Suite: TLS_RSA_WITH_AES_256_CBC_SHA (0x0035)
+
         /* Google Chrome 56, Windows 10, April 2017 */
         return "ECDHE-ECDSA-AES128-GCM-SHA256:"
                "ECDHE-RSA-AES128-GCM-SHA256:"
@@ -127,6 +147,70 @@ namespace fptn::common::https
 #endif
     }
 
+    inline bool setupSSL(SSL_CTX *ctx, SSL* ssl, const std::string& sni)
+    {
+        // set ALPN
+        constexpr unsigned char alpn[] = {
+            0x00, 0x0E,        // Length (14)
+            0x02, 'h', '2',    // h2 (length 2 + data)
+            0x08, 'h', 't', 't', 'p', '/', '1', '.', '1'  // http/1.1 (length 8 + data)
+        };
+        SSL_CTX_set_alpn_protos(ctx, alpn, sizeof(alpn));
+
+        // SET minimu versions
+        SSL_CTX_set_min_proto_version(ctx, TLS1_2_VERSION);
+        SSL_CTX_set_max_proto_version(ctx, TLS1_3_VERSION);
+
+        // set SNI
+        if (!SSL_set_tlsext_host_name(ssl, sni.c_str())) {
+            throw boost::beast::system_error(
+                boost::beast::error_code(
+                    static_cast<int>(::ERR_get_error()), boost::asio::error::get_ssl_category()
+                ),
+                fmt::format(R"(Failed to set SNI "{}" )", sni)
+            );
+        }
+
+        // Set specific session ID
+        constexpr unsigned int length = 32;
+//        SSL_SESSION *session = SSL_get_session(ssl);
+        SSL_SESSION* session = SSL_SESSION_new();
+
+//        const unsigned char *id = SSL_SESSION_get_id(session, &length);
+        if (/*id && length*/ true) {
+//            SSL_SESSION_set1_id(session, id, length);
+            const std::uint32_t timestamp = htonl(static_cast<uint32_t>(std::time(nullptr))); // Convert to network byte order
+
+            std::array<unsigned char, length> newId = {0};
+            // Copy the original session ID into the new array
+//            std::memcpy(newId.data(), id, length);
+
+            // Append the timestamp to the new session ID
+            std::memcpy(newId.data() + length - 4, &timestamp, 4); // Append timestamp after the original ID
+
+
+            if (!SSL_SESSION_set1_id(session, newId.data(), length)) {
+                spdlog::error("Failed to set modified session ID." );
+                return false;
+            }
+        }
+        return true;
+    }
+
+//    inline bool setRandomVPNKey(SSL* ssl)
+//    {
+//        unsigned char random[32] = {0};
+//        SSL_get_client_random(ssl, random, 32);
+//
+//
+////        ssl->s3
+////        RAND_set_rand_method
+//
+////        ssl->s3;
+//
+////        SSL_set_tlsext_random(ssl, random, 32);
+//    }
+
     struct Response final
     {
         const std::string body;
@@ -184,15 +268,48 @@ namespace fptn::common::https
                 boost::beast::get_lowest_layer(stream).expires_after(std::chrono::seconds(timeout)); // Set timeout for the operation
                 boost::beast::get_lowest_layer(stream).connect(results);
 
-                // set SNI
-                if (!SSL_set_tlsext_host_name(stream.native_handle(), sni_.c_str())) {
-                    throw boost::beast::system_error(
-                        boost::beast::error_code(
-                            static_cast<int>(::ERR_get_error()), boost::asio::error::get_ssl_category()
-                        ),
-                        fmt::format(R"(Failed to set SNI "{}" for host "{}" (GET "{}"))", sni_, host_, handle)
-                    );
-                }
+                setupSSL(ctx.native_handle(), stream.native_handle(), sni_); // configure protocol
+
+
+//                SSL* ssl = ;
+//                unsigned int session_id_length = 0;
+//                SSL_SESSION *session = SSL_get_session(stream.native_handle());
+//                const unsigned char *id = SSL_SESSION_get_id(session, &session_id_length);
+//                if (id && session_id_length) {
+//                    SSL_SESSION_set1_id(session, id, session_id_length);
+//                }
+//                uint32_t timestamp = static_cast<uint32_t>(std::time(nullptr));
+//                timestamp = htonl(timestamp);  // Convert to network byte order
+//                unsigned char modified_id[session_id_length + 4];
+//                std::memcpy(modified_id, id, session_id_length);
+//                std::memcpy(modified_id + session_id_length, &timestamp, 4);  // Append timestamp to session ID
+
+
+
+
+//                SSL_SESSION_set_id
+//                        SSL_set_session
+//                Copy
+//                SSL_SESSION* session = SSL_get_session(ssl);
+//                unsigned char* session_id = nullptr;
+//                size_t session_id_len = 0;
+//
+//                SSL_SESSION_get_id(stream.native_handle(), &session_id, &session_id_len);
+//
+//// Проверяем первые 4 байта
+//                if (session_id_len >= 4 && memcmp(session_id, "VPN_", 4) == 0) {
+//                    printf("Это наш VPN-клиент!\n");
+//                }
+
+//                // set SNI
+//                if (!SSL_set_tlsext_host_name(stream.native_handle(), sni_.c_str())) {
+//                    throw boost::beast::system_error(
+//                        boost::beast::error_code(
+//                            static_cast<int>(::ERR_get_error()), boost::asio::error::get_ssl_category()
+//                        ),
+//                        fmt::format(R"(Failed to set SNI "{}" for host "{}" (GET "{}"))", sni_, host_, handle)
+//                    );
+//                }
                 stream.handshake(boost::asio::ssl::stream_base::client);
 
                 // request params
@@ -257,14 +374,22 @@ namespace fptn::common::https
                 boost::beast::get_lowest_layer(stream).expires_after(std::chrono::seconds(timeout)); // Set timeout for the operation
                 boost::beast::get_lowest_layer(stream).connect(results);
 
-                if (!SSL_set_tlsext_host_name(stream.native_handle(), sni_.c_str())) {
-                    throw boost::beast::system_error(
-                        boost::beast::error_code(
-                            static_cast<int>(::ERR_get_error()), boost::asio::error::get_ssl_category()
-                        ),
-                        fmt::format(R"(Failed to set SNI "{}" for host "{}" (POST "{}"))", sni_, host_, handle)
-                    );
-                }
+                setupSSL(ctx.native_handle(), stream.native_handle(), sni_); // configure protocol
+
+//                if (!SSL_set_tlsext_host_name(stream.native_handle(), sni_.c_str())) {
+//                    throw boost::beast::system_error(
+//                        boost::beast::error_code(
+//                            static_cast<int>(::ERR_get_error()), boost::asio::error::get_ssl_category()
+//                        ),
+//                        fmt::format(R"(Failed to set SNI "{}" for host "{}" (POST "{}"))", sni_, host_, handle)
+//                    );
+//                }
+//                // SET RANDOM
+//                SSL* ssl_handle = stream.native_handle();
+//                unsigned char client_random[32];
+//                SSL_get_client_random(ssl_handle, client_random, 32);
+
+
                 stream.handshake(boost::asio::ssl::stream_base::client);
 
                 boost::beast::http::request<boost::beast::http::string_body> req{
@@ -306,6 +431,21 @@ namespace fptn::common::https
             return { body, respcode, error };
         }
     protected:
+//        int client_hello_callback(SSL *ssl, int *al, void *arg)
+//        {
+//            // получаем указатель на ClientHello
+//            const unsigned char* random = SSL_get_client_random(ssl, nullptr);
+//            if (random) {
+//                unsigned char new_random[32];
+//                RAND_bytes(new_random, sizeof(new_random));
+//                memcpy((void*)random, new_random, 32);  // ⚠️ HACK: const_cast
+//
+//                // Альтернатива: кастомный отпечаток
+//                // memcpy((void*)random, "\x13\x37..." /* 32 байта */, 32);
+//            }
+//            return SSL_CLIENT_HELLO_SUCCESS;
+//        }
+
         std::string decompressGzip(const std::string& compressed)
         {
             constexpr size_t CHUNK_SIZE = 4096;

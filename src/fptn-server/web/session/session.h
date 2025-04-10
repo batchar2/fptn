@@ -16,6 +16,7 @@
 #include <boost/asio/detached.hpp>
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/experimental/channel.hpp>
+#include <boost/asio/experimental/parallel_group.hpp>
 #include <boost/asio/experimental/concurrent_channel.hpp>
 #include <boost/asio/experimental/awaitable_operators.hpp>
 
@@ -52,6 +53,7 @@ namespace fptn::web
         boost::asio::awaitable<void> runSender() noexcept;
 
         boost::asio::awaitable<bool> processRequest() noexcept;
+        boost::asio::awaitable<bool> handleProxy(const std::string& sni, int port) noexcept;
         boost::asio::awaitable<bool> handleHttp(const boost::beast::http::request<boost::beast::http::string_body>& request) noexcept;
         boost::asio::awaitable<bool> handleWebSocket(const boost::beast::http::request<boost::beast::http::string_body>& request) noexcept;
     private:

@@ -1,4 +1,5 @@
 #include <atomic>
+#include <coroutine>
 #include <spdlog/spdlog.h>
 #include <boost/algorithm/string/replace.hpp>
 
@@ -10,6 +11,7 @@
 #include <boost/asio/co_spawn.hpp>
 #include <boost/asio/detached.hpp>
 #include <boost/beast/core.hpp>
+
 
 #include "session.h"
 
@@ -90,6 +92,9 @@ boost::asio::awaitable<void> Session::run() noexcept
         close();
         co_return;
     }
+
+    co_await handleProxy("rutube.ru", 443);
+    co_return;
 
     // do handshake
     co_await ws_.next_layer().async_handshake(
@@ -303,6 +308,160 @@ boost::asio::awaitable<bool> Session::handleWebSocket(const boost::beast::http::
     }
     co_return false;
 }
+
+boost::asio::awaitable<bool> Session::handleProxy(const std::string& sni, int port) noexcept
+{
+    auto& socket = ws_.next_layer().next_layer();
+    boost::asio::ip::tcp::socket target_socket(co_await this_coro::executor);
+
+    try {
+        boost::asio::ip::tcp::resolver resolver(co_await this_coro::executor);
+        const std::string port_str = std::to_string(port);
+        auto endpoints = co_await resolver.async_resolve(sni, port_str, use_awaitable);
+        co_await boost::asio::async_connect(target_socket, endpoints, use_awaitable);
+
+//        auto ep = socket.remote_endpoint();
+        auto ep = target_socket.local_endpoint();
+        SPDLOG_INFO("Proxying {}:{} <-> {}:{}", ep.address().to_string(), ep.port(), sni, port_str);
+
+        auto forward = [](auto& from, auto& to) -> boost::asio::awaitable<void> {
+            try {
+                std::array<char, 8192> buf{};
+                boost::system::error_code ec;
+
+                while (true) {
+                    const auto n = co_await from.async_read_some(
+                            boost::asio::buffer(buf),
+                            boost::asio::redirect_error(use_awaitable, ec));
+
+                    if (ec || n == 0) break;
+
+                    co_await boost::asio::async_write(
+                            to,
+                            boost::asio::buffer(buf.data(), n),
+                            boost::asio::redirect_error(use_awaitable, ec));
+
+                    if (ec) break;
+                }
+
+                // Close only our end of the connection
+//                boost::system::error_code ignore_ec;
+                from.close();
+            } catch (const boost::system::system_error& e) {
+                SPDLOG_ERROR("Corutine1 system error: {} [{}]", e.what(), e.code().message());
+            }
+            co_return;
+        };
+
+        // Launch both forwarding directions in parallel
+        auto [_, __, ___] = co_await boost::asio::experimental::make_parallel_group(
+                boost::asio::co_spawn(
+                        co_await this_coro::executor,
+                        forward(socket, target_socket),
+                        boost::asio::deferred
+                ),
+                boost::asio::co_spawn(
+                        co_await this_coro::executor,
+                        forward(target_socket, socket),
+                        boost::asio::deferred
+                )
+        ).async_wait(
+                boost::asio::experimental::wait_for_all(),
+                use_awaitable
+        );
+
+        // Cleanup on error
+//        boost::system::error_code ignore_ec;
+//        if (socket.)
+        socket.close();
+        target_socket.close();
+
+        co_return true;
+    } catch (const boost::system::system_error& e) {
+        SPDLOG_ERROR("Proxy system error: {} [{}]", e.what(), e.code().message());
+    } catch (const std::exception& e) {
+        SPDLOG_ERROR("Proxy error: {}", e.what());
+    }
+
+    co_return false;
+}
+
+
+//boost::asio::awaitable<bool> Session::handleProxy(const std::string& sni, int port) noexcept
+//{
+//    try {
+//        auto& socket = ws_.next_layer().next_layer();
+//
+//        boost::asio::ip::tcp::resolver resolver(co_await this_coro::executor);
+//        const std::string port_str = std::to_string(443); //std::to_string(port);
+//        auto endpoints = co_await resolver.async_resolve(sni, port_str, use_awaitable);
+//
+//        boost::asio::ip::tcp::socket target_socket(co_await this_coro::executor);
+//        co_await boost::asio::async_connect(target_socket, endpoints, use_awaitable);
+//
+////        auto ep = socket.remote_endpoint();
+////        SPDLOG_INFO("Proxying {}:{} <-> {}:{}", ep.address().to_string(), ep.port(), sni, port_str);
+//
+//        auto forward = [](auto& from, auto& to) -> boost::asio::awaitable<void> {
+//            std::array<char, 8192> buf{};
+//            boost::system::error_code ec;
+//            while (true) {
+//                const std::size_t n = co_await from.async_read_some(boost::asio::buffer(buf), boost::asio::redirect_error(use_awaitable, ec));
+//                if (ec) {
+//                    break;
+//                }
+//                co_await boost::asio::async_write(to, boost::asio::buffer(buf.data(), n), boost::asio::redirect_error(use_awaitable, ec));
+//                if (ec) {
+//                    break;
+//                }
+//            }
+//            // Close both ends when done
+////            boost::system::error_code ec;
+//            from.close();
+//            to.close();
+//            co_return;
+//        };
+//
+//        co_await boost::asio::experimental::wait_for_all(
+//                boost::asio::co_spawn(
+//                        co_await this_coro::executor,
+//                        forward(socket, target_socket),
+//                        boost::asio::use_awaitable
+//                ),
+//                boost::asio::co_spawn(
+//                        co_await this_coro::executor,
+//                        forward(target_socket, socket),
+//                        boost::asio::use_awaitable
+//                )
+//        );
+//
+////        auto fwd1 = forward(socket, target_socket);
+////        auto fwd2 = forward(target_socket, socket);
+////
+////        co_await std::when_all(fwd1, fwd2);
+//
+////        co_await (
+////                boost::asio::co_spawn(
+////                        co_await this_coro::executor,
+////                        forward(socket, target_socket),
+////                        boost::asio::use_awaitable
+////                ) &&
+////                boost::asio::co_spawn(
+////                        co_await this_coro::executor,
+////                        forward(target_socket, socket),
+////                        boost::asio::use_awaitable
+////                )
+////        );
+//        co_return true;
+//    } catch (const boost::system::system_error& e) {
+//        SPDLOG_ERROR("Proxy error: {}", e.what());
+//        co_return false;
+//    } catch (const std::exception& e) {
+//        SPDLOG_ERROR("Unexpected error in proxy: {}", e.what());
+//        co_return false;
+//    }
+//}
+
 
 void Session::close() noexcept
 {
