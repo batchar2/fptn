@@ -30,6 +30,6 @@ target_link_libraries(MetricTest ${LIBS})
 add_test(NAME MetricTest COMMAND MetricTest)
 
 # --- AntiScan test ---
-add_executable(AntiScanTest filter/antiscan/AntiScanTest.cpp ${FPTN_SERVER_PATH}/filter/packets/antiscan/antiscan.h ${FPTN_SERVER_PATH}/filter/packets/antiscan/antiscan.cpp)
+add_executable(AntiScanTest filter/antiscan/AntiScanTest.cpp ${FPTN_SERVER_PATH}/filter/filters/antiscan/antiscan.h ${FPTN_SERVER_PATH}/filter/filters/antiscan/antiscan.cpp)
 target_link_libraries(AntiScanTest ${LIBS})
 add_test(NAME AntiScanTest COMMAND AntiScanTest)

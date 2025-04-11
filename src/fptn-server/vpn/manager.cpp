@@ -1,142 +1,134 @@
-#include "manager.h"
+/*=============================================================================
+Copyright (c) 2024-2025 Stas Skokov
 
-using namespace fptn::vpn;
+Distributed under the MIT License (https://opensource.org/licenses/MIT)
+=============================================================================*/
 
+#include "vpn/manager.h"
 
-Manager::Manager(
-    fptn::web::ServerPtr webServer,
-    fptn::network::VirtualInterfacePtr networkInterface,
+#include <utility>
+
+using fptn::vpn::Manager;
+
+Manager::Manager(fptn::web::ServerPtr web_server,
+    fptn::network::VirtualInterfacePtr network_interface,
     const fptn::nat::TableSPtr& nat,
-    const fptn::filter::FilterManagerSPtr& filter,
-    const fptn::statistic::MetricsSPtr& prometheus
-)
-:
-    webServer_(std::move(webServer)),
-    networkInterface_(std::move(networkInterface)),
-    nat_(nat),
-    filter_(filter),
-    prometheus_(prometheus)
-{
+    const fptn::filter::ManagerSPtr& filter,
+    const fptn::statistic::MetricsSPtr& prometheus)
+    : web_server_(std::move(web_server)),
+      network_interface_(std::move(network_interface)),
+      nat_(nat),
+      filter_(filter),
+      prometheus_(prometheus) {}
+
+Manager::~Manager() { Stop(); }
+
+bool Manager::Stop() noexcept {
+  running_ = false;
+  if (read_to_client_thread_.joinable()) {
+    read_to_client_thread_.join();
+  }
+  if (read_from_client_thread_.joinable()) {
+    read_from_client_thread_.join();
+  }
+  if (collect_statistics_.joinable()) {
+    collect_statistics_.join();
+  }
+  return (web_server_->Stop() && network_interface_->Stop());
 }
 
-Manager::~Manager()
-{
-    stop();
+bool Manager::Start() noexcept {
+  running_ = true;
+  web_server_->Start();
+  network_interface_->Start();
+
+  read_to_client_thread_ = std::thread(&Manager::RunToClient, this);
+  bool toStatus = read_to_client_thread_.joinable();
+
+  read_from_client_thread_ = std::thread(&Manager::RunFromClient, this);
+  bool fromStatus = read_from_client_thread_.joinable();
+
+  collect_statistics_ = std::thread(&Manager::RunCollectStatistics, this);
+  bool collectStatisticStatus = collect_statistics_.joinable();
+  return (toStatus && fromStatus && collectStatisticStatus);
 }
 
-bool Manager::stop() noexcept
-{
-    running_ = false;
-    if (readToClientThread_.joinable()) {
-        readToClientThread_.join();
+void Manager::RunToClient() noexcept {
+  constexpr std::chrono::milliseconds timeout{30};
+
+  while (running_) {
+    auto packet = network_interface_->WaitForPacket(timeout);
+    if (!packet) {
+      continue;
     }
-    if (readFromClientThread_.joinable()) {
-        readFromClientThread_.join();
+    if (!packet->IsIPv4() && !packet->IsIPv6()) {
+      continue;
     }
-    if (collectStatistics_.joinable()) {
-        collectStatistics_.join();
+    // get session using "fake" client address
+    auto session =
+        (packet->IsIPv4()
+                ? nat_->GetSessionByFakeIPv4(
+                      packet->IPv4Layer()->getDstIPv4Address())
+                : (packet->IsIPv6()
+                          ? nat_->GetSessionByFakeIPv6(
+                                packet->IPv6Layer()->getDstIPv6Address())
+                          : nullptr));
+    if (!session) {
+      continue;
     }
-    return (webServer_->stop() && networkInterface_->stop());
+    // check shaper
+    auto& shaper = session->TrafficShaperToClient();
+    if (shaper && !shaper->CheckSpeedLimit(packet->Size())) {
+      continue;
+    }
+    // send
+    web_server_->Send(session->ChangeIPAddressToClientIP(std::move(packet)));
+  }
 }
 
+void Manager::RunFromClient() noexcept {
+  constexpr std::chrono::milliseconds timeout{30};
 
-bool Manager::start() noexcept
-{
-    running_ = true;
-    webServer_->start();
-    networkInterface_->start();
-
-    readToClientThread_ = std::thread(&Manager::runToClient, this);
-    bool toStatus = readToClientThread_.joinable();
-
-    readFromClientThread_ = std::thread(&Manager::runFromClient, this);
-    bool fromStatus = readFromClientThread_.joinable();
-
-    collectStatistics_ = std::thread(&Manager::runCollectStatistics, this);
-    bool collectStatisticStatus = collectStatistics_.joinable();
-    return (toStatus && fromStatus && collectStatisticStatus);
+  while (running_) {
+    auto packet = web_server_->WaitForPacket(timeout);
+    if (!packet) {
+      continue;
+    }
+    if (!packet->IsIPv4() && !packet->IsIPv6()) {
+      continue;
+    }
+    // get session
+    auto session = nat_->GetSessionByClientId(packet->ClientId());
+    if (!session) {
+      continue;
+    }
+    // check shaper
+    auto shaper = session->TrafficShaperFromClient();
+    if (shaper && !shaper->CheckSpeedLimit(packet->Size())) {
+      continue;
+    }
+    // filter
+    packet = filter_->Apply(std::move(packet));
+    if (!packet) {
+      continue;
+    }
+    // send
+    network_interface_->Send(
+        session->ChangeIPAddressToFakeIP(std::move(packet)));
+  }
 }
 
-void Manager::runToClient() noexcept
-{
-    const std::chrono::milliseconds timeout{30};
-    while (running_) {
-        auto packet = networkInterface_->waitForPacket(timeout);
-        if (!packet) {
-            continue;
-        }
-        if (!packet->isIPv4() && !packet->isIPv6()) {
-            continue;
-        }
-        // get session using "fake" client address
-        auto session = (
-                packet->isIPv4()
-                ? nat_->getSessionByFakeIPv4(packet->ipv4Layer()->getDstIPv4Address())
-                : (
-                    packet->isIPv6()
-                    ? nat_->getSessionByFakeIPv6(packet->ipv6Layer()->getDstIPv6Address())
-                    : nullptr
-                )
-        );
-        if (!session) {
-            continue;
-        }
-        // check shaper
-        auto shaper = session->getTrafficShaperToClient();
-        if (shaper && !shaper->checkSpeedLimit(packet->size())) {
-            continue;
-        }
-        // send
-        webServer_->send(session->changeIPAddressToClientIP(std::move(packet)));
+void Manager::RunCollectStatistics() noexcept {
+  constexpr std::chrono::milliseconds timeout{300};
+  constexpr std::chrono::seconds collectInterval{2};
+
+  std::chrono::steady_clock::time_point lastCollectionTime;
+  while (running_) {
+    auto now = std::chrono::steady_clock::now();
+    if (now - lastCollectionTime > collectInterval) {
+      nat_->UpdateStatistic(prometheus_);
+      lastCollectionTime = now;
     }
-}
-
-
-void Manager::runFromClient() noexcept
-{
-    constexpr std::chrono::milliseconds timeout{30};
-    while (running_) {
-        auto packet = webServer_->waitForPacket(timeout);
-        if (!packet) {
-            continue;
-        }
-        if (!packet->isIPv4() && !packet->isIPv6()) {
-            continue;
-        }
-        // get session
-        auto session = nat_->getSessionByClientId(packet->clientId());
-        if (!session) {
-            continue;
-        }
-        // check shaper
-        auto shaper = session->getTrafficShaperFromClient();
-        if (shaper && !shaper->checkSpeedLimit(packet->size())) {
-            continue;
-        }
-        // filter 
-        packet = filter_->apply(std::move(packet));
-        if (!packet) {
-            continue;
-        }
-        // send
-        networkInterface_->send(
-            session->changeIPAddressToFakeIP(std::move(packet))
-        );
-    }
-}
-
-void Manager::runCollectStatistics() noexcept
-{
-    constexpr std::chrono::milliseconds timeout{300};
-    constexpr std::chrono::seconds collectInterval{5};
-
-    std::chrono::steady_clock::time_point lastCollectionTime;
-    while (running_) {
-        auto now = std::chrono::steady_clock::now();
-        if (now - lastCollectionTime > collectInterval) {
-            nat_->updateStatistic(prometheus_);
-            lastCollectionTime = now;
-        }
-        std::this_thread::sleep_for(timeout);
-    }
+    std::this_thread::sleep_for(timeout);
+  }
 }

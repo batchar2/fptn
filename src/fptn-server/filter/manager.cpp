@@ -1,22 +1,26 @@
-#include "manager.h"
+/*=============================================================================
+Copyright (c) 2024-2025 Stas Skokov
 
-#include "packets/bittorrent/bittorrent.h"
+Distributed under the MIT License (https://opensource.org/licenses/MIT)
+=============================================================================*/
 
+#include "filter/manager.h"
 
-using namespace fptn::filter;
+#include <utility>
 
-void FilterManager::add(packets::BaseFilterSPtr filter) noexcept
-{
-    filters_.push_back(std::move(filter));
+using fptn::common::network::IPPacketPtr;
+using fptn::filter::Manager;
+
+void Manager::Add(BaseFilterSPtr filter) noexcept {
+  filters_.push_back(std::move(filter));
 }
 
-IPPacketPtr FilterManager::apply(IPPacketPtr packet) const 
-{
-    for (const auto& filter : filters_) {
-        packet = filter->apply(std::move(packet));
-        if (!packet) {
-            return nullptr; // packet was filtered
-        }
+IPPacketPtr Manager::Apply(IPPacketPtr packet) const {
+  for (const auto& filter : filters_) {
+    packet = filter->apply(std::move(packet));
+    if (!packet) {
+      return nullptr;  // packet was filtered
     }
-    return packet;
+  }
+  return packet;
 }

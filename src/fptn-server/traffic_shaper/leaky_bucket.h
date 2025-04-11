@@ -1,28 +1,32 @@
-#pragma once 
+/*=============================================================================
+Copyright (c) 2024-2025 Stas Skokov
 
-#include <mutex>
+Distributed under the MIT License (https://opensource.org/licenses/MIT)
+=============================================================================*/
+
+#pragma once
+
 #include <chrono>
 #include <memory>
+#include <mutex>
 
-#include <common/network/ip_packet.h>
+#include "common/network/ip_packet.h"
 
+namespace fptn::traffic_shaper {
+class LeakyBucket final {
+ public:
+  LeakyBucket(std::size_t max_bites_per_second);
+  bool CheckSpeedLimit(std::size_t packet_size) noexcept;
+  std::size_t FullDataAmount() const noexcept;
 
-namespace fptn::traffic_shaper
-{
-    class LeakyBucket final
-    {
-    public:
-        LeakyBucket(std::size_t maxRateBitesPerSecond);
-        bool checkSpeedLimit(std::size_t packetSize) noexcept;
-        std::size_t fullDataAmount() const noexcept;
-    private:
-        mutable std::mutex mutex_;
-        std::size_t currentAmount_;
-        std::size_t maxRateBytesPerSecond_;
-        std::chrono::steady_clock::time_point lastLeakTime_;
+ private:
+  mutable std::mutex mutex_;
+  std::size_t current_amount_;
+  std::size_t max_bytes_per_second;
+  std::chrono::steady_clock::time_point last_leak_time_;
 
-        std::size_t fullDataAmount_;
-    };
+  std::size_t full_data_amount_;
+};
 
-    using LeakyBucketSPtr = std::shared_ptr<LeakyBucket>;
-}
+using LeakyBucketSPtr = std::shared_ptr<LeakyBucket>;
+}  // namespace fptn::traffic_shaper

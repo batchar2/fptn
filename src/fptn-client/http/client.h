@@ -1,59 +1,66 @@
+/*=============================================================================
+Copyright (c) 2024-2025 Stas Skokov
+
+Distributed under the MIT License (https://opensource.org/licenses/MIT)
+=============================================================================*/
+
 #pragma once
 
-#include <mutex>
-#include <thread>
-#include <string>
-#include <iostream>
 #include <functional>
+#include <iostream>
+#include <memory>
+#include <mutex>
+#include <string>
+#include <thread>
+#include <utility>
 
-#include <common/https/client.h>
-#include <common/network/ip_packet.h>
+#include "common/https/client.h"
+#include "common/network/ip_packet.h"
 
 #include "websocket/websocket.h"
 
+namespace fptn::http {
 
-namespace fptn::http
-{
+class Client final {
+ public:
+  using NewIPPacketCallback =
+      std::function<void(fptn::common::network::IPPacketPtr packet)>;
 
-    class Client final
-    {
-    public:
-        using NewIPPacketCallback = std::function<void(fptn::common::network::IPPacketPtr packet)>;
-    public:
-        Client(
-            const pcpp::IPv4Address& serverIP,
-            int serverPort,
-            const pcpp::IPv4Address& tunInterfaceAddressIPv4,
-            const pcpp::IPv6Address& tunInterfaceAddressIPv6,
-            const std::string& sni,
-            const NewIPPacketCallback& newIPPktCallback = nullptr
-        );
-        bool login(const std::string& username, const std::string& password) noexcept;
-        std::pair<pcpp::IPv4Address, pcpp::IPv6Address> getDns() noexcept;
-        bool start() noexcept;
-        bool stop() noexcept;
-        bool send(fptn::common::network::IPPacketPtr packet) noexcept;
-        void setNewIPPacketCallback(const NewIPPacketCallback& callback) noexcept;
-        bool isStarted() noexcept;
-    protected:
-        void run() noexcept;
-    private:
-        mutable std::thread th_;
-        mutable std::mutex mutex_;
-        mutable std::atomic<bool> running_;
+ public:
+  Client(const pcpp::IPv4Address& server_ip,
+      int server_port,
+      const pcpp::IPv4Address& tun_interface_address_ipv4,
+      const pcpp::IPv6Address& tun_interface_address_ipv6,
+      const std::string& sni,
+      const NewIPPacketCallback& new_ip_pkt_callback = nullptr);
+  bool Login(const std::string& username, const std::string& password) noexcept;
+  std::pair<pcpp::IPv4Address, pcpp::IPv6Address> GetDns() noexcept;
+  bool Start() noexcept;
+  bool Stop() noexcept;
+  bool Send(fptn::common::network::IPPacketPtr packet) noexcept;
+  void SetNewIPPacketCallback(const NewIPPacketCallback& callback) noexcept;
+  bool IsStarted() noexcept;
 
-        const pcpp::IPv4Address serverIP_;
-        const int serverPort_;
+ protected:
+  void Run() noexcept;
 
-        const pcpp::IPv4Address tunInterfaceAddressIPv4_;
-        const pcpp::IPv6Address tunInterfaceAddressIPv6_;
-        const std::string sni_;
+ private:
+  std::thread th_;
+  mutable std::mutex mutex_;
+  std::atomic<bool> running_;
 
-        NewIPPacketCallback newIPPktCallback_;
+  const pcpp::IPv4Address server_ip_;
+  const int server_port_;
 
-        std::string token_;
-        WebsocketSPtr ws_;
-    };
+  const pcpp::IPv4Address tun_interface_address_ipv4_;
+  const pcpp::IPv6Address tun_interface_address_ipv6_;
+  const std::string sni_;
 
-    using ClientPtr = std::unique_ptr<Client>;
-}
+  NewIPPacketCallback new_ip_pkt_callback_;
+
+  std::string token_;
+  WebsocketSPtr ws_;
+};
+
+using ClientPtr = std::unique_ptr<Client>;
+}  // namespace fptn::http

@@ -1,40 +1,49 @@
+/*=============================================================================
+Copyright (c) 2024-2025 Stas Skokov
+
+Distributed under the MIT License (https://opensource.org/licenses/MIT)
+=============================================================================*/
+
 #pragma once
 
+#include <memory>
 #include <mutex>
 #include <string>
 
-#include <prometheus/gauge.h>
-#include <prometheus/counter.h>
-#include <prometheus/exposer.h>
-#include <prometheus/registry.h>
+#include <prometheus/counter.h>   // NOLINT(build/include_order)
+#include <prometheus/exposer.h>   // NOLINT(build/include_order)
+#include <prometheus/gauge.h>     // NOLINT(build/include_order)
+#include <prometheus/registry.h>  // NOLINT(build/include_order)
 
-#include <common/client_id.h>
+#include "common/client_id.h"
 
+namespace fptn::statistic {
+class Metrics {
+ public:
+  Metrics();
+  void UpdateStatistics(fptn::ClientID session_id,
+      const std::string& username,
+      std::size_t incoming_bytes,
+      std::size_t outgoing_bytes) noexcept;
+  void UpdateActiveSessions(std::size_t count) noexcept;
+  std::string Collect() noexcept;
 
-namespace fptn::statistic
-{
-    class Metrics
-    {
-    public:
-        Metrics();
-        void updateStatistics(fptn::ClientID sessionId, const std::string& username, std::size_t incoming_bytes, std::size_t outgoing_bytes) noexcept;
-        void updateActiveSessions(std::size_t count) noexcept;
-        std::string collect() noexcept;
-    public:
-        Metrics(const Metrics&) = delete;
-        Metrics& operator=(const Metrics&) = delete;
-    private:
-        std::mutex mutex_;
+ public:
+  Metrics(const Metrics&) = delete;
+  Metrics& operator=(const Metrics&) = delete;
 
-        std::unique_ptr<prometheus::Exposer> exposer_;
-        std::shared_ptr<prometheus::Registry> registry_;
+ private:
+  mutable std::mutex mutex_;
 
-        prometheus::Gauge* activeSessions_;
+  std::unique_ptr<prometheus::Exposer> exposer_;
+  std::shared_ptr<prometheus::Registry> registry_;
 
-        prometheus::Family<prometheus::Counter>* userTrafficIncoming_;
-        prometheus::Family<prometheus::Counter>* userTrafficOutgoing_;
-    };
+  prometheus::Gauge* active_sessions_;
 
-    using MetricsSPtr = std::shared_ptr<Metrics>;
+  prometheus::Family<prometheus::Counter>* incoming_bytes_counter_;
+  prometheus::Family<prometheus::Counter>* outgoing_bytes_counter_;
+};
 
-}
+using MetricsSPtr = std::shared_ptr<Metrics>;
+
+}  // namespace fptn::statistic

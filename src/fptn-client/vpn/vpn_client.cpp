@@ -1,80 +1,70 @@
-#include "vpn_client.h"
+/*=============================================================================
+Copyright (c) 2024-2025 Stas Skokov
 
+Distributed under the MIT License (https://opensource.org/licenses/MIT)
+=============================================================================*/
 
-#include <string>
-#include <memory>
+#include "vpn/vpn_client.h"
+
 #include <functional>
+#include <memory>
+#include <string>
+#include <utility>
 
+using fptn::vpn::VpnClient;
 
-using namespace fptn::vpn;
+VpnClient::VpnClient(fptn::http::ClientPtr http_client,
+    fptn::common::network::BaseNetInterfacePtr virtual_net_interface,
+    const pcpp::IPv4Address& dns_server_ipv4,
+    const pcpp::IPv6Address& dns_server_ipv6)
+    : http_client_(std::move(http_client)),
+      virtual_net_interface_(std::move(virtual_net_interface)),
+      dns_server_ipv4_(dns_server_ipv4),
+      dns_server_ipv6_(dns_server_ipv6) {}
 
+VpnClient::~VpnClient() { Stop(); }
 
-VpnClient::VpnClient(
-    fptn::http::ClientPtr httpClient,
-    fptn::common::network::BaseNetInterfacePtr virtualNetworkInterface,
-    const pcpp::IPv4Address& dnsServerIPv4,
-    const pcpp::IPv6Address& dnsServerIPv6
-)
-    :
-        httpClient_(std::move(httpClient)),
-        virtualNetworkInterface_(std::move(virtualNetworkInterface)),
-        dnsServerIPv4_(dnsServerIPv4),
-        dnsServerIPv6_(dnsServerIPv6)
-{
+bool VpnClient::IsStarted() noexcept {
+  return http_client_ && http_client_->IsStarted();
 }
 
-VpnClient::~VpnClient()
-{
-    stop();
+void VpnClient::Start() noexcept {
+  http_client_->SetNewIPPacketCallback(std::bind(
+      &VpnClient::HandlePacketFromWebSocket, this, std::placeholders::_1));
+
+  virtual_net_interface_->SetNewIPPacketCallback(
+      std::bind(&VpnClient::HandlePacketFromVirtualNetworkInterface, this,
+          std::placeholders::_1));
+
+  http_client_->Start();
+  virtual_net_interface_->Start();
 }
 
-bool VpnClient::isStarted() noexcept
-{
-    return httpClient_ && httpClient_->isStarted();
+void VpnClient::Stop() noexcept {
+  if (http_client_) {
+    http_client_->Stop();
+    http_client_.reset();
+  }
+  if (virtual_net_interface_) {
+    virtual_net_interface_->Stop();
+    virtual_net_interface_.reset();
+  }
 }
 
-void VpnClient::start() noexcept
-{
-    httpClient_->setNewIPPacketCallback(
-        std::bind(&VpnClient::packetFromWebSocket, this, std::placeholders::_1)
-    );
-
-    virtualNetworkInterface_->setNewIPPacketCallback(
-        std::bind(&VpnClient::packetFromVirtualNetworkInterface, this, std::placeholders::_1)
-    );
-
-    httpClient_->start();
-    virtualNetworkInterface_->start();
+std::size_t VpnClient::GetSendRate() noexcept {
+  return virtual_net_interface_->GetSendRate();
 }
 
-void VpnClient::stop() noexcept
-{
-    if (httpClient_) {
-        httpClient_->stop();
-        httpClient_.reset();
-    }
-    if (virtualNetworkInterface_) {
-        virtualNetworkInterface_->stop();
-        virtualNetworkInterface_.reset();
-    }
+std::size_t VpnClient::GetReceiveRate() noexcept {
+  return virtual_net_interface_->GetReceiveRate();
 }
 
-std::size_t VpnClient::getSendRate() noexcept
-{
-    return virtualNetworkInterface_->getSendRate();
+void VpnClient::HandlePacketFromVirtualNetworkInterface(
+    fptn::common::network::IPPacketPtr packet) noexcept {
+  http_client_->Send(std::move(packet));
 }
 
-std::size_t VpnClient::getReceiveRate() noexcept
-{
-    return virtualNetworkInterface_->getReceiveRate();
-}
-
-void VpnClient::packetFromVirtualNetworkInterface(fptn::common::network::IPPacketPtr packet) noexcept
-{
-    httpClient_->send(std::move(packet));
-}
-
-void VpnClient::packetFromWebSocket(fptn::common::network::IPPacketPtr packet) noexcept
-{
-    virtualNetworkInterface_->send(std::move(packet));
+void VpnClient::HandlePacketFromWebSocket(
+    fptn::common::network::IPPacketPtr packet) noexcept {
+  virtual_net_interface_->Send(std::move(packet));
 }

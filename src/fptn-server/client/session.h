@@ -1,62 +1,65 @@
+/*=============================================================================
+Copyright (c) 2024-2025 Stas Skokov
+
+Distributed under the MIT License (https://opensource.org/licenses/MIT)
+=============================================================================*/
 #pragma once
 
 #include <chrono>
+#include <iostream>
 #include <memory>
+#include <string>
 #include <unordered_map>
 
-#include <pcapplusplus/Packet.h>
-#include <pcapplusplus/EthLayer.h>
-#include <pcapplusplus/IPv4Layer.h>
+#include <pcapplusplus/EthLayer.h>   // NOLINT(build/include_order)
+#include <pcapplusplus/IPv4Layer.h>  // NOLINT(build/include_order)
+#include <pcapplusplus/Packet.h>     // NOLINT(build/include_order)
 
-#include <common/client_id.h>
+#include "common/client_id.h"
 
 #include "traffic_shaper/leaky_bucket.h"
 
-#include <iostream>
+namespace fptn::client {
 
+class Session final {
+ public:
+  Session(ClientID client_id,
+      std::string user_name,
+      const pcpp::IPv4Address& client_ipv4,
+      const pcpp::IPv4Address& fake_client_ipv4,
+      const pcpp::IPv6Address& client_ipv6,
+      const pcpp::IPv6Address& fake_client_ipv6,
+      fptn::traffic_shaper::LeakyBucketSPtr to_client,
+      fptn::traffic_shaper::LeakyBucketSPtr from_client);
+  [[nodiscard]] const ClientID& ClientId() const noexcept;
 
-namespace fptn::client 
-{
+  [[nodiscard]] const std::string& UserName() const noexcept;
 
-    class Session final
-    {
-    public:
-        Session(
-            ClientID clientId,
-            const std::string& userName,
-            const pcpp::IPv4Address& clientIPv4,
-            const pcpp::IPv4Address& fakeClientIPv4,
-            const pcpp::IPv6Address& clientIPv6,
-            const pcpp::IPv6Address& fakeClientIPv6,
-            const fptn::traffic_shaper::LeakyBucketSPtr& trafficShaperToClient,
-            const fptn::traffic_shaper::LeakyBucketSPtr& trafficShaperFromClient
-        );
-        const ClientID& clientId() const noexcept;
-        const std::string& userName() const noexcept;
+  [[nodiscard]] const pcpp::IPv4Address& ClientIPv4() const noexcept;
+  [[nodiscard]] const pcpp::IPv4Address& FakeClientIPv4() const noexcept;
+  [[nodiscard]] const pcpp::IPv6Address& ClientIPv6() const noexcept;
+  [[nodiscard]] const pcpp::IPv6Address& FakeClientIPv6() const noexcept;
 
-        const pcpp::IPv4Address& clientIPv4() const noexcept;
-        const pcpp::IPv4Address& fakeClientIPv4() const noexcept;
-        const pcpp::IPv6Address& clientIPv6() const noexcept;
-        const pcpp::IPv6Address& fakeClientIPv6() const noexcept;
+  fptn::traffic_shaper::LeakyBucketSPtr& TrafficShaperToClient() noexcept;
+  fptn::traffic_shaper::LeakyBucketSPtr& TrafficShaperFromClient() noexcept;
 
-        fptn::traffic_shaper::LeakyBucketSPtr& getTrafficShaperToClient() noexcept;
-        fptn::traffic_shaper::LeakyBucketSPtr& getTrafficShaperFromClient() noexcept;
+  fptn::common::network::IPPacketPtr ChangeIPAddressToClientIP(
+      fptn::common::network::IPPacketPtr packet) noexcept;
+  fptn::common::network::IPPacketPtr ChangeIPAddressToFakeIP(
+      fptn::common::network::IPPacketPtr packet) noexcept;
 
-        fptn::common::network::IPPacketPtr changeIPAddressToClientIP(
-                fptn::common::network::IPPacketPtr packet) noexcept;
-        fptn::common::network::IPPacketPtr changeIPAddressToFakeIP(
-                fptn::common::network::IPPacketPtr packet) noexcept;
-    private:
-        const ClientID clientId_;
-        const std::string userName_;
-        const pcpp::IPv4Address clientIPv4_;
-        const pcpp::IPv4Address fakeClientIPv4_;
-        const pcpp::IPv6Address clientIPv6_;
-        const pcpp::IPv6Address fakeClientIPv6_;
-        fptn::traffic_shaper::LeakyBucketSPtr trafficShaperToClient_;
-        fptn::traffic_shaper::LeakyBucketSPtr trafficShaperFromClient_;
-    };
+ private:
+  const ClientID client_id_;
+  const std::string user_name_;
+  const pcpp::IPv4Address client_ipv4_;
+  const pcpp::IPv4Address fake_client_ipv4_;
+  const pcpp::IPv6Address client_ipv6_;
+  const pcpp::IPv6Address fake_client_ipv6_;
 
-    using SessionSPtr = std::shared_ptr<Session>;
+  fptn::traffic_shaper::LeakyBucketSPtr to_client_;
+  fptn::traffic_shaper::LeakyBucketSPtr from_client_;
+};
 
-}
+using SessionSPtr = std::shared_ptr<Session>;
+
+}  // namespace fptn::client

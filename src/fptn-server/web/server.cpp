@@ -1,17 +1,22 @@
+/*=============================================================================
+Copyright (c) 2024-2025 Stas Skokov
 
+Distributed under the MIT License (https://opensource.org/licenses/MIT)
+=============================================================================*/
+
+#include "web/server.h"
+
+#include <algorithm>
 #include <functional>
+#include <memory>
+#include <string>
+#include <utility>
 
-#include <spdlog/spdlog.h>
+#include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
-#include <common/utils/utils.h>
+#include "common/utils/utils.h"
 
-#include "server.h"
-
-
-using namespace fptn::web;
-
-
-static const std::string HTML_HOME_PAGE = R"HTML(<!DOCTYPE html>
+static const char HTML_HOME_PAGE[] = R"HTML(<!DOCTYPE html>
 <html lang="en">
     <head>
         <meta charset="UTF-8">
@@ -85,320 +90,294 @@ static const std::string HTML_HOME_PAGE = R"HTML(<!DOCTYPE html>
 </html>
 )HTML";
 
+using fptn::web::Server;
 
-Server::Server(
-        std::uint16_t port,
-        const fptn::nat::TableSPtr& natTable,
-        const fptn::user::UserManagerSPtr& userManager,
-        const fptn::common::jwt_token::TokenManagerSPtr& tokenManager,
-        const fptn::statistic::MetricsSPtr& prometheus,
-        const std::string& prometheusAccessKey,
-        const pcpp::IPv4Address& dnsServerIPv4,
-        const pcpp::IPv6Address& dnsServerIPv6,
-        std::size_t threadNumber
-)
-    :
-        running_(false),
-        port_(port),
-        natTable_(natTable),
-        userManager_(userManager),
-        tokenManager_(tokenManager),
-        prometheus_(prometheus),
-        prometheusAccessKey_(prometheusAccessKey),
-        dnsServerIPv4_(dnsServerIPv4),
-        dnsServerIPv6_(dnsServerIPv6),
-        threadNumber_(std::max<std::size_t>(1, threadNumber)),
-        ioc_(threadNumber_)
-{
-    using namespace std::placeholders;
-    listener_ = std::make_shared<Listener>(
+Server::Server(std::uint16_t port,
+    const fptn::nat::TableSPtr& nat_table,
+    const fptn::user::UserManagerSPtr& user_manager,
+    const fptn::common::jwt_token::TokenManagerSPtr& token_manager,
+    const fptn::statistic::MetricsSPtr& prometheus,
+    const std::string& prometheus_access_key,
+    const pcpp::IPv4Address& dns_server_ipv4,
+    const pcpp::IPv6Address& dns_server_ipv6,
+    int thread_number)
+    : running_(false),
+      port_(port),
+      nat_table_(nat_table),
+      user_manager_(user_manager),
+      token_manager_(token_manager),
+      prometheus_(prometheus),
+      prometheus_access_key_(prometheus_access_key),
+      dns_server_ipv4_(dns_server_ipv4),
+      dns_server_ipv6_(dns_server_ipv6),
+      thread_number_(std::max<std::size_t>(1, thread_number)),
+      ioc_(thread_number) {
+  using std::placeholders::_1;
+  using std::placeholders::_2;
+  using std::placeholders::_3;
+  using std::placeholders::_4;
+  using std::placeholders::_5;
+  using std::placeholders::_6;
+  using std::placeholders::_7;
+
+  to_client_ = std::make_unique<fptn::common::data::ChannelAsync>(ioc_);
+  from_client_ = std::make_unique<fptn::common::data::Channel>();
+
+  listener_ = std::make_shared<Listener>(ioc_, port_, token_manager,
+      std::bind(
+          &Server::HandleWsOpenConnection, this, _1, _2, _3, _4, _5, _6, _7),
+      std::bind(&Server::HandleWsNewIPPacket, this, _1),
+      std::bind(&Server::HandleWsCloseConnection, this, _1));
+  listener_->httpRegister(
+      kUrlHome_, "GET", std::bind(&Server::HandleApiHome, this, _1, _2));
+  listener_->httpRegister(
+      kUrlDns_, "GET", std::bind(&Server::HandleApiDns, this, _1, _2));
+  listener_->httpRegister(
+      kUrlLogin_, "POST", std::bind(&Server::HandleApiLogin, this, _1, _2));
+  listener_->httpRegister(kUrlTestFileBin_, "GET",
+      std::bind(&Server::HandleApiTestFile, this, _1, _2));
+  if (!prometheus_access_key.empty()) {
+    // Construct the URL for accessing Prometheus statistics by appending the
+    // access key
+    const std::string metrics = kUrlMetrics_ + '/' + prometheus_access_key;
+    listener_->httpRegister(
+        metrics, "GET", std::bind(&Server::HandleApiMetrics, this, _1, _2));
+  }
+}
+
+Server::~Server() { Stop(); }
+
+bool Server::Start() noexcept {
+  running_ = true;
+  try {
+    // run listener
+    boost::asio::co_spawn(
         ioc_,
-        port_,
-        tokenManager_,
-        std::bind(&Server::onWsOpenConnection, this, _1, _2, _3, _4, _5, _6, _7),
-        std::bind(&Server::onWsNewIPPacket, this, _1),
-        std::bind(&Server::onWsCloseConnection, this, _1)
-    );
-    listener_->httpRegister(urlHome_, "GET", std::bind(&Server::onApiHandleHome, this, _1, _2));
-    listener_->httpRegister(urlDns_, "GET", std::bind(&Server::onApiHandleDns, this, _1, _2));
-    listener_->httpRegister(urlLogin_, "POST", std::bind(&Server::onApiHandleLogin, this, _1, _2));
-    listener_->httpRegister(urlTestFileBin_, "GET", std::bind(&Server::onApiHandleonTestFile, this, _1, _2));
-    if (!prometheusAccessKey.empty()) {
-        // Construct the URL for accessing Prometheus statistics by appending the access key
-        const std::string metrics = urlMetrics_ + '/' + prometheusAccessKey;
-        listener_->httpRegister(
-             metrics,
-             "GET",
-             std::bind(&Server::onApiHandleMetrics, this, _1, _2)
-        );
+        [this]() -> boost::asio::awaitable<void> { co_await listener_->run(); },
+        boost::asio::detached);
+    // run senders
+    for (std::size_t i = 0; i < 1; i++) {
+      boost::asio::co_spawn(
+          ioc_,
+          [this]() -> boost::asio::awaitable<void> { co_await RunSender(); },
+          boost::asio::detached);
     }
-    toClient_ = std::make_unique<fptn::common::data::ChannelAsync>(ioc_);
-    fromClient_ = std::make_unique<fptn::common::data::Channel>();
-}
-
-Server::~Server()
-{
-    stop();
-}
-
-bool Server::start() noexcept
-{
-    running_ = true;
-    try {
-        // run listener
-        boost::asio::co_spawn(
-            ioc_,
-            [this]() -> boost::asio::awaitable<void> {
-                co_await listener_->run();
-            },
-            boost::asio::detached
-        );
-        // run senders
-        for (std::size_t i = 0; i < 1/*threadNumber_*/; i++) {
-            boost::asio::co_spawn(
-                ioc_,
-                [this]() -> boost::asio::awaitable<void> {
-                    co_await runSender();
-                },
-                boost::asio::detached
-            );
-        }
-        // run threads
-        iocThreads_.reserve(threadNumber_);
-        for (std::size_t i = 0; i < threadNumber_; i++) {
-            iocThreads_.emplace_back(
-                [this]() {
-                    ioc_.run();
-                }
-            );
-        }
-    } catch (boost::system::system_error& err) {
-        SPDLOG_ERROR("Server::start error: {}", err.what());
-        running_ = false;
-        return false;
+    // run threads
+    ioc_threads_.reserve(thread_number_);
+    for (std::size_t i = 0; i < thread_number_; ++i) {
+      ioc_threads_.emplace_back([this]() { ioc_.run(); });
     }
-    return true;
-}
-
-boost::asio::awaitable<void> Server::runSender()
-{
-    const std::chrono::milliseconds timeout{5};
-
-    while (running_) {
-        auto optpacket = co_await toClient_->waitForPacketAsync(timeout);
-        if (optpacket && running_) {
-            SessionSPtr session;
-
-            { // mutex
-                const std::unique_lock<std::mutex> lock(mutex_);
-
-                auto it = sessions_.find(optpacket->get()->clientId());
-                if (it != sessions_.end()) {
-                    session = it->second;
-                }
-            }
-
-            if (session) {
-                const bool status = co_await session->send(std::move(*optpacket));
-                if (!status) {
-                    session->close();
-                }
-            }
-        }
-    }
-    co_return;
-}
-
-bool Server::stop() noexcept
-{
+  } catch (boost::system::system_error& err) {
+    SPDLOG_ERROR("Server::start error: {}", err.what());
     running_ = false;
-    SPDLOG_INFO("Server stop");
-
-    for (auto& session : sessions_) {
-        session.second->close();
-    }
-
-    {
-        const std::unique_lock<std::mutex> lock(mutex_);
-        sessions_.clear();
-    }
-
-    ioc_.stop();
-    for (auto& th: iocThreads_) {
-        if (th.joinable()) {
-            th.join();
-        }
-    }
-    return true;
-}
-
-void Server::send(fptn::common::network::IPPacketPtr packet) noexcept
-{
-    toClient_->push(std::move(packet));
-}
-
-fptn::common::network::IPPacketPtr Server::waitForPacket(const std::chrono::milliseconds& duration) noexcept
-{
-    return fromClient_->waitForPacket(duration);
-}
-
-int Server::onApiHandleHome(const http::request& req, http::response& resp) noexcept
-{
-    (void)req;
-
-    resp.body() = HTML_HOME_PAGE;
-    resp.set(boost::beast::http::field::content_type, "text/html; charset=utf-8");
-    return 200;
-}
-
-int Server::onApiHandleDns(const http::request& req, http::response& resp) noexcept
-{
-    (void)req;
-
-    resp.body() = fmt::format(
-        R"({{"dns": "{}", "dns_ipv6": "{}" }})",
-        dnsServerIPv4_.toString(),
-        dnsServerIPv6_.toString()
-    );
-    resp.set(boost::beast::http::field::content_type, "application/json; charset=utf-8");
-    return 200;
-}
-
-int Server::onApiHandleLogin(const http::request& req, http::response& resp) noexcept
-{
-    try {
-        auto request = nlohmann::json::parse(req.body());
-        const auto username = request.at("username").get<std::string>();
-        const auto password = request.at("password").get<std::string>();
-        int bandwidthBit = 0;
-        if (userManager_->login(username, password, bandwidthBit)) {
-            SPDLOG_INFO("Successful login for user {}", username);
-            const auto tokens = tokenManager_->generate(username, bandwidthBit);
-            resp.body() = fmt::format(
-                R"({{ "access_token": "{}", "refresh_token": "{}", "bandwidth_bit": {} }})",
-                tokens.first,
-                tokens.second,
-                std::to_string(bandwidthBit)
-            );
-            return 200;
-        }
-        spdlog::warn("Wrong password for user: \"{}\" ", username);
-        resp.body() = R"({"status": "error", "message": "Invalid login or password."})";
-    } catch (const nlohmann::json::exception& e) {
-        SPDLOG_ERROR("HTTP JSON AUTH ERROR: {}", e.what());
-        resp.body() = R"({"status": "error", "message": "Invalid JSON format."})";
-        return 400;
-    } catch (const std::exception& e) {
-        SPDLOG_ERROR("HTTP AUTH ERROR: {}", e.what());
-        resp.body() = R"({"status": "error", "message": "An unexpected error occurred."})";
-        return 500;
-    } catch(...) {
-        SPDLOG_ERROR("UNDEFINED SERVER ERROR");
-        resp.body() =R"({"status": "error", "message": "Undefined server error"})";
-        return 501;
-    }
-    return 401;
-}
-
-int Server::onApiHandleMetrics(const http::request& req, http::response& resp) noexcept
-{
-    (void)req;
-
-    resp.set(boost::beast::http::field::content_type, "text/html; charset=utf-8");
-    resp.body() = prometheus_->collect();
-    return 200;
-}
-
-int Server::onApiHandleonTestFile(const http::request& req, http::response& resp) noexcept
-{
-    (void)req;
-
-    static const std::string data = fptn::common::utils::generateRandomString(100*1024);  // 100KB
-
-    resp.set(boost::beast::http::field::content_type, "application/octet-stream");
-    resp.body() = data;
-    return 200;
-}
-
-bool Server::onWsOpenConnection(
-        fptn::ClientID clientId,
-        const pcpp::IPv4Address& clientIP,
-        const pcpp::IPv4Address& clientVpnIPv4,
-        const pcpp::IPv6Address& clientVpnIPv6,
-        SessionSPtr session,
-        const std::string& url,
-        const std::string& accessToken
-) noexcept
-{
-    if (url != urlWebSocket_) {
-        SPDLOG_ERROR("Wrong URL \"{}\"", url);
-        return false;
-    }
-
-    if (clientVpnIPv4 != pcpp::IPv4Address("") && clientVpnIPv6 != pcpp::IPv6Address("")) {
-        std::string username;
-        std::size_t bandwidthBitesSeconds = 0;
-        if(tokenManager_->validate(accessToken, username, bandwidthBitesSeconds)) {
-            const std::unique_lock<std::mutex> lock(mutex_);
-
-            if (sessions_.find(clientId) == sessions_.end()) {
-                const auto shaperToClient = std::make_shared<fptn::traffic_shaper::LeakyBucket>(
-                    bandwidthBitesSeconds
-                );
-                const auto shaperFromClient = std::make_shared<fptn::traffic_shaper::LeakyBucket>(
-                    bandwidthBitesSeconds
-                );
-                const auto natSession = natTable_->createClientSession(
-                    clientId,
-                    username,
-                    clientVpnIPv4,
-                    clientVpnIPv6,
-                    shaperToClient,
-                    shaperFromClient
-                );
-                SPDLOG_INFO(
-                    "NEW SESSION! Username={} ClientId={} Bandwidth={} ClientIP={} VirtualIPv4={} VirtualIPv6={}",
-                    username,
-                    clientId,
-                    bandwidthBitesSeconds,
-                    clientIP.toString(),
-                    natSession->fakeClientIPv4().toString(),
-                    natSession->fakeClientIPv6().toString()
-                );
-                sessions_.insert({clientId, std::move(session)});
-                return true;
-            } else {
-                spdlog::warn("Client with same ID already exists!");
-            }
-        } else {
-            spdlog::warn("WRONG TOKEN: {}", username);
-        }
-    } else {
-        spdlog::warn("Wrong ClientIP or ClientIPv6");
-    }
     return false;
+  }
+  return true;
 }
 
-void Server::onWsNewIPPacket(fptn::common::network::IPPacketPtr packet) noexcept
-{
-    fromClient_->push(std::move(packet));
-}
+boost::asio::awaitable<void> Server::RunSender() {
+  const std::chrono::milliseconds timeout{1};
 
-void Server::onWsCloseConnection(fptn::ClientID clientId) noexcept
-{
-    SessionSPtr session;
-    {
+  while (running_) {
+    auto optpacket = co_await to_client_->WaitForPacketAsync(timeout);
+    if (optpacket && running_) {
+      SessionSPtr session;
+
+      {  // mutex
         const std::unique_lock<std::mutex> lock(mutex_);
 
-        auto it = sessions_.find(clientId);
+        auto it = sessions_.find(optpacket->get()->ClientId());
         if (it != sessions_.end()) {
-            session = std::move(it->second);
-            sessions_.erase(it);
+          session = it->second;
         }
+      }
+
+      if (session) {
+        const bool status = co_await session->Send(std::move(*optpacket));
+        if (!status) {
+          session->Close();
+        }
+      }
     }
-    if (session != nullptr) {
-        session->close();
-        SPDLOG_INFO("DEL SESSION! clientId={}", clientId);
+  }
+  co_return;
+}
+
+bool Server::Stop() noexcept {
+  running_ = false;
+  SPDLOG_INFO("Server stop");
+
+  for (auto& session : sessions_) {
+    session.second->Close();
+  }
+
+  {
+    const std::unique_lock<std::mutex> lock(mutex_);
+    sessions_.clear();
+  }
+
+  ioc_.stop();
+  for (auto& th : ioc_threads_) {
+    if (th.joinable()) {
+      th.join();
     }
-    natTable_->delClientSession(clientId);
+  }
+  return true;
+}
+
+void Server::Send(fptn::common::network::IPPacketPtr packet) noexcept {
+  to_client_->Push(std::move(packet));
+}
+
+fptn::common::network::IPPacketPtr Server::WaitForPacket(
+    const std::chrono::milliseconds& duration) noexcept {
+  return from_client_->waitForPacket(duration);
+}
+
+int Server::HandleApiHome(
+    const http::request& req, http::response& resp) noexcept {
+  (void)req;
+
+  resp.body() = HTML_HOME_PAGE;
+  resp.set(boost::beast::http::field::content_type, "text/html; charset=utf-8");
+  return 200;
+}
+
+int Server::HandleApiDns(
+    const http::request& req, http::response& resp) noexcept {
+  (void)req;
+
+  resp.body() = fmt::format(R"({{"dns": "{}", "dns_ipv6": "{}" }})",
+      dns_server_ipv4_.toString(), dns_server_ipv6_.toString());
+  resp.set(boost::beast::http::field::content_type,
+      "application/json; charset=utf-8");
+  return 200;
+}
+
+int Server::HandleApiLogin(
+    const http::request& req, http::response& resp) noexcept {
+  try {
+    auto request = nlohmann::json::parse(req.body());
+    const auto username = request.at("username").get<std::string>();
+    const auto password = request.at("password").get<std::string>();
+    int bandwidthBit = 0;
+    if (user_manager_->Login(username, password, bandwidthBit)) {
+      SPDLOG_INFO("Successful login for user {}", username);
+      const auto tokens = token_manager_->Generate(username, bandwidthBit);
+      resp.body() = fmt::format(
+          R"({{ "access_token": "{}", "refresh_token": "{}", "bandwidth_bit": {} }})",
+          tokens.first, tokens.second, std::to_string(bandwidthBit));
+      return 200;
+    }
+    spdlog::warn("Wrong password for user: \"{}\" ", username);
+    resp.body() =
+        R"({"status": "error", "message": "Invalid login or password."})";
+  } catch (const nlohmann::json::exception& e) {
+    SPDLOG_ERROR("HTTP JSON AUTH ERROR: {}", e.what());
+    resp.body() = R"({"status": "error", "message": "Invalid JSON format."})";
+    return 400;
+  } catch (const std::exception& e) {
+    SPDLOG_ERROR("HTTP AUTH ERROR: {}", e.what());
+    resp.body() =
+        R"({"status": "error", "message": "An unexpected error occurred."})";
+    return 500;
+  } catch (...) {
+    SPDLOG_ERROR("UNDEFINED SERVER ERROR");
+    resp.body() = R"({"status": "error", "message": "Undefined server error"})";
+    return 501;
+  }
+  return 401;
+}
+
+int Server::HandleApiMetrics(
+    const http::request& req, http::response& resp) noexcept {
+  (void)req;
+
+  resp.set(boost::beast::http::field::content_type, "text/html; charset=utf-8");
+  resp.body() = prometheus_->Collect();
+  return 200;
+}
+
+int Server::HandleApiTestFile(
+    const http::request& req, http::response& resp) noexcept {
+  (void)req;
+
+  static const std::string data =
+      fptn::common::utils::GenerateRandomString(100 * 1024);  // 100KB
+
+  resp.set(boost::beast::http::field::content_type, "application/octet-stream");
+  resp.body() = data;
+  return 200;
+}
+
+bool Server::HandleWsOpenConnection(fptn::ClientID client_id,
+    const pcpp::IPv4Address& client_ip,
+    const pcpp::IPv4Address& client_vpn_ipv4,
+    const pcpp::IPv6Address& client_vpn_ipv6,
+    const SessionSPtr& session,
+    const std::string& url,
+    const std::string& access_token) noexcept {
+  if (url != kUrlWebSocket_) {
+    SPDLOG_ERROR("Wrong URL \"{}\"", url);
+    return false;
+  }
+  if (client_vpn_ipv4 != pcpp::IPv4Address("") &&
+      client_vpn_ipv6 != pcpp::IPv6Address("")) {
+    std::string username;
+    std::size_t bandwidth_bites_seconds = 0;
+    if (token_manager_->Validate(
+            access_token, username, bandwidth_bites_seconds)) {
+      const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+      if (sessions_.find(client_id) == sessions_.end()) {
+        const auto shaper_to_client =
+            std::make_shared<fptn::traffic_shaper::LeakyBucket>(
+                bandwidth_bites_seconds);
+        const auto shaper_from_client =
+            std::make_shared<fptn::traffic_shaper::LeakyBucket>(
+                bandwidth_bites_seconds);
+        const auto nat_session = nat_table_->CreateClientSession(client_id,
+            username, client_vpn_ipv4, client_vpn_ipv6, shaper_to_client,
+            shaper_from_client);
+        SPDLOG_INFO(
+            "NEW SESSION! Username={} ClientId={} Bandwidth={} ClientIP={} "
+            "VirtualIPv4={} VirtualIPv6={}",
+            username, client_id, bandwidth_bites_seconds, client_ip.toString(),
+            nat_session->FakeClientIPv4().toString(),
+            nat_session->FakeClientIPv6().toString());
+        sessions_.insert({client_id, session});
+        return true;
+      } else {
+        spdlog::warn("Client with same ID already exists!");
+      }
+    } else {
+      spdlog::warn("WRONG TOKEN: {}", username);
+    }
+  } else {
+    spdlog::warn("Wrong ClientIP or ClientIPv6");
+  }
+  return false;
+}
+
+void Server::HandleWsNewIPPacket(
+    fptn::common::network::IPPacketPtr packet) noexcept {
+  from_client_->push(std::move(packet));
+}
+
+void Server::HandleWsCloseConnection(fptn::ClientID clientId) noexcept {
+  SessionSPtr session;
+  {
+    const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+    auto it = sessions_.find(clientId);
+    if (it != sessions_.end()) {
+      session = std::move(it->second);
+      sessions_.erase(it);
+    }
+  }
+  if (session != nullptr) {
+    session->Close();
+    SPDLOG_INFO("DEL SESSION! clientId={}", clientId);
+  }
+  nat_table_->DelClientSession(clientId);
 }

@@ -1,49 +1,56 @@
+/*=============================================================================
+Copyright (c) 2024-2025 Stas Skokov
+
+Distributed under the MIT License (https://opensource.org/licenses/MIT)
+=============================================================================*/
+
 #pragma once
 
 #include <string>
 #include <vector>
 
+namespace fptn::config {
+class ConfigFile final {
+ public:
+  struct Server {
+    std::string name;
+    std::string host;
+    int port;
+    bool isUsing;
 
-namespace fptn::config
-{
-    class ConfigFile final
-    {
-    public:
-        struct Server
-        {
-            std::string name;
-            std::string host;
-            int port;
-            bool isUsing;
+    // FIX USING FOR CLI
+    std::string username;
+    std::string password;
+    std::string service_name;
+  };
 
-            // FIX USING FOR CLI
-            std::string username;
-            std::string password;
-            std::string serviceName;
-        };
-    public:
-        explicit ConfigFile(std::string sni);
-        explicit ConfigFile(std::string token, std::string sni);
+ public:
+  explicit ConfigFile(std::string sni);
+  explicit ConfigFile(std::string token, std::string sni);
 
-        bool parse();
-        Server findFastestServer() const;
-        bool addServer(const Server &s);
-    public:
-        int getVersion() const noexcept;
-        std::string getServiceName() const noexcept;
-        std::string getUsername() const noexcept;
-        std::string getPassword() const  noexcept;
-        std::vector<Server> getServers() const noexcept;
-    public:
-        std::uint64_t getDownloadTimeMs(const Server& server, int timeout = 4) const noexcept;
-    private:
-        const std::string token_;
-        const std::string sni_;
+  bool Parse();
+  Server FindFastestServer() const;
+  bool AddServer(const Server& s);
 
-        int version_;
-        std::string serviceName_;
-        std::string username_;
-        std::string password_;
-        std::vector<Server> servers_;
-    };
-}
+ public:
+  int GetVersion() const noexcept;
+  std::string GetServiceName() const noexcept;
+  std::string GetUsername() const noexcept;
+  std::string GetPassword() const noexcept;
+  std::vector<Server> GetServers() const noexcept;
+
+ public:
+  std::uint64_t GetDownloadTimeMs(
+      const Server& server, int timeout = 4) const noexcept;
+
+ private:
+  const std::string token_;
+  const std::string sni_;
+
+  int version_;
+  std::string service_name_;
+  std::string username_;
+  std::string password_;
+  std::vector<Server> servers_;
+};
+}  // namespace fptn::config

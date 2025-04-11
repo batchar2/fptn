@@ -1,38 +1,44 @@
+/*=============================================================================
+Copyright (c) 2024-2025 Stas Skokov
+
+Distributed under the MIT License (https://opensource.org/licenses/MIT)
+=============================================================================*/
+
 #pragma once
 
 #include <memory>
-#include <common/network/ip_packet.h>
-#include <common/network/net_interface.h>
+
+#include "common/network/ip_packet.h"
+#include "common/network/net_interface.h"
 
 #include "http/client.h"
 
+namespace fptn::vpn {
+class VpnClient final {
+ public:
+  explicit VpnClient(fptn::http::ClientPtr http_client,
+      fptn::common::network::BaseNetInterfacePtr virtual_net_interface,
+      const pcpp::IPv4Address& dns_server_ipv4,
+      const pcpp::IPv6Address& dns_server_ipv6);
+  ~VpnClient();
+  void Start() noexcept;
+  void Stop() noexcept;
+  std::size_t GetSendRate() noexcept;
+  std::size_t GetReceiveRate() noexcept;
+  bool IsStarted() noexcept;
 
-namespace fptn::vpn
-{
-    class VpnClient final
-    {
-    public:
-        explicit VpnClient(
-            fptn::http::ClientPtr httpClient,
-            fptn::common::network::BaseNetInterfacePtr virtualNetworkInterface,
-            const pcpp::IPv4Address& dnsServerIPv4,
-            const pcpp::IPv6Address& dnsServerIPv6
-        );
-        ~VpnClient();
-        void start() noexcept;
-        void stop() noexcept;
-        std::size_t getSendRate() noexcept;
-        std::size_t getReceiveRate() noexcept;
-        bool isStarted() noexcept;
-    private:
-        void packetFromVirtualNetworkInterface(fptn::common::network::IPPacketPtr packet) noexcept;
-        void packetFromWebSocket(fptn::common::network::IPPacketPtr packet) noexcept;
-    private:
-        fptn::http::ClientPtr httpClient_;
-        fptn::common::network::BaseNetInterfacePtr virtualNetworkInterface_;
-        const pcpp::IPv4Address dnsServerIPv4_;
-        const pcpp::IPv6Address dnsServerIPv6_;
-    };
+ protected:
+  void HandlePacketFromVirtualNetworkInterface(
+      fptn::common::network::IPPacketPtr packet) noexcept;
+  void HandlePacketFromWebSocket(
+      fptn::common::network::IPPacketPtr packet) noexcept;
 
-    using VpnClientPtr = std::unique_ptr<fptn::vpn::VpnClient>;
-} 
+ private:
+  fptn::http::ClientPtr http_client_;
+  fptn::common::network::BaseNetInterfacePtr virtual_net_interface_;
+  const pcpp::IPv4Address dns_server_ipv4_;
+  const pcpp::IPv6Address dns_server_ipv6_;
+};
+
+using VpnClientPtr = std::unique_ptr<fptn::vpn::VpnClient>;
+}  // namespace fptn::vpn

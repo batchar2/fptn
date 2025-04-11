@@ -40,7 +40,7 @@ add_executable(
     http/client.h http/client.cpp
     http/websocket/websocket.h http/websocket/websocket.cpp
 
-    system/iptables.h system/iptables.cpp
+    routing/iptables.h routing/iptables.cpp
     config/config_file.cpp config/config_file.h
 )
 target_link_libraries(
@@ -94,7 +94,7 @@ if("${FPTN_BUILD_WITH_GUI_CLIENT}")
         vpn/vpn_client.h vpn/vpn_client.cpp
         http/client.h http/client.cpp
         http/websocket/websocket.h http/websocket/websocket.cpp
-        system/iptables.h system/iptables.cpp
+        routing/iptables.h routing/iptables.cpp
         config/config_file.cpp config/config_file.h
 
         gui/tray/tray.h gui/tray/tray.cpp
