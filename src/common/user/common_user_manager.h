@@ -30,7 +30,7 @@ class CommonUserManager final {
 
   bool addUser(
       const std::string& username, const std::string& password, int bandwidth) {
-    const std::lock_guard<std::mutex> lock(mutex_); // mutex
+    const std::lock_guard<std::mutex> lock(mutex_);  // mutex
 
     if (!validateUsername(username)) {
       std::cerr << "Invalid username." << std::endl;
