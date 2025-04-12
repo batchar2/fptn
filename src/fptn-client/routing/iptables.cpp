@@ -9,14 +9,12 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <string>
 #include <vector>
 
-#include <fmt/format.h>     // NOLINT(build/include_order)
-#include <spdlog/spdlog.h>  // NOLINT(build/include_order)
-
-#if _WIN32
-static std::string getWindowsInterfaceNumber(const std::string& interfaceName);
-#endif
-
+#include "common/network/net_interface.h"
 #include "common/system/command.h"
+
+#ifdef _WIN32
+static std::string GetWindowsInterfaceNumber(const std::string& interfaceName);
+#endif
 
 using fptn::routing::IPTables;
 
@@ -367,7 +365,7 @@ std::string fptn::routing::GetDefaultNetworkInterfaceName() noexcept {
 }
 
 #if _WIN32
-std::string GetWindowsInterfaceNumber(const std::string& interfaceName) {
+static std::string GetWindowsInterfaceNumber(const std::string& interfaceName) {
   try {
     const std::string command =
         "powershell -Command \"(Get-NetAdapter -Name '" + interfaceName +

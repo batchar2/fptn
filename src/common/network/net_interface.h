@@ -22,14 +22,30 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #if defined(__APPLE__) || defined(__linux__)
 #include <tuntap++.hh>  // NOLINT(build/include_order)
 #elif _WIN32
-#include <Iprtrmib.h>  // NOLINT(build/include_order)
-#include <WinError.h>  // NOLINT(build/include_order)
-#include <Ws2tcpip.h>  // NOLINT(build/include_order)
-#include <iphlpapi.h>  // NOLINT(build/include_order)
-#include <objbase.h>   // NOLINT(build/include_order)
-#include <windows.h>   // NOLINT(build/include_order)
-#include <winsock2.h>  // NOLINT(build/include_order)
-#include <wintun.h>    // NOLINT(build/include_order)
+// clang-format off
+#ifndef _WIN32_WINNT
+#define _WIN32_WINNT 0x0600
+#endif
+
+#ifndef _IPV6_
+#define _IPV6_
+#endif
+
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+
+#include <winsock2.h>        // NOLINT(build/include_order)
+#include <netioapi.h>        // NOLINT(build/include_order)
+#include <VersionHelpers.h>  // NOLINT(build/include_order)
+#include <iphlpapi.h>        // NOLINT(build/include_order)
+#include <Iprtrmib.h>        // NOLINT(build/include_order)
+#include <WinError.h>        // NOLINT(build/include_order)
+#include <Ws2tcpip.h>        // NOLINT(build/include_order)
+#include <objbase.h>         // NOLINT(build/include_order)
+#include <windows.h>         // NOLINT(build/include_order)
+#include <wintun.h>          // NOLINT(build/include_order)
+// clang-format on
 #endif
 
 #include "common/network/ip_packet.h"
@@ -183,7 +199,7 @@ class PosixTunInterface final : public BaseNetInterface {
 
   bool Send(IPPacketPtr packet) noexcept override {
     if (running_ && packet && packet->Size()) {
-      sendRateCalculator_.Update(packet->Size());  // calculate rate
+      send_rate_calculator_.Update(packet->Size());  // calculate rate
       std::vector<std::uint8_t> serialized = packet->Serialize();
       return static_cast<std::size_t>(tun_->write(
                  serialized.data(), serialized.size())) == serialized.size();
@@ -192,11 +208,11 @@ class PosixTunInterface final : public BaseNetInterface {
   }
 
   std::size_t GetSendRate() const noexcept override {
-    return sendRateCalculator_.GetRateForSecond();
+    return send_rate_calculator_.GetRateForSecond();
   }
 
   std::size_t GetReceiveRate() const noexcept override {
-    return receiveRateCalculator_.GetRateForSecond();
+    return receive_rate_calculator_.GetRateForSecond();
   }
 
  private:
@@ -209,7 +225,7 @@ class PosixTunInterface final : public BaseNetInterface {
       if (size > 0 && running_) {
         auto packet = IPPacket::Parse(buffer, size);
         if (packet != nullptr && new_ippacket_callback) {
-          receiveRateCalculator_.Update(packet->Size());  // calculate rate
+          receive_rate_calculator_.Update(packet->Size());  // calculate rate
           new_ippacket_callback(std::move(packet));
         }
       } else {
@@ -223,8 +239,8 @@ class PosixTunInterface final : public BaseNetInterface {
   std::atomic<bool> running_;
   std::thread thread_;
   std::unique_ptr<tuntap::tun> tun_;
-  DataRateCalculator sendRateCalculator_;
-  DataRateCalculator receiveRateCalculator_;
+  DataRateCalculator send_rate_calculator_;
+  DataRateCalculator receive_rate_calculator_;
 };
 
 using TunInterface = PosixTunInterface;
@@ -256,21 +272,21 @@ class WindowsTunInterface : public BaseNetInterface {
       return false;
     }
     spdlog::info("WINTUN: {} version loaded",
-        parseWinTunVersion(WintunGetRunningDriverVersion()));
+        ParseWinTunVersion(WintunGetRunningDriverVersion()));
 
     // --- open adapter ---
-    const std::wstring interfaceName = toWString(Name());
+    const std::wstring interfaceName = ToWString(Name());
     adapter_ = WintunCreateAdapter(
         interfaceName.c_str(), interfaceName.c_str(), &guid_);
     if (!adapter_) {
       spdlog::error("Network adapter wasn't created!");
       return false;
     }
-    if (!setIPv4AndNetmask(IPv4Addr(), IPv4Netmask())) {
+    if (!SetIPv4AndNetmask(IPv4Addr(), IPv4Netmask())) {
       return false;
     }
 
-    if (!setIPv6AndNetmask(IPv6Addr(), IPv6Netmask())) {
+    if (!SetIPv6AndNetmask(IPv6Addr(), IPv6Netmask())) {
       // pass IPv6
       // return false;
     }
@@ -301,12 +317,12 @@ class WindowsTunInterface : public BaseNetInterface {
     return false;
   }
   bool Send(IPPacketPtr packet) noexcept override {
-    if (running_ && session_ && packet && packet->size()) {
-      sendRateCalculator_.Update(packet->size());
+    if (running_ && session_ && packet && packet->Size()) {
+      send_rate_calculator_.Update(packet->Size());
       BYTE* data = WintunAllocateSendPacket(
-          session_, static_cast<DWORD>(packet->size()));
+          session_, static_cast<DWORD>(packet->Size()));
       if (data) {
-        const std::vector<std::uint8_t> serialized = packet->serialize();
+        const std::vector<std::uint8_t> serialized = packet->Serialize();
         std::memcpy(data, serialized.data(), serialized.size());
         WintunSendPacket(session_, data);
         return true;
@@ -315,32 +331,32 @@ class WindowsTunInterface : public BaseNetInterface {
     return false;
   }
   std::size_t GetSendRate() const noexcept override {
-    return sendRateCalculator_.GetRateForSecond();
+    return send_rate_calculator_.GetRateForSecond();
   }
 
   std::size_t GetReceiveRate() const noexcept override {
-    return receiveRateCalculator_.GetRateForSecond();
+    return receive_rate_calculator_.GetRateForSecond();
   }
 
  protected:
   // cppcheck-suppress unusedPrivateFunction
   bool SetIPv4AndNetmask(const pcpp::IPv4Address& addr, const int mask) {
     const std::string ipaddr = addr.toString();
-    MIB_UNICASTIPADDRESS_ROW addressRow;
+    MIB_UNICASTIPADDRESS_ROW address_row;
 
-    InitializeUnicastIpAddressEntry(&addressRow);
-    WintunGetAdapterLUID(adapter_, &addressRow.InterfaceLuid);
+    InitializeUnicastIpAddressEntry(&address_row);
+    WintunGetAdapterLUID(adapter_, &address_row.InterfaceLuid);
 
-    addressRow.Address.Ipv4.sin_family = AF_INET;
-    addressRow.OnLinkPrefixLength = static_cast<BYTE>(mask);
-    addressRow.DadState = IpDadStatePreferred;
+    address_row.Address.Ipv4.sin_family = AF_INET;
+    address_row.OnLinkPrefixLength = static_cast<BYTE>(mask);
+    address_row.DadState = IpDadStatePreferred;
 
     if (1 != inet_pton(AF_INET, ipaddr.c_str(),
-                 &(addressRow.Address.Ipv4.sin_addr))) {
+                 &(address_row.Address.Ipv4.sin_addr))) {
       spdlog::error("Wrong IPv4 address");
       return false;
     }
-    const auto res = CreateUnicastIpAddressEntry(&addressRow);
+    const auto res = CreateUnicastIpAddressEntry(&address_row);
     if (res != ERROR_SUCCESS && res != ERROR_OBJECT_ALREADY_EXISTS) {
       spdlog::error("Failed to set {} IPv4 address", ipaddr);
       return false;
@@ -350,21 +366,21 @@ class WindowsTunInterface : public BaseNetInterface {
   // cppcheck-suppress unusedPrivateFunction
   bool SetIPv6AndNetmask(const pcpp::IPv6Address& addr, const int mask) {
     const std::string ipaddr = addr.toString();
-    MIB_UNICASTIPADDRESS_ROW addressRow;
+    MIB_UNICASTIPADDRESS_ROW address_row;
 
-    InitializeUnicastIpAddressEntry(&addressRow);
-    WintunGetAdapterLUID(adapter_, &addressRow.InterfaceLuid);
+    InitializeUnicastIpAddressEntry(&address_row);
+    WintunGetAdapterLUID(adapter_, &address_row.InterfaceLuid);
 
-    addressRow.Address.Ipv6.sin6_family = AF_INET6;
-    addressRow.OnLinkPrefixLength = static_cast<BYTE>(mask);
-    addressRow.DadState = IpDadStatePreferred;
+    address_row.Address.Ipv6.sin6_family = AF_INET6;
+    address_row.OnLinkPrefixLength = static_cast<BYTE>(mask);
+    address_row.DadState = IpDadStatePreferred;
 
     if (1 != inet_pton(AF_INET6, ipaddr.c_str(),
-                 &(addressRow.Address.Ipv6.sin6_addr))) {
+                 &(address_row.Address.Ipv6.sin6_addr))) {
       spdlog::error("Wrong IPv6 address");
       return false;
     }
-    const auto res = CreateUnicastIpAddressEntry(&addressRow);
+    const auto res = CreateUnicastIpAddressEntry(&address_row);
     if (res != ERROR_SUCCESS && res != ERROR_OBJECT_ALREADY_EXISTS) {
       spdlog::error("Failed to set {} IPv6 address", ipaddr);
       return false;
@@ -376,11 +392,11 @@ class WindowsTunInterface : public BaseNetInterface {
     std::uint8_t buffer[65536] = {0};
     DWORD size = sizeof(buffer);
     while (running_) {
-      if (ERROR_SUCCESS == readPacketNonblock(session_, buffer, &size)) {
-        auto packet = IPPacket::parse(buffer, size);
-        if (packet != nullptr && newIPPktCallback) {
-          receiveRateCalculator_.update(packet->size());  // calculate rate
-          newIPPktCallback(std::move(packet));
+      if (ERROR_SUCCESS == ReadPacketNonblock(session_, buffer, &size)) {
+        auto packet = IPPacket::Parse(buffer, size);
+        if (packet != nullptr && new_ippacket_callback) {
+          receive_rate_calculator_.Update(packet->Size());  // calculate rate
+          new_ippacket_callback(std::move(packet));
         }
       }
     }
@@ -479,8 +495,8 @@ class WindowsTunInterface : public BaseNetInterface {
   ULONG ipContext_;
   ULONG ipInstance_;
 
-  DataRateCalculator sendRateCalculator_;
-  DataRateCalculator receiveRateCalculator_;
+  DataRateCalculator send_rate_calculator_;
+  DataRateCalculator receive_rate_calculator_;
 };
 
 using TunInterface = WindowsTunInterface;

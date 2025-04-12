@@ -254,9 +254,11 @@ ServiceConfig SettingsModel::ParseToken(const QString& token) {
   return service;
 }
 
-QString SettingsModel::NetworkInterface() const { return network_interface_; }
+QString SettingsModel::UsingNetworkInterface() const {
+  return network_interface_;
+}
 
-void SettingsModel::SetNetworkInterface(const QString& interface) {
+void SettingsModel::SetUsingNetworkInterface(const QString& interface) {
   network_interface_ = (interface.isEmpty() ? "auto" : interface);
 }
 

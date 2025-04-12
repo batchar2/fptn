@@ -366,9 +366,9 @@ void TrayApp::handleConnecting() {
 
   /* config */
   const std::string network_interface =
-      (settings_->NetworkInterface() == "auto"
+      (settings_->UsingNetworkInterface() == "auto"
               ? ""
-              : settings_->NetworkInterface().toStdString());
+              : settings_->UsingNetworkInterface().toStdString());
 
   const std::string sni = !settings_->SNI().isEmpty()
                               ? settings_->SNI().toStdString()

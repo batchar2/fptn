@@ -8,6 +8,10 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #if defined(__linux__) || defined(__APPLE__)
 #include <unistd.h>  // NOLINT(build/include_order)
+#elif _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
 #endif
 
 #include <memory>

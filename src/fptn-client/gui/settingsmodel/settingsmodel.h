@@ -14,6 +14,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <QJsonObject>    // NOLINT(build/include_order)
 #include <QMap>           // NOLINT(build/include_order)
 #include <QObject>        // NOLINT(build/include_order)
+#include <QString>        // NOLINT(build/include_order)
 #include <QVector>        // NOLINT(build/include_order)
 
 namespace fptn::gui {
@@ -72,8 +73,8 @@ class SettingsModel : public QObject {
   void Load();
   bool Save();
 
-  QString NetworkInterface() const;
-  void SetNetworkInterface(const QString& interface);
+  QString UsingNetworkInterface() const;
+  void SetUsingNetworkInterface(const QString& interface);
 
   QString GatewayIp() const;
   void SetGatewayIp(const QString& ip);

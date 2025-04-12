@@ -6,10 +6,6 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #if defined(__linux__) || defined(__APPLE__)
 #include <unistd.h>
-#elif defined(_WIN32)
-#include <Windows.h>  // NOLINT(build/include_order)
-#else
-#error "Unsupported platform"
 #endif
 
 #include <iostream>
@@ -19,6 +15,9 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <QStyleFactory>  // NOLINT(build/include_order)
 
 #include "common/logger/logger.h"
+#if _WIN32
+#include "common/network/net_interface.h"
+#endif
 
 #include "gui/tray/tray.h"
 

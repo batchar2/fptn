@@ -81,7 +81,7 @@ void SettingsWidget::SetupUi() {
       new QLabel(QObject::tr("Network Interface (adapter)") + ":  ", this);
   interface_combo_box_ = new QComboBox(this);
   interface_combo_box_->addItems(settings_->GetNetworkInterfaces());
-  interface_combo_box_->setCurrentText(settings_->NetworkInterface());
+  interface_combo_box_->setCurrentText(settings_->UsingNetworkInterface());
   connect(interface_combo_box_, &QComboBox::currentTextChanged, this,
       &SettingsWidget::onInterfaceChanged);
   grid_layout->addWidget(interface_label_, 2, 0, Qt::AlignLeft);
@@ -233,7 +233,7 @@ void SettingsWidget::SetupUi() {
 }
 
 void SettingsWidget::onExit() {
-  settings_->SetNetworkInterface(interface_combo_box_->currentText());
+  settings_->SetUsingNetworkInterface(interface_combo_box_->currentText());
   settings_->SetLanguage(language_combo_box_->currentText());
   settings_->SetGatewayIp(gateway_line_edit_->text());
   settings_->SetSNI(sni_line_edit_->text());
@@ -411,7 +411,7 @@ void SettingsWidget::onLanguageChanged(const QString&) {
 }
 
 void SettingsWidget::onInterfaceChanged(const QString&) {
-  settings_->SetNetworkInterface(interface_combo_box_->currentText());
+  settings_->SetUsingNetworkInterface(interface_combo_box_->currentText());
   if (!settings_->Save()) {
     QMessageBox::critical(this, QObject::tr("Save Failed"),
         QObject::tr("An error occurred while saving the data."));
