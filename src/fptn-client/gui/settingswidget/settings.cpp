@@ -279,40 +279,39 @@ void SettingsWidget::onLoadNewConfig() {
         server_table_->removeRow(exists_index);
       }
       settings_->AddService(config);
-      const bool savingStatus = settings_->Save();
-      if (savingStatus) {
+      const bool saving_status = settings_->Save();
+      if (saving_status) {
         // Insert a new row into the server table
-        const int newRow = server_table_->rowCount();
-        server_table_->insertRow(newRow);
+        const int new_row = server_table_->rowCount();
+        server_table_->insertRow(new_row);
 
         server_table_->setItem(
-            newRow, 0, new QTableWidgetItem(config.service_name));
+            new_row, 0, new QTableWidgetItem(config.service_name));
         server_table_->setItem(
-            newRow, 1, new QTableWidgetItem(config.username));
+            new_row, 1, new QTableWidgetItem(config.username));
 
         QString servers_text_list = "";
         for (const auto& s : config.servers) {
           servers_text_list += QString("%1\n").arg(s.name);
         }
-        QTableWidgetItem* item = new QTableWidgetItem(servers_text_list);
+        auto item = new QTableWidgetItem(servers_text_list);
         item->setTextAlignment(Qt::AlignLeft | Qt::AlignVCenter);
         item->setFlags(item->flags() | Qt::ItemIsEnabled);
         item->setData(Qt::DisplayRole, servers_text_list);
-        server_table_->setItem(newRow, 2, item);
+        server_table_->setItem(new_row, 2, item);
 
-        QPushButton* delete_button =
+        auto delete_button =
             new QPushButton(QObject::tr("Delete"), this);
         connect(delete_button, &QPushButton::clicked,
-            [this, newRow]() { onRemoveServer(newRow); });
+            [this, new_row]() { onRemoveServer(new_row); });
 
-        QWidget* button_container = new QWidget();
-        QHBoxLayout* button_layout = new QHBoxLayout(button_container);
+        auto button_container = new QWidget();
+        auto* button_layout = new QHBoxLayout(button_container);
         button_layout->setContentsMargins(0, 0, 0, 0);
         button_layout->setAlignment(Qt::AlignCenter);
         button_layout->addWidget(delete_button);
-        server_table_->setCellWidget(newRow, 3, button_container);
-      }
-      if (savingStatus) {
+        server_table_->setCellWidget(new_row, 3, button_container);
+
         if (exists_index != -1) {
           // update data
           QMessageBox::information(this, QObject::tr("Save Successful"),

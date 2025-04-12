@@ -147,7 +147,7 @@ class PosixTunInterface final : public BaseNetInterface {
         mtu_(FPTN_MTU_SIZE),
         running_(false) {}
 
-  ~PosixTunInterface() override { Stop(); }
+  ~PosixTunInterface() override {}
 
   bool Start() noexcept override {
     try {
@@ -250,7 +250,7 @@ class WindowsTunInterface : public BaseNetInterface {
     wintun_ = InitializeWintun();
     UuidCreate(&guid_);
   }
-  ~WindowsTunInterface() override { stop(); }
+  ~WindowsTunInterface() override {}
   bool Start() noexcept override {
     if (!wintun_) {
       return false;

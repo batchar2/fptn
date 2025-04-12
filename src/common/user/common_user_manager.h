@@ -30,7 +30,7 @@ class CommonUserManager final {
 
   bool addUser(
       const std::string& username, const std::string& password, int bandwidth) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    const std::lock_guard<std::mutex> lock(mutex_); // mutex
 
     if (!validateUsername(username)) {
       std::cerr << "Invalid username." << std::endl;
@@ -56,7 +56,7 @@ class CommonUserManager final {
   }
 
   bool deleteUser(const std::string& username) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    const std::lock_guard<std::mutex> lock(mutex_);  // mutex
 
     if (users_.find(username) == users_.end()) {
       return false;
@@ -67,8 +67,9 @@ class CommonUserManager final {
   }
 
   void listUsers() const {
-    std::lock_guard<std::mutex> lock(mutex_);
+    const std::lock_guard<std::mutex> lock(mutex_);  // mutex
 
+    // cppcheck-suppress unassignedVariable
     for (const auto& [username, credentials] : users_) {
       std::cout << username << " "
                 << std::string(credentials.first.length(), 'X') << " "
@@ -137,6 +138,7 @@ class CommonUserManager final {
   void saveUsers() const {
     std::ofstream file(filePath_);
     if (file.is_open()) {
+      // cppcheck-suppress unassignedVariable
       for (const auto& [username, credentials] : users_) {
         file << username << " " << credentials.first << " "
              << credentials.second << "\n";
