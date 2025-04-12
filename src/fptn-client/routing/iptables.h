@@ -6,6 +6,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #pragma once
 
+#include <atomic>
 #include <iostream>
 #include <memory>
 #include <mutex>
@@ -56,7 +57,7 @@ class IPTables final {
 
  private:
   std::string detected_out_interface_name_;
-  pcpp::IPv4Address find_out_gateway_ip_;
+  pcpp::IPv4Address detected_gateway_ip_;
 };
 
 using IPTablesPtr = std::unique_ptr<IPTables>;

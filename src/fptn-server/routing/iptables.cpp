@@ -22,8 +22,7 @@ IPTables::IPTables(
     std::string out_net_interface_name, std::string tun_net_interface_name)
     : out_net_interface_name_(std::move(out_net_interface_name)),
       tun_net_interface_name_(std::move(tun_net_interface_name)),
-      running_(false)
-{}
+      running_(false) {}
 
 IPTables::~IPTables() { Clean(); }
 
@@ -90,11 +89,11 @@ bool IPTables::Clean() noexcept {
 #ifdef __linux__
   const std::vector<std::string> commands = {
       fmt::format("iptables -D FORWARD -i {} -o {} -j ACCEPT",
-          tunInterfaceName_, outInterfaceName_),
+          tun_net_interface_name_, out_net_interface_name_),
       fmt::format("iptables -D FORWARD -i {} -o {} -j ACCEPT",
-          outInterfaceName_, tunInterfaceName_),
+          out_net_interface_name_, tun_net_interface_name_),
       fmt::format("iptables -t nat -D POSTROUTING -o {} -j MASQUERADE",
-          outInterfaceName_)};
+          out_net_interface_name_)};
 #elif __APPLE__
   const std::vector<std::string> commands = {
       "echo 'set skip on lo0' > /tmp/pf.conf",

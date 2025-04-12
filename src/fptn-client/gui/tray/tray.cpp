@@ -53,27 +53,28 @@ TrayApp::TrayApp(const SettingsModelPtr& settings, QObject* parent)
 #endif
 
 #if __linux__
-  connect(trayIcon_, &QSystemTrayIcon::activated,
+  connect(tray_icon_, &QSystemTrayIcon::activated,
       [this](QSystemTrayIcon::ActivationReason reason) {
         if (reason == QSystemTrayIcon::Context) {
-          trayMenu_->popup(trayIcon_->geometry().bottomLeft());
+          tray_menu_->popup(tray_icon_->geometry().bottomLeft());
         } else {
-          trayMenu_->close();
+          tray_menu_->close();
         }
       });
 #elif _WIN32
-  connect(trayIcon_, &QSystemTrayIcon::activated,
+  connect(tray_icon_, &QSystemTrayIcon::activated,
       [this](QSystemTrayIcon::ActivationReason reason) {
         if (reason == QSystemTrayIcon::Context) {
-          trayMenu_->show();
-          trayMenu_->exec(QCursor::pos());
+          tray_menu_->show();
+          tray_menu_->exec(QCursor::pos());
         } else {
-          trayMenu_->close();
+          tray_menu_->close();
         }
       });
 #endif
   // Also connect clicking on the icon to the signal processor of this press
-  //    connect(trayIcon_, SIGNAL(activated(QSystemTrayIcon::ActivationReason)),
+  //    connect(tray_icon_,
+  //    SIGNAL(activated(QSystemTrayIcon::ActivationReason)),
   //            this, SLOT(iconActivated(QSystemTrayIcon::ActivationReason)));
 
   const QString selected_language = settings->LanguageCode();

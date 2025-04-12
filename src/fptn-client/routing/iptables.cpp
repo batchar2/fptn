@@ -55,7 +55,7 @@ bool IPTables::Apply() noexcept {
       (out_interface_name_.empty() ? GetDefaultNetworkInterfaceName()
                                    : out_interface_name_);
 #endif
-  find_out_gateway_ip_ = (gateway_ip_ == pcpp::IPv4Address("0.0.0.0")
+  detected_gateway_ip_ = (gateway_ip_ == pcpp::IPv4Address("0.0.0.0")
                               ? GetDefaultGatewayIPAddress()
                               : gateway_ip_);
 
@@ -64,7 +64,7 @@ bool IPTables::Apply() noexcept {
   SPDLOG_INFO(
       "IPTABLES OUT NETWORK INTERFACE: {}", detected_out_interface_name_);
   SPDLOG_INFO(
-      "IPTABLES GATEWAY IP:            {}", find_out_gateway_ip_.toString());
+      "IPTABLES GATEWAY IP:            {}", detected_gateway_ip_.toString());
   SPDLOG_INFO(
       "IPTABLES DNS SERVER:            {}", dns_server_ipv4_.toString());
 #ifdef __linux__
@@ -78,36 +78,36 @@ bool IPTables::Apply() noexcept {
       fmt::format("sysctl -p"),
       // iptables
       fmt::format("iptables -t nat -A POSTROUTING -o {} -j MASQUERADE",
-          findOutInterfaceName_),
+          detected_out_interface_name_),
       fmt::format("iptables -A FORWARD -i {} -o {} -m state --state "
                   "RELATED,ESTABLISHED -j ACCEPT",
-          findOutInterfaceName_, tunInterfaceName_),
+          detected_out_interface_name_, tun_interface_name_),
       fmt::format("iptables -A FORWARD -i {} -o {} -j ACCEPT",
-          tunInterfaceName_, findOutInterfaceName_),
+          tun_interface_name_, detected_out_interface_name_),
       fmt::format("iptables -A OUTPUT -o {} -d {} -j ACCEPT",
-          findOutInterfaceName_, vpnServerIP_.toString()),
+          detected_out_interface_name_, vpn_server_ip_.toString()),
       fmt::format("iptables -A INPUT -i {} -s {} -j ACCEPT",
-          findOutInterfaceName_, vpnServerIP_.toString()),
+          detected_out_interface_name_, vpn_server_ip_.toString()),
       // IPv4 default & DNS route
-      fmt::format("ip route add default dev {}", tunInterfaceName_),
-      fmt::format("ip route add {} dev {}", dnsServerIPv4_.toString(),
-          tunInterfaceName_),  // via TUN
+      fmt::format("ip route add default dev {}", tun_interface_name_),
+      fmt::format("ip route add {} dev {}", dns_server_ipv4_.toString(),
+          tun_interface_name_),  // via TUN
       // IPv6 default
-      fmt::format("ip -6 route add default dev {}", tunInterfaceName_),
+      fmt::format("ip -6 route add default dev {}", tun_interface_name_),
       // exclude vpn server & networks
-      fmt::format("ip route add {} via {} dev {}", vpnServerIP_.toString(),
-          findOutGatewayIp_.toString(), findOutInterfaceName_),
+      fmt::format("ip route add {} via {} dev {}", vpn_server_ip_.toString(),
+          detected_gateway_ip_.toString(), detected_out_interface_name_),
       fmt::format("ip route add 10.0.0.0/8 via {} dev {}",
-          findOutGatewayIp_.toString(), findOutInterfaceName_),
+          detected_gateway_ip_.toString(), detected_out_interface_name_),
       fmt::format("ip route add 172.16.0.0/12 via {} dev {}",
-          findOutGatewayIp_.toString(), findOutInterfaceName_),
+          detected_gateway_ip_.toString(), detected_out_interface_name_),
       fmt::format("ip route add 192.168.0.0/16 via {} dev {}",
-          findOutGatewayIp_.toString(), findOutInterfaceName_),
+          detected_gateway_ip_.toString(), detected_out_interface_name_),
       // DNS
-      fmt::format(
-          "resolvectl dns {} {}", tunInterfaceName_, dnsServerIPv4_.toString()),
-      fmt::format("resolvectl domain {} \"~.\" ", tunInterfaceName_),
-      fmt::format("resolvectl default-route {} yes", tunInterfaceName_)};
+      fmt::format("resolvectl dns {} {}", tun_interface_name_,
+          dns_server_ipv4_.toString()),
+      fmt::format("resolvectl domain {} \"~.\" ", tun_interface_name_),
+      fmt::format("resolvectl default-route {} yes", tun_interface_name_)};
 #elif __APPLE__
   const std::vector<std::string> commands = {
       fmt::format(
@@ -134,13 +134,13 @@ bool IPTables::Apply() noexcept {
           dns_server_ipv4_.toString(), tun_interface_name_),  // via TUN
       // exclude vpn server & networks
       fmt::format("sudo route add -host {} {}", vpn_server_ip_.toString(),
-          find_out_gateway_ip_.toString()),
+          detected_gateway_ip_.toString()),
       fmt::format(
-          "sudo route add -net 10.0.0.0/8 {}", find_out_gateway_ip_.toString()),
+          "sudo route add -net 10.0.0.0/8 {}", detected_gateway_ip_.toString()),
       fmt::format("sudo route add -net 172.16.0.0/12 {}",
-          find_out_gateway_ip_.toString()),
+          detected_gateway_ip_.toString()),
       fmt::format("sudo route add -net 192.168.0.0/16 {}",
-          find_out_gateway_ip_.toString()),
+          detected_gateway_ip_.toString()),
       // DNS
       fmt::format("sudo dscacheutil -flushcache"),
       fmt::format(
@@ -148,34 +148,34 @@ bool IPTables::Apply() noexcept {
           dns_server_ipv4_.toString())};
 #elif _WIN32
   const std::string win_interface_number =
-      GetWindowsInterfaceNumber(tunInterfaceName_);
+      GetWindowsInterfaceNumber(tun_interface_name_);
   const std::string interfaceInfo =
       win_interface_number.empty() ? "" : " if " + win_interface_number;
   const std::vector<std::string> commands = {
       fmt::format("netsh interface ip set dns name=\"{}\" dhcp",
-          tunInterfaceName_),  // CLEAN DNS
+          tun_interface_name_),  // CLEAN DNS
       fmt::format("route add {} mask 255.255.255.255 {} METRIC 2",
-          vpnServerIP_.toString(), findOutGatewayIp_.toString()),
+          vpn_server_ip_.toString(), detected_gateway_ip_.toString()),
       fmt::format("route add 10.0.0.0 mask 255.0.0.0 {} METRIC 2",
-          findOutGatewayIp_.toString()),
+          detected_gateway_ip_.toString()),
       fmt::format("route add 172.16.0.0 mask 255.240.0.0 {} METRIC 2",
-          findOutGatewayIp_.toString()),
+          detected_gateway_ip_.toString()),
       fmt::format("route add 192.168.0.0 mask 255.255.0.0 {} METRIC 2",
-          findOutGatewayIp_.toString()),
+          detected_gateway_ip_.toString()),
       // Default gateway & dns
       fmt::format("route add 0.0.0.0 mask 0.0.0.0 {} METRIC 1 {}",
-          tunInterfaceAddressIPv4_.toString(), interfaceInfo),
+          tun_interface_address_ipv4_.toString(), interfaceInfo),
       fmt::format("route add {} mask 255.255.255.255 {} METRIC 2 {}",
-          dnsServerIPv4_.toString(), tunInterfaceAddressIPv4_.toString(),
+          dns_server_ipv4_.toString(), tun_interface_address_ipv4_.toString(),
           interfaceInfo),  // via TUN
       // DNS
       fmt::format("netsh interface ip set dns name=\"{}\" static {}",
-          tunInterfaceName_, dnsServerIPv4_.toString()),
+          tun_interface_name_, dns_server_ipv4_.toString()),
       // IPv6
       fmt::format("netsh interface ipv6 add route ::/0 \"{}\" \"{}\" ",
-          tunInterfaceName_, tunInterfaceAddressIPv6_.toString()),
+          tun_interface_name_, tun_interface_address_ipv6_.toString()),
       fmt::format("netsh interface ipv6 add dnsservers=\"{}\" \"{}\" index=1",
-          tunInterfaceName_, dnsServerIPv6_.toString())};
+          tun_interface_name_, dns_server_ipv6_.toString())};
 #else
 #error "Unsupported system!"
 #endif
@@ -196,30 +196,31 @@ bool IPTables::Clean() noexcept {
 #ifdef __linux__
   const std::vector<std::string> commands = {
       fmt::format("iptables -t nat -D POSTROUTING -o {} -j MASQUERADE",
-          findOutInterfaceName_),
+          detected_out_interface_name_),
       fmt::format("iptables -D FORWARD -i {} -o {} -m state --state "
                   "RELATED,ESTABLISHED -j ACCEPT",
-          findOutInterfaceName_, tunInterfaceName_),
+          detected_out_interface_name_, tun_interface_name_),
       fmt::format("iptables -D FORWARD -i {} -o {} -j ACCEPT",
-          tunInterfaceName_, findOutInterfaceName_),
+          tun_interface_name_, detected_out_interface_name_),
       fmt::format("iptables -D OUTPUT -o {} -d {} -j ACCEPT",
-          findOutInterfaceName_, vpnServerIP_.toString()),
+          detected_out_interface_name_, vpn_server_ip_.toString()),
       fmt::format("iptables -D INPUT -i {} -s {} -j ACCEPT",
-          findOutInterfaceName_, vpnServerIP_.toString()),
+          detected_out_interface_name_, vpn_server_ip_.toString()),
       // del routes
-      fmt::format("ip route del default dev {}", tunInterfaceName_),
-      fmt::format("ip route del {} via {} dev {}", vpnServerIP_.toString(),
-          findOutGatewayIp_.toString(), findOutInterfaceName_),
+      fmt::format("ip route del default dev {}", tun_interface_name_),
+      fmt::format("ip route del {} via {} dev {}", vpn_server_ip_.toString(),
+          detected_gateway_ip_.toString(), detected_out_interface_name_),
       fmt::format("ip route del 10.0.0.0/8 via {} dev {}",
-          findOutGatewayIp_.toString(), findOutInterfaceName_),
+          detected_gateway_ip_.toString(), detected_out_interface_name_),
       fmt::format("ip route del 172.16.0.0/12 via {} dev {}",
-          findOutGatewayIp_.toString(), findOutInterfaceName_),
+          detected_gateway_ip_.toString(), detected_out_interface_name_),
       fmt::format("ip route del 192.168.0.0/16 via {} dev {}",
-          findOutGatewayIp_.toString(), findOutInterfaceName_),
+          detected_gateway_ip_.toString(), detected_out_interface_name_),
       // DNS
-      fmt::format("resolvectl dns {} '' ", tunInterfaceName_),
-      fmt::format("resolvectl domain {} '' ", findOutInterfaceName_),
-      fmt::format("resolvectl default-route {} no '' ", findOutInterfaceName_)};
+      fmt::format("resolvectl dns {} '' ", tun_interface_name_),
+      fmt::format("resolvectl domain {} '' ", detected_out_interface_name_),
+      fmt::format(
+          "resolvectl default-route {} no '' ", detected_out_interface_name_)};
 #elif __APPLE__
   const std::vector<std::string> commands = {
       fmt::format(
@@ -233,42 +234,42 @@ bool IPTables::Clean() noexcept {
       fmt::format(
           "route delete -net 128.0.0.0/1 -interface {}", tun_interface_name_),
       fmt::format("route delete -host {} {}", vpn_server_ip_.toString(),
-          find_out_gateway_ip_.toString()),
+          detected_gateway_ip_.toString()),
       fmt::format(
-          "route delete -net 10.0.0.0/8 {}", find_out_gateway_ip_.toString()),
+          "route delete -net 10.0.0.0/8 {}", detected_gateway_ip_.toString()),
       fmt::format("route delete -net 172.16.0.0/12 {}",
-          find_out_gateway_ip_.toString()),
+          detected_gateway_ip_.toString()),
       fmt::format("route delete -net 192.168.0.0/16 {}",
-          find_out_gateway_ip_.toString()),
+          detected_gateway_ip_.toString()),
       // DNS
       fmt::format(
           R"(bash -c "networksetup -listallnetworkservices | grep -v '^An asterisk' | xargs -I {{}} networksetup -setdnsservers '{{}}' empty")")  // clean DNS
   };
 #elif _WIN32
   const std::string win_interface_number =
-      GetWindowsInterfaceNumber(tunInterfaceName_);
+      GetWindowsInterfaceNumber(tun_interface_name_);
   const std::string interface_info =
       win_interface_number.empty() ? "" : " if " + win_interface_number;
   const std::vector<std::string> commands = {
       fmt::format("route delete {} mask 255.255.255.255 {}",
-          vpnServerIP_.toString(), findOutGatewayIp_.toString()),
+          vpn_server_ip_.toString(), detected_gateway_ip_.toString()),
       fmt::format("route delete 0.0.0.0 mask 0.0.0.0 {}",
-          tunInterfaceAddressIPv4_.toString()),
+          tun_interface_address_ipv4_.toString()),
       fmt::format("route delete 10.0.0.0 mask 255.0.0.0 {}",
-          findOutGatewayIp_.toString()),
+          detected_gateway_ip_.toString()),
       fmt::format("route delete 172.16.0.0 mask 255.240.0.0 {}",
-          findOutGatewayIp_.toString()),
+          detected_gateway_ip_.toString()),
       fmt::format("route delete 192.168.0.0 mask 255.255.0.0 {}",
-          findOutGatewayIp_.toString()),
+          detected_gateway_ip_.toString()),
       // DNS
-      fmt::format(
-          "netsh interface ip set dns name=\"{}\" dhcp", findOutInterfaceName_),
+      fmt::format("netsh interface ip set dns name=\"{}\" dhcp",
+          detected_out_interface_name_),
       fmt::format("route delete {} mask 255.255.255.255 {} METRIC 2 {}",
-          dnsServerIPv4_.toString(), tunInterfaceAddressIPv4_.toString(),
+          dns_server_ipv4_.toString(), tun_interface_address_ipv4_.toString(),
           interface_info),  // via TUN
       // IPv6
       fmt::format("netsh interface ipv6 delete dnsservers \"{}\" {}",
-          tunInterfaceName_, dnsServerIPv6_.toString())};
+          tun_interface_name_, dns_server_ipv6_.toString())};
 #else
 #error "Unsupported system!"
 #endif

@@ -59,7 +59,7 @@ void SettingsWidget::SetupUi() {
 #if defined(__linux__)
   autostart_label_ = new QLabel(QObject::tr("Autostart"), this);
   autostart_checkbox_ = new QCheckBox(" ", this);
-  autostart_checkbox_->setChecked(settings_->autostart());
+  autostart_checkbox_->setChecked(settings_->Autostart());
   connect(autostart_checkbox_, &QCheckBox::toggled, this,
       &SettingsWidget::onAutostartChanged);
   grid_layout->addWidget(autostart_label_, 0, 0, Qt::AlignLeft);
@@ -262,7 +262,7 @@ void SettingsWidget::onLoadNewConfig() {
 #else
   TokenDialog dialog(this);
   dialog.exec();
-  const QString token = dialog.token();
+  const QString token = dialog.Token();
 #endif
   // show on top
   show();
