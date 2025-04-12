@@ -36,7 +36,7 @@ fptn::client::SessionSPtr Table::CreateClientSession(ClientID clientId,
   const std::unique_lock<std::mutex> lock(mutex_);
 
   if (client_id_to_sessions_.find(clientId) == client_id_to_sessions_.end()) {
-    if (client_number_ >= ipv4_generator_.numAvailableAddresses()) {
+    if (client_number_ >= ipv4_generator_.NumAvailableAddresses()) {
       /* ||  clientNumber_ >= ipv6Generator_.numAvailableAddresses() */
       SPDLOG_INFO("Client limit was exceeded");
       return nullptr;
@@ -127,8 +127,8 @@ fptn::client::SessionSPtr Table::GetSessionByClientId(
 }
 
 pcpp::IPv4Address Table::GetUniqueIPv4Address() {
-  for (std::uint32_t i = 0; i < ipv4_generator_.numAvailableAddresses(); i++) {
-    const auto ip = ipv4_generator_.getNextAddress();
+  for (std::uint32_t i = 0; i < ipv4_generator_.NumAvailableAddresses(); i++) {
+    const auto ip = ipv4_generator_.GetNextAddress();
     if (ip != tun_ipv4_ &&
         ipv4_to_sessions_.find(ip.toInt()) == ipv4_to_sessions_.end()) {
       return ip;

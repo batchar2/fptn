@@ -19,6 +19,8 @@ BinPackParameters: false
 
 # Adjust the include ordering
 IncludeCategories:
+  - Regex:           '^<gtest/.*>'
+    Priority:        4
   - Regex:           '^<Q[A-Z].*>'    # QT Core (QApplication, QWidget и т.д.)
     Priority:        3
   - Regex:           '^<Qt[A-Z].*>'   # QT Modules (QtCore, QtGui и т.д.)
@@ -48,11 +50,11 @@ IncludeCategories:
   - Regex:           '^<fmt/.*>'
     Priority:        2
   - Regex:           '^"(common/.*)"'
-    Priority:        4
+    Priority:        5
   - Regex:           '^<.*>'
     Priority:        1
   - Regex:           '^".*"'
-    Priority:        5
+    Priority:        6
 
 # Format raw string literals with a `pb` or `proto` tag as proto.
 RawStringFormats:

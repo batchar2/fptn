@@ -31,7 +31,7 @@ class IPv4AddressGenerator {
   IPv4AddressGenerator(
       const pcpp::IPv4Address& netAddress, std::uint32_t subnetMask)
       : ip_(boost::asio::ip::address_v4::from_string(netAddress.toString())),
-        netAddr_(
+        net_addr_(
             boost::asio::ip::address_v4::from_string(netAddress.toString())) {
     // cppcheck-suppress useInitializationList
     netmask_ = boost::asio::ip::address_v4(
@@ -46,21 +46,21 @@ class IPv4AddressGenerator {
     broadcast_ =
         boost::asio::ip::address_v4(network_address | ~netmask_.to_uint());
 
-    numAvailableAddresses_ = (1U << (32 - subnetMask)) - 2;
+    num_available_addresses_ = (1U << (32 - subnetMask)) - 2;
   }
 
-  std::uint32_t numAvailableAddresses() const noexcept {
-    return numAvailableAddresses_;
+  std::uint32_t NumAvailableAddresses() const noexcept {
+    return num_available_addresses_;
   }
 
-  pcpp::IPv4Address getNextAddress() noexcept {
-    const std::unique_lock<std::mutex> lock(mutex_);
+  pcpp::IPv4Address GetNextAddress() noexcept {
+    const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
     const std::uint32_t newIP = ip_.to_uint() + 1;
     if (newIP < broadcast_.to_uint()) {
       ip_ = boost::asio::ip::address_v4(newIP);
     } else {
-      ip_ = boost::asio::ip::address_v4(netAddr_.to_uint() + 1);
+      ip_ = boost::asio::ip::address_v4(net_addr_.to_uint() + 1);
     }
     return pcpp::IPv4Address(ip_.to_string());
   }
@@ -68,12 +68,12 @@ class IPv4AddressGenerator {
  private:
   mutable std::mutex mutex_;
   boost::asio::ip::address_v4 ip_;
-  boost::asio::ip::address_v4 netAddr_;
+  boost::asio::ip::address_v4 net_addr_;
 
   boost::asio::ip::address_v4 netmask_;
   boost::asio::ip::address_v4 broadcast_;
 
-  std::uint32_t numAvailableAddresses_;
+  std::uint32_t num_available_addresses_;
 };
 using IPv4AddressGeneratorSPtr = std::shared_ptr<IPv4AddressGenerator>;
 }  // namespace fptn::common::network

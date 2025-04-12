@@ -394,7 +394,6 @@ conan profile detect --force
 Console version
 
 ```bash
-git submodule update --init --recursive
 conan install . --output-folder=build --build=missing  -s compiler.cppstd=17 --settings build_type=Release
 cd build
 # only linux & macos
@@ -402,9 +401,6 @@ cmake .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release
 # only windows
 cmake .. -G "Visual Studio 17 2022" -DCMAKE_TOOLCHAIN_FILE="conan_toolchain.cmake" -DCMAKE_BUILD_TYPE=Release
 cmake --build . --config Release
-# run linter 
-# python cpplint.py --recursive --filter=-build/c++17 ./src/fptn-server/fptn-server.cpp
-# cppcheck --error-exitcode=1 --enable=all --language=c++ --disable=unusedFunction --inline-suppr --suppress=missingIncludeSystem --suppress=unknownMacro  -I ./src/fptn-client/ -I ./src/fptn-server/ -I ./src/fptn-passwd/  -I ./src/  src/fptn-client/gui/tray/tray.h
 ctest
 # to install in routing
 make install
@@ -470,6 +466,17 @@ or build Windows installer
 ```bash
 cmake --build . --config Release --target build-installer
 ```
+
+
+Run checkers (optional)
+
+```bash
+# run linter 
+python3 cpplint.py --recursive --filter=-build/c++17 --counting=total ./src/ ./tests/
+# run cppcheck
+cppcheck --error-exitcode=1 --enable=all --language=c++ --disable=unusedFunction --inline-suppr --suppress=missingIncludeSystem --suppress=unknownMacro  -I ./src/fptn-client/ -I ./src/fptn-server/ -I ./src/fptn-passwd/  -I ./src/ ./src/ ./tests/
+```
+
 
 </details>
 
