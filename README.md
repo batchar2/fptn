@@ -474,7 +474,7 @@ Run checkers (optional)
 # run linter 
 python3 cpplint.py --recursive --filter=-build/c++17 --counting=total ./src/ ./tests/
 # run cppcheck
-cppcheck --error-exitcode=1 --enable=all --language=c++ --suppress=unusedFunction --inline-suppr --suppress=missingIncludeSystem -I ./src/fptn-client/ -I ./src/fptn-server/ -I ./src/fptn-passwd/ -I ./src/ ./src/ ./tests/
+cppcheck --error-exitcode=1 --enable=all --language=c++ --disable=unusedFunction --inline-suppr --suppress=missingIncludeSystem --suppress=unknownMacro -I ./src/fptn-client/ -I ./src/fptn-server/ -I ./src/fptn-passwd/  -I ./src/ ./src/ ./tests/
 ```
 
 
