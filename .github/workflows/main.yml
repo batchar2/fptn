@@ -36,7 +36,7 @@ jobs:
           python3 cpplint.py --recursive --filter=-build/c++17 --counting=total ./src/ ./tests/
       - name: Run cppcheck
         run: |
-          cppcheck --error-exitcode=1 --enable=all --language=c++ --suppress=unusedFunction --inline-suppr --suppress=missingIncludeSystem --suppress=unknownMacro  -I ./src/fptn-client/ -I ./src/fptn-server/ -I ./src/fptn-passwd/  -I ./src/  ./src/  ./tests/
+          cppcheck --error-exitcode=1 --enable=all --language=c++ --suppress=unusedFunction --inline-suppr --suppress=missingIncludeSystem --suppress=unknownMacro  -I ./src/fptn-client/ -I ./src/fptn-server/ -I ./src/fptn-passwd/  -I ./src/  ./src/ ./tests/
       - name: Build
         run: |
           cd build
@@ -83,7 +83,7 @@ jobs:
           python3 cpplint.py --recursive --filter=-build/c++17 --counting=total ./src/ ./tests/
       - name: Run cppcheck
         run: |
-          cppcheck --error-exitcode=1 --enable=all --language=c++ --suppress=unusedFunction --inline-suppr --suppress=missingIncludeSystem --suppress=unknownMacro  -I ./src/fptn-client/ -I ./src/fptn-server/ -I ./src/fptn-passwd/  -I ./src/  src/ ./tests/
+          cppcheck --error-exitcode=1 --enable=all --language=c++ --suppress=unusedFunction --inline-suppr --suppress=missingIncludeSystem --suppress=unknownMacro  -I ./src/fptn-client/ -I ./src/fptn-server/ -I ./src/fptn-passwd/  -I ./src/  ./src/ ./tests/
       - name: Build
         run: |
           cd build
