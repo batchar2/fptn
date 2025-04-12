@@ -87,7 +87,7 @@ class IPPacket {
   static std::unique_ptr<IPPacket> Parse(const std::uint8_t* data,
       std::size_t size,
       std::uint64_t client_id = PACKET_UNDEFINED_CLIENT_ID) {
-    std::string buffer((const char*)data, size);
+    std::string buffer(reinterpret_cast<const char*>(data), size);
     return Parse(std::move(buffer), client_id);
   }
 
@@ -96,7 +96,7 @@ class IPPacket {
       std::string data, std::uint64_t client_id, pcpp::LinkLayerType ipType)
       : packet_data_(std::move(data)),
         client_id_(client_id),
-        raw_packet_((const std::uint8_t*)packet_data_.c_str(),
+        raw_packet_(reinterpret_cast<const std::uint8_t*>(packet_data_.c_str()),
             static_cast<int>(packet_data_.size()),
             timeval{0, 0},
             false,

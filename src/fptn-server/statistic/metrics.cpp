@@ -14,8 +14,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 using fptn::statistic::Metrics;
 
-Metrics::Metrics() {
-  registry_ = std::make_shared<prometheus::Registry>();
+Metrics::Metrics() : registry_(std::make_shared<prometheus::Registry>()) {
   active_sessions_ = &prometheus::BuildGauge()
                           .Name("fptn_active_sessions")
                           .Help("Number of active VPN sessions")

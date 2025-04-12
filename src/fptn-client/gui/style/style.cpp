@@ -1,8 +1,12 @@
-#include "style.h"
+/*=============================================================================
+Copyright (c) 2024-2025 Stas Skokov
 
+Distributed under the MIT License (https://opensource.org/licenses/MIT)
+=============================================================================*/
 
-namespace fptn::gui
-{
+#include "gui/style/style.h"
+
+namespace fptn::gui {
 QString macStyleSheet = R"(
 QMenu {
     background-color: #333;
@@ -28,7 +32,6 @@ QWidgetAction {
     padding: 5px;
 }
 )";
-
 
 QString ubuntuStyleSheet = R"(
 QMenu {
@@ -142,7 +145,6 @@ QAction:disabled {
 }
 )";
 
-
 QString windowsStyleSheet = R"(
 QMenu {
     background-color: #ffffff;
@@ -182,5 +184,4 @@ QAction:disabled {
 }
 )";
 
-
-}
+}  // namespace fptn::gui

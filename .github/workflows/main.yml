@@ -114,6 +114,12 @@ jobs:
       - name: Install dependencies
         run: |
           conan install . --output-folder=build --build=missing -o with_gui_client=True --settings build_type=Release -s compiler.cppstd=17
+      - name: Run cpplint
+        run: |
+          python cpplint.py --recursive --filter=-build/c++17 --counting=total ./src/
+      - name: Run cppcheck
+        run: |
+          cppcheck --error-exitcode=1 --enable=all --language=c++ --disable=unusedFunction --inline-suppr --suppress=missingIncludeSystem --suppress=unknownMacro  -I ./src/fptn-client/ -I ./src/fptn-server/ -I ./src/fptn-passwd/  -I ./src/  src/
       - name: Build
         run: |
           cd build

@@ -147,7 +147,7 @@ class PosixTunInterface final : public BaseNetInterface {
         mtu_(FPTN_MTU_SIZE),
         running_(false) {}
 
-  virtual ~PosixTunInterface() { Stop(); }
+  ~PosixTunInterface() override { Stop(); }
 
   bool Start() noexcept override {
     try {
@@ -250,7 +250,7 @@ class WindowsTunInterface : public BaseNetInterface {
     wintun_ = InitializeWintun();
     UuidCreate(&guid_);
   }
-  virtual ~WindowsTunInterface() { stop(); }
+  ~WindowsTunInterface() override { stop(); }
   bool Start() noexcept override {
     if (!wintun_) {
       return false;
@@ -322,7 +322,8 @@ class WindowsTunInterface : public BaseNetInterface {
     return receiveRateCalculator_.GetRateForSecond();
   }
 
- private:
+ protected:
+  // cppcheck-suppress unusedPrivateFunction
   bool SetIPv4AndNetmask(const pcpp::IPv4Address& addr, const int mask) {
     const std::string ipaddr = addr.toString();
     MIB_UNICASTIPADDRESS_ROW addressRow;
@@ -346,7 +347,7 @@ class WindowsTunInterface : public BaseNetInterface {
     }
     return true;
   }
-
+  // cppcheck-suppress unusedPrivateFunction
   bool SetIPv6AndNetmask(const pcpp::IPv6Address& addr, const int mask) {
     const std::string ipaddr = addr.toString();
     MIB_UNICASTIPADDRESS_ROW addressRow;
@@ -385,15 +386,18 @@ class WindowsTunInterface : public BaseNetInterface {
     }
   }
 
+  // cppcheck-suppress unusedFunction
   inline std::wstring ToWString(const std::string& s) {
     return std::wstring(s.begin(), s.end());
   }
 
+  // cppcheck-suppress unusedFunction
   inline std::string ParseWinTunVersion(DWORD versionNumber) {
     return std::to_string((versionNumber >> 16) & 0xff) + "." +
            std::to_string((versionNumber >> 0) & 0xff);
   }
 
+  // cppcheck-suppress unusedFunction
   int ReadPacketNonblock(
       WINTUN_SESSION_HANDLE session, BYTE* buff, DWORD* size) {
     static constexpr size_t retryAmount = 20;

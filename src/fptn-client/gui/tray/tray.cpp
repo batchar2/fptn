@@ -1,613 +1,595 @@
-#include <QMenu>
-#include <QIcon>
-#include <QAction>
-#include <QStyleHints>
-#include <QMessageBox>
-#include <QApplication>
-#include <QWidgetAction>
-#include <QStyleFactory>
+/*=============================================================================
+Copyright (c) 2024-2025 Stas Skokov
 
-#include <spdlog/spdlog.h>
-#include <QDesktopServices>
+Distributed under the MIT License (https://opensource.org/licenses/MIT)
+=============================================================================*/
 
-#include <common/system/command.h>
+#include "gui/tray/tray.h"
 
-#include "gui/style/style.h"
+#include <memory>
+#include <string>
+#include <utility>
+
+#include <spdlog/spdlog.h>  // NOLINT(build/include_order)
+
+#include <QDesktopServices>  // NOLINT(build/include_order)
+#include <QIcon>             // NOLINT(build/include_order)
+#include <QMessageBox>       // NOLINT(build/include_order)
+#include <QStyleFactory>     // NOLINT(build/include_order)
+#include <QStyleHints>       // NOLINT(build/include_order)
+
+#include "common/system/command.h"
+
 #include "gui/autoupdate/autoupdate.h"
+#include "gui/style/style.h"
 #include "gui/translations/translations.h"
 
-#include "tray.h"
+using fptn::gui::TrayApp;
 
-
-using namespace fptn::gui;
-
-
-inline void showError(const QString& title, const QString& msg)
-{
-    QWidget tempWidget;
-    QMessageBox::critical(
-        &tempWidget,
-        title,
-        msg
-    );
+inline void showError(const QString& title, const QString& msg) {
+  QWidget tempWidget;
+  QMessageBox::critical(&tempWidget, title, msg);
 }
 
-
-TrayApp::TrayApp(const SettingsModelPtr &settings, QObject* parent)
-        :
-        QWidget(),
-        settings_(settings),
-        trayIcon_(new QSystemTrayIcon(this)),
-        trayMenu_(new QMenu(this)),
-        connectMenu_(new QMenu(QObject::tr("Connect") + "    ", trayMenu_)),
-        speedWidget_(new SpeedWidget(trayMenu_)),
-        updateTimer_(new QTimer(this)),
-        activeIconPath_(":/icons/active.ico"),
-        inactiveIconPath_(":/icons/inactive.ico")
-{
-    (void)parent;
+TrayApp::TrayApp(const SettingsModelPtr& settings, QObject* parent)
+    : QWidget(),
+      settings_(settings),
+      tray_icon_(new QSystemTrayIcon(this)),
+      tray_menu_(new QMenu(this)),
+      connect_menu_(new QMenu(QObject::tr("Connect") + "    ", tray_menu_)),
+      speed_widget_(new SpeedWidget(tray_menu_)),
+      update_timer_(new QTimer(this)),
+      active_icon_path_(":/icons/active.ico"),
+      inactive_icon_path_(":/icons/inactive.ico") {
+  (void)parent;
 #ifdef __linux__
-    qApp->setStyleSheet(fptn::gui::ubuntuStyleSheet);
+  qApp->setStyleSheet(fptn::gui::ubuntuStyleSheet);
 #elif __APPLE__
-    qApp->setStyleSheet(fptn::gui::macStyleSheet);
+  qApp->setStyleSheet(fptn::gui::macStyleSheet);
 #elif _WIN32
-    qApp->setStyleSheet(fptn::gui::windowsStyleSheet);
+  qApp->setStyleSheet(fptn::gui::windowsStyleSheet);
 #else
-    #error "Unsupported system!"
+#error "Unsupported system!"
 #endif
 
 #if __linux__
-    connect(trayIcon_, &QSystemTrayIcon::activated, [this](QSystemTrayIcon::ActivationReason reason) {
+  connect(trayIcon_, &QSystemTrayIcon::activated,
+      [this](QSystemTrayIcon::ActivationReason reason) {
         if (reason == QSystemTrayIcon::Context) {
-            trayMenu_->popup(trayIcon_->geometry().bottomLeft());
+          trayMenu_->popup(trayIcon_->geometry().bottomLeft());
         } else {
-            trayMenu_->close();
+          trayMenu_->close();
         }
-    });
+      });
 #elif _WIN32
-    connect(trayIcon_, &QSystemTrayIcon::activated, [this](QSystemTrayIcon::ActivationReason reason) {
+  connect(trayIcon_, &QSystemTrayIcon::activated,
+      [this](QSystemTrayIcon::ActivationReason reason) {
         if (reason == QSystemTrayIcon::Context) {
-            trayMenu_->show();
-            trayMenu_->exec(QCursor::pos());
+          trayMenu_->show();
+          trayMenu_->exec(QCursor::pos());
         } else {
-            trayMenu_->close();
+          trayMenu_->close();
         }
-    });
+      });
 #endif
-    // Also connect clicking on the icon to the signal processor of this press
-//    connect(trayIcon_, SIGNAL(activated(QSystemTrayIcon::ActivationReason)),
-//            this, SLOT(iconActivated(QSystemTrayIcon::ActivationReason)));
+  // Also connect clicking on the icon to the signal processor of this press
+  //    connect(trayIcon_, SIGNAL(activated(QSystemTrayIcon::ActivationReason)),
+  //            this, SLOT(iconActivated(QSystemTrayIcon::ActivationReason)));
 
-    const QString selectedLanguage = settings->languageCode();
-    if (selectedLanguage.isEmpty()) { // save default language for first start
-        const QString systemLanguage = getSystemLanguageCode();
-        if (settings->existsTranslation(systemLanguage)) {
-            settings->setLanguageCode(systemLanguage);
-        } else {
-            settings->setLanguageCode(settings->defaultLanguageCode());
-        }
+  const QString selected_language = settings->LanguageCode();
+  if (selected_language.isEmpty()) {  // save default language for first start
+    const QString system_language = GetSystemLanguageCode();
+    if (settings->ExistsTranslation(system_language)) {
+      settings->SetLanguageCode(system_language);
     } else {
-        fptn::gui::setTranslation(selectedLanguage);
+      settings->SetLanguageCode(settings->DefaultLanguageCode());
     }
+  } else {
+    fptn::gui::SetTranslation(selected_language);
+  }
 
-    // State
-    connect(this, &TrayApp::defaultState, this, &TrayApp::handleDefaultState);
-    connect(this, &TrayApp::connecting, this, &TrayApp::handleConnecting);
-    connect(this, &TrayApp::connected, this, &TrayApp::handleConnected);
-    connect(this, &TrayApp::disconnecting, this, &TrayApp::handleDisconnecting);
+  // State
+  connect(this, &TrayApp::defaultState, this, &TrayApp::handleDefaultState);
+  connect(this, &TrayApp::connecting, this, &TrayApp::handleConnecting);
+  connect(this, &TrayApp::connected, this, &TrayApp::handleConnected);
+  connect(this, &TrayApp::disconnecting, this, &TrayApp::handleDisconnecting);
 
-    // Settings
-    connect(settings_.get(), &SettingsModel::dataChanged, this, &TrayApp::updateTrayMenu);
-    connect(updateTimer_, &QTimer::timeout, this, &TrayApp::updateSpeedWidget);
-    updateTimer_->start(1000);
+  // Settings
+  connect(settings_.get(), &SettingsModel::dataChanged, this,
+      &TrayApp::UpdateTrayMenu);
+  connect(
+      update_timer_, &QTimer::timeout, this, &TrayApp::handleUpdateSpeedWidget);
+  update_timer_->start(1000);
 
-    // Settings
-    settingsAction_ = new QAction(QObject::tr("Settings"), this);
-    connect(settingsAction_, &QAction::triggered, this, &TrayApp::onShowSettings);
+  // Settings
+  settings_action_ = new QAction(QObject::tr("Settings"), this);
+  connect(
+      settings_action_, &QAction::triggered, this, &TrayApp::onShowSettings);
 
-    // Autoupdate
-    autoUpdateAction_ = new QAction(QObject::tr("New version available") + " " + autoAvailableVersion_, this);
-    connect(autoUpdateAction_, &QAction::triggered, this, [this] {
-        openBrowser(FPTN_GITHUB_PAGE_LINK);
-    });
-    autoUpdateAction_->setVisible(false);
+  // Autoupdate
+  auto_update_action_ = new QAction(
+      QObject::tr("New version available") + " " + auto_available_version_,
+      this);
+  connect(auto_update_action_, &QAction::triggered, this,
+      [this] { OpenWebBrowser(FPTN_GITHUB_PAGE_LINK); });
+  auto_update_action_->setVisible(false);
 
-    // Quit
-    quitAction_ = new QAction(QObject::tr("Quit"), this);
-    connect(quitAction_, &QAction::triggered, this, &QCoreApplication::quit);
+  // Quit
+  quit_action_ = new QAction(QObject::tr("Quit"), this);
+  connect(quit_action_, &QAction::triggered, this, &QCoreApplication::quit);
 
-    // Show menu
-    trayMenu_->addSeparator();
-    trayMenu_->addAction(settingsAction_);
-    trayMenu_->addSeparator();
-    trayMenu_->addAction(autoUpdateAction_);
-    trayMenu_->addSeparator();
-    trayMenu_->addAction(quitAction_);
+  // Show menu
+  tray_menu_->addSeparator();
+  tray_menu_->addAction(settings_action_);
+  tray_menu_->addSeparator();
+  tray_menu_->addAction(auto_update_action_);
+  tray_menu_->addSeparator();
+  tray_menu_->addAction(quit_action_);
 
-    trayIcon_->setContextMenu(trayMenu_);
+  tray_icon_->setContextMenu(tray_menu_);
 
-    updateTrayMenu();
-    trayIcon_->show();
+  UpdateTrayMenu();
+  tray_icon_->show();
 
-    // check update
-    updateVersionFuture_ = std::async(std::launch::async, fptn::gui::autoupdate::check);
+  // check update
+  update_version_future_ =
+      std::async(std::launch::async, fptn::gui::autoupdate::Check);
 }
 
-void TrayApp::updateTrayMenu()
-{
-    if (connectMenu_) {
-        connectMenu_->clear();
-    }
-    if (trayMenu_ && connectMenu_) {
-        trayMenu_->removeAction(connectMenu_->menuAction());
-        smartConnectAction_ = nullptr;
-        emptyConfigurationAction_ = nullptr;
-    }
+void TrayApp::UpdateTrayMenu() {
+  if (connect_menu_) {
+    connect_menu_->clear();
+  }
+  if (tray_menu_ && connect_menu_) {
+    tray_menu_->removeAction(connect_menu_->menuAction());
+    smart_connect_action_ = nullptr;
+    empty_configuration_action_ = nullptr;
+  }
 
-    switch (connectionState_) {
-        case ConnectionState::None: {
-            trayIcon_->setIcon(QIcon(inactiveIconPath_));
-            const auto& services = settings_->services();
-            if (services.length()) {
-                smartConnectAction_ = new QAction(QObject::tr("Smart Connect"), connectMenu_);
-                connect(smartConnectAction_, &QAction::triggered, [this]() {
-                    smartConnect_ = true;
-                    onConnectToServer();
-                });
-                connectMenu_->addAction(smartConnectAction_);
-                connectMenu_->addSeparator();
-                // servers
-                for (const auto &service : services) {
-                    for (const auto &server : service.servers) {
-                        auto serverConnect = new QAction(server.name, connectMenu_);
-                        connect(serverConnect, &QAction::triggered, [this, server, service]() {
-                            smartConnect_ = false;
-                            fptn::config::ConfigFile::Server cfgServer;
-                            {
-                                cfgServer.name = server.name.toStdString();
-                                cfgServer.host = server.host.toStdString();
-                                cfgServer.port = server.port;
-                                cfgServer.isUsing = server.isUsing;
-                                cfgServer.serviceName = service.serviceName.toStdString();
-                                cfgServer.username = service.username.toStdString();
-                                cfgServer.password = service.password.toStdString();
-                            }
-                            selectedServer_ = cfgServer;
-                            onConnectToServer();
-                        });
-                        connectMenu_->addAction(serverConnect);
-                    }
-                }
-            } else {
-                emptyConfigurationAction_ = new QAction(QObject::tr("No servers"), connectMenu_);
-                connectMenu_->addAction(emptyConfigurationAction_);
-                emptyConfigurationAction_->setEnabled(false);
-            }
-            trayMenu_->insertMenu(settingsAction_, connectMenu_);
-
-            if (connectMenu_) {
-                connectMenu_->setVisible(false);
-            }
-            if (disconnectAction_) {
-                disconnectAction_->setVisible(false);
-            }
-            if (speedWidgetAction_) {
-                speedWidgetAction_->setVisible(false);
-            }
-            if (settingsAction_) {
-                settingsAction_->setEnabled(true);
-            }
-            if (connectingAction_) {
-                connectingAction_->setVisible(false);
-            }
-            if (speedWidget_) {
-                speedWidget_->setVisible(false);
-            }
-            break;
-        }
-        case ConnectionState::Connecting: {
-            trayIcon_->setIcon(QIcon(inactiveIconPath_));
-            if (!connectingAction_) {
-                connectingAction_ = new QAction(QObject::tr("Connecting..."), this);
-                trayMenu_->insertAction(settingsAction_, connectingAction_);
-            }
-            if (disconnectAction_) {
-                disconnectAction_->setVisible(false);
-            }
-            if (speedWidgetAction_) {
-                speedWidgetAction_->setVisible(false);
-            }
-            if (settingsAction_) {
-                settingsAction_->setEnabled(false);
-            }
-            break;
-        }
-        case ConnectionState::Connected: {
-            trayIcon_->setIcon(QIcon(activeIconPath_));
-            if (!disconnectAction_) {
-                disconnectAction_ = new QAction(this);
-                connect(disconnectAction_, &QAction::triggered, this, &TrayApp::onDisconnectFromServer);
-                trayMenu_->insertAction(settingsAction_, disconnectAction_);
-            }
-            if (disconnectAction_) {
-                disconnectAction_->setText(
-                    QString(QObject::tr("Disconnect") + ": %1 (%2)")
-                        .arg(QString::fromStdString(selectedServer_.name))
-                        .arg(QString::fromStdString(selectedServer_.serviceName))
-                );
-                disconnectAction_->setVisible(true);
-            }
-            if (connectingAction_) {
-                connectingAction_->setVisible(false);
-            }
-            if (!speedWidgetAction_) {
-                speedWidgetAction_ = new QWidgetAction(this);
-                speedWidgetAction_->setDefaultWidget(speedWidget_);
-                trayMenu_->insertAction(settingsAction_, speedWidgetAction_);
-            }
-            if (speedWidget_) {
-                speedWidget_->setVisible(true);
-            }
-            if (settingsAction_) {
-                settingsAction_->setEnabled(false);
-            }
-            if (speedWidgetAction_) {
-                speedWidgetAction_->setVisible(true);
-            }
-            break;
-        }
-        case ConnectionState::Disconnecting: {
-            trayIcon_->setIcon(QIcon(inactiveIconPath_));
-            if (disconnectAction_) {
-                disconnectAction_->setVisible(false);
-            }
-            if (!connectingAction_) {
-                connectingAction_ = new QAction(QObject::tr("Disconnecting..."), this);
-                trayMenu_->insertAction(settingsAction_, connectingAction_);
-            } else {
-                connectingAction_->setText(QObject::tr("Disconnecting... "));
-            }
-            if (speedWidgetAction_) {
-                speedWidgetAction_->setVisible(false);
-            }
-            if (settingsAction_) {
-                settingsAction_->setEnabled(false);
-            }
-            if (connectingAction_) {
-                connectingAction_->setVisible(true);
-            }
-            break;
-        }
-    }
-
-    // Apply the language translation based on the user's settings
-    QString selectedLanguage = settings_->languageCode();
-    if (!selectedLanguage.isEmpty()) {
-        fptn::gui::setTranslation(selectedLanguage);
-    }
-    retranslateUi();
-}
-
-void TrayApp::onConnectToServer()
-{
-    connectionState_ = ConnectionState::Connecting;
-    updateTrayMenu();
-    emit connecting();
-}
-
-void TrayApp::onDisconnectFromServer()
-{
-    if (vpnClient_) {
-        vpnClient_->stop();
-        vpnClient_.reset();
-    }
-    if (ipTables_) {
-        ipTables_->clean();
-        ipTables_.reset();
-    }
-    connectionState_ = ConnectionState::None;
-    updateTrayMenu();
-}
-
-void TrayApp::onShowSettings()
-{
-    auto dialog = std::make_unique<SettingsWidget>(settings_);
-    QMetaObject::invokeMethod(dialog.get(), "setFocus", Qt::QueuedConnection);
-    dialog->exec();
-}
-
-void TrayApp::handleDefaultState()
-{
-    if (vpnClient_) {
-        vpnClient_->stop();
-        vpnClient_.reset();
-    }
-    if (ipTables_) {
-        ipTables_->clean();
-        ipTables_.reset();
-    }
-    updateTrayMenu();
-}
-
-void TrayApp::handleConnecting()
-{
-    SPDLOG_DEBUG("Handling connecting state");
-    updateTrayMenu();
-
-    trayIcon_->setIcon(QIcon(inactiveIconPath_));
-
-    const pcpp::IPv4Address tunInterfaceAddressIPv4(FPTN_CLIENT_DEFAULT_ADDRESS_IP4);
-    const pcpp::IPv6Address tunInterfaceAddressIPv6(FPTN_CLIENT_DEFAULT_ADDRESS_IP6);
-    const std::string tunInterfaceName = "tun0";
-
-    /* check gateway address */
-    const auto usingGatewayIP = (
-        settings_->gatewayIp() == "auto"
-        ? fptn::system::getDefaultGatewayIPAddress()
-        : pcpp::IPv4Address(settings_->gatewayIp().toStdString())
-    );
-
-    if (usingGatewayIP == pcpp::IPv4Address("0.0.0.0")) {
-        showError(
-            QObject::tr("Connection Error"),
-            QObject::tr(
-                "Unable to find the default gateway IP address. "
-                "Please check your connection and make sure no other VPN is active. "
-                "If the error persists, specify the gateway address in the FPTN settings using your router's IP address, "
-                "and ensure that an active internet interface (adapter) is selected. If the issue remains unresolved, "
-                "please contact the developer via Telegram @fptn_chat."
-            )
-        );
-        connectionState_ = ConnectionState::None;
-        updateTrayMenu();
-        return;
-    }
-
-    /* config */
-    const std::string networkInterface = (
-        settings_->networkInterface() == "auto"
-        ? ""
-        : settings_->networkInterface().toStdString()
-    );
-
-    const std::string sni = !settings_->SNI().isEmpty() ? settings_->SNI().toStdString() : FPTN_DEFAULT_SNI;
-    fptn::config::ConfigFile config(sni); // SET SNI
-    if (smartConnect_) { // find the best server
-        for (const auto& service : settings_->services()) {
-            for (const auto &s: service.servers) {
-                fptn::config::ConfigFile::Server cfgServer;
-                {
-                    cfgServer.name = s.name.toStdString();
-                    cfgServer.host = s.host.toStdString();
-                    cfgServer.port = s.port;
-                    cfgServer.isUsing = s.isUsing;
-                    cfgServer.serviceName = service.serviceName.toStdString();
+  switch (connection_state_) {
+    case ConnectionState::None: {
+      tray_icon_->setIcon(QIcon(inactive_icon_path_));
+      const auto& services = settings_->Services();
+      if (services.length()) {
+        smart_connect_action_ =
+            new QAction(QObject::tr("Smart Connect"), connect_menu_);
+        connect(smart_connect_action_, &QAction::triggered, [this]() {
+          smart_connect_ = true;
+          onConnectToServer();
+        });
+        connect_menu_->addAction(smart_connect_action_);
+        connect_menu_->addSeparator();
+        // servers
+        for (const auto& service : services) {
+          for (const auto& server : service.servers) {
+            auto serverConnect = new QAction(server.name, connect_menu_);
+            connect(
+                serverConnect, &QAction::triggered, [this, server, service]() {
+                  smart_connect_ = false;
+                  fptn::config::ConfigFile::Server cfgServer;
+                  {
+                    cfgServer.name = server.name.toStdString();
+                    cfgServer.host = server.host.toStdString();
+                    cfgServer.port = server.port;
+                    cfgServer.is_using = server.is_using;
+                    cfgServer.service_name = service.service_name.toStdString();
                     cfgServer.username = service.username.toStdString();
                     cfgServer.password = service.password.toStdString();
-                }
-                config.addServer(cfgServer);
-            }
+                  }
+                  selected_server_ = cfgServer;
+                  onConnectToServer();
+                });
+            connect_menu_->addAction(serverConnect);
+          }
         }
-        try {
-            selectedServer_ = config.findFastestServer();
-        } catch (std::runtime_error &err) {
-            showError(QObject::tr("Config error"), err.what());
-            connectionState_ = ConnectionState::None;
-            updateTrayMenu();
-            return;
+      } else {
+        empty_configuration_action_ =
+            new QAction(QObject::tr("No servers"), connect_menu_);
+        connect_menu_->addAction(empty_configuration_action_);
+        empty_configuration_action_->setEnabled(false);
+      }
+      tray_menu_->insertMenu(settings_action_, connect_menu_);
+
+      if (connect_menu_) {
+        connect_menu_->setVisible(false);
+      }
+      if (disconnect_action_) {
+        disconnect_action_->setVisible(false);
+      }
+      if (speed_widget_action_) {
+        speed_widget_action_->setVisible(false);
+      }
+      if (settings_action_) {
+        settings_action_->setEnabled(true);
+      }
+      if (connecting_action_) {
+        connecting_action_->setVisible(false);
+      }
+      if (speed_widget_) {
+        speed_widget_->setVisible(false);
+      }
+      break;
+    }
+    case ConnectionState::Connecting: {
+      tray_icon_->setIcon(QIcon(inactive_icon_path_));
+      if (!connecting_action_) {
+        connecting_action_ = new QAction(QObject::tr("Connecting..."), this);
+        tray_menu_->insertAction(settings_action_, connecting_action_);
+      }
+      if (disconnect_action_) {
+        disconnect_action_->setVisible(false);
+      }
+      if (speed_widget_action_) {
+        speed_widget_action_->setVisible(false);
+      }
+      if (settings_action_) {
+        settings_action_->setEnabled(false);
+      }
+      break;
+    }
+    case ConnectionState::Connected: {
+      tray_icon_->setIcon(QIcon(active_icon_path_));
+      if (!disconnect_action_) {
+        disconnect_action_ = new QAction(this);
+        connect(disconnect_action_, &QAction::triggered, this,
+            &TrayApp::onDisconnectFromServer);
+        tray_menu_->insertAction(settings_action_, disconnect_action_);
+      }
+      if (disconnect_action_) {
+        disconnect_action_->setText(
+            QString(QObject::tr("Disconnect") + ": %1 (%2)")
+                .arg(QString::fromStdString(selected_server_.name))
+                .arg(QString::fromStdString(selected_server_.service_name)));
+        disconnect_action_->setVisible(true);
+      }
+      if (connecting_action_) {
+        connecting_action_->setVisible(false);
+      }
+      if (!speed_widget_action_) {
+        speed_widget_action_ = new QWidgetAction(this);
+        speed_widget_action_->setDefaultWidget(speed_widget_);
+        tray_menu_->insertAction(settings_action_, speed_widget_action_);
+      }
+      if (speed_widget_) {
+        speed_widget_->setVisible(true);
+      }
+      if (settings_action_) {
+        settings_action_->setEnabled(false);
+      }
+      if (speed_widget_action_) {
+        speed_widget_action_->setVisible(true);
+      }
+      break;
+    }
+    case ConnectionState::Disconnecting: {
+      tray_icon_->setIcon(QIcon(inactive_icon_path_));
+      if (disconnect_action_) {
+        disconnect_action_->setVisible(false);
+      }
+      if (!connecting_action_) {
+        connecting_action_ = new QAction(QObject::tr("Disconnecting..."), this);
+        tray_menu_->insertAction(settings_action_, connecting_action_);
+      } else {
+        connecting_action_->setText(QObject::tr("Disconnecting... "));
+      }
+      if (speed_widget_action_) {
+        speed_widget_action_->setVisible(false);
+      }
+      if (settings_action_) {
+        settings_action_->setEnabled(false);
+      }
+      if (connecting_action_) {
+        connecting_action_->setVisible(true);
+      }
+      break;
+    }
+  }
+
+  // Apply the language translation based on the user's settings
+  QString selectedLanguage = settings_->LanguageCode();
+  if (!selectedLanguage.isEmpty()) {
+    fptn::gui::SetTranslation(selectedLanguage);
+  }
+  RetranslateUi();
+}
+
+void TrayApp::onConnectToServer() {
+  connection_state_ = ConnectionState::Connecting;
+  UpdateTrayMenu();
+  emit connecting();
+}
+
+void TrayApp::onDisconnectFromServer() {
+  if (vpn_client_) {
+    vpn_client_->Stop();
+    vpn_client_.reset();
+  }
+  if (ip_tables_) {
+    ip_tables_->Clean();
+    ip_tables_.reset();
+  }
+  connection_state_ = ConnectionState::None;
+  UpdateTrayMenu();
+}
+
+void TrayApp::onShowSettings() {
+  auto dialog = std::make_unique<SettingsWidget>(settings_);
+  QMetaObject::invokeMethod(dialog.get(), "setFocus", Qt::QueuedConnection);
+  dialog->exec();
+}
+
+void TrayApp::handleDefaultState() {
+  if (vpn_client_) {
+    vpn_client_->Stop();
+    vpn_client_.reset();
+  }
+  if (ip_tables_) {
+    ip_tables_->Clean();
+    ip_tables_.reset();
+  }
+  UpdateTrayMenu();
+}
+
+void TrayApp::handleConnecting() {
+  SPDLOG_DEBUG("Handling connecting state");
+  UpdateTrayMenu();
+
+  tray_icon_->setIcon(QIcon(inactive_icon_path_));
+
+  const pcpp::IPv4Address tun_interface_address_ipv4(
+      FPTN_CLIENT_DEFAULT_ADDRESS_IP4);
+  const pcpp::IPv6Address tun_interface_address_ipv6(
+      FPTN_CLIENT_DEFAULT_ADDRESS_IP6);
+  const std::string tun_interface_name = "tun0";
+
+  /* check gateway address */
+  const auto gateway_ip =
+      (settings_->GatewayIp() == "auto"
+              ? fptn::routing::GetDefaultGatewayIPAddress()
+              : pcpp::IPv4Address(settings_->GatewayIp().toStdString()));
+
+  if (gateway_ip == pcpp::IPv4Address("0.0.0.0")) {
+    showError(QObject::tr("Connection Error"),
+        QObject::tr("Unable to find the default gateway IP address. "
+                    "Please check your connection and make sure no other VPN "
+                    "is active. "
+                    "If the error persists, specify the gateway address in the "
+                    "FPTN settings using your router's IP address, "
+                    "and ensure that an active internet interface (adapter) is "
+                    "selected. If the issue remains unresolved, "
+                    "please contact the developer via Telegram @fptn_chat."));
+    connection_state_ = ConnectionState::None;
+    UpdateTrayMenu();
+    return;
+  }
+
+  /* config */
+  const std::string network_interface =
+      (settings_->NetworkInterface() == "auto"
+              ? ""
+              : settings_->NetworkInterface().toStdString());
+
+  const std::string sni = !settings_->SNI().isEmpty()
+                              ? settings_->SNI().toStdString()
+                              : FPTN_DEFAULT_SNI;
+  fptn::config::ConfigFile config(sni);  // SET SNI
+  if (smart_connect_) {                  // find the best server
+    for (const auto& service : settings_->Services()) {
+      for (const auto& s : service.servers) {
+        fptn::config::ConfigFile::Server cfg_server;
+        {
+          cfg_server.name = s.name.toStdString();
+          cfg_server.host = s.host.toStdString();
+          cfg_server.port = s.port;
+          cfg_server.is_using = s.is_using;
+          cfg_server.service_name = service.service_name.toStdString();
+          cfg_server.username = service.username.toStdString();
+          cfg_server.password = service.password.toStdString();
         }
-    } else {
-        // check connection to selected server
-        const std::uint64_t time = config.getDownloadTimeMs(selectedServer_);
-        if (time == static_cast<std::uint64_t>(-1)) {
-            showError(
-                QObject::tr("Connection Error"),
-                QString(QObject::tr("The server is unavailable. Please select another server or use Auto-connect to find the best available server."))
-                    .arg(QString::fromStdString(selectedServer_.host)));
-            connectionState_ = ConnectionState::None;
-            updateTrayMenu();
-            return;
-        }
+        config.AddServer(cfg_server);
+      }
     }
-
-    const int serverPort = selectedServer_.port;
-    const auto serverIP = fptn::system::resolveDomain(selectedServer_.host);
-    if (serverIP == pcpp::IPv4Address("0.0.0.0")) {
-        showError(
-            QObject::tr("DNS resolution error"),
-            QString(QObject::tr("DNS resolution error") + ": %1").arg(QString::fromStdString(selectedServer_.host)));
-        connectionState_ = ConnectionState::None;
-        updateTrayMenu();
-        return;
+    try {
+      selected_server_ = config.FindFastestServer();
+    } catch (std::runtime_error& err) {
+      showError(QObject::tr("Config error"), err.what());
+      connection_state_ = ConnectionState::None;
+      UpdateTrayMenu();
+      return;
     }
-
-    auto httpClient = std::make_unique<fptn::http::Client>(
-        serverIP,
-        serverPort,
-        tunInterfaceAddressIPv4,
-        tunInterfaceAddressIPv6,
-        sni
-    );
-    // login
-    bool loginStatus = httpClient->login(selectedServer_.username, selectedServer_.password);
-    if (!loginStatus) {
-        showError(
-            QObject::tr("Connection Error"),
-            QObject::tr("Connection error to the server! Please download the latest file with your personal settings through the Telegram bot and try again.")
-        );
-        connectionState_ = ConnectionState::None;
-        updateTrayMenu();
-        return;
+  } else {
+    // check connection to selected server
+    const std::uint64_t time = config.GetDownloadTimeMs(selected_server_);
+    if (time == static_cast<std::uint64_t>(-1)) {
+      showError(QObject::tr("Connection Error"),
+          QString(QObject::tr(
+                      "The server is unavailable. Please select another server "
+                      "or use Auto-connect to find the best available server."))
+              .arg(QString::fromStdString(selected_server_.host)));
+      connection_state_ = ConnectionState::None;
+      UpdateTrayMenu();
+      return;
     }
+  }
 
-    // get dns
-    const auto [dnsServerIPv4, dnsServerIPv6] = httpClient->getDns();
-    if (dnsServerIPv4 == pcpp::IPv4Address("0.0.0.0") || dnsServerIPv6 == pcpp::IPv6Address("")) {
-        showError(
-            QObject::tr("Connection error"),
-            QObject::tr("DNS server error! Check your connection!")
-        );
-        connectionState_ = ConnectionState::None;
-        updateTrayMenu();
-        return;
+  const int server_port = selected_server_.port;
+  const auto server_ip = fptn::routing::ResolveDomain(selected_server_.host);
+  if (server_ip == pcpp::IPv4Address("0.0.0.0")) {
+    showError(QObject::tr("DNS resolution error"),
+        QString(QObject::tr("DNS resolution error") + ": %1")
+            .arg(QString::fromStdString(selected_server_.host)));
+    connection_state_ = ConnectionState::None;
+    UpdateTrayMenu();
+    return;
+  }
+
+  auto http_client = std::make_unique<fptn::http::Client>(server_ip,
+      server_port, tun_interface_address_ipv4, tun_interface_address_ipv6, sni);
+  // login
+  bool login_status =
+      http_client->Login(selected_server_.username, selected_server_.password);
+  if (!login_status) {
+    showError(QObject::tr("Connection Error"),
+        QObject::tr("Connection error to the server! Please download the "
+                    "latest file with your personal settings through the "
+                    "Telegram bot and try again."));
+    connection_state_ = ConnectionState::None;
+    UpdateTrayMenu();
+    return;
+  }
+
+  // get dns
+  const auto [dns_server_ipv4, dns_server_ipv6] = http_client->GetDns();
+  if (dns_server_ipv4 == pcpp::IPv4Address("0.0.0.0") ||
+      dns_server_ipv6 == pcpp::IPv6Address("")) {
+    showError(QObject::tr("Connection error"),
+        QObject::tr("DNS server error! Check your connection!"));
+    connection_state_ = ConnectionState::None;
+    UpdateTrayMenu();
+    return;
+  }
+
+  // setup ip tables
+  ip_tables_ = std::make_unique<fptn::routing::IPTables>(network_interface,
+      tun_interface_name, server_ip, dns_server_ipv4, dns_server_ipv6,
+      gateway_ip, tun_interface_address_ipv4, tun_interface_address_ipv6);
+
+  // setup tun interface
+  auto virtual_network_interface =
+      std::make_unique<fptn::common::network::TunInterface>(tun_interface_name,
+          /* IPv4 */
+          tun_interface_address_ipv4, 30,
+          /* IPv6 */
+          tun_interface_address_ipv6, 126);
+
+  // setup vpn client
+  vpn_client_ = std::make_unique<fptn::vpn::VpnClient>(std::move(http_client),
+      std::move(virtual_network_interface), dns_server_ipv4, dns_server_ipv6);
+
+  // Wait for the WebSocket tunnel to establish
+  vpn_client_->Start();
+  constexpr auto TIMEOUT = std::chrono::seconds(5);
+  const auto start = std::chrono::steady_clock::now();
+  while (!vpn_client_->IsStarted()) {
+    if (std::chrono::steady_clock::now() - start > TIMEOUT) {
+      showError(QObject::tr("Connection error"),
+          QObject::tr("Couldn't open websocket tunnel!"));
+      connection_state_ = ConnectionState::None;
+      UpdateTrayMenu();
+      return;
     }
+    std::this_thread::sleep_for(std::chrono::microseconds(200));
+  }
 
-    // setup ip tables
-    ipTables_ = std::make_unique<fptn::system::IPTables>(
-        networkInterface,
-        tunInterfaceName,
-        serverIP,
-        dnsServerIPv4,
-        dnsServerIPv6,
-        usingGatewayIP,
-        tunInterfaceAddressIPv4,
-        tunInterfaceAddressIPv6
-    );
+  ip_tables_->Apply();
 
-    // setup tun interface
-    auto virtualNetworkInterface = std::make_unique<fptn::common::network::TunInterface>(
-        tunInterfaceName,
-        /* IPv4 */
-        tunInterfaceAddressIPv4, 30,
-        /* IPv6 */
-        tunInterfaceAddressIPv6, 126
-    );
+  connection_state_ = ConnectionState::Connected;
+  UpdateTrayMenu();
 
-    // setup vpn client
-    vpnClient_ = std::make_unique<fptn::vpn::VpnClient>(
-        std::move(httpClient),
-        std::move(virtualNetworkInterface),
-        dnsServerIPv4,
-        dnsServerIPv6
-    );
-
-    // Wait for the WebSocket tunnel to establish
-    vpnClient_->start();
-    constexpr auto TIMEOUT = std::chrono::seconds(5);
-    const auto start = std::chrono::steady_clock::now();
-    while (!vpnClient_->isStarted()) {
-        if (std::chrono::steady_clock::now() - start > TIMEOUT) {
-            showError(QObject::tr("Connection error"), QObject::tr("Couldn't open websocket tunnel!"));
-            connectionState_ = ConnectionState::None;
-            updateTrayMenu();
-            return;
-        }
-        std::this_thread::sleep_for(std::chrono::microseconds(200));
-    }
-
-    ipTables_->apply();
-
-    connectionState_ = ConnectionState::Connected;
-    updateTrayMenu();
-
-    emit connected();
+  emit connected();
 }
 
-void TrayApp::handleConnected()
-{
-    connectionState_ = ConnectionState::Connected;
-    updateTrayMenu();
+void TrayApp::handleConnected() {
+  connection_state_ = ConnectionState::Connected;
+  UpdateTrayMenu();
 }
 
-void TrayApp::handleDisconnecting()
-{
-    if (vpnClient_) {
-        vpnClient_->stop();
-        vpnClient_.reset();
-    }
-    if (ipTables_) {
-        ipTables_->clean();
-        ipTables_.reset();
-    }
-    connectionState_ = ConnectionState::None;
-    updateTrayMenu();
-    emit defaultState();
+void TrayApp::handleDisconnecting() {
+  if (vpn_client_) {
+    vpn_client_->Stop();
+    vpn_client_.reset();
+  }
+  if (ip_tables_) {
+    ip_tables_->Clean();
+    ip_tables_.reset();
+  }
+  connection_state_ = ConnectionState::None;
+  UpdateTrayMenu();
+  emit defaultState();
 }
 
-void TrayApp::updateSpeedWidget()
-{
-    if (vpnClient_ && speedWidget_ && connectionState_ == ConnectionState::Connected) {
-        speedWidget_->updateSpeed(vpnClient_->getReceiveRate(), vpnClient_->getSendRate());
-    }
+void TrayApp::handleUpdateSpeedWidget() {
+  if (vpn_client_ && speed_widget_ &&
+      connection_state_ == ConnectionState::Connected) {
+    speed_widget_->UpdateSpeed(
+        vpn_client_->GetReceiveRate(), vpn_client_->GetSendRate());
+  }
 
-    if (updateVersionFuture_.valid()) {
-        const auto updateResult = updateVersionFuture_.get();
-        const bool isNewVersion = updateResult.first;
-        const std::string versionName = updateResult.second;
-        if (isNewVersion) {
-            autoAvailableVersion_ = QString::fromStdString(versionName);
-            autoUpdateAction_->setVisible(true);
-            retranslateUi();
-        }
+  if (update_version_future_.valid()) {
+    const auto updateResult = update_version_future_.get();
+    const bool isNewVersion = updateResult.first;
+    const std::string versionName = updateResult.second;
+    if (isNewVersion) {
+      auto_available_version_ = QString::fromStdString(versionName);
+      auto_update_action_->setVisible(true);
+      RetranslateUi();
     }
+  }
 }
 
-QString TrayApp::getSystemLanguageCode() const
-{
-    const QLocale locale;
-    const QString localeName = locale.name();
-    if (localeName.contains('_')) {
-        const QString languageCode = locale.name().split('_').first();
-        return languageCode;
-    }
-    return "en";
+QString TrayApp::GetSystemLanguageCode() const {
+  const QLocale locale;
+  const QString locale_name = locale.name();
+  if (locale_name.contains('_')) {
+    const QString language_code = locale.name().split('_').first();
+    return language_code;
+  }
+  return "en";
 }
 
-void TrayApp::retranslateUi()
-{
-    if (connectMenu_) {
-        connectMenu_->setTitle(QObject::tr("Connect") + "    ");
-    }
-    if (settingsAction_) {
-        settingsAction_->setText(QObject::tr("Settings"));
-    }
-    if (quitAction_) {
-        quitAction_->setText(QObject::tr("Quit"));
-    }
-    if (connectingAction_) {
-        connectingAction_->setText(QObject::tr("Connecting..."));
-    }
-    if (emptyConfigurationAction_) {
-        emptyConfigurationAction_->setText(QObject::tr("No servers"));
-    }
-    if (smartConnectAction_) {
-        smartConnectAction_->setText(QObject::tr("Smart Connect"));
-    }
-    if (disconnectAction_) {
-        const QString disconnectText = QString(QObject::tr("Disconnect") + ": %1 (%2)")
-            .arg(QString::fromStdString(selectedServer_.name))
-            .arg(QString::fromStdString(selectedServer_.serviceName));
-        disconnectAction_->setText(disconnectText);
-    }
-    if (autoUpdateAction_) {
-        autoUpdateAction_->setText(QObject::tr("New version available") + " " + autoAvailableVersion_);
-    }
+void TrayApp::RetranslateUi() {
+  if (connect_menu_) {
+    connect_menu_->setTitle(QObject::tr("Connect") + "    ");
+  }
+  if (settings_action_) {
+    settings_action_->setText(QObject::tr("Settings"));
+  }
+  if (quit_action_) {
+    quit_action_->setText(QObject::tr("Quit"));
+  }
+  if (connecting_action_) {
+    connecting_action_->setText(QObject::tr("Connecting..."));
+  }
+  if (empty_configuration_action_) {
+    empty_configuration_action_->setText(QObject::tr("No servers"));
+  }
+  if (smart_connect_action_) {
+    smart_connect_action_->setText(QObject::tr("Smart Connect"));
+  }
+  if (disconnect_action_) {
+    const QString disconnectText =
+        QString(QObject::tr("Disconnect") + ": %1 (%2)")
+            .arg(QString::fromStdString(selected_server_.name))
+            .arg(QString::fromStdString(selected_server_.service_name));
+    disconnect_action_->setText(disconnectText);
+  }
+  if (auto_update_action_) {
+    auto_update_action_->setText(
+        QObject::tr("New version available") + " " + auto_available_version_);
+  }
 }
 
-void TrayApp::stop()
-{
-    if (vpnClient_) {
-        vpnClient_->stop();
-        vpnClient_.reset();
-    }
-    if (ipTables_) {
-        ipTables_->clean();
-        ipTables_.reset();
-    }
+void TrayApp::stop() {
+  if (vpn_client_) {
+    vpn_client_->Stop();
+    vpn_client_.reset();
+  }
+  if (ip_tables_) {
+    ip_tables_->Clean();
+    ip_tables_.reset();
+  }
 }
 
-void TrayApp::openBrowser(const std::string& url)
-{
+void TrayApp::OpenWebBrowser(const std::string& url) {
 #if __APPLE__
-    QDesktopServices::openUrl(QString::fromStdString(url));
+  QDesktopServices::openUrl(QString::fromStdString(url));
 #elif __linux__
-    const std::string command = fmt::format(
-        R"(bash -c "xhost +SI:localuser:root && (xdg-open \"{0}\" || sensible-browser \"{0}\" || x-www-browser \"{0}\" || gnome-open \"{0}\" ) "  )",
-        url
-    );
-    fptn::common::system::command::run(command);
+  const std::string command = fmt::format(
+      R"(bash -c "xhost +SI:localuser:root && (xdg-open \"{0}\" || sensible-browser \"{0}\" || x-www-browser \"{0}\" || gnome-open \"{0}\" ) "  )",
+      url);
+  fptn::common::system::command::run(command);
 #elif _WIN32
-    const std::string command = fmt::format(R"(explorer "{}" )", url);
-    fptn::common::system::command::run(command);
+  const std::string command = fmt::format(R"(explorer "{}" )", url);
+  fptn::common::system::command::run(command);
 #endif
 }

@@ -46,10 +46,8 @@ bool ConfigFile::Parse() {
     username_ = config.at("username").get<std::string>();
     password_ = config.at("password").get<std::string>();
     for (auto const& server : config.at("servers")) {
-      Server s;
-      s.name = server.at("name").get<std::string>();
-      s.host = server.at("host").get<std::string>();
-      s.port = server.at("port").get<int>();
+      Server s(server.at("name").get<std::string>(),
+          server.at("host").get<std::string>(), server.at("port").get<int>());
       servers_.push_back(s);
     }
     if (!servers_.empty()) {
@@ -66,12 +64,14 @@ ConfigFile::Server ConfigFile::FindFastestServer() const {
   int const timeout = 5;
   std::vector<std::future<std::uint64_t>> futures;
 
-  for (auto const& server : servers_) {
-    futures.push_back(std::async(std::launch::async, [this, server, timeout]() {
-      (void)timeout;
-      return GetDownloadTimeMs(server, timeout);
-    }));
-  }
+  futures.reserve(servers_.size());
+  std::transform(servers_.begin(), servers_.end(), std::back_inserter(futures),
+      [this, timeout](const auto& server) {
+        return std::async(std::launch::async, [this, server, timeout]() {
+          (void)timeout;
+          return GetDownloadTimeMs(server, timeout);
+        });
+      });
 
   std::vector<std::uint64_t> times(servers_.size());
   for (std::size_t i = 0; i < futures.size(); ++i) {
@@ -127,12 +127,18 @@ std::uint64_t ConfigFile::GetDownloadTimeMs(
 
 int ConfigFile::GetVersion() const noexcept { return version_; }
 
-std::string ConfigFile::GetServiceName() const noexcept { return service_name_; }
+const std::string& ConfigFile::GetServiceName() const noexcept {
+  return service_name_;
+}
 
-std::string ConfigFile::GetUsername() const noexcept { return username_; }
+const std::string& ConfigFile::GetUsername() const noexcept {
+  return username_;
+}
 
-std::string ConfigFile::GetPassword() const noexcept { return password_; }
+const std::string& ConfigFile::GetPassword() const noexcept {
+  return password_;
+}
 
-std::vector<ConfigFile::Server> ConfigFile::GetServers() const noexcept {
+const std::vector<ConfigFile::Server>& ConfigFile::GetServers() const noexcept {
   return servers_;
 }

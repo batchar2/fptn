@@ -109,6 +109,7 @@ boost::asio::awaitable<void> Session::Run() noexcept {
         },
         boost::asio::detached);
   }
+  co_return;
 }
 
 boost::asio::awaitable<void> Session::RunReader() noexcept {

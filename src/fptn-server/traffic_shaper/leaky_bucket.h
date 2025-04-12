@@ -15,7 +15,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 namespace fptn::traffic_shaper {
 class LeakyBucket final {
  public:
-  LeakyBucket(std::size_t max_bites_per_second);
+  explicit LeakyBucket(std::size_t max_bites_per_second);
   bool CheckSpeedLimit(std::size_t packet_size) noexcept;
   std::size_t FullDataAmount() const noexcept;
 

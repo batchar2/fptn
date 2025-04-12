@@ -1,99 +1,105 @@
+/*=============================================================================
+Copyright (c) 2024-2025 Stas Skokov
+
+Distributed under the MIT License (https://opensource.org/licenses/MIT)
+=============================================================================*/
+
 #pragma once
 
-#include <mutex>
 #include <future>
+#include <mutex>
+#include <string>
 
-#include <QMenu>
-#include <QTimer>
-#include <QObject>
-#include <QString>
-#include <QAction>
-#include <QMouseEvent>
-#include <QApplication>
-#include <QWidgetAction>
-#include <QSystemTrayIcon>
+#include <QAction>          // NOLINT(build/include_order)
+#include <QApplication>     // NOLINT(build/include_order)
+#include <QMenu>            // NOLINT(build/include_order)
+#include <QMouseEvent>      // NOLINT(build/include_order)
+#include <QObject>          // NOLINT(build/include_order)
+#include <QString>          // NOLINT(build/include_order)
+#include <QSystemTrayIcon>  // NOLINT(build/include_order)
+#include <QTimer>           // NOLINT(build/include_order)
+#include <QWidgetAction>    // NOLINT(build/include_order)
 
-#include "gui/speedwidget/speedwidget.h"
-#include "gui/settingswidget/settings.h"
-#include "gui/settingsmodel/settingsmodel.h"
+#include "common/data/channel.h"
+#include "common/network/ip_packet.h"
+#include "common/network/net_interface.h"
 
-#include <common/data/channel.h>
-#include <common/network/ip_packet.h>
-#include <common/network/net_interface.h>
-
-#include "gui/tray/tray.h"
-#include "vpn/vpn_client.h"
-#include "system/iptables.h"
 #include "config/config_file.h"
+#include "gui/settingsmodel/settingsmodel.h"
+#include "gui/settingswidget/settings.h"
+#include "gui/speedwidget/speedwidget.h"
+#include "gui/tray/tray.h"
 #include "http/client.h"
+#include "routing/iptables.h"
+#include "vpn/vpn_client.h"
 
+namespace fptn::gui {
+class TrayApp : public QWidget {
+  Q_OBJECT
 
-namespace fptn::gui
-{
-    class TrayApp : public QWidget
-    {
-        Q_OBJECT
-    private:
-        enum class ConnectionState {
-            None,
-            Connecting,
-            Connected,
-            Disconnecting
-        };
-    public:
-        explicit TrayApp(const SettingsModelPtr& settings, QObject* parent = nullptr);
-        void stop();
-    private:
-        QString getSystemLanguageCode() const;
-        void retranslateUi();
-    signals:
-        void defaultState();
-        void connecting();
-        void connected();
-        void disconnecting();
-    private slots:
-        void onConnectToServer();
-        void onDisconnectFromServer();
-        void onShowSettings();
-        void handleDefaultState();
-        void handleConnecting();
-        void handleConnected();
-        void handleDisconnecting();
-        void updateSpeedWidget();
-    private:
-        void updateTrayMenu();
-        void openBrowser(const std::string& url);
-    private:
-        bool smartConnect_ = false;
-        fptn::config::ConfigFile::Server selectedServer_;
+ protected:
+  enum class ConnectionState { None, Connecting, Connected, Disconnecting };
 
-        SettingsModelPtr settings_;
+ public:
+  explicit TrayApp(const SettingsModelPtr& settings, QObject* parent = nullptr);
+  void stop();
 
-        QSystemTrayIcon* trayIcon_ = nullptr;
-        QMenu* trayMenu_ = nullptr;
-        QMenu* connectMenu_ = nullptr;
-        QAction* smartConnectAction_ = nullptr;
-        QAction* emptyConfigurationAction_ = nullptr;
-        QAction* disconnectAction_ = nullptr;
-        QAction* settingsAction_ = nullptr;
+ protected:
+  QString GetSystemLanguageCode() const;
+  void RetranslateUi();
+ signals:
+  void defaultState();
+  void connecting();
+  void connected();
+  void disconnecting();
 
-        QAction* autoUpdateAction_ = nullptr;
-        QString autoAvailableVersion_;
+ protected slots:
+  void onConnectToServer();
+  void onDisconnectFromServer();
+  void onShowSettings();
 
-        QAction* quitAction_ = nullptr;
-        QAction* connectingAction_ = nullptr;
-        QWidgetAction* speedWidgetAction_ = nullptr;
-        SpeedWidget* speedWidget_ = nullptr;
-        QTimer* updateTimer_ = nullptr;
-        ConnectionState connectionState_ = ConnectionState::None;
-        QString connectedServerAddress_;
+ protected slots:
+  void handleDefaultState();
+  void handleConnecting();
+  void handleConnected();
+  void handleDisconnecting();
+  void handleUpdateSpeedWidget();
 
-        QString activeIconPath_;
-        QString inactiveIconPath_;
+ protected:
+  void UpdateTrayMenu();
+  void OpenWebBrowser(const std::string& url);
 
-        fptn::vpn::VpnClientPtr vpnClient_;
-        fptn::system::IPTablesPtr ipTables_;
+ private:
+  bool smart_connect_ = false;
+  fptn::config::ConfigFile::Server selected_server_;
 
-        std::future<std::pair<bool, std::string>> updateVersionFuture_;
-    };
-}
+  SettingsModelPtr settings_;
+
+  QSystemTrayIcon* tray_icon_ = nullptr;
+  QMenu* tray_menu_ = nullptr;
+  QMenu* connect_menu_ = nullptr;
+  QAction* smart_connect_action_ = nullptr;
+  QAction* empty_configuration_action_ = nullptr;
+  QAction* disconnect_action_ = nullptr;
+  QAction* settings_action_ = nullptr;
+
+  QAction* auto_update_action_ = nullptr;
+  QString auto_available_version_;
+
+  QAction* quit_action_ = nullptr;
+  QAction* connecting_action_ = nullptr;
+  QWidgetAction* speed_widget_action_ = nullptr;
+  SpeedWidget* speed_widget_ = nullptr;
+  QTimer* update_timer_ = nullptr;
+  ConnectionState connection_state_ = ConnectionState::None;
+  QString connected_server_address_;
+
+  QString active_icon_path_;
+  QString inactive_icon_path_;
+
+  fptn::vpn::VpnClientPtr vpn_client_;
+  fptn::routing::IPTablesPtr ip_tables_;
+
+  std::future<std::pair<bool, std::string>> update_version_future_;
+};
+}  // namespace fptn::gui

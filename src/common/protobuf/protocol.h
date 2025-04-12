@@ -88,7 +88,8 @@ inline std::string CreateProtoPacket(
 #endif
   std::string serializedData;
   if (!message.SerializeToString(&serializedData)) {
-    throw std::runtime_error("Failed to serialize Message.");
+    SPDLOG_ERROR("Failed to serialize Message.");
+    return {};
   }
   return serializedData;
 }

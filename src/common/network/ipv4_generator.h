@@ -29,9 +29,11 @@ namespace fptn::common::network {
 class IPv4AddressGenerator {
  public:
   IPv4AddressGenerator(
-      const pcpp::IPv4Address& netAddress, std::uint32_t subnetMask) {
-    ip_ = boost::asio::ip::address_v4::from_string(netAddress.toString());
-    netAddr_ = boost::asio::ip::address_v4::from_string(netAddress.toString());
+      const pcpp::IPv4Address& netAddress, std::uint32_t subnetMask)
+      : ip_(boost::asio::ip::address_v4::from_string(netAddress.toString())),
+        netAddr_(
+            boost::asio::ip::address_v4::from_string(netAddress.toString())) {
+    // cppcheck-suppress useInitializationList
     netmask_ = boost::asio::ip::address_v4(
         (subnetMask == 0)
             ? 0

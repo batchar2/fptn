@@ -89,10 +89,10 @@ int main(int argc, char* argv[]) {
   } else if (list) {
     userManager.listUsers();
   } else if (!getBandwidthUser.empty()) {
-    int bandwidth = userManager.getUserBandwidth(getBandwidthUser);
-    if (bandwidth != -1) {
+    int bw = userManager.getUserBandwidth(getBandwidthUser);
+    if (bw != -1) {
       std::cout << "Bandwidth for user " << getBandwidthUser << ": "
-                << bandwidth << " MB" << std::endl;
+                << bw << " MB" << std::endl;
     }
   } else {
     std::cerr << "No command specified. Use --help for usage information."

@@ -1,26 +1,35 @@
-#include "translations.h"
+/*=============================================================================
+Copyright (c) 2024-2025 Stas Skokov
 
-#include <QTranslator>
-#include <QApplication>
+Distributed under the MIT License (https://opensource.org/licenses/MIT)
+=============================================================================*/
 
-#include <common/logger/logger.h>
+#include "gui/translations/translations.h"
+
+#include <spdlog/spdlog.h>  // NOLINT(build/include_order)
+
+#include <QApplication>  // NOLINT(build/include_order)
+#include <QTranslator>   // NOLINT(build/include_order)
+
+#include "common/logger/logger.h"
 
 static QTranslator translator;
 
-
-bool fptn::gui::setTranslation(const QString &languageCode)
-{
-    const QString translationFile = QString("fptn_%1.qm").arg(languageCode);
-    qApp->removeTranslator(&translator);
-    if (translator.load(translationFile, ":/translations")) {
-        if (qApp->installTranslator(&translator)) {
-            SPDLOG_INFO("Successfully loaded language: {}", languageCode.toStdString());
-            return true;
-        } else {
-            spdlog::warn("Failed to install translator for language: {}", languageCode.toStdString());
-        }
+bool fptn::gui::SetTranslation(const QString& language_code) {
+  const QString translation_file = QString("fptn_%1.qm").arg(language_code);
+  qApp->removeTranslator(&translator);
+  if (translator.load(translation_file, ":/translations")) {
+    if (qApp->installTranslator(&translator)) {
+      SPDLOG_INFO(
+          "Successfully loaded language: {}", language_code.toStdString());
+      return true;
     } else {
-        spdlog::warn("Translation file not found: {}", translationFile.toStdString());
+      SPDLOG_WARN("Failed to install translator for language: {}",
+          language_code.toStdString());
     }
-    return false;
+  } else {
+    SPDLOG_WARN(
+        "Translation file not found: {}", translation_file.toStdString());
+  }
+  return false;
 }

@@ -111,7 +111,9 @@ Server::Server(std::uint16_t port,
       dns_server_ipv4_(dns_server_ipv4),
       dns_server_ipv6_(dns_server_ipv6),
       thread_number_(std::max<std::size_t>(1, thread_number)),
-      ioc_(thread_number) {
+      ioc_(thread_number),
+      from_client_(std::make_unique<fptn::common::data::Channel>()),
+      to_client_(std::make_unique<fptn::common::data::ChannelAsync>(ioc_)) {
   using std::placeholders::_1;
   using std::placeholders::_2;
   using std::placeholders::_3;
@@ -119,9 +121,6 @@ Server::Server(std::uint16_t port,
   using std::placeholders::_5;
   using std::placeholders::_6;
   using std::placeholders::_7;
-
-  to_client_ = std::make_unique<fptn::common::data::ChannelAsync>(ioc_);
-  from_client_ = std::make_unique<fptn::common::data::Channel>();
 
   listener_ = std::make_shared<Listener>(ioc_, port_, token_manager,
       std::bind(
