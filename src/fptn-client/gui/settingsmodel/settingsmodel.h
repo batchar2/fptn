@@ -66,7 +66,7 @@ class SettingsModel : public QObject {
   Q_OBJECT
 
  public:
-  SettingsModel(const QMap<QString, QString>& languages,
+  explicit SettingsModel(const QMap<QString, QString>& languages,
       const QString& default_language = "en",
       QObject* parent = nullptr);
 
