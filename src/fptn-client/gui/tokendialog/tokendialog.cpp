@@ -1,82 +1,77 @@
-#include "tokendialog.h"
+/*=============================================================================
+Copyright (c) 2024-2025 Stas Skokov
 
-#include <common/utils/utils.h>
-#include <common/utils/base64.h>
+Distributed under the MIT License (https://opensource.org/licenses/MIT)
+=============================================================================*/
 
+#include "gui/tokendialog/tokendialog.h"
 
-using namespace fptn::gui;
+#include <string>
 
+#include "common/utils/base64.h"
+#include "common/utils/utils.h"
 
-TokenDialog::TokenDialog(QWidget* parent)
-    : QDialog(parent)
-{
-    setWindowTitle("Token");
-    label_ = new QLabel(QObject::tr("Paste your token") + ": ", this);
-    tokenField_ = new QLineEdit(this);
-    tokenField_->setPlaceholderText(QObject::tr("Token") + "...");
-    tokenField_->setMinimumWidth(350);
+using fptn::gui::TokenDialog;
 
-    tokenLayout_ = new QHBoxLayout();
-    tokenLayout_->addWidget(label_);
-    tokenLayout_->addWidget(tokenField_);
+TokenDialog::TokenDialog(QWidget* parent) : QDialog(parent) {
+  setWindowTitle("Token");
+  label_ = new QLabel(QObject::tr("Paste your token") + ": ", this);
+  token_field_ = new QLineEdit(this);
+  token_field_->setPlaceholderText(QObject::tr("Token") + "...");
+  token_field_->setMinimumWidth(350);
 
-    saveButton_ = new QPushButton(QObject::tr("Save"), this);
-    cancelButton_ = new QPushButton(QObject::tr("Cancel"), this);
+  token_layout_ = new QHBoxLayout();
+  token_layout_->addWidget(label_);
+  token_layout_->addWidget(token_field_);
 
-    // Layout for buttons
-    buttonLayout_ = new QHBoxLayout();
-    buttonLayout_->addStretch();
-    buttonLayout_->addWidget(saveButton_);
-    buttonLayout_->addWidget(cancelButton_);
+  save_button_ = new QPushButton(QObject::tr("Save"), this);
+  cancel_button_ = new QPushButton(QObject::tr("Cancel"), this);
 
-    // Main layout
-    mainLayout_ = new QVBoxLayout(this);
-    mainLayout_->addLayout(tokenLayout_);
-    mainLayout_->addLayout(buttonLayout_);
+  // Layout for buttons
+  button_layout_ = new QHBoxLayout();
+  button_layout_->addStretch();
+  button_layout_->addWidget(save_button_);
+  button_layout_->addWidget(cancel_button_);
 
-    setLayout(mainLayout_);
+  // Main layout
+  main_layout_ = new QVBoxLayout(this);
+  main_layout_->addLayout(token_layout_);
+  main_layout_->addLayout(button_layout_);
 
-    connect(cancelButton_, &QPushButton::clicked, this, &QDialog::reject);
-    connect(saveButton_, &QPushButton::clicked, this, &TokenDialog::onOkClicked);
+  setLayout(main_layout_);
 
-    // show on top
-    setWindowFlags(Qt::Window | Qt::WindowStaysOnTopHint);
-    setModal(true);
-    show();
-    activateWindow();
-    raise();
-    setWindowModality(Qt::ApplicationModal);
+  connect(cancel_button_, &QPushButton::clicked, this, &QDialog::reject);
+  connect(save_button_, &QPushButton::clicked, this, &TokenDialog::onOkClicked);
+
+  // show on top
+  setWindowFlags(Qt::Window | Qt::WindowStaysOnTopHint);
+  setModal(true);
+  show();
+  activateWindow();
+  raise();
+  setWindowModality(Qt::ApplicationModal);
 }
 
-const QString& TokenDialog::token() const
-{
-    return token_;
-}
+const QString& TokenDialog::Token() const { return token_; }
 
-void TokenDialog::onOkClicked()
-{
-    try {
-        const QString enteredToken = tokenField_->text().trimmed();
-        const std::string cleanToken = fptn::common::utils::removeSubstring(
-            enteredToken.toStdString(), {"fptn://", "fptn:", " ", "\n", "\r", "\t"}
-        );
-        const std::string decodedToken = fptn::common::utils::base64::decode(cleanToken);
-        const QString t = QString::fromStdString(decodedToken);
-        if (t.isEmpty()) {
-            QMessageBox::warning(
-                this,
-                QObject::tr("Validation Error"),
-                QObject::tr("Token cannot be empty") + "!"
-            );
-        } else {
-            token_ = t;
-            accept();
-        }
-    } catch (const std::runtime_error& err) {
-        QMessageBox::warning(
-            this,
-            QObject::tr("Wrong token"),
-            QObject::tr("Wrong token") + ": "  + err.what()
-        );
+void TokenDialog::onOkClicked() {
+  try {
+    const QString entered_token = token_field_->text().trimmed();
+    const std::string clean_token =
+        fptn::common::utils::RemoveSubstring(entered_token.toStdString(),
+            {"fptn://", "fptn:", " ", "\n", "\r", "\t"});
+    const std::string decoded_token =
+        fptn::common::utils::base64::decode(clean_token);
+    const QString t = QString::fromStdString(decoded_token);
+    if (t.isEmpty()) {
+      QMessageBox::warning(this, QObject::tr("Validation Error"),
+          QObject::tr("Token cannot be empty") + "!");
+    } else {
+      token_ = t;
+      accept();
     }
+  } catch (const std::runtime_error& err) {
+    QMessageBox::warning(this, QObject::tr("Wrong token"),
+        QObject::tr("Wrong token") + ": " + err.what());
+  }
 }

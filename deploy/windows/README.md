@@ -56,6 +56,10 @@ Download and install [PowerShell](https://github.com/PowerShell/PowerShell/relea
 Need to add conan to global PATH, for example `C:\Users\user\AppData\Local\Programs\Python\Python313\Scripts`
 
 
+### Install Cppcheck
+
+Install and need to add to global PATH https://cppcheck.sourceforge.io/
+
 ### Restart computer 
 
 

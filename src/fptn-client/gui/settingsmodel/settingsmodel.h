@@ -1,16 +1,23 @@
+/*=============================================================================
+Copyright (c) 2024-2025 Stas Skokov
+
+Distributed under the MIT License (https://opensource.org/licenses/MIT)
+=============================================================================*/
+
 #pragma once
 
-#include <QMap>
-#include <QFile>
-#include <QObject>
-#include <QVector>
-#include <QJsonArray>
-#include <QJsonObject>
-#include <QJsonDocument>
+#include <memory>
 
+#include <QFile>          // NOLINT(build/include_order)
+#include <QJsonArray>     // NOLINT(build/include_order)
+#include <QJsonDocument>  // NOLINT(build/include_order)
+#include <QJsonObject>    // NOLINT(build/include_order)
+#include <QMap>           // NOLINT(build/include_order)
+#include <QObject>        // NOLINT(build/include_order)
+#include <QString>        // NOLINT(build/include_order)
+#include <QVector>        // NOLINT(build/include_order)
 
-namespace fptn::gui
-{
+namespace fptn::gui {
 /*
 {
     "gateway_ip": "auto",
@@ -40,84 +47,84 @@ namespace fptn::gui
 }
 */
 
-    struct ServerConfig
-    {
-        QString name;
-        QString host;
-        int port;
-        bool isUsing;
-    };
+struct ServerConfig {
+  QString name;
+  QString host;
+  int port;
+  bool is_using;
+};
 
-    struct ServiceConfig
-    {
-        QString serviceName;
-        QString username;
-        QString password;
-        QVector<ServerConfig> servers;
-        QString language;
-    };
+struct ServiceConfig {
+  QString service_name;
+  QString username;
+  QString password;
+  QVector<ServerConfig> servers;
+  QString language;
+};
 
-    class SettingsModel : public QObject
-    {
-    Q_OBJECT
-    public:
-        explicit SettingsModel(
-            const QMap<QString, QString>& languages,
-            const QString& defaultLanguage="en",
-            QObject *parent = nullptr
-        );
+class SettingsModel : public QObject {
+  Q_OBJECT
 
-        void load();
-        bool save();
+ public:
+  explicit SettingsModel(const QMap<QString, QString>& languages,
+      const QString& default_language = "en",
+      QObject* parent = nullptr);
 
-        QString networkInterface() const;
-        void setNetworkInterface(const QString &interface);
+  void Load();
+  bool Save();
 
-        QString gatewayIp() const;
-        void setGatewayIp(const QString &ip);
+  QString UsingNetworkInterface() const;
 
-        QString SNI() const;
-        void setSNI(const QString &sni);
 
-        QVector<QString> getNetworkInterfaces() const;
+  void SetUsingNetworkInterface(const QString&);
 
-        const QVector<ServiceConfig>& services() const;
-        void addService(const ServiceConfig& server);
-        void removeServer(int index);
-        int getExistServiceIndex(const QString& name) const;
-        ServiceConfig parseToken(const QString& token);
-        void clear();
+  QString GatewayIp() const;
+  void SetGatewayIp(const QString& ip);
 
-        const QString languageName() const;
-        void setLanguage(const QString& language);
-        void setLanguageCode(const QString& languageCode);
+  QString SNI() const;
+  void SetSNI(const QString& sni);
 
-        const QVector<QString> getLanguages() const;
+  QVector<QString> GetNetworkInterfaces() const;
 
-        const QString& defaultLanguageCode() const;
-        const QString& languageCode() const;
+  const QVector<ServiceConfig>& Services() const;
+  void AddService(const ServiceConfig& server);
+  void RemoveServer(int index);
+  int GetExistServiceIndex(const QString& name) const;
+  ServiceConfig ParseToken(const QString& token);
+  void Clear();
 
-        bool existsTranslation(const QString &languageCode) const;
+  QString LanguageName() const;
+  void SetLanguage(const QString& language);
+  void SetLanguageCode(const QString& language_code);
 
-        bool autostart() const;
-        void setAutostart(bool value);
-    signals:
-        void dataChanged();
-    private:
-        QMap<QString, QString> languages_;
+  QVector<QString> GetLanguages() const;
 
-        QString defaultLanguage_;
+  const QString& DefaultLanguageCode() const;
+  const QString& LanguageCode() const;
 
-        QString selectedLanguage_;
+  bool ExistsTranslation(const QString& language_code) const;
 
-        QVector<ServiceConfig> services_;
-        QString networkInterface_;
-        QString gatewayIp_;
-        QString sni_;
+  bool Autostart() const;
+  void SetAutostart(bool value);
 
-        bool clientAutostart_;
-        QString getFilePath() const;
-    };
+  QString GetFilePath() const;
+ signals:
+  void dataChanged();
 
-    using SettingsModelPtr = std::shared_ptr<SettingsModel>;
-}
+ private:
+  QMap<QString, QString> languages_;
+
+  QString default_language_;
+
+  QString selected_language_;
+
+  QVector<ServiceConfig> services_;
+  QString network_interface_;
+  QString gateway_ip_;
+  QString sni_;
+
+  bool client_autostart_;
+};
+
+using SettingsModelPtr = std::shared_ptr<SettingsModel>;
+}  // namespace fptn::gui

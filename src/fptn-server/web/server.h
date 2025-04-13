@@ -1,101 +1,104 @@
+/*=============================================================================
+Copyright (c) 2024-2025 Stas Skokov
+
+Distributed under the MIT License (https://opensource.org/licenses/MIT)
+=============================================================================*/
+
 #pragma once
 
+#include <memory>
 #include <mutex>
 #include <string>
-#include <vector>
 #include <unordered_map>
+#include <vector>
 
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
-
 #include <boost/beast.hpp>
 #include <boost/beast/ssl.hpp>
 
-#include <common/data/channel.h>
-#include <common/network/ip_packet.h>
+#include "common/data/channel.h"
+#include "common/data/channel_async.h"
+#include "common/jwt_token/token_manager.h"
+#include "common/network/ip_packet.h"
 
+#include "listener/listener.h"
 #include "nat/table.h"
 #include "user/user_manager.h"
 
-#include "listener/listener.h"
-#include "common/data/channel_async.h"
-#include "common/jwt_token/token_manager.h"
+namespace fptn::web {
+class Server final {
+ public:
+  Server(std::uint16_t port,
+      const fptn::nat::TableSPtr& nat_table,
+      const fptn::user::UserManagerSPtr& user_manager,
+      const fptn::common::jwt_token::TokenManagerSPtr& token_manager,
+      const fptn::statistic::MetricsSPtr& prometheus,
+      const std::string& prometheus_access_key,
+      const pcpp::IPv4Address& dns_server_ipv4,
+      const pcpp::IPv6Address& dns_server_ipv6,
+      int thread_number = 4);
+  ~Server();
+  bool Start();
+  bool Stop();
 
+  void Send(fptn::common::network::IPPacketPtr packet);
+  fptn::common::network::IPPacketPtr WaitForPacket(
+      const std::chrono::milliseconds& duration);
 
-namespace fptn::web
-{
-    class Server final
-    {
-    public:
-        Server(
-            std::uint16_t port,
-            const fptn::nat::TableSPtr& natTable,
-            const fptn::user::UserManagerSPtr& userManager,
-            const fptn::common::jwt_token::TokenManagerSPtr& tokenManager,
-            const fptn::statistic::MetricsSPtr& prometheus,
-            const std::string& prometheusAccessKey,
-            const pcpp::IPv4Address& dnsServerIPv4,
-            const pcpp::IPv6Address& dnsServerIPv6,
-            std::size_t threadNumber = 8
-        );
-        ~Server();
-        bool start() noexcept;
-        bool stop() noexcept;
-    public:
-        void send(fptn::common::network::IPPacketPtr packet) noexcept;
-        fptn::common::network::IPPacketPtr waitForPacket(const std::chrono::milliseconds& duration) noexcept;
-    protected:
-        boost::asio::awaitable<void> runSender();
-    protected:
-        // http
-        int onApiHandleHome(const http::request& req, http::response& resp) noexcept;
-        int onApiHandleDns(const http::request& req, http::response& resp) noexcept;
-        int onApiHandleLogin(const http::request& req, http::response& resp) noexcept;
-        int onApiHandleMetrics(const http::request& req, http::response& resp) noexcept;
-        int onApiHandleonTestFile(const http::request& req, http::response& resp) noexcept;
-        // websocket
-        bool onWsOpenConnection(
-            fptn::ClientID clientId,
-            const pcpp::IPv4Address& clientIP,
-            const pcpp::IPv4Address& clientVpnIPv4,
-            const pcpp::IPv6Address& clientVpnIPv6,
-            SessionSPtr session,
-            const std::string& url,
-            const std::string& accessToken
-        ) noexcept;
-        void onWsNewIPPacket(fptn::common::network::IPPacketPtr packet) noexcept;
-        void onWsCloseConnection(fptn::ClientID clientId) noexcept;
-    private:
-        const std::string urlHome_="/";
-        const std::string urlDns_="/api/v1/dns";
-        const std::string urlLogin_="/api/v1/login";
-        const std::string urlMetrics_="/api/v1/metrics";
-        const std::string urlTestFileBin_="/api/v1/test/file.bin";
+ protected:
+  boost::asio::awaitable<void> RunSender();
 
-        const std::string urlWebSocket_="/fptn";
+ protected:
+  // http
+  int HandleApiHome(const http::request& req, http::response& resp);
+  int HandleApiDns(const http::request& req, http::response& resp);
+  int HandleApiLogin(const http::request& req, http::response& resp);
+  int HandleApiMetrics(const http::request& req, http::response& resp);
+  int HandleApiTestFile(const http::request& req, http::response& resp);
 
-        std::mutex mutex_;
-        std::atomic<bool> running_;
-        const std::uint16_t port_;
+ protected:
+  // websocket
+  bool HandleWsOpenConnection(fptn::ClientID client_id,
+      const pcpp::IPv4Address& client_ip,
+      const pcpp::IPv4Address& client_vpn_ipv4,
+      const pcpp::IPv6Address& client_vpn_ipv6,
+      const SessionSPtr& session,
+      const std::string& url,
+      const std::string& access_token);
+  void HandleWsNewIPPacket(fptn::common::network::IPPacketPtr packet) noexcept;
+  void HandleWsCloseConnection(fptn::ClientID clientId) noexcept;
 
-        const fptn::nat::TableSPtr& natTable_;
-        const fptn::user::UserManagerSPtr& userManager_;
-        const fptn::common::jwt_token::TokenManagerSPtr tokenManager_;
-        const fptn::statistic::MetricsSPtr& prometheus_;
-        const std::string prometheusAccessKey_;
-        const pcpp::IPv4Address dnsServerIPv4_;
-        const pcpp::IPv6Address dnsServerIPv6_;
-        const std::size_t threadNumber_;
+ private:
+  const std::string kUrlHome_ = "/";
+  const std::string kUrlDns_ = "/api/v1/dns";
+  const std::string kUrlLogin_ = "/api/v1/login";
+  const std::string kUrlMetrics_ = "/api/v1/metrics";
+  const std::string kUrlTestFileBin_ = "/api/v1/test/file.bin";
+  const std::string kUrlWebSocket_ = "/fptn";
 
-        boost::asio::io_context ioc_;
-        fptn::common::data::ChannelPtr fromClient_;
-        fptn::common::data::ChannelAsyncPtr toClient_;
+  mutable std::mutex mutex_;
+  std::atomic<bool> running_;
 
-        ListenerSPtr listener_;
+  const std::uint16_t port_;
+  const fptn::nat::TableSPtr& nat_table_;
+  const fptn::user::UserManagerSPtr& user_manager_;
+  const fptn::common::jwt_token::TokenManagerSPtr token_manager_;
+  const fptn::statistic::MetricsSPtr& prometheus_;
+  const std::string prometheus_access_key_;
+  const pcpp::IPv4Address dns_server_ipv4_;
+  const pcpp::IPv6Address dns_server_ipv6_;
+  const std::size_t thread_number_;
 
-        std::vector<std::thread> iocThreads_;
-        std::unordered_map<fptn::ClientID, SessionSPtr> sessions_;
-    };
+  boost::asio::io_context ioc_;
+  fptn::common::data::ChannelPtr from_client_;
+  fptn::common::data::ChannelAsyncPtr to_client_;
 
-    using ServerPtr = std::unique_ptr<Server>;
-}
+  ListenerSPtr listener_;
+
+  std::vector<std::thread> ioc_threads_;
+  std::unordered_map<fptn::ClientID, SessionSPtr> sessions_;
+};
+
+using ServerPtr = std::unique_ptr<Server>;
+}  // namespace fptn::web

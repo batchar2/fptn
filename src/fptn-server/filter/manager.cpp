@@ -1,22 +1,33 @@
-#include "manager.h"
+/*=============================================================================
+Copyright (c) 2024-2025 Stas Skokov
 
-#include "packets/bittorrent/bittorrent.h"
+Distributed under the MIT License (https://opensource.org/licenses/MIT)
+=============================================================================*/
 
+#include "filter/manager.h"
 
-using namespace fptn::filter;
+#include <utility>
 
-void FilterManager::add(packets::BaseFilterSPtr filter) noexcept
-{
+using fptn::common::network::IPPacketPtr;
+using fptn::filter::Manager;
+
+void Manager::Add(BaseFilterSPtr filter) noexcept {
+  try {
     filters_.push_back(std::move(filter));
+  } catch (const std::bad_alloc& err) {
+    SPDLOG_ERROR(
+        "Memory allocation failed while adding filter: {}", err.what());
+  } catch (...) {
+    SPDLOG_ERROR("An unknown exception occurred while adding a filter.");
+  }
 }
 
-IPPacketPtr FilterManager::apply(IPPacketPtr packet) const 
-{
-    for (const auto& filter : filters_) {
-        packet = filter->apply(std::move(packet));
-        if (!packet) {
-            return nullptr; // packet was filtered
-        }
+IPPacketPtr Manager::Apply(IPPacketPtr packet) const noexcept {
+  for (const auto& filter : filters_) {
+    packet = filter->apply(std::move(packet));
+    if (!packet) {
+      return nullptr;  // packet was filtered
     }
-    return packet;
+  }
+  return packet;
 }

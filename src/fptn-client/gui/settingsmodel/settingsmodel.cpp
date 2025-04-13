@@ -1,348 +1,344 @@
-#include <QFile>
-#include <QJsonDocument>
-#include <QJsonObject>
-#include <QJsonArray>
-#include <QStandardPaths>
+/*=============================================================================
+Copyright (c) 2024-2025 Stas Skokov
 
-#include <QDir>
-#include <QFile>
-#include <QJsonArray>
-#include <QJsonObject>
-#include <QJsonDocument>
-#include <QNetworkInterface>
+Distributed under the MIT License (https://opensource.org/licenses/MIT)
+=============================================================================*/
+
+#include "gui/settingsmodel/settingsmodel.h"
+
+#if _WIN32
+#include <Ws2tcpip.h>  // NOLINT(build/include_order)
+#include <windows.h>   // NOLINT(build/include_order)
+#endif
 
 #include <boost/asio.hpp>
-#include <spdlog/spdlog.h>
+#include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
-#include "system/iptables.h"
+#include <QDir>               // NOLINT(build/include_order)
+#include <QFile>              // NOLINT(build/include_order)
+#include <QJsonArray>         // NOLINT(build/include_order)
+#include <QJsonDocument>      // NOLINT(build/include_order)
+#include <QJsonObject>        // NOLINT(build/include_order)
+#include <QNetworkInterface>  // NOLINT(build/include_order)
+#include <QStandardPaths>     // NOLINT(build/include_order)
 
-#include "settingsmodel.h"
+#include "routing//iptables.h"
 
+using fptn::gui::ServiceConfig;
+using fptn::gui::SettingsModel;
 
-using namespace fptn::gui;
-
-
-SettingsModel::SettingsModel(const QMap<QString, QString>& languages, const QString& defaultLanguage, QObject *parent)
-    :
-        QObject(parent),
-        languages_(languages),
-        defaultLanguage_(defaultLanguage),
-        selectedLanguage_(defaultLanguage),
-        clientAutostart_(false)
-{
-    load();
+SettingsModel::SettingsModel(const QMap<QString, QString>& languages,
+    const QString& default_language,
+    QObject* parent)
+    : QObject(parent),
+      languages_(languages),
+      default_language_(default_language),
+      selected_language_(default_language),
+      client_autostart_(false) {
+  Load();
 }
 
-QString SettingsModel::getFilePath() const
-{
-    QString directory = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-    QDir dir(directory);
-    if (!dir.exists()) {
-        dir.mkpath(directory);
-    }
-    return directory + "/fptn-settings.json";
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+QString SettingsModel::GetFilePath() const {
+  QString directory =
+      QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+  QDir dir(directory);
+  if (!dir.exists()) {
+    dir.mkpath(directory);
+  }
+  return directory + "/fptn-settings.json";
 }
 
-void SettingsModel::load()
-{
-    // Load servers
-    services_.clear();
+void SettingsModel::Load() {
+  // Load servers
+  services_.clear();
 
-    QString filePath = getFilePath();
-    QFile file(filePath);
-    if (!file.open(QIODevice::ReadOnly)) {
-        spdlog::warn("Failed to open file for reading: {}", filePath.toStdString());
-        return;
-    }
-    SPDLOG_INFO("Settings: {}", filePath.toStdString());
+  QString file_path = GetFilePath();
+  QFile file(file_path);
+  if (!file.open(QIODevice::ReadOnly)) {
+    spdlog::warn(
+        "Failed to open file for reading: {}", file_path.toStdString());
+    return;
+  }
+  SPDLOG_INFO("Settings: {}", file_path.toStdString());
 
-    QByteArray data = file.readAll();
-    file.close();
+  QByteArray data = file.readAll();
+  file.close();
 
-    QJsonDocument document = QJsonDocument::fromJson(data);
-    QJsonObject serviceObj = document.object();
+  QJsonDocument document = QJsonDocument::fromJson(data);
+  QJsonObject service_obj = document.object();
 
-    if (serviceObj.contains("services")) {
-        QJsonArray servicesArray = serviceObj["services"].toArray();
-        for (const QJsonValue& serviceValue : servicesArray) {
-            QJsonObject jsonServiceObj = serviceValue.toObject();
-            ServiceConfig service;
+  if (service_obj.contains("services")) {
+    QJsonArray services_array = service_obj["services"].toArray();
+    for (const auto& service_value : services_array) {
+      QJsonObject jsonservice_obj = service_value.toObject();
+      ServiceConfig service;
 
-            service.serviceName = jsonServiceObj["service_name"].toString();
-            service.username = jsonServiceObj["username"].toString();
-            service.password = jsonServiceObj["password"].toString();
+      service.service_name = jsonservice_obj["service_name"].toString();
+      service.username = jsonservice_obj["username"].toString();
+      service.password = jsonservice_obj["password"].toString();
 
-            QJsonArray serversArray = jsonServiceObj["servers"].toArray();
-            for (const QJsonValue& serverValue : serversArray) {
-                QJsonObject serverObj = serverValue.toObject();
-                ServerConfig server;
-                server.name = serverObj["name"].toString();
-                server.host = serverObj["host"].toString();
-                server.port = serverObj["port"].toInt();
-                server.isUsing = serverObj["is_using"].toBool();
-                service.servers.push_back(server);
-            }
-            services_.push_back(service);
-        }
-    }
-    // Load network settings
-    if (serviceObj.contains("network_interface")) {
-        networkInterface_ = serviceObj["network_interface"].toString();
-    }
-    if (networkInterface_.isEmpty()) {
-        networkInterface_ = "auto";
-    }
-
-    if (serviceObj.contains("language")) {
-        selectedLanguage_ = serviceObj["language"].toString();
-    }
-    if (serviceObj.contains("autostart")) {
-        clientAutostart_ = serviceObj["autostart"].toInt();
-    }
-
-    if (serviceObj.contains("gateway_ip")) {
-        gatewayIp_ = serviceObj["gateway_ip"].toString();
-    }
-    if (gatewayIp_.isEmpty()) {
-        gatewayIp_ = "auto";
-    }
-
-    if (serviceObj.contains("sni")) {
-        sni_ = serviceObj["sni"].toString();
-    }
-    if (sni_.isEmpty()) {
-        sni_ = FPTN_DEFAULT_SNI;
-    }
-}
-
-const QString SettingsModel::languageName() const
-{
-    for (auto it = languages_.begin(); it != languages_.end(); ++it) {
-        if (it.key() == selectedLanguage_) {
-            return it.value();
-        }
-    }
-    return "English";
-}
-
-const QString& SettingsModel::languageCode() const
-{
-    return selectedLanguage_;
-}
-
-const QString& SettingsModel::defaultLanguageCode() const
-{
-    return defaultLanguage_;
-}
-
-void SettingsModel::setLanguage(const QString& languageName)
-{
-    for (auto it = languages_.begin(); it != languages_.end(); ++it) {
-        if (languageName == it.value()) {
-            selectedLanguage_ = it.key();
-        }
-    }
-    save();
-}
-
-void SettingsModel::setLanguageCode(const QString& languageCode)
-{
-    for (auto it = languages_.begin(); it != languages_.end(); ++it) {
-        if (languageCode == it.key()) {
-            selectedLanguage_ = languageCode;
-        }
-    }
-    save();
-}
-
-const QVector<QString> SettingsModel::getLanguages() const
-{
-    QVector<QString> languages;
-    for (auto it = languages_.begin(); it != languages_.end(); ++it) {
-        languages.push_back(it.value());
-    }
-    return languages;
-}
-
-bool SettingsModel::existsTranslation(const QString &languageCode) const
-{
-    return languages_.find(languageCode) != languages_.end();
-}
-
-bool SettingsModel::save()
-{
-    QString filePath = getFilePath();
-    QFile file(filePath);
-    if (!file.open(QIODevice::WriteOnly)) {
-        SPDLOG_ERROR("Failed to open file for writing: {}", filePath.toStdString());
-        return false;
-    }
-
-    QJsonObject jsonObject;
-    QJsonArray servicesArray;
-    for (const ServiceConfig& service : services_) {
-        QJsonObject serviceObj;
-        serviceObj["service_name"] = service.serviceName;
-        serviceObj["username"] = service.username;
-        serviceObj["password"] = service.password;
-
-        QJsonArray serversArray;
-        for (const ServerConfig& server : service.servers) {
-            QJsonObject serverObj;
-            serverObj["name"] = server.name;
-            serverObj["host"] = server.host;
-            serverObj["port"] = server.port;
-            serviceObj["is_using"] = server.isUsing;
-            serversArray.append(serverObj);
-        }
-        serviceObj["servers"] = serversArray;
-        servicesArray.append(serviceObj);
-    }
-
-    jsonObject["language"] = selectedLanguage_;
-    jsonObject["services"] = servicesArray;
-    jsonObject["network_interface"] = networkInterface_;
-    jsonObject["gateway_ip"] = gatewayIp_;
-    jsonObject["autostart"] = clientAutostart_ ? 1 : 0;
-    jsonObject["sni"] = sni_;
-    QJsonDocument document(jsonObject);
-    auto len = file.write(document.toJson());
-    file.close();
-
-    if (len > 0) {
-        SPDLOG_INFO("Success save: {}", filePath.toStdString());
-    }
-    // load saved data
-    load();
-
-    // send signal
-    emit dataChanged();
-
-    return len > 0;
-}
-
-ServiceConfig SettingsModel::parseToken(const QString& token)
-{
-    QJsonParseError parseError;
-    const QByteArray tokenData = token.toUtf8();
-    QJsonDocument jsonDoc = QJsonDocument::fromJson(tokenData, &parseError);
-
-    if (parseError.error != QJsonParseError::NoError) {
-        throw std::runtime_error("JSON parsing error: " + parseError.errorString().toStdString());
-    }
-
-    QJsonObject jsonObject = jsonDoc.object();
-    if (!jsonObject.contains("service_name") || !jsonObject.contains("username") || !jsonObject.contains("password") || !jsonObject.contains("servers")) {
-        throw std::runtime_error("Missing required fields in JSON.");
-    }
-    ServiceConfig service;
-    service.serviceName = jsonObject["service_name"].toString();
-    service.username = jsonObject["username"].toString();
-    service.password = jsonObject["password"].toString();
-
-    QJsonArray serversArray = jsonObject["servers"].toArray();
-    for (const QJsonValue& serverValue : serversArray) {
-        QJsonObject serverObj = serverValue.toObject();
-        if (!serverObj.contains("name") || !serverObj.contains("host") || !serverObj.contains("port")) {
-            throw std::runtime_error("Missing required fields in server object.");
-        }
-
+      QJsonArray servers_array = jsonservice_obj["servers"].toArray();
+      for (const auto& server_value : servers_array) {
+        QJsonObject server_obj = server_value.toObject();
         ServerConfig server;
-        server.name = serverObj["name"].toString();
-        server.host = serverObj["host"].toString();
-        server.port = serverObj["port"].toInt();
-        server.isUsing = true;
-
+        server.name = server_obj["name"].toString();
+        server.host = server_obj["host"].toString();
+        server.port = server_obj["port"].toInt();
+        server.is_using = server_obj["is_using"].toBool();
         service.servers.push_back(server);
+      }
+      services_.push_back(service);
     }
-    return service;
+  }
+  // Load network settings
+  if (service_obj.contains("network_interface")) {
+    network_interface_ = service_obj["network_interface"].toString();
+  }
+  if (network_interface_.isEmpty()) {
+    network_interface_ = "auto";
+  }
+
+  if (service_obj.contains("language")) {
+    selected_language_ = service_obj["language"].toString();
+  }
+  if (service_obj.contains("autostart")) {
+    client_autostart_ = service_obj["autostart"].toBool();
+  }
+
+  if (service_obj.contains("gateway_ip")) {
+    gateway_ip_ = service_obj["gateway_ip"].toString();
+  }
+  if (gateway_ip_.isEmpty()) {
+    gateway_ip_ = "auto";
+  }
+
+  if (service_obj.contains("sni")) {
+    sni_ = service_obj["sni"].toString();
+  }
+  if (sni_.isEmpty()) {
+    sni_ = FPTN_DEFAULT_SNI;
+  }
 }
 
-QString SettingsModel::networkInterface() const {
-    return networkInterface_;
-}
-
-void SettingsModel::setNetworkInterface(const QString &interface) {
-    networkInterface_ = (interface.isEmpty() ? "auto" : interface);
-}
-
-QString SettingsModel::gatewayIp() const {
-    return gatewayIp_.isEmpty() ? "auto" : gatewayIp_;
-}
-
-void SettingsModel::setGatewayIp(const QString &ip) {
-    gatewayIp_ = ip.isEmpty() ? "auto" : ip;
-    save();
-}
-
-QString SettingsModel::SNI() const
-{
-    return sni_.isEmpty() ? FPTN_DEFAULT_SNI : sni_;
-}
-
-void SettingsModel::setSNI(const QString &sni)
-{
-    sni_ = sni;
-    save();
-}
-
-bool SettingsModel::autostart() const
-{
-    return clientAutostart_;
-}
-
-void SettingsModel::setAutostart(bool value)
-{
-    clientAutostart_ = value;
-    save();
-}
-
-const QVector<ServiceConfig>& SettingsModel::services() const {
-    return services_;
-}
-
-void SettingsModel::addService(const ServiceConfig &server) {
-    services_.append(server);
-}
-
-void SettingsModel::removeServer(int index) {
-    if (index >= 0 && index < services_.size()) {
-        services_.removeAt(index);
+QString SettingsModel::LanguageName() const {
+  for (auto it = languages_.begin(); it != languages_.end(); ++it) {
+    if (it.key() == selected_language_) {
+      return it.value();
     }
+  }
+  return "English";
 }
 
-void SettingsModel::clear() {
-    services_.clear();
+const QString& SettingsModel::LanguageCode() const {
+  return selected_language_;
 }
 
-QVector<QString> SettingsModel::getNetworkInterfaces() const
-{
-    QVector<QString> interfaces;
-    interfaces.append("auto"); // default empty
+const QString& SettingsModel::DefaultLanguageCode() const {
+  return default_language_;
+}
 
-    QList<QNetworkInterface> networkInterfaces = QNetworkInterface::allInterfaces();
-
-    for (const QNetworkInterface& networkInterface : networkInterfaces) {
-        if (networkInterface.flags().testFlag(QNetworkInterface::IsUp) &&
-            !networkInterface.flags().testFlag(QNetworkInterface::IsLoopBack) &&
-            !networkInterface.flags().testFlag(QNetworkInterface::IsPointToPoint) &&
-            !networkInterface.hardwareAddress().isEmpty()) {
-            QList<QNetworkAddressEntry> entries = networkInterface.addressEntries();
-            if (!entries.isEmpty()) {
-                interfaces.append(networkInterface.humanReadableName());
-            }
-        }
+void SettingsModel::SetLanguage(const QString& language_name) {
+  for (auto it = languages_.begin(); it != languages_.end(); ++it) {
+    if (language_name == it.value()) {
+      selected_language_ = it.key();
     }
-    return interfaces;
+  }
+  Save();
 }
 
-int SettingsModel::getExistServiceIndex(const QString& name) const
-{
-    for (int i = 0; i < services_.size(); i++) {
-        if (services_[i].serviceName == name) {
-            return i;
-        }
+void SettingsModel::SetLanguageCode(const QString& language_code) {
+  for (auto it = languages_.begin(); it != languages_.end(); ++it) {
+    if (language_code == it.key()) {
+      selected_language_ = language_code;
     }
-    return -1;
+  }
+  Save();
 }
 
+QVector<QString> SettingsModel::GetLanguages() const {
+  QVector<QString> languages;
+  for (auto it = languages_.begin(); it != languages_.end(); ++it) {
+    languages.push_back(it.value());
+  }
+  return languages;
+}
+
+bool SettingsModel::ExistsTranslation(const QString& language_code) const {
+  // NOLINTNEXTLINE(readability-container-contains)
+  return languages_.find(language_code) != languages_.end();
+}
+
+bool SettingsModel::Save() {
+  QString file_path = GetFilePath();
+  QFile file(file_path);
+  if (!file.open(QIODevice::WriteOnly)) {
+    SPDLOG_ERROR(
+        "Failed to open file for writing: {}", file_path.toStdString());
+    return false;
+  }
+
+  QJsonObject json_object;
+  QJsonArray services_array;
+  for (const auto& service : services_) {
+    QJsonObject service_obj;
+    service_obj["service_name"] = service.service_name;
+    service_obj["username"] = service.username;
+    service_obj["password"] = service.password;
+
+    QJsonArray servers_array;
+    for (const auto& server : service.servers) {
+      QJsonObject server_obj;
+      server_obj["name"] = server.name;
+      server_obj["host"] = server.host;
+      server_obj["port"] = server.port;
+      service_obj["is_using"] = server.is_using;
+      servers_array.append(server_obj);
+    }
+    service_obj["servers"] = servers_array;
+    services_array.append(service_obj);
+  }
+
+  json_object["language"] = selected_language_;
+  json_object["services"] = services_array;
+  json_object["network_interface"] = network_interface_;
+  json_object["gateway_ip"] = gateway_ip_;
+  json_object["autostart"] = client_autostart_ ? 1 : 0;
+  json_object["sni"] = sni_;
+  QJsonDocument document(json_object);
+  auto len = file.write(document.toJson());
+  file.close();
+
+  if (len > 0) {
+    SPDLOG_INFO("Success save: {}", file_path.toStdString());
+  }
+  // load saved data
+  Load();
+
+  // send signal
+  emit dataChanged();
+
+  return len > 0;
+}
+
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+ServiceConfig SettingsModel::ParseToken(const QString& token) {
+  QJsonParseError parse_error;
+  const QByteArray token_data = token.toUtf8();
+  QJsonDocument json_doc = QJsonDocument::fromJson(token_data, &parse_error);
+
+  if (parse_error.error != QJsonParseError::NoError) {
+    throw std::runtime_error(
+        "JSON parsing error: " + parse_error.errorString().toStdString());
+  }
+
+  QJsonObject json_object = json_doc.object();
+  if (!json_object.contains("service_name") ||
+      !json_object.contains("username") || !json_object.contains("password") ||
+      !json_object.contains("servers")) {
+    throw std::runtime_error("Missing required fields in JSON.");
+  }
+  ServiceConfig service;
+  service.service_name = json_object["service_name"].toString();
+  service.username = json_object["username"].toString();
+  service.password = json_object["password"].toString();
+
+  QJsonArray servers_array = json_object["servers"].toArray();
+  for (const auto& server_value : servers_array) {
+    QJsonObject server_obj = server_value.toObject();
+    if (!server_obj.contains("name") || !server_obj.contains("host") ||
+        !server_obj.contains("port")) {
+      throw std::runtime_error("Missing required fields in server object.");
+    }
+
+    ServerConfig server;
+    server.name = server_obj["name"].toString();
+    server.host = server_obj["host"].toString();
+    server.port = server_obj["port"].toInt();
+    server.is_using = true;
+
+    service.servers.push_back(server);
+  }
+  return service;
+}
+
+QString SettingsModel::UsingNetworkInterface() const {
+  return network_interface_;
+}
+
+void SettingsModel::SetUsingNetworkInterface(const QString& iface) {
+  network_interface_ = (iface.isEmpty() ? "auto" : iface);
+}
+
+QString SettingsModel::GatewayIp() const {
+  return gateway_ip_.isEmpty() ? "auto" : gateway_ip_;
+}
+
+void SettingsModel::SetGatewayIp(const QString& ip) {
+  gateway_ip_ = ip.isEmpty() ? "auto" : ip;
+  Save();
+}
+
+QString SettingsModel::SNI() const {
+  return sni_.isEmpty() ? FPTN_DEFAULT_SNI : sni_;
+}
+
+void SettingsModel::SetSNI(const QString& sni) {
+  sni_ = sni;
+  Save();
+}
+
+bool SettingsModel::Autostart() const { return client_autostart_; }
+
+void SettingsModel::SetAutostart(bool value) {
+  client_autostart_ = value;
+  Save();
+}
+
+const QVector<ServiceConfig>& SettingsModel::Services() const {
+  return services_;
+}
+
+void SettingsModel::AddService(const ServiceConfig& server) {
+  services_.append(server);
+}
+
+void SettingsModel::RemoveServer(int index) {
+  if (index >= 0 && index < services_.size()) {
+    services_.removeAt(index);
+  }
+}
+
+void SettingsModel::Clear() { services_.clear(); }
+
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+QVector<QString> SettingsModel::GetNetworkInterfaces() const {
+  QVector<QString> interfaces;
+  interfaces.append("auto");  // default empty
+
+  QList<QNetworkInterface> network_interfaces =
+      QNetworkInterface::allInterfaces();
+
+  for (const QNetworkInterface& network_interface : network_interfaces) {
+    if (network_interface.flags().testFlag(QNetworkInterface::IsUp) &&
+        !network_interface.flags().testFlag(QNetworkInterface::IsLoopBack) &&
+        !network_interface.flags().testFlag(
+            QNetworkInterface::IsPointToPoint) &&
+        !network_interface.hardwareAddress().isEmpty()) {
+      QList<QNetworkAddressEntry> entries = network_interface.addressEntries();
+      if (!entries.isEmpty()) {
+        interfaces.append(network_interface.humanReadableName());
+      }
+    }
+  }
+  return interfaces;
+}
+
+int SettingsModel::GetExistServiceIndex(const QString& name) const {
+  for (int i = 0; i < services_.size(); i++) {
+    if (services_[i].service_name == name) {
+      return i;
+    }
+  }
+  return -1;
+}

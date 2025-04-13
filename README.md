@@ -73,7 +73,7 @@ By using NGINX to proxy WebSocket connections, you can effectively hide the VPN 
 
 Download the FPTN client from [WebSite](http://batchar2.github.io/fptn/) or [GitHub](https://github.com/batchar2/fptn/releases). After downloading, install and run the client.
 
-The client is a compact application with an interface located in the system tray.
+The client is a compact application with an interface located in the routing tray.
 
 Simply click on the icon to open the context menu.
 
@@ -154,7 +154,7 @@ LOG_FILE=/var/log/fptn-server.log
 ```
 
 Configuration File Fields
-- `OUT_NETWORK_INTERFACE` Specifies the network interface that the server will use for outgoing traffic (e.g., eth0 for Ethernet). Ensure this is set to the correct network interface on your system.
+- `OUT_NETWORK_INTERFACE` Specifies the network interface that the server will use for outgoing traffic (e.g., eth0 for Ethernet). Ensure this is set to the correct network interface on your routing.
 - `SERVER_KEY` The filename of the private key for the server. This key is used for encrypting and signing communications.
 - `SERVER_CRT` The filename of the server's SSL certificate. This certificate is used to establish a secure connection between the server and clients.
 - `SERVER_PUB` The filename of the public key derived from the private key. This is used by clients to verify the server's identity.
@@ -292,7 +292,7 @@ Once the configuration file is ready, open the FPTN Client settings and load you
 ##### Step 10 (optional). Telegram and Grafana
 
 Please follow the instructions for setting up both the [Telegram bot](sysadmin-tools/telegram-bot/README.md) and [Grafana](sysadmin-tools/grafana/README.md).
-With these tools, you can run your own bot and monitoring system.
+With these tools, you can run your own bot and monitoring routing.
 
 <img src="sysadmin-tools/grafana/images/grafana-1.jpg" alt="Grafana"/>
 
@@ -361,7 +361,7 @@ Check the client service status with:
 sudo systemctl status fptn-client
 ```
 
-Logs for the client service will be written to the system journal. You can view logs with:
+Logs for the client service will be written to the routing journal. You can view logs with:
 ```bash
 journalctl -u fptn-client
 ```
@@ -394,7 +394,6 @@ conan profile detect --force
 Console version
 
 ```bash
-git submodule update --init --recursive
 conan install . --output-folder=build --build=missing  -s compiler.cppstd=17 --settings build_type=Release
 cd build
 # only linux & macos
@@ -403,7 +402,7 @@ cmake .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release
 cmake .. -G "Visual Studio 17 2022" -DCMAKE_TOOLCHAIN_FILE="conan_toolchain.cmake" -DCMAKE_BUILD_TYPE=Release
 cmake --build . --config Release
 ctest
-# to install in system
+# to install in routing
 make install
 ```
 
@@ -444,7 +443,7 @@ cmake .. -G "Visual Studio 17 2022" -DCMAKE_TOOLCHAIN_FILE="conan_toolchain.cmak
 
 cmake --build . --config Release
 ctest
-# to install in system
+# to install in routing
 make install
 ```
 
@@ -467,6 +466,28 @@ or build Windows installer
 ```bash
 cmake --build . --config Release --target build-installer
 ```
+
+
+Run checkers (optional)
+
+Need to install clang and clang-tidy (Example for ubuntu)
+```bash
+
+pip install clang-tidy
+pip install clang-format
+sudo wget -qO- https://apt.llvm.org/llvm.sh | sudo bash -s -- 20
+sudo apt install cppcheck 
+```
+
+And run
+
+```bash
+# run linter 
+python3 cpplint.py --recursive --filter=-build/c++17 --counting=total ./src/ ./tests/
+# run cppcheck
+cppcheck --error-exitcode=1 --enable=all --language=c++ --disable=unusedFunction --inline-suppr --suppress=missingIncludeSystem --suppress=unknownMacro -I ./src/fptn-client/ -I ./src/fptn-server/ -I ./src/fptn-passwd/  -I ./src/ ./src/ ./tests/
+```
+
 
 </details>
 

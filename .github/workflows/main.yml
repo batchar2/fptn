@@ -3,8 +3,7 @@ name: Build and Test
 on:
   push:
     branches:
-      - dev
-      - master
+      - '**'
     tags:
       - '*'
   release:
@@ -32,6 +31,12 @@ jobs:
       - name: Install dependencies
         run: |
           conan install . --output-folder=build --build=missing -o with_gui_client=True --settings build_type=Release -s compiler.cppstd=17
+      - name: Run cpplint
+        run: |
+          python3 cpplint.py --recursive --filter=-build/c++17 --counting=total ./src/ ./tests/
+      - name: Run cppcheck
+        run: |
+          cppcheck --error-exitcode=1 --enable=all --language=c++ --suppress=unusedFunction --inline-suppr --suppress=missingIncludeSystem -I ./src/fptn-client/ -I ./src/fptn-server/ -I ./src/fptn-passwd/  -I ./src/  ./src/ ./tests/
       - name: Build
         run: |
           cd build
@@ -73,6 +78,12 @@ jobs:
       - name: Install dependencies
         run: |
           conan install . --output-folder=build --build=missing -o with_gui_client=True --settings build_type=Release -s compiler.cppstd=17
+      - name: Run cpplint
+        run: |
+          python3 cpplint.py --recursive --filter=-build/c++17 --counting=total ./src/ ./tests/
+      - name: Run cppcheck
+        run: |
+          cppcheck --error-exitcode=1 --enable=all --language=c++ --suppress=unusedFunction --inline-suppr --suppress=missingIncludeSystem -I ./src/fptn-client/ -I ./src/fptn-server/ -I ./src/fptn-passwd/ -I ./src/ ./src/ ./tests/
       - name: Build
         run: |
           cd build
@@ -114,6 +125,12 @@ jobs:
       - name: Install dependencies
         run: |
           conan install . --output-folder=build --build=missing -o with_gui_client=True --settings build_type=Release -s compiler.cppstd=17
+      - name: Run cpplint
+        run: |
+          python3 cpplint.py --recursive --filter=-build/c++17 --counting=total ./src/ ./tests/
+      - name: Run cppcheck
+        run: |
+          cppcheck --error-exitcode=1 --enable=all --language=c++ --suppress=unusedFunction --inline-suppr --suppress=missingIncludeSystem --suppress=unknownMacro -I ./src/fptn-client/ -I ./src/fptn-server/ -I ./src/fptn-passwd/  -I ./src/  ./src/ ./tests/
       - name: Build
         run: |
           cd build
@@ -160,6 +177,13 @@ jobs:
         shell: powershell
         run: |
           conan install . --output-folder=build --build=missing -o with_gui_client=True --settings build_type=Release -s compiler.cppstd=17
+      - name: Run cpplint
+        run: |
+          python cpplint.py --recursive --filter=-build/c++17 --counting=total ./src/ ./tests/
+      - name: Run cppcheck
+        shell: powershell
+        run: |
+          cppcheck --error-exitcode=1 --enable=all --language=c++ --suppress=unusedFunction --inline-suppr --suppress=missingIncludeSystem --suppress=unknownMacro -I ./src/fptn-client/ -I ./src/fptn-server/ -I ./src/fptn-passwd/  -I ./src/  ./src/ ./tests/
       - name: Build
         shell: powershell
         run: |

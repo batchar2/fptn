@@ -1,0 +1,67 @@
+# Use the Google style in this project.
+Language: Cpp
+BasedOnStyle: Google
+Standard: c++11
+# Some folks prefer to write "int& foo" while others prefer "int &foo".  The
+# Google Style Guide only asks for consistency within a project, we chose
+# "int& foo" for this project:
+DerivePointerAlignment: false
+PointerAlignment: Left
+
+UseTab: Never
+
+AlignAfterOpenBracket: DontAlign
+AllowAllParametersOfDeclarationOnNextLine: true
+BinPackParameters: false
+# The Google Style Guide only asks for consistency w.r.t. "east const" vs.
+# "const west" alignment of cv-qualifiers. In this project we use "const west".
+#QualifierAlignment: Right
+
+# Adjust the include ordering
+IncludeCategories:
+  - Regex:           '^<gtest/.*>'
+    Priority:        4
+  - Regex:           '^<Q[A-Z].*>'    # QT Core (QApplication, QWidget и т.д.)
+    Priority:        3
+  - Regex:           '^<Qt[A-Z].*>'   # QT Modules (QtCore, QtGui и т.д.)
+    Priority:        3
+  - Regex:          '^<protocol.pb.h>'
+    Priority:        2
+  - Regex:          '^<tuntap++.*>'
+    Priority:        2
+  - Regex:          '^<zlib.*>'
+    Priority:        2
+  - Regex:           '^<argparse/.*>'
+    Priority:        2
+  - Regex:           '^<boost/.*>'
+    Priority:        2
+  - Regex:           '^<jwt-cpp/.*>'
+    Priority:        2
+  - Regex:           '^<nlohmann/.*>'
+    Priority:        2
+  - Regex:           '^<spdlog/.*>'
+    Priority:        2
+  - Regex:           '^<pcapplusplus/.*>'
+    Priority:        2
+  - Regex:           '^<prometheus/.*>'
+    Priority:        2
+  - Regex:           '^<openssl/.*>'
+    Priority:        2
+  - Regex:           '^<fmt/.*>'
+    Priority:        2
+  - Regex:           '^"(common/.*)"'
+    Priority:        5
+  - Regex:           '^<.*>'
+    Priority:        1
+  - Regex:           '^".*"'
+    Priority:        6
+
+# Format raw string literals with a `pb` or `proto` tag as proto.
+RawStringFormats:
+  - Language: TextProto
+    Delimiters:
+      - 'pb'
+      - 'proto'
+    BasedOnStyle: Google
+
+CommentPragmas: '(@copydoc|@copybrief|@see|@overload|@snippet)'

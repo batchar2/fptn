@@ -1,162 +1,150 @@
+/*=============================================================================
+Copyright (c) 2024-2025 Stas Skokov
+
+Distributed under the MIT License (https://opensource.org/licenses/MIT)
+=============================================================================*/
+
 #include <filesystem>
+#include <iostream>
+#include <memory>
+#include <utility>
 
 #include <boost/asio.hpp>
 
-#include <common/logger/logger.h>
-#include <common/jwt_token/token_manager.h>
+#include "common/jwt_token/token_manager.h"
+#include "common/logger/logger.h"
 
+#include "cmd/command_line_config.h"
+#include "filter/filters/antiscan/antiscan.h"
+#include "filter/filters/bittorrent/bittorrent.h"
+#include "filter/manager.h"
 #include "nat/table.h"
-#include "web/server.h"
-#include "vpn/manager.h"
-#include "cmd/cmd_option.h"
-#include "system/iptables.h"
+#include "network/virtual_interface.h"
+#include "routing/iptables.h"
 #include "statistic/metrics.h"
 #include "user/user_manager.h"
-#include "network/virtual_interface.h"
+#include "vpn/manager.h"
+#include "web/server.h"
 
-#include "filter/manager.h"
-#include "filter/packets/antiscan/antiscan.h"
-#include "filter/packets/bittorrent/bittorrent.h"
-
-
-inline void waitForSignal() 
-{
-    boost::asio::io_context io_context;
-    boost::asio::signal_set signals(io_context, SIGINT, SIGTERM /*, SIGQUIT*/);
-    signals.async_wait(
-        [&](auto, auto) {
-            SPDLOG_INFO("Signal received");
-            io_context.stop();
-        });
-    io_context.run();
+namespace {
+void WaitForSignal() {
+  boost::asio::io_context io_context;
+  boost::asio::signal_set signals(io_context, SIGINT, SIGTERM /*, SIGQUIT*/);
+  signals.async_wait([&](auto, auto) { io_context.stop(); });
+  io_context.run();
 }
+}  // namespace
 
-
-int main(int argc, char* argv[]) 
-{
+int main(int argc, char* argv[]) {
 #if defined(__linux__) || defined(__APPLE__)
-    if (geteuid() != 0) {
-        std::cerr << "You must be root to run this program." << std::endl;
-        return EXIT_FAILURE;
-    }
+  if (geteuid() != 0) {
+    std::cerr << "You must be root to run this program." << std::endl;
+    return EXIT_FAILURE;
+  }
 #endif
+  try {
     /* Check options */
-    auto options = std::make_shared<fptn::cmd::CmdOptions>(argc, argv);
-    if(!options->parse()) {
-        return EXIT_FAILURE;
+    fptn::cmd::CommandLineConfig config(argc, argv);
+    if (!config.Parse()) {
+      return EXIT_FAILURE;
     }
-    if (!std::filesystem::exists(options->getServerCrt())
-        || !std::filesystem::exists(options->getServerKey())
-        || !std::filesystem::exists(options->getServerPub())
-    ) {
-        SPDLOG_ERROR("SSL certificate or key file does not exist!");
-        return EXIT_FAILURE;
+    if (!std::filesystem::exists(config.ServerCrt()) ||
+        !std::filesystem::exists(config.ServerKey()) ||
+        !std::filesystem::exists(config.ServerPub())) {
+      SPDLOG_ERROR("SSL certificate or key file does not exist!");
+      return EXIT_FAILURE;
     }
 
     /* Init logger */
     if (fptn::logger::init("fptn-server")) {
-        SPDLOG_INFO("Application started successfully.");
+      SPDLOG_INFO("Application started successfully.");
     } else {
-        std::cerr << "Logger initialization failed. Exiting application." << std::endl;
-        return EXIT_FAILURE;
+      std::cerr << "Logger initialization failed. Exiting application."
+                << std::endl;
+      return EXIT_FAILURE;
     }
 
-    /* Init iptables & virtual network interface */
-    auto iptables = std::make_unique<fptn::system::IPTables>(
-        options->getOutNetworkInterface(),
-        options->getTunInterfaceName()
-    );
-    auto virtualNetworkInterface = std::make_unique<fptn::network::VirtualInterface>(
-        options->getTunInterfaceName(),
-        /* IPv+4 */
-        options->getTunInterfaceIPv4(),
-        options->getTunInterfaceNetworkIPv4Mask(),
-        /* IPv6 */
-        options->getTunInterfaceIPv6(),
-        options->getTunInterfaceNetworkIPv6Mask(),
-        /* iptables */
-        std::move(iptables)
-    );
+    /* Init iptables */
+    auto iptables = std::make_unique<fptn::routing::IPTables>(
+        config.OutNetworkInterface(), config.TunInterfaceName());
+    /* Init virtual network interface */
+    auto virtual_network_interface =
+        std::make_unique<fptn::network::VirtualInterface>(
+            config.TunInterfaceName(),
+            /* IPv+4 */
+            config.TunInterfaceIPv4(), config.TunInterfaceNetworkIPv4Mask(),
+            /* IPv6 */
+            config.TunInterfaceIPv6(), config.TunInterfaceNetworkIPv6Mask(),
+            /* iptables */
+            std::move(iptables));
 
     /* Init web server */
-    auto tokenManager = std::make_shared<fptn::common::jwt_token::TokenManager>(
-        options->getServerCrt(), options->getServerKey(), options->getServerPub()
-    );
-    auto userManager = std::make_shared<fptn::user::UserManager>(
-        options->getUserFile(),
-        options->useRemoteServerAuth(),
-        options->getRemoteServerAuthHost(),
-        options->getRemoteServerAuthPort()
-    );
-    auto natTable = std::make_shared<fptn::nat::Table>(
+    auto token_manager =
+        std::make_shared<fptn::common::jwt_token::TokenManager>(
+            config.ServerCrt(), config.ServerKey(), config.ServerPub());
+    /* Init user manager */
+    auto user_manager = std::make_shared<fptn::user::UserManager>(
+        config.UserFile(), config.UseRemoteServerAuth(),
+        config.RemoteServerAuthHost(), config.RemoteServerAuthPort());
+    /* Init NAT */
+    auto nat_table = std::make_shared<fptn::nat::Table>(
         /* IPv4 */
-        options->getTunInterfaceIPv4(),
-        options->getTunInterfaceNetworkIPv4Address(),
-        options->getTunInterfaceNetworkIPv4Mask(),
+        config.TunInterfaceIPv4(), config.TunInterfaceNetworkIPv4Address(),
+        config.TunInterfaceNetworkIPv4Mask(),
         /* IPv6 */
-        options->getTunInterfaceIPv6(),
-        options->getTunInterfaceNetworkIPv6Address(),
-        options->getTunInterfaceNetworkIPv6Mask()
-    );
+        config.TunInterfaceIPv6(), config.TunInterfaceNetworkIPv6Address(),
+        config.TunInterfaceNetworkIPv6Mask());
+    /* Init prometheus */
     auto prometheus = std::make_shared<fptn::statistic::Metrics>();
-
-    auto webServer = std::make_unique<fptn::web::Server>(
-        options->getServerPort(),
-        natTable,
-        userManager,
-        tokenManager,
-        prometheus,
-        options->getPrometheusAccessKey(),
-        options->getTunInterfaceIPv4(),
-        options->getTunInterfaceIPv6()
-    );
+    /* Init webserver */
+    auto web_server = std::make_unique<fptn::web::Server>(config.ServerPort(),
+        nat_table, user_manager, token_manager, prometheus,
+        config.PrometheusAccessKey(), config.TunInterfaceIPv4(),
+        config.TunInterfaceIPv6());
 
     /* init packet filter */
-    auto filterManager = std::make_shared<fptn::filter::FilterManager>();
-    if (options->disableBittorrent()) { // block bittorrent traffic
-        filterManager->add(std::make_shared<fptn::filter::packets::BitTorrentFilter>());
+    auto filter_manager = std::make_shared<fptn::filter::Manager>();
+    if (config.DisableBittorrent()) {  // block bittorrent traffic
+      filter_manager->Add(std::make_shared<fptn::filter::BitTorrent>());
     }
-    filterManager->add( // Prevent sending requests to the VPN virtual network from the client
-        std::make_shared<fptn::filter::packets::AntiScanFilter>(
-            /* IPv4 */
-            options->getTunInterfaceIPv4(),
-            options->getTunInterfaceNetworkIPv4Address(),
-            options->getTunInterfaceNetworkIPv4Mask(),
-            /* IPv6 */
-            options->getTunInterfaceIPv6(),
-            options->getTunInterfaceNetworkIPv6Address(),
-            options->getTunInterfaceNetworkIPv6Mask()
-        )
-    );
+    // Prevent sending requests to the VPN virtual network from the client
+    filter_manager->Add(std::make_shared<fptn::filter::AntiScan>(
+        /* IPv4 */
+        config.TunInterfaceIPv4(), config.TunInterfaceNetworkIPv4Address(),
+        config.TunInterfaceNetworkIPv4Mask(),
+        /* IPv6 */
+        config.TunInterfaceIPv6(), config.TunInterfaceNetworkIPv6Address(),
+        config.TunInterfaceNetworkIPv6Mask()));
 
     /* init vpn manager */
-    fptn::vpn::Manager manager(
-        std::move(webServer),
-        std::move(virtualNetworkInterface),
-        natTable,
-        filterManager,
-        prometheus
-    );
+    fptn::vpn::Manager manager(std::move(web_server),
+        std::move(virtual_network_interface), nat_table, filter_manager,
+        prometheus);
 
-    SPDLOG_INFO("\n--- Starting server---\n"
+    SPDLOG_INFO(
+        "\n--- Starting server---\n"
         "VERSION:           {}\n"
         "NETWORK INTERFACE: {}\n"
         "VPN NETWORK IPv4:  {}\n"
         "VPN NETWORK IPv6:  {}\n"
         "VPN SERVER PORT:   {}\n",
-        FPTN_VERSION,
-        options->getOutNetworkInterface(),
-        options->getTunInterfaceNetworkIPv4Address().toString(),
-        options->getTunInterfaceNetworkIPv6Address().toString(),
-        options->getServerPort()
-    );
+        FPTN_VERSION, config.OutNetworkInterface(),
+        config.TunInterfaceNetworkIPv4Address().toString(),
+        config.TunInterfaceNetworkIPv6Address().toString(),
+        config.ServerPort());
 
     /* start/wait/stop */
-    manager.start();
-    waitForSignal();
-    manager.stop();
+    manager.Start();
+    WaitForSignal();
+    manager.Stop();
 
     spdlog::shutdown();
 
     return EXIT_SUCCESS;
+  } catch (const std::exception& ex) {
+    SPDLOG_ERROR("An error occurred: {}. Exiting...", ex.what());
+  } catch (...) {
+    SPDLOG_ERROR("An unknown error occurred. Exiting...");
+  }
+  return EXIT_FAILURE;
 }
