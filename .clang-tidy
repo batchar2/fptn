@@ -120,7 +120,6 @@ Checks: >
 
 # Turn all the warnings from the checks above into errors.
 WarningsAsErrors: "*"
-
 HeaderFilterRegex: "(google/cloud/|generator/).*\\.h$"
 
 CheckOptions:

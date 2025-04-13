@@ -143,7 +143,7 @@ int main(int argc, char* argv[]) {
     SPDLOG_ERROR("An error occurred: {}. Exiting...", ex.what());
     return EXIT_FAILURE;
   } catch (...) {
-    SPDLOG_ERROR("An unknown error occurred. Exit");
+    SPDLOG_ERROR("An unknown error occurred. Exiting...");
     return EXIT_FAILURE;
   }
   return EXIT_SUCCESS;

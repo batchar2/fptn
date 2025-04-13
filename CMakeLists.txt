@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.16)
 project(fptn VERSION "${FPTN_VERSION}" LANGUAGES CXX)
 
+if(APPLE )
+    set(USE_CLANG_TIDY 1)
+endif()
+
 set(FPTN_SERVER_PATH "${CMAKE_CURRENT_SOURCE_DIR}/src/fptn-server")
 
 enable_testing()
@@ -37,6 +41,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 if(WIN32)
     set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS TRUE)
 else()
+#    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Werror")
     set(CMAKE_CXX_FLAGS "-Wall -Wextra")
 endif()
 if(NOT CMAKE_BUILD_TYPE)
@@ -44,7 +49,6 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_CXX_FLAGS_DEBUG "-g")
     set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 endif()
-
 
 # -- depends: tuntap  ---
 if(APPLE OR UNIX)
@@ -56,9 +60,6 @@ else()
 endif()
 # --- depends: base64 ---
 include(depends/cmake/FetchBase64.cmake)
-# --- depends: libhv ---
-#include(depends/cmake/FetchLibhv.cmake)
-
 
 # --- protobuf ---
 include_directories(${CMAKE_BINARY_DIR}/depends/protobuf/fptn_protocol/)
@@ -66,9 +67,6 @@ add_subdirectory(depends/protobuf)
 
 
 # --- include ---
-set(CMAKE_CXX_CLANG_TIDY clang-tidy)
-#set(CMAKE_CXX_CLANG_TIDY "clang-tidy;-checks=*,-llvmlibc-restrict-system-libc-headers")
-#set(CMAKE_CXX_CLANG_TIDY "clang-tidy;-checks=*")
 include_directories(src/)
 include_directories(depends/)
 
@@ -79,6 +77,11 @@ if (MSVC)
     # target_compile_options("/wd4996")  # Disable warning
 else()
     add_compile_options(-Wall -Werror)
+endif()
+
+# --- clang-tidy ---
+if(USE_CLANG_TIDY)
+    set(CMAKE_CXX_CLANG_TIDY "clang-tidy;-extra-arg=-std=c++20")
 endif()
 
 if(APPLE OR UNIX)
