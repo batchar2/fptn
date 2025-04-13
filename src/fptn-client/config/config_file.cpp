@@ -69,13 +69,13 @@ ConfigFile::Server ConfigFile::FindFastestServer() const {
   std::transform(servers_.begin(), servers_.end(), std::back_inserter(futures),
       // NOLINTNEXTLINE(bugprone-exception-escape)
       [this, kTimeout](const auto& server) {
-        (void)kTimeout; // fix Windows build
+        (void)kTimeout;  // fix Windows build
         try {
           // NOLINTNEXTLINE(modernize-use-ranges)
           return std::async(std::launch::async,
               // NOLINTNEXTLINE(bugprone-exception-escape)
               [this, server, kTimeout]() {
-                (void)kTimeout; // fix Windows build
+                (void)kTimeout;  // fix Windows build
                 return GetDownloadTimeMs(server, kTimeout);
               });
         } catch (const std::exception& ex) {
