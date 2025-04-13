@@ -1,10 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 project(fptn VERSION "${FPTN_VERSION}" LANGUAGES CXX)
 
-if(APPLE )
-    set(USE_CLANG_TIDY 1)
-endif()
-
 set(FPTN_SERVER_PATH "${CMAKE_CURRENT_SOURCE_DIR}/src/fptn-server")
 
 enable_testing()
@@ -79,9 +75,30 @@ else()
     add_compile_options(-Wall -Werror)
 endif()
 
-# --- clang-tidy ---
-if(USE_CLANG_TIDY)
-    set(CMAKE_CXX_CLANG_TIDY "clang-tidy;-extra-arg=-std=c++20")
+# --- clang-tidy setup ---
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+# search clang-tidy
+find_program(CLANG_TIDY_EXE NAMES clang-tidy-22 clang-tidy-21 clang-tidy-20 clang-tidy-19 clang-tidy-18 clang-tidy-17 clang-tidy-16 clang-tidy-15 clang-tidy)
+if(CLANG_TIDY_EXE)
+    execute_process(
+        COMMAND ${CLANG_TIDY_EXE} --version
+            OUTPUT_VARIABLE CLANG_TIDY_VERSION_STRING
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    message(STATUS "[CLANG-TIDY] clang-tidy version: ${CLANG_TIDY_VERSION_STRING}")
+    if(CLANG_TIDY_VERSION_STRING MATCHES "version ([0-9]+)")
+        set(CLANG_TIDY_VERSION ${CMAKE_MATCH_1})
+        if(CLANG_TIDY_VERSION GREATER_EQUAL 20)
+            message(STATUS "[CLANG-TIDY]  clang-tidy ${CLANG_TIDY_VERSION} accepted, enabling")
+            set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY_EXE};-extra-arg=-std=c++20")
+        else()
+            message(WARNING "[CLANG-TIDY]  clang-tidy version ${CLANG_TIDY_VERSION} is too old (<15), disabling")
+        endif()
+    else()
+        message(WARNING "[CLANG-TIDY]  Could not parse clang-tidy version, disabling")
+    endif()
+else()
+    message(WARNING "[CLANG-TIDY]  clang-tidy not found, skipping clang-tidy checks.")
 endif()
 
 if(APPLE OR UNIX)

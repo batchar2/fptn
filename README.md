@@ -470,6 +470,17 @@ cmake --build . --config Release --target build-installer
 
 Run checkers (optional)
 
+Need to install clang and clang-tidy (Example for ubuntu)
+```bash
+
+pip install clang-tidy
+pip install clang-format
+sudo wget -qO- https://apt.llvm.org/llvm.sh | sudo bash -s -- 20
+sudo apt install cppcheck 
+```
+
+And run
+
 ```bash
 # run linter 
 python3 cpplint.py --recursive --filter=-build/c++17 --counting=total ./src/ ./tests/
