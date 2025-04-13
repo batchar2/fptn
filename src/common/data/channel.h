@@ -26,7 +26,7 @@ class Channel {
   explicit Channel(std::size_t maxCapacity = 512) {
     buffer_.set_capacity(maxCapacity);
   }
-  void push(network::IPPacketPtr pkt) {
+  void Push(network::IPPacketPtr pkt) noexcept {
     {
       const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
@@ -35,8 +35,8 @@ class Channel {
     condvar_.notify_one();
   }
 
-  network::IPPacketPtr waitForPacket(
-      const std::chrono::milliseconds& duration) {
+  network::IPPacketPtr WaitForPacket(
+      const std::chrono::milliseconds& duration) noexcept {
     std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
     // exists

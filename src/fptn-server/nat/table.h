@@ -40,9 +40,9 @@ class Table final {
       const pcpp::IPv4Address& client_ipv4,
       const pcpp::IPv6Address& client_ipv6,
       const fptn::traffic_shaper::LeakyBucketSPtr& to_client,
-      const fptn::traffic_shaper::LeakyBucketSPtr& from_client) noexcept;
-  bool DelClientSession(ClientID clientId) noexcept;
-  void UpdateStatistic(const fptn::statistic::MetricsSPtr& prometheus) noexcept;
+      const fptn::traffic_shaper::LeakyBucketSPtr& from_client);
+  bool DelClientSession(ClientID client_id);
+  void UpdateStatistic(const fptn::statistic::MetricsSPtr& prometheus);
 
  public:
   fptn::client::SessionSPtr GetSessionByFakeIPv4(

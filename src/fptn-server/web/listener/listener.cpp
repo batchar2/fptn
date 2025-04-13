@@ -20,26 +20,21 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <boost/beast/websocket.hpp>
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
-using boost::asio::co_spawn;
-using boost::asio::detached;
-using boost::asio::use_awaitable;
-namespace this_coro = boost::asio::this_coro;
-
 using fptn::web::Listener;
 
 Listener::Listener(boost::asio::io_context& ioc,
     std::uint16_t port,
-    const fptn::common::jwt_token::TokenManagerSPtr& token_manager,
-    const WebSocketOpenConnectionCallback& ws_open_callback,
-    const WebSocketNewIPPacketCallback& ws_new_ippacket_callback,
-    const WebSocketCloseConnectionCallback& ws_close_callback)
+    fptn::common::jwt_token::TokenManagerSPtr token_manager,
+    WebSocketOpenConnectionCallback ws_open_callback,
+    WebSocketNewIPPacketCallback ws_new_ippacket_callback,
+    WebSocketCloseConnectionCallback ws_close_callback)
     : ioc_(ioc),
       ctx_(boost::asio::ssl::context::tlsv12),
       acceptor_(ioc_),
-      token_manager_(token_manager),
-      ws_open_callback_(ws_open_callback),
-      ws_new_ippacket_callback_(ws_new_ippacket_callback),
-      ws_close_callback_(ws_close_callback),
+      token_manager_(std::move(token_manager)),
+      ws_open_callback_(std::move(ws_open_callback)),
+      ws_new_ippacket_callback_(std::move(ws_new_ippacket_callback)),
+      ws_close_callback_(std::move(ws_close_callback)),
       endpoint_(
           boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port)),
       running_(false) {
@@ -48,9 +43,9 @@ Listener::Listener(boost::asio::io_context& ioc,
                    boost::asio::ssl::context::no_sslv3 |
                    boost::asio::ssl::context::single_dh_use);
 
-  ctx_.use_certificate_chain_file(token_manager->ServerCrtPath());
+  ctx_.use_certificate_chain_file(token_manager_->ServerCrtPath());
   ctx_.use_private_key_file(
-      token_manager->ServerKeyPath(), boost::asio::ssl::context::pem);
+      token_manager_->ServerKeyPath(), boost::asio::ssl::context::pem);
 
   // openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365
   // -nodes ctx_.use_certificate_chain_file("/etc/fptn/cert.pem");

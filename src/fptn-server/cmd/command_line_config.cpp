@@ -4,22 +4,28 @@ Copyright (c) 2024-2025 Stas Skokov
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
 
+#include "cmd/command_line_config.h"
+
 #include <algorithm>
 #include <memory>
 #include <string>
 
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
-#include "cmd/command_line_config.h"
-
 using fptn::cmd::CommandLineConfig;
 
-static bool parseBoolean(const std::string& value) noexcept {
-  std::string lowercasedValue = value;
-  std::transform(lowercasedValue.begin(), lowercasedValue.end(),
-      lowercasedValue.begin(), ::tolower);
-  return lowercasedValue == "true";
+namespace {
+bool ParseBoolean(const std::string& value) noexcept {
+  try {
+    std::string lowercased_value = value;
+    std::ranges::transform(lowercased_value, lowercased_value.begin(),
+        [](unsigned char c) { return std::tolower(c); });
+    return lowercased_value == "true";
+  } catch (...) {
+    return false;
+  }
 }
+}  // namespace
 
 CommandLineConfig::CommandLineConfig(int argc, char* argv[])
     : argc_(argc), argv_(argv), args_("fptn-server", FPTN_VERSION) {
@@ -95,13 +101,15 @@ CommandLineConfig::CommandLineConfig(int argc, char* argv[])
       .scan<'i', int>();
 }
 
-bool CommandLineConfig::Parse() noexcept {
+bool CommandLineConfig::Parse() noexcept {  // NOLINT(bugprone-exception-escape)
   try {
     args_.parse_args(argc_, argv_);
     return true;
   } catch (const std::runtime_error& err) {
     const std::string help = args_.help().str();
     SPDLOG_ERROR("Argument parsing error: {}\n{}", err.what(), help);
+  } catch (...) {
+    SPDLOG_ERROR("Undefined parser error");
   }
   return false;
 }
@@ -161,7 +169,7 @@ std::string CommandLineConfig::UserFile() const {
 }
 
 bool CommandLineConfig::DisableBittorrent() const {
-  return parseBoolean(args_.get<std::string>("--disable-bittorrent"));
+  return ParseBoolean(args_.get<std::string>("--disable-bittorrent"));
 }
 
 std::string CommandLineConfig::PrometheusAccessKey() const {
@@ -169,7 +177,7 @@ std::string CommandLineConfig::PrometheusAccessKey() const {
 }
 
 bool CommandLineConfig::UseRemoteServerAuth() const {
-  return parseBoolean(args_.get<std::string>("--use-remote-server-auth"));
+  return ParseBoolean(args_.get<std::string>("--use-remote-server-auth"));
 }
 
 std::string CommandLineConfig::RemoteServerAuthHost() const {

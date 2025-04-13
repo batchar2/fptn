@@ -16,7 +16,24 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 using fptn::routing::IPTables;
 
-static bool run_command(const std::string& command);
+namespace {
+bool RunCommand(const std::string& command) noexcept {
+  try {
+    boost::process::child child(command, boost::process::std_out > stdout,
+        boost::process::std_err > stderr);
+    child.wait();
+    if (child.exit_code() == 0) {
+      return true;
+    }
+  } catch (const std::exception& e) {
+    SPDLOG_ERROR("IPTables error: {}", e.what());
+  } catch (...) {
+    SPDLOG_ERROR("Undefined error");
+  }
+  return false;
+}
+
+}  // namespace
 
 IPTables::IPTables(
     std::string out_net_interface_name, std::string tun_net_interface_name)
@@ -26,8 +43,8 @@ IPTables::IPTables(
 
 IPTables::~IPTables() { Clean(); }
 
-bool IPTables::Apply() noexcept {
-  const std::unique_lock<std::mutex> lock(mutex_);
+bool IPTables::Apply() noexcept {  // NOLINT(bugprone-exception-escape)
+  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
   running_ = true;
 #ifdef __linux__
@@ -71,17 +88,25 @@ bool IPTables::Apply() noexcept {
 #error "Unsupported system!"
 #endif
   SPDLOG_INFO("=== Setting up routing ===");
-  for (const auto& cmd : commands) {
-    if (!run_command(cmd)) {
-      SPDLOG_ERROR("COMMAND ERORR: {}", cmd);
+  try {
+    for (const auto& cmd : commands) {
+      if (!RunCommand(cmd)) {
+        SPDLOG_ERROR("COMMAND ERROR: {}", cmd);
+      }
     }
+  } catch (const std::exception& e) {
+    SPDLOG_ERROR("Exception occurred while applying routing: {}", e.what());
+    return false;
+  } catch (...) {
+    SPDLOG_ERROR("Unknown exception occurred while applying routing.");
+    return false;
   }
   SPDLOG_INFO("=== Routing setup completed successfully ===");
   return true;
 }
 
-bool IPTables::Clean() noexcept {
-  const std::unique_lock<std::mutex> lock(mutex_);
+bool IPTables::Clean() noexcept {  // NOLINT(bugprone-exception-escape)
+  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
   if (!running_) {
     return true;
@@ -107,24 +132,15 @@ bool IPTables::Clean() noexcept {
 #else
 #error "Unsupported system!"
 #endif
-
-  for (const auto& cmd : commands) {
-    run_command(cmd);
-  }
-  running_ = false;
-  return true;
-}
-
-static bool run_command(const std::string& command) {
   try {
-    boost::process::child child(command, boost::process::std_out > stdout,
-        boost::process::std_err > stderr);
-    child.wait();
-    if (child.exit_code() == 0) {
-      return true;
+    for (const auto& cmd : commands) {
+      RunCommand(cmd);
     }
   } catch (const std::exception& e) {
     SPDLOG_ERROR("IPTables error: {}", e.what());
+  } catch (...) {
+    SPDLOG_ERROR("Undefined error");
   }
-  return false;
+  running_ = false;
+  return true;
 }

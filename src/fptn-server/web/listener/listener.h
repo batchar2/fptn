@@ -26,10 +26,10 @@ class Listener final {
  public:
   explicit Listener(boost::asio::io_context& ioc,
       std::uint16_t port,
-      const fptn::common::jwt_token::TokenManagerSPtr& token_manager,
-      const WebSocketOpenConnectionCallback& ws_open_callback,
-      const WebSocketNewIPPacketCallback& ws_new_ippacket_callback,
-      const WebSocketCloseConnectionCallback& ws_close_callback);
+      fptn::common::jwt_token::TokenManagerSPtr token_manager,
+      WebSocketOpenConnectionCallback ws_open_callback,
+      WebSocketNewIPPacketCallback ws_new_ippacket_callback,
+      WebSocketCloseConnectionCallback ws_close_callback);
 
   boost::asio::awaitable<void> run();
   bool stop();

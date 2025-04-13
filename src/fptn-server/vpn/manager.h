@@ -20,9 +20,9 @@ class Manager final {
  public:
   Manager(fptn::web::ServerPtr web_server,
       fptn::network::VirtualInterfacePtr network_interface,
-      const fptn::nat::TableSPtr& nat,
-      const fptn::filter::ManagerSPtr& filter,
-      const fptn::statistic::MetricsSPtr& prometheus);
+      fptn::nat::TableSPtr nat,
+      fptn::filter::ManagerSPtr filter,
+      fptn::statistic::MetricsSPtr prometheus);
   ~Manager();
   bool Stop() noexcept;
   bool Start() noexcept;

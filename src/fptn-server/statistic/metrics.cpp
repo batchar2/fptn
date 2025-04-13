@@ -32,30 +32,30 @@ Metrics::Metrics() : registry_(std::make_shared<prometheus::Registry>()) {
            .Register(*registry_);
 }
 
-void Metrics::UpdateStatistics(fptn::ClientID sessionId,
+void Metrics::UpdateStatistics(fptn::ClientID session_id,
     const std::string& username,
-    std::size_t incomingBytes,
-    std::size_t outgoingBytes) noexcept {
-  const std::lock_guard<std::mutex> lock(mutex_);
+    std::size_t incoming_bytes,
+    std::size_t outgoing_bytes) noexcept {
+  const std::lock_guard<std::mutex> lock(mutex_);  // mutex
 
-  auto& incomingMetric = incoming_bytes_counter_->Add(
-      {{"username", username}, {"session_id", std::to_string(sessionId)}});
-  auto& outgoingMetric = outgoing_bytes_counter_->Add(
-      {{"username", username}, {"session_id", std::to_string(sessionId)}});
-  incomingMetric.Increment(
-      static_cast<double>(incomingBytes) - incomingMetric.Value());
-  outgoingMetric.Increment(
-      static_cast<double>(outgoingBytes) - outgoingMetric.Value());
+  auto& incoming_metric = incoming_bytes_counter_->Add(
+      {{"username", username}, {"session_id", std::to_string(session_id)}});
+  auto& outgoing_metric = outgoing_bytes_counter_->Add(
+      {{"username", username}, {"session_id", std::to_string(session_id)}});
+  incoming_metric.Increment(
+      static_cast<double>(incoming_bytes) - incoming_metric.Value());
+  outgoing_metric.Increment(
+      static_cast<double>(outgoing_bytes) - outgoing_metric.Value());
 }
 
 void Metrics::UpdateActiveSessions(std::size_t count) noexcept {
-  const std::lock_guard<std::mutex> lock(mutex_);
+  const std::lock_guard<std::mutex> lock(mutex_);  // mutex
 
   active_sessions_->Set(static_cast<double>(count));
 }
 
 std::string Metrics::Collect() noexcept {
-  const std::lock_guard<std::mutex> lock(mutex_);
+  const std::lock_guard<std::mutex> lock(mutex_);  // mutex
 
   try {
     std::ostringstream result;

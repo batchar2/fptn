@@ -11,7 +11,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 namespace fptn::filter {
 class BitTorrent : public BaseFilter {
  public:
-  BitTorrent();
+  BitTorrent() = default;
   virtual ~BitTorrent() = default;
   fptn::common::network::IPPacketPtr apply(
       fptn::common::network::IPPacketPtr packet) const noexcept override;

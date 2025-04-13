@@ -8,6 +8,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include <memory>
 #include <string>
+#include <utility>
 
 #include <fmt/format.h>     // NOLINT(build/include_order)
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
@@ -16,15 +17,15 @@ using fptn::user::UserManager;
 
 UserManager::UserManager(const std::string& userfile,
     bool use_remote_server,
-    const std::string& remote_server_ip,
-    int remoteServerPort)
+    std::string remote_server_ip,
+    int remote_server_port)
     : use_remote_server_(use_remote_server),
-      remote_server_ip_(remote_server_ip),
-      remote_server_port_(remoteServerPort) {
+      remote_server_ip_(std::move(remote_server_ip)),
+      remote_server_port_(remote_server_port) {
   if (use_remote_server_) {
     // remote user list
     http_client_ = std::make_unique<fptn::common::https::Client>(
-        remote_server_ip_, remoteServerPort);
+        remote_server_ip_, remote_server_port);
   } else {
     // local user list
     common_manager_ =
@@ -34,7 +35,7 @@ UserManager::UserManager(const std::string& userfile,
 
 bool UserManager::Login(const std::string& username,
     const std::string& password,
-    int& bandwidthBit) const noexcept {
+    int& bandwidthBit) const {
   bandwidthBit = 0;  // reset
   if (use_remote_server_) {
     SPDLOG_INFO(

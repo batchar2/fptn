@@ -32,7 +32,7 @@ class UserManager {
    */
   explicit UserManager(const std::string& userfile,
       bool use_remote_server,
-      const std::string& remote_server_ip,
+      std::string remote_server_ip,
       int remote_server_port);
 
   /**
@@ -50,7 +50,7 @@ class UserManager {
    */
   bool Login(const std::string& username,
       const std::string& password,
-      int& bandwidthBit) const noexcept;
+      int& bandwidthBit) const;
 
  private:
   /// Indicates whether to use remote server authentication.

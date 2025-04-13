@@ -12,14 +12,14 @@ using fptn::vpn::Manager;
 
 Manager::Manager(fptn::web::ServerPtr web_server,
     fptn::network::VirtualInterfacePtr network_interface,
-    const fptn::nat::TableSPtr& nat,
-    const fptn::filter::ManagerSPtr& filter,
-    const fptn::statistic::MetricsSPtr& prometheus)
+    fptn::nat::TableSPtr nat,
+    fptn::filter::ManagerSPtr filter,
+    fptn::statistic::MetricsSPtr prometheus)
     : web_server_(std::move(web_server)),
       network_interface_(std::move(network_interface)),
-      nat_(nat),
-      filter_(filter),
-      prometheus_(prometheus) {}
+      nat_(std::move(nat)),
+      filter_(std::move(filter)),
+      prometheus_(std::move(prometheus)) {}
 
 Manager::~Manager() { Stop(); }
 
@@ -43,18 +43,18 @@ bool Manager::Start() noexcept {
   network_interface_->Start();
 
   read_to_client_thread_ = std::thread(&Manager::RunToClient, this);
-  bool toStatus = read_to_client_thread_.joinable();
+  const bool to_status = read_to_client_thread_.joinable();
 
   read_from_client_thread_ = std::thread(&Manager::RunFromClient, this);
-  bool fromStatus = read_from_client_thread_.joinable();
+  const bool from_status = read_from_client_thread_.joinable();
 
   collect_statistics_ = std::thread(&Manager::RunCollectStatistics, this);
-  bool collectStatisticStatus = collect_statistics_.joinable();
-  return (toStatus && fromStatus && collectStatisticStatus);
+  const bool collect_statistic_status = collect_statistics_.joinable();
+  return (to_status && from_status && collect_statistic_status);
 }
 
 void Manager::RunToClient() noexcept {
-  constexpr std::chrono::milliseconds timeout{30};
+  const std::chrono::milliseconds timeout{30};
 
   while (running_) {
     auto packet = network_interface_->WaitForPacket(timeout);
@@ -65,14 +65,14 @@ void Manager::RunToClient() noexcept {
       continue;
     }
     // get session using "fake" client address
-    auto session =
-        (packet->IsIPv4()
-                ? nat_->GetSessionByFakeIPv4(
-                      packet->IPv4Layer()->getDstIPv4Address())
-                : (packet->IsIPv6()
-                          ? nat_->GetSessionByFakeIPv6(
-                                packet->IPv6Layer()->getDstIPv6Address())
-                          : nullptr));
+    fptn::client::SessionSPtr session = nullptr;
+    if (packet->IsIPv4()) {
+      session =
+          nat_->GetSessionByFakeIPv4(packet->IPv4Layer()->getDstIPv4Address());
+    } else if (packet->IsIPv6()) {
+      session =
+          nat_->GetSessionByFakeIPv6(packet->IPv6Layer()->getDstIPv6Address());
+    }
     if (!session) {
       continue;
     }
@@ -87,7 +87,7 @@ void Manager::RunToClient() noexcept {
 }
 
 void Manager::RunFromClient() noexcept {
-  constexpr std::chrono::milliseconds timeout{30};
+  const std::chrono::milliseconds timeout{30};
 
   while (running_) {
     auto packet = web_server_->WaitForPacket(timeout);
@@ -119,15 +119,15 @@ void Manager::RunFromClient() noexcept {
 }
 
 void Manager::RunCollectStatistics() noexcept {
-  constexpr std::chrono::milliseconds timeout{300};
-  constexpr std::chrono::seconds collectInterval{2};
+  const std::chrono::milliseconds timeout{300};
+  const std::chrono::seconds collect_interval{2};
 
-  std::chrono::steady_clock::time_point lastCollectionTime;
+  std::chrono::steady_clock::time_point last_collection_time;
   while (running_) {
     auto now = std::chrono::steady_clock::now();
-    if (now - lastCollectionTime > collectInterval) {
+    if (now - last_collection_time > collect_interval) {
       nat_->UpdateStatistic(prometheus_);
-      lastCollectionTime = now;
+      last_collection_time = now;
     }
     std::this_thread::sleep_for(timeout);
   }

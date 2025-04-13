@@ -40,24 +40,23 @@ class Session : public std::enable_shared_from_this<Session> {
       WebSocketNewIPPacketCallback ws_new_ippacket_callback,
       WebSocketCloseConnectionCallback ws_close_callback);
   virtual ~Session();
-  void Close() noexcept;
+  void Close();
 
   // async
-  boost::asio::awaitable<void> Run() noexcept;
-  boost::asio::awaitable<bool> Send(
-      fptn::common::network::IPPacketPtr packet) noexcept;
+  boost::asio::awaitable<void> Run();
+  boost::asio::awaitable<bool> Send(fptn::common::network::IPPacketPtr packet);
 
  protected:
-  boost::asio::awaitable<void> RunReader() noexcept;
-  boost::asio::awaitable<void> RunSender() noexcept;
+  boost::asio::awaitable<void> RunReader();
+  boost::asio::awaitable<void> RunSender();
 
-  boost::asio::awaitable<bool> ProcessRequest() noexcept;
+  boost::asio::awaitable<bool> ProcessRequest();
   boost::asio::awaitable<bool> HandleHttp(
       const boost::beast::http::request<boost::beast::http::string_body>&
-          request) noexcept;
+          request);
   boost::asio::awaitable<bool> HandleWebSocket(
       const boost::beast::http::request<boost::beast::http::string_body>&
-          request) noexcept;
+          request);
 
  private:
   mutable std::mutex mutex_;

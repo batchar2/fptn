@@ -12,10 +12,17 @@ using fptn::common::network::IPPacketPtr;
 using fptn::filter::Manager;
 
 void Manager::Add(BaseFilterSPtr filter) noexcept {
-  filters_.push_back(std::move(filter));
+  try {
+    filters_.push_back(std::move(filter));
+  } catch (const std::bad_alloc& err) {
+    SPDLOG_ERROR(
+        "Memory allocation failed while adding filter: {}", err.what());
+  } catch (...) {
+    SPDLOG_ERROR("An unknown exception occurred while adding a filter.");
+  }
 }
 
-IPPacketPtr Manager::Apply(IPPacketPtr packet) const {
+IPPacketPtr Manager::Apply(IPPacketPtr packet) const noexcept {
   for (const auto& filter : filters_) {
     packet = filter->apply(std::move(packet));
     if (!packet) {

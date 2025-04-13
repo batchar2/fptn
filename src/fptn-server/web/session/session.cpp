@@ -22,14 +22,11 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <boost/beast/websocket.hpp>
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
+namespace {
+std::atomic<fptn::ClientID> client_id = 0;
+}
+
 using fptn::web::Session;
-
-static std::atomic<fptn::ClientID> CLIENT_ID = 0;
-
-using boost::asio::co_spawn;
-using boost::asio::detached;
-using boost::asio::use_awaitable;
-namespace this_coro = boost::asio::this_coro;
 
 Session::Session(boost::asio::ip::tcp::socket&& socket,
     boost::asio::ssl::context& ctx,
@@ -41,9 +38,9 @@ Session::Session(boost::asio::ip::tcp::socket&& socket,
       strand_(ws_.get_executor()),
       write_channel_(ws_.get_executor(), 256),
       api_handles_(api_handles),
-      ws_open_callback_(ws_open_callback),
-      ws_new_ippacket_callback_(ws_new_ippacket_callback),
-      ws_close_callback_(ws_close_callback),
+      ws_open_callback_(std::move(ws_open_callback)),
+      ws_new_ippacket_callback_(std::move(ws_new_ippacket_callback)),
+      ws_close_callback_(std::move(ws_close_callback)),
       running_(false),
       init_completed_(false),
       full_queue_(false) {
@@ -58,9 +55,9 @@ Session::Session(boost::asio::ip::tcp::socket&& socket,
     ws_.set_option(boost::beast::websocket::stream_base::timeout::suggested(
         boost::beast::role_type::server));
     ws_.set_option(boost::beast::websocket::stream_base::timeout{
-        std::chrono::seconds(60),  // Handshake timeout
-        std::chrono::hours(24),    // Idle timeout
-        true                       // Enable ping timeout
+        .handshake_timeout = std::chrono::seconds(60),  // Handshake timeout
+        .idle_timeout = std::chrono::hours(24),         // Idle timeout
+        .keep_alive_pings = true                        // Enable ping timeout
     });
     // Set a timeout to force reconnection every 2 hours
     boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::hours(2));
@@ -74,7 +71,7 @@ Session::Session(boost::asio::ip::tcp::socket&& socket,
 
 Session::~Session() { Close(); }
 
-boost::asio::awaitable<void> Session::Run() noexcept {
+boost::asio::awaitable<void> Session::Run() {
   boost::system::error_code ec;
 
   // check init status
@@ -112,7 +109,7 @@ boost::asio::awaitable<void> Session::Run() noexcept {
   co_return;
 }
 
-boost::asio::awaitable<void> Session::RunReader() noexcept {
+boost::asio::awaitable<void> Session::RunReader() {
   boost::system::error_code ec;
   boost::beast::flat_buffer buffer;
   while (running_) {
@@ -155,7 +152,7 @@ boost::asio::awaitable<void> Session::RunReader() noexcept {
   Close();
 }
 
-boost::asio::awaitable<void> Session::RunSender() noexcept {
+boost::asio::awaitable<void> Session::RunSender() {
   boost::system::error_code ec;
 
   auto token = boost::asio::redirect_error(boost::asio::use_awaitable, ec);
@@ -188,7 +185,7 @@ boost::asio::awaitable<void> Session::RunSender() noexcept {
   co_return;
 }
 
-boost::asio::awaitable<bool> Session::ProcessRequest() noexcept {
+boost::asio::awaitable<bool> Session::ProcessRequest() {
   bool status = false;
 
   try {
@@ -200,15 +197,14 @@ boost::asio::awaitable<bool> Session::ProcessRequest() noexcept {
         boost::asio::redirect_error(boost::asio::use_awaitable, ec));
 
     // FIXME check ec
-
     if (boost::beast::websocket::is_upgrade(request)) {
-      status = co_await HandleWebSocket(std::move(request));
+      status = co_await HandleWebSocket(request);
       if (status) {
         co_await ws_.async_accept(request,
             boost::asio::redirect_error(boost::asio::use_awaitable, ec));
       }
     } else {
-      status = co_await HandleHttp(std::move(request));
+      status = co_await HandleHttp(request);
     }
   } catch (boost::system::system_error& err) {
     SPDLOG_ERROR("Session::handshake error: {}", err.what());
@@ -218,7 +214,7 @@ boost::asio::awaitable<bool> Session::ProcessRequest() noexcept {
 
 boost::asio::awaitable<bool> Session::HandleHttp(
     const boost::beast::http::request<boost::beast::http::string_body>&
-        request) noexcept {
+        request) {
   const std::string url = request.target();
   const std::string method = request.method_string();
 
@@ -257,20 +253,20 @@ boost::asio::awaitable<bool> Session::HandleHttp(
     co_await boost::beast::http::async_write(
         ws_.next_layer(), *res_ptr, boost::asio::use_awaitable);
   } catch (const boost::beast::system_error& e) {
-    //  SPDLOG_ERROR("Error writing HTTP response: {}", e.what());
+    SPDLOG_ERROR("Error writing HTTP response: {}", e.what());
   }
   co_return false;
 }
 
 boost::asio::awaitable<bool> Session::HandleWebSocket(
     const boost::beast::http::request<boost::beast::http::string_body>&
-        request) noexcept {
+        request) {
   if (request.find("Authorization") != request.end() &&
       request.find("ClientIP") != request.end()) {
     {
       const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
-      client_id_ = CLIENT_ID++;  // Increment the clientId after using it
+      client_id_ = client_id++;  // Increment the clientId after using it
     }
     std::string token = request["Authorization"];
     boost::replace_first(token, "Bearer ", "");  // clean token string
@@ -301,7 +297,7 @@ boost::asio::awaitable<bool> Session::HandleWebSocket(
   co_return false;
 }
 
-void Session::Close() noexcept {
+void Session::Close() {
   if (!running_) {
     return;
   }
@@ -328,14 +324,16 @@ void Session::Close() noexcept {
     if (client_id_ != MAX_CLIENT_ID && ws_close_callback_) {
       ws_close_callback_(client_id_);
     }
-    SPDLOG_INFO("--- close sucessfull {} ---", client_id_);
+    SPDLOG_INFO("--- close successful {} ---", client_id_);
   } catch (boost::system::system_error& err) {
     SPDLOG_ERROR("Session::close error: {}", err.what());
+  } catch (...) {
+    SPDLOG_ERROR("Session::close undefined error");
   }
 }
 
 boost::asio::awaitable<bool> Session::Send(
-    fptn::common::network::IPPacketPtr packet) noexcept {
+    fptn::common::network::IPPacketPtr packet) {
   try {
     if (running_ && write_channel_.is_open()) {
       const bool status = write_channel_.try_send(

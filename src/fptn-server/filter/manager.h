@@ -21,7 +21,7 @@ class Manager {
   void Add(BaseFilterSPtr filter) noexcept;
 
   [[nodiscard]] fptn::common::network::IPPacketPtr Apply(
-      fptn::common::network::IPPacketPtr packet) const;
+      fptn::common::network::IPPacketPtr packet) const noexcept;
 
  private:
   std::vector<BaseFilterSPtr> filters_;

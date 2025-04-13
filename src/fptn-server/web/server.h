@@ -39,25 +39,23 @@ class Server final {
       const pcpp::IPv6Address& dns_server_ipv6,
       int thread_number = 4);
   ~Server();
-  bool Start() noexcept;
-  bool Stop() noexcept;
+  bool Start();
+  bool Stop();
 
- public:
-  void Send(fptn::common::network::IPPacketPtr packet) noexcept;
+  void Send(fptn::common::network::IPPacketPtr packet);
   fptn::common::network::IPPacketPtr WaitForPacket(
-      const std::chrono::milliseconds& duration) noexcept;
+      const std::chrono::milliseconds& duration);
 
  protected:
   boost::asio::awaitable<void> RunSender();
 
  protected:
   // http
-  int HandleApiHome(const http::request& req, http::response& resp) noexcept;
-  int HandleApiDns(const http::request& req, http::response& resp) noexcept;
-  int HandleApiLogin(const http::request& req, http::response& resp) noexcept;
-  int HandleApiMetrics(const http::request& req, http::response& resp) noexcept;
-  int HandleApiTestFile(
-      const http::request& req, http::response& resp) noexcept;
+  int HandleApiHome(const http::request& req, http::response& resp);
+  int HandleApiDns(const http::request& req, http::response& resp);
+  int HandleApiLogin(const http::request& req, http::response& resp);
+  int HandleApiMetrics(const http::request& req, http::response& resp);
+  int HandleApiTestFile(const http::request& req, http::response& resp);
 
  protected:
   // websocket
@@ -67,7 +65,7 @@ class Server final {
       const pcpp::IPv6Address& client_vpn_ipv6,
       const SessionSPtr& session,
       const std::string& url,
-      const std::string& access_token) noexcept;
+      const std::string& access_token);
   void HandleWsNewIPPacket(fptn::common::network::IPPacketPtr packet) noexcept;
   void HandleWsCloseConnection(fptn::ClientID clientId) noexcept;
 

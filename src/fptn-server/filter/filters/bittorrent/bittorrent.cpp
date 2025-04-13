@@ -12,60 +12,56 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 using fptn::common::network::IPPacketPtr;
 using fptn::filter::BitTorrent;
 
-static const std::uint8_t classicSignature[] = {0x13, 'B', 'i', 't', 'T', 'o',
+static const std::uint8_t kClassicSignature[] = {0x13, 'B', 'i', 't', 'T', 'o',
     'r', 'r', 'e', 'n', 't', ' ', 'p', 'r', 'o', 't', 'o', 'c', 'o', 'l'};
-static const std::uint8_t extensionProtocolSignature[] = {
+static const std::uint8_t kExtensionProtocolSignature[] = {
     0x14, 'e', 'x', 't', 'e', 'n', 's', 'i', 'o', 'n'};
-static const std::uint8_t dhtSignature[] = {
+static const std::uint8_t kDhtSignature[] = {
     'd', '1', ':', 'a', 'd', '2', ':', 'i', 'd', '2'};
 
-static bool detectBitTorrent(
-    const std::uint8_t* payload, std::size_t payloadSize);
-
-BitTorrent::BitTorrent() : BaseFilter() {}
+namespace {
+bool DetectBitTorrent(const std::uint8_t* payload, std::size_t payloadSize) {
+  // Classic Protocol
+  constexpr std::size_t kClassicSignatureSize = sizeof(kClassicSignature);
+  if (payloadSize >= kClassicSignatureSize) {
+    if (std::memcmp(payload, kClassicSignature, kClassicSignatureSize) == 0) {
+      return true;
+    }
+  }
+  // Extension Protocol
+  constexpr std::size_t kExtensionProtocolSignatureSize =
+      sizeof(kExtensionProtocolSignature);
+  if (payloadSize >= kExtensionProtocolSignatureSize) {
+    if (std::memcmp(payload, kExtensionProtocolSignature,
+            kExtensionProtocolSignatureSize) == 0) {
+      return true;
+    }
+  }
+  // BT-DHT
+  constexpr std::size_t kDhtSignatureSize = sizeof(kDhtSignature);
+  if (payloadSize >= kDhtSignatureSize) {
+    if (std::memcmp(payload, kDhtSignature, kDhtSignatureSize) == 0) {
+      return true;
+    }
+  }
+  return false;
+}
+}  // namespace
 
 IPPacketPtr BitTorrent::apply(IPPacketPtr packet) const noexcept {
   const pcpp::TcpLayer* tcp = packet->Pkt().getLayerOfType<pcpp::TcpLayer>();
   if (tcp) {  // TCP
-    if (detectBitTorrent(tcp->getLayerPayload(), tcp->getLayerPayloadSize())) {
+    if (DetectBitTorrent(tcp->getLayerPayload(), tcp->getLayerPayloadSize())) {
       return nullptr;
     }
   } else {  // UDP
     const pcpp::UdpLayer* udp = packet->Pkt().getLayerOfType<pcpp::UdpLayer>();
     if (udp) {
-      if (detectBitTorrent(
+      if (DetectBitTorrent(
               udp->getLayerPayload(), udp->getLayerPayloadSize())) {
         return nullptr;
       }
     }
   }
   return packet;
-}
-
-static bool detectBitTorrent(
-    const std::uint8_t* payload, std::size_t payloadSize) {
-  // Classic Protocol
-  constexpr std::size_t classicSignatureSize = sizeof(classicSignature);
-  if (payloadSize >= classicSignatureSize) {
-    if (std::memcmp(payload, classicSignature, classicSignatureSize) == 0) {
-      return true;
-    }
-  }
-  // Extension Protocol
-  constexpr std::size_t extensionProtocolSignatureSize =
-      sizeof(extensionProtocolSignature);
-  if (payloadSize >= extensionProtocolSignatureSize) {
-    if (std::memcmp(payload, extensionProtocolSignature,
-            extensionProtocolSignatureSize) == 0) {
-      return true;
-    }
-  }
-  // BT-DHT
-  constexpr std::size_t dhtSignatureSize = sizeof(dhtSignature);
-  if (payloadSize >= dhtSignatureSize) {
-    if (std::memcmp(payload, dhtSignature, dhtSignatureSize) == 0) {
-      return true;
-    }
-  }
-  return false;
 }

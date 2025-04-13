@@ -29,12 +29,12 @@ class AntiScan : public BaseFilter {
  public:
   AntiScan(
       /* IPv4 */
-      const pcpp::IPv4Address& serverIPv4,
-      const pcpp::IPv4Address& serverIpv4Net,
+      const pcpp::IPv4Address& server_ipv4,
+      const pcpp::IPv4Address& server_ipv4_net,
       const int serverIPv4Mask,
       /* IPv6 */
-      const pcpp::IPv6Address& serverIPv6,
-      const pcpp::IPv6Address& serverIpv6Net,
+      const pcpp::IPv6Address& server_ipv6,
+      const pcpp::IPv6Address& server_ipv6_net,
       const int serverIPv6Mask);
   fptn::common::network::IPPacketPtr apply(
       fptn::common::network::IPPacketPtr packet) const noexcept override;
@@ -42,13 +42,13 @@ class AntiScan : public BaseFilter {
 
  private:
   /* IPv4 */
-  const std::uint32_t serverIPv4_;
-  const std::uint32_t serverIPv4Net_;
-  const int serverIPv4Mask_;
+  const std::uint32_t server_ipv4_;
+  const std::uint32_t server_ipv4_net_;
+  const int server_ipv4_mask_;
 
   /* IPv6 */
-  const boost::multiprecision::uint128_t serverIPv6_;
-  const boost::multiprecision::uint128_t serverIpv6Net_;
-  const boost::multiprecision::uint128_t serverIPv6Mask_;
+  const boost::multiprecision::uint128_t server_ipv6_;
+  const boost::multiprecision::uint128_t server_ipv6_net_;
+  const boost::multiprecision::uint128_t server_ipv6_mask_;
 };
 }  // namespace fptn::filter

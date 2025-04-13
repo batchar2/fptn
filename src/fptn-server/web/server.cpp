@@ -16,7 +16,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include "common/utils/utils.h"
 
-static const char HTML_HOME_PAGE[] = R"HTML(<!DOCTYPE html>
+static const char kHtmlHomePage[] = R"HTML(<!DOCTYPE html>
 <html lang="en">
     <head>
         <meta charset="UTF-8">
@@ -123,30 +123,38 @@ Server::Server(std::uint16_t port,
   using std::placeholders::_7;
 
   listener_ = std::make_shared<Listener>(ioc_, port_, token_manager,
+      // NOLINTNEXTLINE(modernize-avoid-bind)
       std::bind(
           &Server::HandleWsOpenConnection, this, _1, _2, _3, _4, _5, _6, _7),
+      // NOLINTNEXTLINE(modernize-avoid-bind)
       std::bind(&Server::HandleWsNewIPPacket, this, _1),
+      // NOLINTNEXTLINE(modernize-avoid-bind)
       std::bind(&Server::HandleWsCloseConnection, this, _1));
   listener_->httpRegister(
+      // NOLINTNEXTLINE(modernize-avoid-bind)
       kUrlHome_, "GET", std::bind(&Server::HandleApiHome, this, _1, _2));
   listener_->httpRegister(
+      // NOLINTNEXTLINE(modernize-avoid-bind)
       kUrlDns_, "GET", std::bind(&Server::HandleApiDns, this, _1, _2));
   listener_->httpRegister(
+      // NOLINTNEXTLINE(modernize-avoid-bind)
       kUrlLogin_, "POST", std::bind(&Server::HandleApiLogin, this, _1, _2));
   listener_->httpRegister(kUrlTestFileBin_, "GET",
+      // NOLINTNEXTLINE(modernize-avoid-bind)
       std::bind(&Server::HandleApiTestFile, this, _1, _2));
   if (!prometheus_access_key.empty()) {
     // Construct the URL for accessing Prometheus statistics by appending the
     // access key
     const std::string metrics = kUrlMetrics_ + '/' + prometheus_access_key;
     listener_->httpRegister(
+        // NOLINTNEXTLINE(modernize-avoid-bind)
         metrics, "GET", std::bind(&Server::HandleApiMetrics, this, _1, _2));
   }
 }
 
 Server::~Server() { Stop(); }
 
-bool Server::Start() noexcept {
+bool Server::Start() {
   running_ = true;
   try {
     // run listener
@@ -202,7 +210,7 @@ boost::asio::awaitable<void> Server::RunSender() {
   co_return;
 }
 
-bool Server::Stop() noexcept {
+bool Server::Stop() {
   running_ = false;
   SPDLOG_INFO("Server stop");
 
@@ -224,26 +232,26 @@ bool Server::Stop() noexcept {
   return true;
 }
 
-void Server::Send(fptn::common::network::IPPacketPtr packet) noexcept {
+void Server::Send(fptn::common::network::IPPacketPtr packet) {
   to_client_->Push(std::move(packet));
 }
 
 fptn::common::network::IPPacketPtr Server::WaitForPacket(
-    const std::chrono::milliseconds& duration) noexcept {
-  return from_client_->waitForPacket(duration);
+    const std::chrono::milliseconds& duration) {
+  return from_client_->WaitForPacket(duration);
 }
 
-int Server::HandleApiHome(
-    const http::request& req, http::response& resp) noexcept {
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+int Server::HandleApiHome(const http::request& req, http::response& resp) {
   (void)req;
 
-  resp.body() = HTML_HOME_PAGE;
+  resp.body() = kHtmlHomePage;
   resp.set(boost::beast::http::field::content_type, "text/html; charset=utf-8");
   return 200;
 }
 
-int Server::HandleApiDns(
-    const http::request& req, http::response& resp) noexcept {
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+int Server::HandleApiDns(const http::request& req, http::response& resp) {
   (void)req;
 
   resp.body() = fmt::format(R"({{"dns": "{}", "dns_ipv6": "{}" }})",
@@ -253,22 +261,22 @@ int Server::HandleApiDns(
   return 200;
 }
 
-int Server::HandleApiLogin(
-    const http::request& req, http::response& resp) noexcept {
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+int Server::HandleApiLogin(const http::request& req, http::response& resp) {
   try {
-    auto request = nlohmann::json::parse(req.body());
+    const auto request = nlohmann::json::parse(req.body());
     const auto username = request.at("username").get<std::string>();
     const auto password = request.at("password").get<std::string>();
-    int bandwidthBit = 0;
-    if (user_manager_->Login(username, password, bandwidthBit)) {
+    int bandwidth_bit = 0;
+    if (user_manager_->Login(username, password, bandwidth_bit)) {
       SPDLOG_INFO("Successful login for user {}", username);
-      const auto tokens = token_manager_->Generate(username, bandwidthBit);
+      const auto tokens = token_manager_->Generate(username, bandwidth_bit);
       resp.body() = fmt::format(
           R"({{ "access_token": "{}", "refresh_token": "{}", "bandwidth_bit": {} }})",
-          tokens.first, tokens.second, std::to_string(bandwidthBit));
+          tokens.first, tokens.second, std::to_string(bandwidth_bit));
       return 200;
     }
-    spdlog::warn("Wrong password for user: \"{}\" ", username);
+    SPDLOG_WARN("Wrong password for user: \"{}\" ", username);
     resp.body() =
         R"({"status": "error", "message": "Invalid login or password."})";
   } catch (const nlohmann::json::exception& e) {
@@ -288,8 +296,8 @@ int Server::HandleApiLogin(
   return 401;
 }
 
-int Server::HandleApiMetrics(
-    const http::request& req, http::response& resp) noexcept {
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+int Server::HandleApiMetrics(const http::request& req, http::response& resp) {
   (void)req;
 
   resp.set(boost::beast::http::field::content_type, "text/html; charset=utf-8");
@@ -297,15 +305,15 @@ int Server::HandleApiMetrics(
   return 200;
 }
 
-int Server::HandleApiTestFile(
-    const http::request& req, http::response& resp) noexcept {
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+int Server::HandleApiTestFile(const http::request& req, http::response& resp) {
   (void)req;
 
-  static const std::string data =
+  static const std::string kData =
       fptn::common::utils::GenerateRandomString(100 * 1024);  // 100KB
 
   resp.set(boost::beast::http::field::content_type, "application/octet-stream");
-  resp.body() = data;
+  resp.body() = kData;
   return 200;
 }
 
@@ -315,7 +323,7 @@ bool Server::HandleWsOpenConnection(fptn::ClientID client_id,
     const pcpp::IPv6Address& client_vpn_ipv6,
     const SessionSPtr& session,
     const std::string& url,
-    const std::string& access_token) noexcept {
+    const std::string& access_token) {
   if (url != kUrlWebSocket_) {
     SPDLOG_ERROR("Wrong URL \"{}\"", url);
     return false;
@@ -328,7 +336,9 @@ bool Server::HandleWsOpenConnection(fptn::ClientID client_id,
             access_token, username, bandwidth_bites_seconds)) {
       const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
-      if (sessions_.find(client_id) == sessions_.end()) {
+      if (sessions_.contains(client_id)) {
+        SPDLOG_WARN("Client with same ID already exists!");
+      } else {
         const auto shaper_to_client =
             std::make_shared<fptn::traffic_shaper::LeakyBucket>(
                 bandwidth_bites_seconds);
@@ -346,21 +356,19 @@ bool Server::HandleWsOpenConnection(fptn::ClientID client_id,
             nat_session->FakeClientIPv6().toString());
         sessions_.insert({client_id, session});
         return true;
-      } else {
-        spdlog::warn("Client with same ID already exists!");
       }
     } else {
-      spdlog::warn("WRONG TOKEN: {}", username);
+      SPDLOG_WARN("WRONG TOKEN: {}", username);
     }
   } else {
-    spdlog::warn("Wrong ClientIP or ClientIPv6");
+    SPDLOG_WARN("Wrong ClientIP or ClientIPv6");
   }
   return false;
 }
 
 void Server::HandleWsNewIPPacket(
     fptn::common::network::IPPacketPtr packet) noexcept {
-  from_client_->push(std::move(packet));
+  from_client_->Push(std::move(packet));
 }
 
 void Server::HandleWsCloseConnection(fptn::ClientID clientId) noexcept {

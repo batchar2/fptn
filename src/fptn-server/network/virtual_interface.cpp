@@ -20,6 +20,7 @@ VirtualInterface::VirtualInterface(const std::string& name,
     const int ipv6Netmask,
     fptn::routing::IPTablesPtr iptables)
     : running_(false), iptables_(std::move(iptables)) {
+  // NOLINTNEXTLINE(modernize-avoid-bind)
   auto callback = std::bind(
       &VirtualInterface::IPPacketFromNetwork, this, std::placeholders::_1);
   virtual_network_interface_ = std::make_unique<TunInterface>(
@@ -28,7 +29,7 @@ VirtualInterface::VirtualInterface(const std::string& name,
 
 VirtualInterface::~VirtualInterface() { Stop(); }
 
-bool VirtualInterface::Check() noexcept { return true; }
+bool VirtualInterface::Check() noexcept { return thread_.joinable(); }
 
 bool VirtualInterface::Start() noexcept {
   running_ = true;
@@ -50,12 +51,19 @@ bool VirtualInterface::Stop() noexcept {
 
 void VirtualInterface::Send(
     fptn::common::network::IPPacketPtr packet) noexcept {
-  to_network_.push(std::move(packet));
+  try {
+    to_network_.Push(std::move(packet));
+  } catch (const std::bad_alloc& err) {
+    SPDLOG_ERROR(
+        "Memory allocation failed while sending packet: {}", err.what());
+  } catch (...) {
+    SPDLOG_ERROR("Unknown exception occurred while sending packet.");
+  }
 }
 
 fptn::common::network::IPPacketPtr VirtualInterface::WaitForPacket(
     const std::chrono::milliseconds& duration) noexcept {
-  return from_network_.waitForPacket(duration);
+  return from_network_.WaitForPacket(duration);
 }
 
 void VirtualInterface::Run() noexcept {
@@ -63,7 +71,7 @@ void VirtualInterface::Run() noexcept {
 
   iptables_->Apply();  // activate route
   while (running_) {
-    auto packet = to_network_.waitForPacket(timeout);
+    auto packet = to_network_.WaitForPacket(timeout);
     if (packet != nullptr) {
       virtual_network_interface_->Send(std::move(packet));
     }
@@ -72,5 +80,5 @@ void VirtualInterface::Run() noexcept {
 
 void VirtualInterface::IPPacketFromNetwork(
     fptn::common::network::IPPacketPtr packet) noexcept {
-  from_network_.push(std::move(packet));
+  from_network_.Push(std::move(packet));
 }

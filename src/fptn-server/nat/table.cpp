@@ -26,76 +26,81 @@ Table::Table(const pcpp::IPv4Address& tun_ipv4,
       ipv4_generator_(tun_ipv4_network_address, tun_network_ipv4_mask),
       ipv6_generator_(tun_ipv6_network_address, tun_network_ipv6_mask) {}
 
-fptn::client::SessionSPtr Table::CreateClientSession(ClientID clientId,
-    const std::string& userName,
-    const pcpp::IPv4Address& clientIPv4,
-    const pcpp::IPv6Address& clientIPv6,
-    const fptn::traffic_shaper::LeakyBucketSPtr& trafficShaperToClient,
-    const fptn::traffic_shaper::LeakyBucketSPtr&
-        trafficShaperFromClient) noexcept {
-  const std::unique_lock<std::mutex> lock(mutex_);
+fptn::client::SessionSPtr Table::CreateClientSession(ClientID client_id,
+    const std::string& user_name,
+    const pcpp::IPv4Address& client_ipv4,
+    const pcpp::IPv6Address& client_ipv6,
+    const fptn::traffic_shaper::LeakyBucketSPtr& to_client,
+    const fptn::traffic_shaper::LeakyBucketSPtr& from_client) {
+  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
-  if (client_id_to_sessions_.find(clientId) == client_id_to_sessions_.end()) {
+  if (!client_id_to_sessions_.contains(client_id)) {
     if (client_number_ >= ipv4_generator_.NumAvailableAddresses()) {
-      /* ||  clientNumber_ >= ipv6Generator_.numAvailableAddresses() */
+      /* ||  client_number_ >= client_ipv6.NumAvailableAddresses() */
       SPDLOG_INFO("Client limit was exceeded");
       return nullptr;
     }
     client_number_ += 1;
     try {
-      const auto fakeIPv4 = GetUniqueIPv4Address();
-      const auto fakeIPv6 = GetUniqueIPv6Address();
-      auto session = std::make_shared<fptn::client::Session>(clientId, userName,
-          clientIPv4, fakeIPv4, clientIPv6, fakeIPv6, trafficShaperToClient,
-          trafficShaperFromClient);
-      client_id_to_sessions_.insert({clientId, session});
-      ipv4_to_sessions_.insert({fakeIPv4.toInt(), session});  // ipv4 -> session
+      const auto fake_ipv4 = GetUniqueIPv4Address();
+      const auto fake_ipv6 = GetUniqueIPv6Address();
+      auto session = std::make_shared<fptn::client::Session>(client_id,
+          user_name, client_ipv4, fake_ipv4, client_ipv6, fake_ipv6, to_client,
+          from_client);
+      client_id_to_sessions_.insert({client_id, session});
+      ipv4_to_sessions_.insert(
+          {fake_ipv4.toInt(), session});  // ipv4 -> session
       ipv6_to_sessions_.insert(
-          {fakeIPv6.toString(), session});  // ipv6 -> session
+          {fake_ipv6.toString(), session});  // ipv6 -> session
       return session;
     } catch (const std::runtime_error& err) {
       SPDLOG_INFO("Client error: {}", err.what());
+    } catch (const std::exception& e) {
+      SPDLOG_ERROR(
+          "Standard exception while creating client session: {}", e.what());
+    } catch (...) {
+      SPDLOG_ERROR("An unknown error occurred while creating client session.");
     }
   }
   return nullptr;
 }
 
-bool Table::DelClientSession(ClientID clientId) noexcept {
-  fptn::client::SessionSPtr ipv4Session;
-  fptn::client::SessionSPtr ipv6Session;
+bool Table::DelClientSession(ClientID client_id) {
+  fptn::client::SessionSPtr ipv4_session;
+  fptn::client::SessionSPtr ipv6_session;
   {
-    const std::unique_lock<std::mutex> lock(mutex_);
+    const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
-    auto it = client_id_to_sessions_.find(clientId);
+    auto it = client_id_to_sessions_.find(client_id);
     if (it != client_id_to_sessions_.end()) {
-      const IPv4INT ipv4Int = it->second->FakeClientIPv4().toInt();
-      const std::string ipv6Str = it->second->FakeClientIPv6().toString();
+      const IPv4INT ipv4_int = it->second->FakeClientIPv4().toInt();
+      const std::string ipv6_str = it->second->FakeClientIPv6().toString();
       client_id_to_sessions_.erase(it);
 
       // delete ipv4 -> session
       {
-        auto it_ipv4 = ipv4_to_sessions_.find(ipv4Int);
+        auto it_ipv4 = ipv4_to_sessions_.find(ipv4_int);
         if (it_ipv4 != ipv4_to_sessions_.end()) {
-          ipv4Session = std::move(it_ipv4->second);
+          ipv4_session = std::move(it_ipv4->second);
           ipv4_to_sessions_.erase(it_ipv4);
         }
       }
       // delete ipv6 -> session
       {
-        auto it_ipv6 = ipv6_to_sessions_.find(ipv6Str);
+        auto it_ipv6 = ipv6_to_sessions_.find(ipv6_str);
         if (it_ipv6 != ipv6_to_sessions_.end()) {
-          ipv6Session = std::move(it_ipv6->second);
+          ipv6_session = std::move(it_ipv6->second);
           ipv6_to_sessions_.erase(it_ipv6);
         }
       }
     }
   }
-  return ipv4Session != nullptr && ipv6Session != nullptr;
+  return ipv4_session != nullptr && ipv6_session != nullptr;
 }
 
 fptn::client::SessionSPtr Table::GetSessionByFakeIPv4(
     const pcpp::IPv4Address& ip) noexcept {
-  const std::unique_lock<std::mutex> lock(mutex_);
+  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
   auto it = ipv4_to_sessions_.find(ip.toInt());
   if (it != ipv4_to_sessions_.end()) {
@@ -129,8 +134,7 @@ fptn::client::SessionSPtr Table::GetSessionByClientId(
 pcpp::IPv4Address Table::GetUniqueIPv4Address() {
   for (std::uint32_t i = 0; i < ipv4_generator_.NumAvailableAddresses(); i++) {
     const auto ip = ipv4_generator_.GetNextAddress();
-    if (ip != tun_ipv4_ &&
-        ipv4_to_sessions_.find(ip.toInt()) == ipv4_to_sessions_.end()) {
+    if (ip != tun_ipv4_ && !ipv4_to_sessions_.contains(ip.toInt())) {
       return ip;
     }
   }
@@ -140,23 +144,21 @@ pcpp::IPv4Address Table::GetUniqueIPv4Address() {
 pcpp::IPv6Address Table::GetUniqueIPv6Address() {
   for (int i = 0; i < ipv6_generator_.NumAvailableAddresses(); i++) {
     const auto ip = ipv6_generator_.GetNextAddress();
-    if (ip != tun_ipv6_ &&
-        ipv6_to_sessions_.find(ip.toString()) == ipv6_to_sessions_.end()) {
+    if (ip != tun_ipv6_ && !ipv6_to_sessions_.contains(ip.toString())) {
       return ip;
     }
   }
   throw std::runtime_error("No available address");
 }
 
-void Table::UpdateStatistic(
-    const fptn::statistic::MetricsSPtr& prometheus) noexcept {
-  const std::unique_lock<std::mutex> lock(mutex_);
+void Table::UpdateStatistic(const fptn::statistic::MetricsSPtr& prometheus) {
+  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
   prometheus->UpdateActiveSessions(client_id_to_sessions_.size());
   for (const auto& client : client_id_to_sessions_) {
-    auto clientID = client.first;
-    auto& session = client.second;
-    prometheus->UpdateStatistics(clientID, session->UserName(),
+    auto client_id = client.first;
+    const auto& session = client.second;
+    prometheus->UpdateStatistics(client_id, session->UserName(),
         session->TrafficShaperToClient()->FullDataAmount(),
         session->TrafficShaperFromClient()->FullDataAmount());
   }

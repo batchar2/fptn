@@ -66,6 +66,9 @@ add_subdirectory(depends/protobuf)
 
 
 # --- include ---
+set(CMAKE_CXX_CLANG_TIDY clang-tidy)
+#set(CMAKE_CXX_CLANG_TIDY "clang-tidy;-checks=*,-llvmlibc-restrict-system-libc-headers")
+#set(CMAKE_CXX_CLANG_TIDY "clang-tidy;-checks=*")
 include_directories(src/)
 include_directories(depends/)
 
