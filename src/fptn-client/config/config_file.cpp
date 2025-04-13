@@ -68,12 +68,16 @@ ConfigFile::Server ConfigFile::FindFastestServer() const {
   // NOLINTNEXTLINE(modernize-use-ranges)
   std::transform(servers_.begin(), servers_.end(), std::back_inserter(futures),
       // NOLINTNEXTLINE(bugprone-exception-escape)
-      [this](const auto& server) {
+      [this, kTimeout](const auto& server) {
+        (void)kTimeout; // fix Windows build
         try {
           // NOLINTNEXTLINE(modernize-use-ranges)
           return std::async(std::launch::async,
               // NOLINTNEXTLINE(bugprone-exception-escape)
-              [this, server]() { return GetDownloadTimeMs(server, kTimeout); });
+              [this, server, kTimeout]() {
+                (void)kTimeout; // fix Windows build
+                return GetDownloadTimeMs(server, kTimeout);
+              });
         } catch (const std::exception& ex) {
           SPDLOG_ERROR("Exception in GetDownloadTimeMs: {}", ex.what());
           return std::async(std::launch::deferred, [] { return kMaxTimeout; });
