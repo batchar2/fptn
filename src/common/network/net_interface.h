@@ -30,6 +30,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <Iprtrmib.h>  // NOLINT(build/include_order)
 #include <iphlpapi.h>  // NOLINT(build/include_order)
 #include <WinError.h>  // NOLINT(build/include_order)
+#include <wintun.h>    // NOLINT(build/include_order)
 // clang-format on
 #endif
 
