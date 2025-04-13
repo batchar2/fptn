@@ -66,7 +66,7 @@ class SettingsModel : public QObject {
   Q_OBJECT
 
  public:
-  explicit SettingsModel(const QMap<QString, QString>& languages,
+  SettingsModel(const QMap<QString, QString>& languages,
       const QString& default_language = "en",
       QObject* parent = nullptr);
 
@@ -74,7 +74,9 @@ class SettingsModel : public QObject {
   bool Save();
 
   QString UsingNetworkInterface() const;
-  void SetUsingNetworkInterface(const QString& interface);
+
+
+  void SetUsingNetworkInterface(const QString&);
 
   QString GatewayIp() const;
   void SetGatewayIp(const QString& ip);
@@ -95,7 +97,7 @@ class SettingsModel : public QObject {
   void SetLanguage(const QString& language);
   void SetLanguageCode(const QString& language_code);
 
-  const QVector<QString> GetLanguages() const;
+  QVector<QString> GetLanguages() const;
 
   const QString& DefaultLanguageCode() const;
   const QString& LanguageCode() const;
@@ -118,7 +120,7 @@ class SettingsModel : public QObject {
 
   QVector<ServiceConfig> services_;
   QString network_interface_;
-  QString gatewayIp_;
+  QString gateway_ip_;
   QString sni_;
 
   bool client_autostart_;

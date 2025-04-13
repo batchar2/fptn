@@ -18,9 +18,17 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include "common/https/client.h"
 
+#if _WIN32
+#ifdef max
+#pragma push_macro("max")
+#undef max
+#define MAX_MACRO_WAS_DEFINED
+#endif
+#endif
+
 namespace fptn::gui::autoupdate {
 namespace version {
-inline std::vector<int> Parse(const std::string& version) {
+inline std::vector<int> ParseVersion(const std::string& version) {
   std::vector<int> parsed;
   std::stringstream ss(version);
   std::string segment;
@@ -31,13 +39,13 @@ inline std::vector<int> Parse(const std::string& version) {
 }
 
 inline int compare(const std::string& version1, const std::string& version2) {
-  std::vector<int> v1 = Parse(version1);
-  std::vector<int> v2 = Parse(version2);
+  std::vector<int> v1 = ParseVersion(version1);
+  std::vector<int> v2 = ParseVersion(version2);
 
-  const std::size_t maxLength = std::max(v1.size(), v2.size());
-  v1.resize(maxLength, 0);
-  v2.resize(maxLength, 0);
-  for (size_t i = 0; i < maxLength; ++i) {
+  const std::size_t max_length = (std::max)(v1.size(), v2.size());
+  v1.resize(max_length, 0);
+  v2.resize(max_length, 0);
+  for (size_t i = 0; i < max_length; ++i) {
     if (v1[i] < v2[i]) return -1;  // version1 is less than version2
     if (v1[i] > v2[i]) return 1;   // version1 is greater than version2
   }
@@ -70,4 +78,12 @@ inline std::pair<bool, std::string> Check() {
   }
   return {false, {}};
 }
+
+#if _WIN32
+#ifdef MAX_MACRO_WAS_DEFINED
+#pragma pop_macro("max")
+#undef MAX_MACRO_WAS_DEFINED
+#endif
+#endif
+
 }  // namespace fptn::gui::autoupdate

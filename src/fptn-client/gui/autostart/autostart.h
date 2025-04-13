@@ -24,11 +24,11 @@ namespace fptn::gui::autostart {
 
 #if __APPLE__
 inline std::string getMacOsPlistPath() {
-  const char* homeEnv = std::getenv("HOME");
-  if (nullptr == homeEnv) {
+  const char* home_env = std::getenv("HOME");
+  if (nullptr == home_env) {
     return {};
   }
-  const std::string home = homeEnv;
+  const std::string home = home_env;
   const auto path =
       std::filesystem::path(home) / "Library" / "LaunchAgents" / "org.fptn.vpn";
   return path.u8string();
@@ -39,14 +39,14 @@ inline std::string getLinuxDesktopEntryPath() {
 }
 #elif _WIN32
 inline std::string getWindowsFullPath() {
-  char fptnPath[MAX_PATH] = {};
-  if (!SUCCEEDED(GetModuleFileName(nullptr, fptnPath, MAX_PATH))) {
+  char fptn_path[MAX_PATH] = {};
+  if (!SUCCEEDED(GetModuleFileName(nullptr, fptn_path, MAX_PATH))) {
     const DWORD code = GetLastError();
     SPDLOG_ERROR("Failed to retrieve the path. Error code: {}", code);
     return {};
   }
 
-  const std::filesystem::path fptnExe(fptnPath);
+  const std::filesystem::path fptnExe(fptn_path);
   const auto batPath = fptnExe.parent_path() / "FptnClient.bat";
   return batPath.u8string();
 }
@@ -107,22 +107,22 @@ inline bool enable() {
   const auto scriptPath = std::filesystem::current_path() / "Contents" /
                           "MacOS" / "fptn-client-gui-wrapper.sh";
   const auto plist = fmt::format(autostartTemplate, scriptPath.u8string());
-  const std::string plistPath = getMacOsPlistPath();
-  if (plistPath.empty()) {
+  const std::string plist_path = getMacOsPlistPath();
+  if (plist_path.empty()) {
     SPDLOG_ERROR("Failed to get the macOS plist path.");
     return false;
   }
-  SPDLOG_INFO("Plist path: {}", plistPath);
-  std::ofstream file(plistPath);
+  SPDLOG_INFO("Plist path: {}", plist_path);
+  std::ofstream file(plist_path);
   if (file.is_open()) {
     file << plist;
     file.close();
-    SPDLOG_INFO("Plist file written successfully at {}", plistPath);
+    SPDLOG_INFO("Plist file written successfully at {}", plist_path);
   } else {
-    SPDLOG_ERROR("Unable to write to plist file at {}", plistPath);
+    SPDLOG_ERROR("Unable to write to plist file at {}", plist_path);
     return false;
   }
-  const std::string command = fmt::format(R"(launchctl load "{}" )", plistPath);
+  const std::string command = fmt::format(R"(launchctl load "{}" )", plist_path);
   if (!fptn::common::system::command::run(command)) {
     SPDLOG_ERROR("Failed to load plist using launchctl. Command: {}", command);
     return false;
@@ -154,15 +154,15 @@ inline bool enable() {
     return false;
   }
 #elif _WIN32
-  // const std::string fptnPath = getWindowsFullPath();
+  // const std::string fptn_path = getWindowsFullPath();
   // const std::string windowsStartupFolder = getWindowsStartupFolder();
-  // if (fptnPath.empty() || windowsStartupFolder.empty()) {
+  // if (fptn_path.empty() || windowsStartupFolder.empty()) {
   //     return false;
   // }
   // // SET REG
   // const std::string command = fmt::format(
   //     R"(reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v
-  //     "FptnClient" /t REG_SZ /d "{}" /f )", fptnPath
+  //     "FptnClient" /t REG_SZ /d "{}" /f )", fptn_path
   // );
   // if (!fptn::common::system::command::run(command)) {
   //     SPDLOG_ERROR("Error running command: {}", command);
@@ -174,7 +174,7 @@ inline bool enable() {
   // std::string powershellCommand = fmt::format(
   //     R"(powershell -Command "$ws = New-Object -ComObject WScript.Shell; $s =
   //     $ws.CreateShortcut('{}'); $s.TargetPath = '{}'; $s.Save();")",
-  //     shortcutPath.u8string(), fptnPath
+  //     shortcutPath.u8string(), fptn_path
   // );
   // if (!fptn::common::system::command::run(powershellCommand)) {
   //     SPDLOG_ERROR("Failed to create shortcut: {}", powershellCommand);
@@ -189,18 +189,18 @@ inline bool enable() {
 
 inline bool disable() {
 #if __APPLE__
-  const std::string plistPath = getMacOsPlistPath();
-  if (plistPath.empty()) {
+  const std::string plist_path = getMacOsPlistPath();
+  if (plist_path.empty()) {
     SPDLOG_ERROR("Failed to get the macOS plist path.");
     return false;
   }
-  if (std::filesystem::exists(plistPath)) {
+  if (std::filesystem::exists(plist_path)) {
     const std::string command =
-        fmt::format(R"(launchctl unload "{}" )", plistPath);
+        fmt::format(R"(launchctl unload "{}" )", plist_path);
     if (!fptn::common::system::command::run(command)) {
       return false;
     }
-    if (!std::filesystem::remove(plistPath)) {
+    if (!std::filesystem::remove(plist_path)) {
       return false;
     }
   }

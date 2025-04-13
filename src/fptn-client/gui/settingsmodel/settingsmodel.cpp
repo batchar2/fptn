@@ -6,6 +6,11 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include "gui/settingsmodel/settingsmodel.h"
 
+#if _WIN32
+#include <Ws2tcpip.h>  // NOLINT(build/include_order)
+#include <windows.h>   // NOLINT(build/include_order)
+#endif
+
 #include <boost/asio.hpp>
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
@@ -73,13 +78,13 @@ void SettingsModel::Load() {
       service.password = jsonservice_obj["password"].toString();
 
       QJsonArray serversArray = jsonservice_obj["servers"].toArray();
-      for (const QJsonValue& serverValue : serversArray) {
-        QJsonObject serverObj = serverValue.toObject();
+      for (const QJsonValue& server_value : serversArray) {
+        QJsonObject server_obj = server_value.toObject();
         ServerConfig server;
-        server.name = serverObj["name"].toString();
-        server.host = serverObj["host"].toString();
-        server.port = serverObj["port"].toInt();
-        server.is_using = serverObj["is_using"].toBool();
+        server.name = server_obj["name"].toString();
+        server.host = server_obj["host"].toString();
+        server.port = server_obj["port"].toInt();
+        server.is_using = server_obj["is_using"].toBool();
         service.servers.push_back(server);
       }
       services_.push_back(service);
@@ -101,10 +106,10 @@ void SettingsModel::Load() {
   }
 
   if (service_obj.contains("gateway_ip")) {
-    gatewayIp_ = service_obj["gateway_ip"].toString();
+    gateway_ip_ = service_obj["gateway_ip"].toString();
   }
-  if (gatewayIp_.isEmpty()) {
-    gatewayIp_ = "auto";
+  if (gateway_ip_.isEmpty()) {
+    gateway_ip_ = "auto";
   }
 
   if (service_obj.contains("sni")) {
@@ -150,7 +155,7 @@ void SettingsModel::SetLanguageCode(const QString& language_code) {
   Save();
 }
 
-const QVector<QString> SettingsModel::GetLanguages() const {
+QVector<QString> SettingsModel::GetLanguages() const {
   QVector<QString> languages;
   for (auto it = languages_.begin(); it != languages_.end(); ++it) {
     languages.push_back(it.value());
@@ -173,20 +178,20 @@ bool SettingsModel::Save() {
 
   QJsonObject json_object;
   QJsonArray servicesArray;
-  for (const ServiceConfig& service : services_) {
+  for (const auto& service : services_) {
     QJsonObject service_obj;
     service_obj["service_name"] = service.service_name;
     service_obj["username"] = service.username;
     service_obj["password"] = service.password;
 
     QJsonArray serversArray;
-    for (const ServerConfig& server : service.servers) {
-      QJsonObject serverObj;
-      serverObj["name"] = server.name;
-      serverObj["host"] = server.host;
-      serverObj["port"] = server.port;
+    for (const auto& server : service.servers) {
+      QJsonObject server_obj;
+      server_obj["name"] = server.name;
+      server_obj["host"] = server.host;
+      server_obj["port"] = server.port;
       service_obj["is_using"] = server.is_using;
-      serversArray.append(serverObj);
+      serversArray.append(server_obj);
     }
     service_obj["servers"] = serversArray;
     servicesArray.append(service_obj);
@@ -195,7 +200,7 @@ bool SettingsModel::Save() {
   json_object["language"] = selected_language_;
   json_object["services"] = servicesArray;
   json_object["network_interface"] = network_interface_;
-  json_object["gateway_ip"] = gatewayIp_;
+  json_object["gateway_ip"] = gateway_ip_;
   json_object["autostart"] = client_autostart_ ? 1 : 0;
   json_object["sni"] = sni_;
   QJsonDocument document(json_object);
@@ -236,17 +241,17 @@ ServiceConfig SettingsModel::ParseToken(const QString& token) {
   service.password = json_object["password"].toString();
 
   QJsonArray servers_array = json_object["servers"].toArray();
-  for (const QJsonValue& serverValue : servers_array) {
-    QJsonObject serverObj = serverValue.toObject();
-    if (!serverObj.contains("name") || !serverObj.contains("host") ||
-        !serverObj.contains("port")) {
+  for (const auto& server_value : servers_array) {
+    QJsonObject server_obj = server_value.toObject();
+    if (!server_obj.contains("name") || !server_obj.contains("host") ||
+        !server_obj.contains("port")) {
       throw std::runtime_error("Missing required fields in server object.");
     }
 
     ServerConfig server;
-    server.name = serverObj["name"].toString();
-    server.host = serverObj["host"].toString();
-    server.port = serverObj["port"].toInt();
+    server.name = server_obj["name"].toString();
+    server.host = server_obj["host"].toString();
+    server.port = server_obj["port"].toInt();
     server.is_using = true;
 
     service.servers.push_back(server);
@@ -258,16 +263,16 @@ QString SettingsModel::UsingNetworkInterface() const {
   return network_interface_;
 }
 
-void SettingsModel::SetUsingNetworkInterface(const QString& interface) {
-  network_interface_ = (interface.isEmpty() ? "auto" : interface);
+void SettingsModel::SetUsingNetworkInterface(const QString& iface) {
+  network_interface_ = (iface.isEmpty() ? "auto" : iface);
 }
 
 QString SettingsModel::GatewayIp() const {
-  return gatewayIp_.isEmpty() ? "auto" : gatewayIp_;
+  return gateway_ip_.isEmpty() ? "auto" : gateway_ip_;
 }
 
 void SettingsModel::SetGatewayIp(const QString& ip) {
-  gatewayIp_ = ip.isEmpty() ? "auto" : ip;
+  gateway_ip_ = ip.isEmpty() ? "auto" : ip;
   Save();
 }
 

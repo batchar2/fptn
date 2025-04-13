@@ -6,6 +6,11 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include "gui/settingswidget/settings.h"
 
+#if _WIN32
+#include <Ws2tcpip.h>  // NOLINT(build/include_order)
+#include <windows.h>   // NOLINT(build/include_order)
+#endif
+
 #include <QFileDialog>       // NOLINT(build/include_order)
 #include <QGridLayout>       // NOLINT(build/include_order)
 #include <QHeaderView>       // NOLINT(build/include_order)
@@ -300,8 +305,7 @@ void SettingsWidget::onLoadNewConfig() {
         item->setData(Qt::DisplayRole, servers_text_list);
         server_table_->setItem(new_row, 2, item);
 
-        auto delete_button =
-            new QPushButton(QObject::tr("Delete"), this);
+        auto delete_button = new QPushButton(QObject::tr("Delete"), this);
         connect(delete_button, &QPushButton::clicked,
             [this, new_row]() { onRemoveServer(new_row); });
 

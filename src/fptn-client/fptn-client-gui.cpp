@@ -15,9 +15,6 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <QStyleFactory>  // NOLINT(build/include_order)
 
 #include "common/logger/logger.h"
-#if _WIN32
-#include "common/network/net_interface.h"
-#endif
 
 #include "gui/tray/tray.h"
 

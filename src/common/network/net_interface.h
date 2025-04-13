@@ -23,28 +23,13 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <tuntap++.hh>  // NOLINT(build/include_order)
 #elif _WIN32
 // clang-format off
-#ifndef _WIN32_WINNT
-#define _WIN32_WINNT 0x0600
-#endif
-
-#ifndef _IPV6_
-#define _IPV6_
-#endif
-
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-
-#include <winsock2.h>        // NOLINT(build/include_order)
-#include <netioapi.h>        // NOLINT(build/include_order)
-#include <VersionHelpers.h>  // NOLINT(build/include_order)
-#include <iphlpapi.h>        // NOLINT(build/include_order)
-#include <Iprtrmib.h>        // NOLINT(build/include_order)
-#include <WinError.h>        // NOLINT(build/include_order)
-#include <Ws2tcpip.h>        // NOLINT(build/include_order)
-#include <objbase.h>         // NOLINT(build/include_order)
-#include <windows.h>         // NOLINT(build/include_order)
-#include <wintun.h>          // NOLINT(build/include_order)
+#include <Ws2tcpip.h>  // NOLINT(build/include_order)
+#include <windows.h>   // NOLINT(build/include_order)
+#include <objbase.h>   // NOLINT(build/include_order)
+#include <winsock2.h>  // NOLINT(build/include_order)
+#include <Iprtrmib.h>  // NOLINT(build/include_order)
+#include <iphlpapi.h>  // NOLINT(build/include_order)
+#include <WinError.h>  // NOLINT(build/include_order)
 // clang-format on
 #endif
 
