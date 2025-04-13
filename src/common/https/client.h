@@ -47,7 +47,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 namespace fptn::common::https {
 
-inline std::string chromeCiphers() noexcept {
+inline std::string ChromeCiphers() noexcept {
   /* Google Chrome 56, Windows 10, April 2017 */
   return "ECDHE-ECDSA-AES128-GCM-SHA256:"
          "ECDHE-RSA-AES128-GCM-SHA256:"
@@ -65,7 +65,7 @@ inline std::string chromeCiphers() noexcept {
 }
 
 using Headers = std::unordered_map<std::string, std::string>;
-inline Headers realBrowserHeaders(const std::string& host, int port) noexcept {
+inline Headers RealBrowserHeaders(const std::string& host, int port) noexcept {
   /* Just to ensure that FPTN is as similar to a web browser as possible. */
   const std::string hostHeader =
       (port == 443 ? host : fmt::format("{}:{}", host, port));
@@ -137,7 +137,7 @@ struct Response final {
   Response(std::string b, int c, std::string e)
       : body(std::move(b)), code(c), errmsg(std::move(e)) {}
 
-  nlohmann::json json() const { return nlohmann::json::parse(body); }
+  nlohmann::json Json() const { return nlohmann::json::parse(body); }
 };
 
 class Client final {
@@ -149,7 +149,7 @@ class Client final {
   explicit Client(std::string host, int port, std::string sni)
       : host_(std::move(host)), port_(port), sni_(std::move(sni)) {}
 
-  Response get(const std::string& handle, int timeout = 5) noexcept {
+  Response Get(const std::string& handle, int timeout = 5) noexcept {
     std::string body;
     std::string error;
     int respcode = 400;
@@ -162,7 +162,7 @@ class Client final {
                       boost::asio::ssl::context::no_tlsv1 |
                       boost::asio::ssl::context::no_tlsv1_1);
       // set chrome ciphers
-      const std::string ciphers = chromeCiphers();
+      const std::string ciphers = ChromeCiphers();
       SSL_CTX_set_cipher_list(ctx.native_handle(), ciphers.c_str());
 
       boost::beast::net::ip::tcp::resolver resolver(ioc);
@@ -188,7 +188,7 @@ class Client final {
       boost::beast::http::request<boost::beast::http::string_body> req{
           boost::beast::http::verb::get, handle, 11};
       // set http headers
-      for (const auto& [key, value] : realBrowserHeaders(sni_, port_)) {
+      for (const auto& [key, value] : RealBrowserHeaders(sni_, port_)) {
         req.set(key, value);
       }
       // send request
@@ -201,7 +201,7 @@ class Client final {
       boost::beast::http::read(stream, buffer, res);
 
       respcode = static_cast<int>(res.result_int());
-      body = getHttpBody(res);
+      body = GetHttpBody(res);
 
       boost::beast::error_code ec;
       stream.shutdown(ec);
@@ -217,9 +217,9 @@ class Client final {
     return {body, respcode, error};
   }
 
-  Response post(const std::string& handle,
+  Response Post(const std::string& handle,
       const std::string& request,
-      const std::string& contentType,
+      const std::string& content_type,
       int timeout = 5) noexcept {
     std::string body;
     std::string error;
@@ -232,7 +232,8 @@ class Client final {
                       boost::asio::ssl::context::no_sslv3 |
                       boost::asio::ssl::context::no_tlsv1 |
                       boost::asio::ssl::context::no_tlsv1_1);
-      SSL_CTX_set_cipher_list(ctx.native_handle(), chromeCiphers().c_str());
+      const std::string ciphers = ChromeCiphers();
+      SSL_CTX_set_cipher_list(ctx.native_handle(), ciphers.c_str());
 
       boost::beast::net::ip::tcp::resolver resolver(ioc);
       boost::beast::ssl_stream<boost::beast::tcp_stream> stream(ioc, ctx);
@@ -255,10 +256,10 @@ class Client final {
       boost::beast::http::request<boost::beast::http::string_body> req{
           boost::beast::http::verb::post, handle, 11};
       req.set(boost::beast::http::field::host, host_);
-      req.set(boost::beast::http::field::content_type, contentType);
+      req.set(boost::beast::http::field::content_type, content_type);
       req.set(boost::beast::http::field::content_length,
           std::to_string(request.size()));
-      for (const auto& [key, value] : realBrowserHeaders(sni_, port_)) {
+      for (const auto& [key, value] : RealBrowserHeaders(sni_, port_)) {
         req.set(key, value);
       }
       req.body() = request;
@@ -274,7 +275,7 @@ class Client final {
       boost::beast::http::read(stream, buffer, res);
 
       respcode = static_cast<int>(res.result_int());
-      body = getHttpBody(res);
+      body = GetHttpBody(res);
 
       boost::beast::error_code ec;
       stream.shutdown(ec);
@@ -291,7 +292,7 @@ class Client final {
   }
 
  protected:
-  std::string decompressGzip(const std::string& compressed) {
+  std::string DecompressGzip(const std::string& compressed) {
     constexpr size_t CHUNK_SIZE = 4096;
 
     std::vector<char> buffer(CHUNK_SIZE);
@@ -323,12 +324,12 @@ class Client final {
     return decompressed;
   }
 
-  std::string getHttpBody(
+  std::string GetHttpBody(
       const boost::beast::http::response<boost::beast::http::dynamic_body>&
           res) {
     const auto body = boost::beast::buffers_to_string(res.body().data());
     if (res[boost::beast::http::field::content_encoding] == "gzip") {
-      return decompressGzip(body);
+      return DecompressGzip(body);
     }
     return body;
   }

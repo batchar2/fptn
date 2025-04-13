@@ -16,8 +16,8 @@ class IPTables final {
   IPTables(
       std::string out_net_interface_name, std::string tun_net_interface_name);
   ~IPTables();
-  bool Apply() noexcept;
-  bool Clean() noexcept;
+  bool Apply();
+  bool Clean();
 
  private:
   mutable std::mutex mutex_;

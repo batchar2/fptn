@@ -18,38 +18,37 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 using fptn::http::Client;
 
-Client::Client(const pcpp::IPv4Address& server_ip,
+Client::Client(pcpp::IPv4Address server_ip,
     int server_port,
-    const pcpp::IPv4Address& tun_interface_address_ipv4,
-    const pcpp::IPv6Address& tun_interface_address_ipv6,
-    const std::string& sni,
-    const NewIPPacketCallback& new_ip_pkt_callback)
+    pcpp::IPv4Address tun_interface_address_ipv4,
+    pcpp::IPv6Address tun_interface_address_ipv6,
+    std::string sni,
+    NewIPPacketCallback new_ip_pkt_callback)
     : running_(false),
-      server_ip_(server_ip),
+      server_ip_(std::move(server_ip)),
       server_port_(server_port),
-      tun_interface_address_ipv4_(tun_interface_address_ipv4),
-      tun_interface_address_ipv6_(tun_interface_address_ipv6),
-      sni_(sni),
-      new_ip_pkt_callback_(new_ip_pkt_callback) {}
+      tun_interface_address_ipv4_(std::move(tun_interface_address_ipv4)),
+      tun_interface_address_ipv6_(std::move(tun_interface_address_ipv6)),
+      sni_(std::move(sni)),
+      new_ip_pkt_callback_(std::move(new_ip_pkt_callback)) {}
 
-bool Client::Login(
-    const std::string& username, const std::string& password) noexcept {
+bool Client::Login(const std::string& username, const std::string& password) {
   const std::string request = fmt::format(
       R"({{ "username": "{}", "password": "{}" }})", username, password);
 
   fptn::common::https::Client cli(server_ip_.toString(), server_port_, sni_);
-  const auto resp = cli.post("/api/v1/login", request, "application/json");
+  const auto resp = cli.Post("/api/v1/login", request, "application/json");
   if (resp.code == 200) {
     try {
-      const auto msg = resp.json();
-      if (msg.contains("access_token")) {
-        token_ = msg["access_token"];
-        SPDLOG_INFO("Login successful");
-        return true;
-      } else {
+      const auto msg = resp.Json();
+      if (!msg.contains("access_token")) {
         SPDLOG_ERROR(
             "Error: Access token not found in the response. Check your "
             "conection");
+      } else {
+        token_ = msg["access_token"];
+        SPDLOG_INFO("Login successful");
+        return true;
       }
     } catch (const nlohmann::json::parse_error& e) {
       SPDLOG_ERROR("Error parsing JSON response: {} ", e.what());
@@ -61,23 +60,23 @@ bool Client::Login(
   return false;
 }
 
-std::pair<pcpp::IPv4Address, pcpp::IPv6Address> Client::GetDns() noexcept {
+std::pair<pcpp::IPv4Address, pcpp::IPv6Address> Client::GetDns() {
   SPDLOG_INFO("DNS. Connect to {}:{}", server_ip_.toString(), server_port_);
 
   fptn::common::https::Client cli(server_ip_.toString(), server_port_, sni_);
-  const auto resp = cli.get("/api/v1/dns");
+  const auto resp = cli.Get("/api/v1/dns");
   if (resp.code == 200) {
     try {
-      const auto msg = resp.json();
-      if (msg.contains("dns")) {
+      const auto msg = resp.Json();
+      if (!msg.contains("dns")) {
+        SPDLOG_ERROR(
+            "Error: dns not found in the response. Check your connection");
+      } else {
         const std::string dns_ipv4 = msg["dns"];
         const std::string dns_ipv6 =
             (msg.contains("dns_ipv6") ? msg["dns_ipv6"]
                                       : FPTN_SERVER_DEFAULT_ADDRESS_IP6);
         return {pcpp::IPv4Address(dns_ipv4), pcpp::IPv6Address(dns_ipv6)};
-      } else {
-        SPDLOG_ERROR(
-            "Error: dns not found in the response. Check your connection");
       }
     } catch (const nlohmann::json::parse_error& e) {
       SPDLOG_ERROR("Error parsing JSON response: {}", e.what());
@@ -94,7 +93,7 @@ void Client::SetNewIPPacketCallback(
   new_ip_pkt_callback_ = callback;
 }
 
-bool Client::Send(fptn::common::network::IPPacketPtr packet) noexcept {
+bool Client::Send(fptn::common::network::IPPacketPtr packet) {
   try {
     if (ws_ && running_) {
       ws_->Send(std::move(packet));
@@ -108,7 +107,7 @@ bool Client::Send(fptn::common::network::IPPacketPtr packet) noexcept {
   return false;
 }
 
-void Client::Run() noexcept {
+void Client::Run() {
   while (running_) {
     {
       const std::unique_lock<std::mutex> lock(mutex_);  // mutex
@@ -126,13 +125,13 @@ void Client::Run() noexcept {
   }
 }
 
-bool Client::Start() noexcept {
+bool Client::Start() {
   running_ = true;
   th_ = std::thread(&Client::Run, this);
   return th_.joinable();
 }
 
-bool Client::Stop() noexcept {
+bool Client::Stop() {
   if (running_ && th_.joinable()) {
     running_ = false;
     {
@@ -146,7 +145,7 @@ bool Client::Stop() noexcept {
   return false;
 }
 
-bool Client::IsStarted() noexcept {
+bool Client::IsStarted() {
   const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
   return ws_ && ws_->IsStarted();

@@ -23,8 +23,7 @@ class SettingsWidget : public QDialog {
   Q_OBJECT
 
  public:
-  explicit SettingsWidget(
-      const SettingsModelPtr& settings, QWidget* parent = nullptr);
+  explicit SettingsWidget(SettingsModelPtr settings, QWidget* parent = nullptr);
 
  protected:
   void closeEvent(QCloseEvent* event) override;

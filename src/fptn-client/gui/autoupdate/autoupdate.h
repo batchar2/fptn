@@ -58,11 +58,11 @@ inline std::pair<bool, std::string> Check() {
 
   const auto url = fmt::format("/repos/{}/{}/releases/latest",
       FPTN_GITHUB_USERNAME, FPTN_GITHUB_REPOSITORY);
-  const auto resp = cli.get(url);
+  const auto resp = cli.Get(url);
 
   if (resp.code == 200) {
     try {
-      const auto msg = resp.json();
+      const auto msg = resp.Json();
       if (msg.contains("draft") && msg.contains("name")) {
         const bool draft = msg["draft"];
         const std::string version_name = msg["name"];

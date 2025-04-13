@@ -13,19 +13,21 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include "common/logger/logger.h"
 
-static QTranslator translator;
+namespace {
+QTranslator translator;
+}
 
 bool fptn::gui::SetTranslation(const QString& language_code) {
   const QString translation_file = QString("fptn_%1.qm").arg(language_code);
   qApp->removeTranslator(&translator);
   if (translator.load(translation_file, ":/translations")) {
-    if (qApp->installTranslator(&translator)) {
+    if (!qApp->installTranslator(&translator)) {
+      SPDLOG_WARN("Failed to install translator for language: {}",
+          language_code.toStdString());
+    } else {
       SPDLOG_INFO(
           "Successfully loaded language: {}", language_code.toStdString());
       return true;
-    } else {
-      SPDLOG_WARN("Failed to install translator for language: {}",
-          language_code.toStdString());
     }
   } else {
     SPDLOG_WARN(

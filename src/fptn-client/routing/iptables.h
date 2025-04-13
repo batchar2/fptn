@@ -29,18 +29,17 @@ pcpp::IPv4Address ResolveDomain(const std::string& domain) noexcept;
 
 class IPTables final {
  public:
-  IPTables(const std::string& out_interface_name,
-      const std::string& tun_interface_name,
-      const pcpp::IPv4Address& vpn_server_ip,
-      const pcpp::IPv4Address& dns_server_ipv4,
-      const pcpp::IPv6Address& dns_server_ipv6,
-      const pcpp::IPv4Address& gateway_ip,
-      const pcpp::IPv4Address& tun_interface_address_ipv4,
-      const pcpp::IPv6Address& tun_interface_address_ipv6);
+  IPTables(std::string out_interface_name,
+      std::string tun_interface_name,
+      pcpp::IPv4Address vpn_server_ip,
+      pcpp::IPv4Address dns_server_ipv4,
+      pcpp::IPv6Address dns_server_ipv6,
+      pcpp::IPv4Address gateway_ip,
+      pcpp::IPv4Address tun_interface_address_ipv4,
+      pcpp::IPv6Address tun_interface_address_ipv6);
   ~IPTables();
-  bool Check() noexcept;
-  bool Apply() noexcept;
-  bool Clean() noexcept;
+  bool Apply();
+  bool Clean();
 
  private:
   mutable std::mutex mutex_;

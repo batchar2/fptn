@@ -26,14 +26,15 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 using fptn::gui::TrayApp;
 
-inline void showError(const QString& title, const QString& msg) {
-  QWidget tempWidget;
-  QMessageBox::critical(&tempWidget, title, msg);
+namespace {
+void showError(const QString& title, const QString& msg) {
+  QWidget temp_widget;
+  QMessageBox::critical(&temp_widget, title, msg);
 }
+}  // namespace
 
 TrayApp::TrayApp(const SettingsModelPtr& settings, QObject* parent)
-    : QWidget(),
-      settings_(settings),
+    : settings_(settings),
       tray_icon_(new QSystemTrayIcon(this)),
       tray_menu_(new QMenu(this)),
       connect_menu_(new QMenu(QObject::tr("Connect") + "    ", tray_menu_)),
@@ -151,7 +152,7 @@ void TrayApp::UpdateTrayMenu() {
     case ConnectionState::None: {
       tray_icon_->setIcon(QIcon(inactive_icon_path_));
       const auto& services = settings_->Services();
-      if (services.length()) {
+      if (!services.empty()) {
         smart_connect_action_ =
             new QAction(QObject::tr("Smart Connect"), connect_menu_);
         connect(smart_connect_action_, &QAction::triggered, [this]() {
@@ -163,24 +164,25 @@ void TrayApp::UpdateTrayMenu() {
         // servers
         for (const auto& service : services) {
           for (const auto& server : service.servers) {
-            auto serverConnect = new QAction(server.name, connect_menu_);
+            auto* server_connect = new QAction(server.name, connect_menu_);
             connect(
-                serverConnect, &QAction::triggered, [this, server, service]() {
+                server_connect, &QAction::triggered, [this, server, service]() {
                   smart_connect_ = false;
-                  fptn::config::ConfigFile::Server cfgServer;
+                  fptn::config::ConfigFile::Server cfg_server;
                   {
-                    cfgServer.name = server.name.toStdString();
-                    cfgServer.host = server.host.toStdString();
-                    cfgServer.port = server.port;
-                    cfgServer.is_using = server.is_using;
-                    cfgServer.service_name = service.service_name.toStdString();
-                    cfgServer.username = service.username.toStdString();
-                    cfgServer.password = service.password.toStdString();
+                    cfg_server.name = server.name.toStdString();
+                    cfg_server.host = server.host.toStdString();
+                    cfg_server.port = server.port;
+                    cfg_server.is_using = server.is_using;
+                    cfg_server.service_name =
+                        service.service_name.toStdString();
+                    cfg_server.username = service.username.toStdString();
+                    cfg_server.password = service.password.toStdString();
                   }
-                  selected_server_ = cfgServer;
+                  selected_server_ = cfg_server;
                   onConnectToServer();
                 });
-            connect_menu_->addAction(serverConnect);
+            connect_menu_->addAction(server_connect);
           }
         }
       } else {
@@ -287,9 +289,9 @@ void TrayApp::UpdateTrayMenu() {
   }
 
   // Apply the language translation based on the user's settings
-  QString selectedLanguage = settings_->LanguageCode();
-  if (!selectedLanguage.isEmpty()) {
-    fptn::gui::SetTranslation(selectedLanguage);
+  const QString selected_language = settings_->LanguageCode();
+  if (!selected_language.isEmpty()) {
+    fptn::gui::SetTranslation(selected_language);
   }
   RetranslateUi();
 }
@@ -401,7 +403,7 @@ void TrayApp::handleConnecting() {
   } else {
     // check connection to selected server
     const std::uint64_t time = config.GetDownloadTimeMs(selected_server_);
-    if (time == static_cast<std::uint64_t>(-1)) {
+    if (time == UINT64_MAX) {
       showError(QObject::tr("Connection Error"),
           QString(QObject::tr(
                       "The server is unavailable. Please select another server "
@@ -469,10 +471,10 @@ void TrayApp::handleConnecting() {
 
   // Wait for the WebSocket tunnel to establish
   vpn_client_->Start();
-  constexpr auto TIMEOUT = std::chrono::seconds(5);
+  constexpr auto kTimeout = std::chrono::seconds(5);
   const auto start = std::chrono::steady_clock::now();
   while (!vpn_client_->IsStarted()) {
-    if (std::chrono::steady_clock::now() - start > TIMEOUT) {
+    if (std::chrono::steady_clock::now() - start > kTimeout) {
       showError(QObject::tr("Connection error"),
           QObject::tr("Couldn't open websocket tunnel!"));
       connection_state_ = ConnectionState::None;
@@ -517,17 +519,18 @@ void TrayApp::handleUpdateSpeedWidget() {
   }
 
   if (update_version_future_.valid()) {
-    const auto updateResult = update_version_future_.get();
-    const bool isNewVersion = updateResult.first;
-    const std::string versionName = updateResult.second;
-    if (isNewVersion) {
-      auto_available_version_ = QString::fromStdString(versionName);
+    const auto update_result = update_version_future_.get();
+    const bool is_new_version = update_result.first;
+    const std::string version_name = update_result.second;
+    if (is_new_version) {
+      auto_available_version_ = QString::fromStdString(version_name);
       auto_update_action_->setVisible(true);
       RetranslateUi();
     }
   }
 }
 
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
 QString TrayApp::GetSystemLanguageCode() const {
   const QLocale locale;
   const QString locale_name = locale.name();
@@ -558,11 +561,11 @@ void TrayApp::RetranslateUi() {
     smart_connect_action_->setText(QObject::tr("Smart Connect"));
   }
   if (disconnect_action_) {
-    const QString disconnectText =
+    const QString disconnect_text =
         QString(QObject::tr("Disconnect") + ": %1 (%2)")
             .arg(QString::fromStdString(selected_server_.name))
             .arg(QString::fromStdString(selected_server_.service_name));
-    disconnect_action_->setText(disconnectText);
+    disconnect_action_->setText(disconnect_text);
   }
   if (auto_update_action_) {
     auto_update_action_->setText(
@@ -581,6 +584,7 @@ void TrayApp::stop() {
   }
 }
 
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
 void TrayApp::OpenWebBrowser(const std::string& url) {
 #if __APPLE__
   QDesktopServices::openUrl(QString::fromStdString(url));

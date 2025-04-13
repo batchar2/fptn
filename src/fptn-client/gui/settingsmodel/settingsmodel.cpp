@@ -38,6 +38,7 @@ SettingsModel::SettingsModel(const QMap<QString, QString>& languages,
   Load();
 }
 
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
 QString SettingsModel::GetFilePath() const {
   QString directory =
       QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
@@ -68,17 +69,17 @@ void SettingsModel::Load() {
   QJsonObject service_obj = document.object();
 
   if (service_obj.contains("services")) {
-    QJsonArray servicesArray = service_obj["services"].toArray();
-    for (const QJsonValue& serviceValue : servicesArray) {
-      QJsonObject jsonservice_obj = serviceValue.toObject();
+    QJsonArray services_array = service_obj["services"].toArray();
+    for (const auto& service_value : services_array) {
+      QJsonObject jsonservice_obj = service_value.toObject();
       ServiceConfig service;
 
       service.service_name = jsonservice_obj["service_name"].toString();
       service.username = jsonservice_obj["username"].toString();
       service.password = jsonservice_obj["password"].toString();
 
-      QJsonArray serversArray = jsonservice_obj["servers"].toArray();
-      for (const QJsonValue& server_value : serversArray) {
+      QJsonArray servers_array = jsonservice_obj["servers"].toArray();
+      for (const auto& server_value : servers_array) {
         QJsonObject server_obj = server_value.toObject();
         ServerConfig server;
         server.name = server_obj["name"].toString();
@@ -102,7 +103,7 @@ void SettingsModel::Load() {
     selected_language_ = service_obj["language"].toString();
   }
   if (service_obj.contains("autostart")) {
-    client_autostart_ = service_obj["autostart"].toInt();
+    client_autostart_ = service_obj["autostart"].toBool();
   }
 
   if (service_obj.contains("gateway_ip")) {
@@ -120,7 +121,7 @@ void SettingsModel::Load() {
   }
 }
 
-const QString SettingsModel::LanguageName() const {
+QString SettingsModel::LanguageName() const {
   for (auto it = languages_.begin(); it != languages_.end(); ++it) {
     if (it.key() == selected_language_) {
       return it.value();
@@ -164,6 +165,7 @@ QVector<QString> SettingsModel::GetLanguages() const {
 }
 
 bool SettingsModel::ExistsTranslation(const QString& language_code) const {
+  // NOLINTNEXTLINE(readability-container-contains)
   return languages_.find(language_code) != languages_.end();
 }
 
@@ -177,28 +179,28 @@ bool SettingsModel::Save() {
   }
 
   QJsonObject json_object;
-  QJsonArray servicesArray;
+  QJsonArray services_array;
   for (const auto& service : services_) {
     QJsonObject service_obj;
     service_obj["service_name"] = service.service_name;
     service_obj["username"] = service.username;
     service_obj["password"] = service.password;
 
-    QJsonArray serversArray;
+    QJsonArray servers_array;
     for (const auto& server : service.servers) {
       QJsonObject server_obj;
       server_obj["name"] = server.name;
       server_obj["host"] = server.host;
       server_obj["port"] = server.port;
       service_obj["is_using"] = server.is_using;
-      serversArray.append(server_obj);
+      servers_array.append(server_obj);
     }
-    service_obj["servers"] = serversArray;
-    servicesArray.append(service_obj);
+    service_obj["servers"] = servers_array;
+    services_array.append(service_obj);
   }
 
   json_object["language"] = selected_language_;
-  json_object["services"] = servicesArray;
+  json_object["services"] = services_array;
   json_object["network_interface"] = network_interface_;
   json_object["gateway_ip"] = gateway_ip_;
   json_object["autostart"] = client_autostart_ ? 1 : 0;
@@ -219,17 +221,18 @@ bool SettingsModel::Save() {
   return len > 0;
 }
 
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
 ServiceConfig SettingsModel::ParseToken(const QString& token) {
   QJsonParseError parse_error;
-  const QByteArray tokenData = token.toUtf8();
-  QJsonDocument jsonDoc = QJsonDocument::fromJson(tokenData, &parse_error);
+  const QByteArray token_data = token.toUtf8();
+  QJsonDocument json_doc = QJsonDocument::fromJson(token_data, &parse_error);
 
   if (parse_error.error != QJsonParseError::NoError) {
     throw std::runtime_error(
         "JSON parsing error: " + parse_error.errorString().toStdString());
   }
 
-  QJsonObject json_object = jsonDoc.object();
+  QJsonObject json_object = json_doc.object();
   if (!json_object.contains("service_name") ||
       !json_object.contains("username") || !json_object.contains("password") ||
       !json_object.contains("servers")) {
@@ -308,6 +311,7 @@ void SettingsModel::RemoveServer(int index) {
 
 void SettingsModel::Clear() { services_.clear(); }
 
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
 QVector<QString> SettingsModel::GetNetworkInterfaces() const {
   QVector<QString> interfaces;
   interfaces.append("auto");  // default empty

@@ -27,22 +27,22 @@ class Client final {
       std::function<void(fptn::common::network::IPPacketPtr packet)>;
 
  public:
-  Client(const pcpp::IPv4Address& server_ip,
+  Client(pcpp::IPv4Address server_ip,
       int server_port,
-      const pcpp::IPv4Address& tun_interface_address_ipv4,
-      const pcpp::IPv6Address& tun_interface_address_ipv6,
-      const std::string& sni,
-      const NewIPPacketCallback& new_ip_pkt_callback = nullptr);
-  bool Login(const std::string& username, const std::string& password) noexcept;
-  std::pair<pcpp::IPv4Address, pcpp::IPv6Address> GetDns() noexcept;
-  bool Start() noexcept;
-  bool Stop() noexcept;
-  bool Send(fptn::common::network::IPPacketPtr packet) noexcept;
+      pcpp::IPv4Address tun_interface_address_ipv4,
+      pcpp::IPv6Address tun_interface_address_ipv6,
+      std::string sni,
+      NewIPPacketCallback new_ip_pkt_callback = nullptr);
+  bool Login(const std::string& username, const std::string& password);
+  std::pair<pcpp::IPv4Address, pcpp::IPv6Address> GetDns();
+  bool Start();
+  bool Stop();
+  bool Send(fptn::common::network::IPPacketPtr packet);
   void SetNewIPPacketCallback(const NewIPPacketCallback& callback) noexcept;
-  bool IsStarted() noexcept;
+  bool IsStarted();
 
  protected:
-  void Run() noexcept;
+  void Run();
 
  private:
   std::thread th_;

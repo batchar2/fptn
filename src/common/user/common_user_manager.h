@@ -22,17 +22,17 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 namespace fptn::common::user {
 class CommonUserManager final {
  public:
-  explicit CommonUserManager(const std::string& filePath)
-      : filePath_(filePath) {
-    createFileIfNotExists(filePath_);
-    loadUsers();
+  explicit CommonUserManager(std::string filePath)
+      : file_path_(std::move(filePath)) {
+    CreateFileIfNotExists(file_path_);
+    LoadUsers();
   }
 
-  bool addUser(
+  bool AddUser(
       const std::string& username, const std::string& password, int bandwidth) {
     const std::lock_guard<std::mutex> lock(mutex_);  // mutex
 
-    if (!validateUsername(username)) {
+    if (!ValidateUsername(username)) {
       std::cerr << "Invalid username." << std::endl;
       return false;
     }
@@ -47,26 +47,26 @@ class CommonUserManager final {
       std::cout << "User " << username << " already exists." << std::endl;
       return false;
     }
-    std::string hash = hashPassword(password);
+    std::string hash = HashPassword(password);
     users_[username] = {hash, bandwidth};
-    saveUsers();
+    SaveUsers();
     std::cout << "User " << username << " added with bandwidth " << bandwidth
               << " MB." << std::endl;
     return true;
   }
 
-  bool deleteUser(const std::string& username) {
+  bool DeleteUser(const std::string& username) {
     const std::lock_guard<std::mutex> lock(mutex_);  // mutex
 
     if (users_.find(username) == users_.end()) {
       return false;
     }
     users_.erase(username);
-    saveUsers();
+    SaveUsers();
     return true;
   }
 
-  void listUsers() const {
+  void ListUsers() const {
     const std::lock_guard<std::mutex> lock(mutex_);  // mutex
 
     // cppcheck-suppress unassignedVariable
@@ -77,20 +77,20 @@ class CommonUserManager final {
     }
   }
 
-  bool authenticate(const std::string& username, const std::string& password) {
+  bool Authenticate(const std::string& username, const std::string& password) {
     const std::lock_guard<std::mutex> lock(mutex_);  // mutex
 
-    loadUsers();
+    LoadUsers();
 
     auto it = users_.find(username);
     if (it != users_.end()) {
-      std::string hash = hashPassword(password);
+      std::string hash = HashPassword(password);
       return it->second.first == hash;
     }
     return false;
   }
 
-  int getUserBandwidthBit(const std::string& username) const {
+  int GetUserBandwidthBit(const std::string& username) const {
     const std::lock_guard<std::mutex> lock(mutex_);  // mutex
 
     auto it = users_.find(username);
@@ -99,7 +99,7 @@ class CommonUserManager final {
     }
     return 0;
   }
-  int getUserBandwidth(const std::string& username) const {
+  int GetUserBandwidth(const std::string& username) const {
     const std::lock_guard<std::mutex> lock(mutex_);  // mutex
 
     auto it = users_.find(username);
@@ -109,13 +109,13 @@ class CommonUserManager final {
     return 0;
   }
 
- private:
-  void loadUsers() {
+ protected:
+  void LoadUsers() {
     // FIXIT
     // update
     users_.clear();
 
-    std::ifstream file(filePath_);
+    std::ifstream file(file_path_);
     if (file.is_open()) {
       std::string line;
       while (std::getline(file, line)) {
@@ -131,12 +131,12 @@ class CommonUserManager final {
         }
       }
     } else {
-      std::cerr << "Unable to open file: " << filePath_ << std::endl;
+      std::cerr << "Unable to open file: " << file_path_ << std::endl;
     }
   }
 
-  void saveUsers() const {
-    std::ofstream file(filePath_);
+  void SaveUsers() const {
+    std::ofstream file(file_path_);
     if (file.is_open()) {
       // cppcheck-suppress unassignedVariable
       for (const auto& [username, credentials] : users_) {
@@ -144,11 +144,11 @@ class CommonUserManager final {
              << credentials.second << "\n";
       }
     } else {
-      std::cerr << "Unable to open file: " << filePath_ << std::endl;
+      std::cerr << "Unable to open file: " << file_path_ << std::endl;
     }
   }
 
-  std::string hashPassword(const std::string& password) const {
+  std::string HashPassword(const std::string& password) const {
     unsigned int length = 0;
     unsigned char hash[EVP_MAX_MD_SIZE] = {0};
 
@@ -186,12 +186,12 @@ class CommonUserManager final {
     return oss.str();
   }
 
-  bool validateUsername(const std::string& username) const {
+  bool ValidateUsername(const std::string& username) const {
     return !username.empty() &&
            std::all_of(username.begin(), username.end(), ::isalnum);
   }
 
-  void createFileIfNotExists(const std::string& filePath) {
+  void CreateFileIfNotExists(const std::string& filePath) {
     std::filesystem::path path(filePath);
     std::filesystem::path directoryPath = path.parent_path();
     if (!directoryPath.empty() && !std::filesystem::exists(directoryPath)) {
@@ -213,9 +213,8 @@ class CommonUserManager final {
  private:
   std::unordered_map<std::string, std::pair<std::string, int>> users_;
   mutable std::mutex mutex_;
-  std::string filePath_;
+  std::string file_path_;
 };
 
 using CommonUserManagerPtr = std::unique_ptr<CommonUserManager>;
-using CommonUserManagerSPtr = std::shared_ptr<CommonUserManager>;
 }  // namespace fptn::common::user

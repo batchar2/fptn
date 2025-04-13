@@ -139,12 +139,12 @@ int main(int argc, char* argv[]) {
     manager.Stop();
 
     spdlog::shutdown();
+
+    return EXIT_SUCCESS;
   } catch (const std::exception& ex) {
     SPDLOG_ERROR("An error occurred: {}. Exiting...", ex.what());
-    return EXIT_FAILURE;
   } catch (...) {
     SPDLOG_ERROR("An unknown error occurred. Exiting...");
-    return EXIT_FAILURE;
   }
-  return EXIT_SUCCESS;
+  return EXIT_FAILURE;
 }

@@ -7,6 +7,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "routing/iptables.h"
 
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "common/network/net_interface.h"
@@ -18,33 +19,31 @@ static std::string GetWindowsInterfaceNumber(const std::string& interfaceName);
 
 using fptn::routing::IPTables;
 
-IPTables::IPTables(const std::string& out_interface_name,
-    const std::string& tun_interface_name,
-    const pcpp::IPv4Address& vpn_server_ip,
-    const pcpp::IPv4Address& dns_server_ipv4,
-    const pcpp::IPv6Address& dns_server_ipv6,
-    const pcpp::IPv4Address& gateway_ip,
-    const pcpp::IPv4Address& tun_interface_address_ipv4,
-    const pcpp::IPv6Address& tun_interface_address_ipv6)
+IPTables::IPTables(std::string out_interface_name,
+    std::string tun_interface_name,
+    pcpp::IPv4Address vpn_server_ip,
+    pcpp::IPv4Address dns_server_ipv4,
+    pcpp::IPv6Address dns_server_ipv6,
+    pcpp::IPv4Address gateway_ip,
+    pcpp::IPv4Address tun_interface_address_ipv4,
+    pcpp::IPv6Address tun_interface_address_ipv6)
     : running_(false),
-      out_interface_name_(out_interface_name),
-      tun_interface_name_(tun_interface_name),
-      vpn_server_ip_(vpn_server_ip),
-      dns_server_ipv4_(dns_server_ipv4),
-      dns_server_ipv6_(dns_server_ipv6),
-      gateway_ip_(gateway_ip),
-      tun_interface_address_ipv4_(tun_interface_address_ipv4),
-      tun_interface_address_ipv6_(tun_interface_address_ipv6) {}
+      out_interface_name_(std::move(out_interface_name)),
+      tun_interface_name_(std::move(tun_interface_name)),
+      vpn_server_ip_(std::move(vpn_server_ip)),
+      dns_server_ipv4_(std::move(dns_server_ipv4)),
+      dns_server_ipv6_(std::move(dns_server_ipv6)),
+      gateway_ip_(std::move(gateway_ip)),
+      tun_interface_address_ipv4_(std::move(tun_interface_address_ipv4)),
+      tun_interface_address_ipv6_(std::move(tun_interface_address_ipv6)) {}
 
-IPTables::~IPTables() {
+IPTables::~IPTables() {  // NOLINT(bugprone-exception-escape)
   if (running_) {
     Clean();
   }
 }
 
-bool IPTables::Check() noexcept { return true; }
-
-bool IPTables::Apply() noexcept {
+bool IPTables::Apply() {
   const std::unique_lock<std::mutex> lock(mutex_);
 
   running_ = true;
@@ -177,15 +176,21 @@ bool IPTables::Apply() noexcept {
 #else
 #error "Unsupported system!"
 #endif
-  for (const auto& cmd : commands) {
-    fptn::common::system::command::run(cmd);
+  try {
+    for (const auto& cmd : commands) {
+      fptn::common::system::command::run(cmd);
+    }
+  } catch (const std::exception& e) {
+    SPDLOG_ERROR("IPTables error: {}", e.what());
+  } catch (...) {
+    SPDLOG_ERROR("Undefined error");
   }
   SPDLOG_INFO("=== Routing setup completed successfully ===");
   return true;
 }
 
-bool IPTables::Clean() noexcept {
-  const std::unique_lock<std::mutex> lock(mutex_);
+bool IPTables::Clean() {  // NOLINT(bugprone-exception-escape)
+  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
   if (!running_) {
     SPDLOG_INFO("No need to clean rules!");
@@ -271,8 +276,14 @@ bool IPTables::Clean() noexcept {
 #else
 #error "Unsupported system!"
 #endif
-  for (const auto& cmd : commands) {
-    fptn::common::system::command::run(cmd);
+  try {
+    for (const auto& cmd : commands) {
+      fptn::common::system::command::run(cmd);
+    }
+  } catch (const std::exception& e) {
+    SPDLOG_ERROR("IPTables error: {}", e.what());
+  } catch (...) {
+    SPDLOG_ERROR("Undefined error");
   }
   running_ = false;
   return true;
@@ -285,7 +296,7 @@ pcpp::IPv4Address fptn::routing::ResolveDomain(
       // error test
       boost::asio::ip::make_address(domain);
       return domain;
-    } catch (const std::exception&) {
+    } catch (const std::exception&) {  // NOLINT(bugprone-empty-catch)
       // Not a valid IP address, proceed with domain name resolution
     }
     boost::asio::io_context io_context;
@@ -318,6 +329,7 @@ pcpp::IPv4Address fptn::routing::GetDefaultGatewayIPAddress() noexcept {
     fptn::common::system::command::run(command, stdoutput);
     for (const auto& line : stdoutput) {
       std::string result = line;
+      // NOLINTNEXTLINE(modernize-use-ranges)
       result.erase(std::remove_if(result.begin(), result.end(),
                        [](char c) { return !std::isdigit(c) && c != '.'; }),
           result.end());

@@ -10,9 +10,10 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <iostream>
 #include <memory>
 #include <mutex>
-#include <queue>
 #include <string>
 #include <thread>
+
+#include <queue>
 
 #ifdef _WIN32
 #pragma warning(push)
@@ -42,17 +43,17 @@ class Websocket : public std::enable_shared_from_this<Websocket> {
  public:
   using NewIPPacketCallback =
       std::function<void(fptn::common::network::IPPacketPtr packet)>;
-  explicit Websocket(const pcpp::IPv4Address& server_ip,
+  explicit Websocket(pcpp::IPv4Address server_ip,
       int server_port,
-      const pcpp::IPv4Address& tun_interface_address_ipv4,
-      const pcpp::IPv6Address& tun_interface_address_ipv6,
-      const NewIPPacketCallback& new_ip_pkt_callback,
-      const std::string& sni,
-      const std::string& token);
-  void Run() noexcept;
-  bool Stop() noexcept;
-  bool Send(fptn::common::network::IPPacketPtr packet) noexcept;
-  bool IsStarted() noexcept;
+      pcpp::IPv4Address tun_interface_address_ipv4,
+      pcpp::IPv6Address tun_interface_address_ipv6,
+      NewIPPacketCallback new_ip_pkt_callback,
+      std::string sni,
+      std::string token);
+  void Run();
+  bool Stop();
+  bool Send(fptn::common::network::IPPacketPtr packet);
+  bool IsStarted();
 
  protected:
   void onResolve(boost::beast::error_code ec,
@@ -64,9 +65,10 @@ class Websocket : public std::enable_shared_from_this<Websocket> {
   void onWrite(boost::beast::error_code ec, std::size_t bytes_transferred);
   void onRead(boost::beast::error_code ec, std::size_t transferred);
 
-  void doRead();
-  void doWrite();
-  void fail(boost::beast::error_code ec, char const* what) noexcept;
+ protected:
+  void DoRead();
+  void DoWrite();
+  void Fail(boost::beast::error_code ec, char const* what);
 
  private:
   boost::asio::io_context ioc_;

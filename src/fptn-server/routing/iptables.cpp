@@ -41,9 +41,17 @@ IPTables::IPTables(
       tun_net_interface_name_(std::move(tun_net_interface_name)),
       running_(false) {}
 
-IPTables::~IPTables() { Clean(); }
+IPTables::~IPTables() {
+  try {
+    Clean();
+  } catch (const std::exception& ex) {
+    SPDLOG_ERROR("Exception in IPTables destructor: {}", ex.what());
+  } catch (...) {
+    SPDLOG_ERROR("Unknown error in IPTables destructor");
+  }
+}
 
-bool IPTables::Apply() noexcept {  // NOLINT(bugprone-exception-escape)
+bool IPTables::Apply() {  // NOLINT(bugprone-exception-escape)
   const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
   running_ = true;
@@ -105,7 +113,8 @@ bool IPTables::Apply() noexcept {  // NOLINT(bugprone-exception-escape)
   return true;
 }
 
-bool IPTables::Clean() noexcept {  // NOLINT(bugprone-exception-escape)
+// NOLINT(bugprone-exception-escape)
+bool IPTables::Clean() {
   const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
   if (!running_) {

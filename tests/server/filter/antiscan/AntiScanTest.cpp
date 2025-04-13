@@ -19,8 +19,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 class MockIPv4Packet : public fptn::common::network::IPPacket {
  public:
-  explicit MockIPv4Packet(const pcpp::IPv4Address& addr)
-      : fptn::common::network::IPPacket() {
+  explicit MockIPv4Packet(const pcpp::IPv4Address& addr) {
     ipv4Layer_.setDstIPv4Address(addr);
   }
 
@@ -36,19 +35,18 @@ class MockIPv4Packet : public fptn::common::network::IPPacket {
 
 class MockIPv6Packet : public fptn::common::network::IPPacket {
  public:
-  explicit MockIPv6Packet(const pcpp::IPv6Address& addr)
-      : fptn::common::network::IPPacket() {
-    ipv6Layer_.setDstIPv6Address(addr);
+  explicit MockIPv6Packet(const pcpp::IPv6Address& addr) {
+    ipv6_layer_.setDstIPv6Address(addr);
   }
 
   bool IsIPv4() const noexcept override { return false; }
 
   bool IsIPv6() const noexcept override { return true; }
 
-  pcpp::IPv6Layer* IPv6Layer() noexcept override { return &ipv6Layer_; }
+  pcpp::IPv6Layer* IPv6Layer() noexcept override { return &ipv6_layer_; }
 
  private:
-  pcpp::IPv6Layer ipv6Layer_;
+  pcpp::IPv6Layer ipv6_layer_;
 };
 
 /* IPv4 */

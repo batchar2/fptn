@@ -93,7 +93,7 @@ class SettingsModel : public QObject {
   ServiceConfig ParseToken(const QString& token);
   void Clear();
 
-  const QString LanguageName() const;
+  QString LanguageName() const;
   void SetLanguage(const QString& language);
   void SetLanguageCode(const QString& language_code);
 

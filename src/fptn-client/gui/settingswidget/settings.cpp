@@ -11,6 +11,8 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <windows.h>   // NOLINT(build/include_order)
 #endif
 
+#include <utility>
+
 #include <QFileDialog>       // NOLINT(build/include_order)
 #include <QGridLayout>       // NOLINT(build/include_order)
 #include <QHeaderView>       // NOLINT(build/include_order)
@@ -27,9 +29,8 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 using fptn::gui::SettingsWidget;
 
-SettingsWidget::SettingsWidget(
-    const SettingsModelPtr& settings, QWidget* parent)
-    : QDialog(parent), settings_(settings) {
+SettingsWidget::SettingsWidget(SettingsModelPtr settings, QWidget* parent)
+    : QDialog(parent), settings_(std::move(settings)) {
   SetupUi();
   setWindowIcon(QIcon(":/icons/app.ico"));
   // show on top
@@ -47,11 +48,11 @@ void SettingsWidget::SetupUi() {
 
   // Settings tab
   settings_tab_ = new QWidget();
-  QVBoxLayout* settings_layout = new QVBoxLayout(settings_tab_);
+  auto* settings_layout = new QVBoxLayout(settings_tab_);
   settings_layout->setContentsMargins(10, 10, 10, 10);
 
   // Grid Layout for settings
-  QGridLayout* grid_layout = new QGridLayout();
+  auto* grid_layout = new QGridLayout();
   grid_layout->setContentsMargins(0, 0, 0, 0);
   grid_layout->setHorizontalSpacing(10);
   grid_layout->setVerticalSpacing(10);
@@ -109,7 +110,7 @@ void SettingsWidget::SetupUi() {
   connect(gateway_auto_checkbox_, &QCheckBox::toggled, this,
       &SettingsWidget::onAutoGatewayChanged);
 
-  QHBoxLayout* gateway_layout = new QHBoxLayout();
+  auto* gateway_layout = new QHBoxLayout();
   gateway_layout->addWidget(gateway_auto_checkbox_, Qt::AlignLeft);
   gateway_layout->setStretch(0, 1);
 
@@ -148,7 +149,7 @@ void SettingsWidget::SetupUi() {
   settings_layout->addWidget(server_table_);
 
   // Buttons
-  QHBoxLayout* button_layout = new QHBoxLayout();
+  auto* button_layout = new QHBoxLayout();
   button_layout->addStretch();
 
   load_new_token_button_ =
@@ -167,44 +168,44 @@ void SettingsWidget::SetupUi() {
 
   // About tab
   about_tab_ = new QWidget();
-  QVBoxLayout* aboutLayout = new QVBoxLayout(about_tab_);
-  aboutLayout->setContentsMargins(10, 10, 10, 10);
-  aboutLayout->setSpacing(10);
+  auto* about_layout = new QVBoxLayout(about_tab_);
+  about_layout->setContentsMargins(10, 10, 10, 10);
+  about_layout->setSpacing(10);
   // FPTN label
-  QLabel* fptnLabel_ = new QLabel("FPTN", this);
-  fptnLabel_->setAlignment(Qt::AlignCenter);
-  aboutLayout->addWidget(fptnLabel_);
+  auto* fptn_label = new QLabel("FPTN", this);
+  fptn_label->setAlignment(Qt::AlignCenter);
+  about_layout->addWidget(fptn_label);
   // Version Label - centered horizontally
   version_label_ = new QLabel(
       QString(QObject::tr("Version") + ": %1").arg(FPTN_VERSION), this);
   version_label_->setAlignment(Qt::AlignCenter);
-  aboutLayout->addWidget(version_label_);
+  about_layout->addWidget(version_label_);
   // Project Information - justified
   project_info_label_ = new QLabel(QObject::tr("FPTN_DESCRIPTION"), this);
   project_info_label_->setWordWrap(true);
   project_info_label_->setAlignment(Qt::AlignJustify);
-  aboutLayout->addWidget(project_info_label_);
+  about_layout->addWidget(project_info_label_);
   // Add a link (optional)
   website_link_label_ =
       new QLabel(QObject::tr("FPTN_WEBSITE_DESCRIPTION"), this);
   website_link_label_->setOpenExternalLinks(true);
-  aboutLayout->addWidget(website_link_label_);
+  about_layout->addWidget(website_link_label_);
   // Add group information (optional)
   telegram_group_lLabel_ =
       new QLabel(QObject::tr("FPTN_TELEGRAM_DESCRIPTION"), this);
   telegram_group_lLabel_->setOpenExternalLinks(true);
-  aboutLayout->addWidget(telegram_group_lLabel_);
+  about_layout->addWidget(telegram_group_lLabel_);
   // stretch
-  aboutLayout->addStretch(1);
+  about_layout->addStretch(1);
   // Add About Tab to TabWidget
   tab_widget_->addTab(about_tab_, QObject::tr("About"));
 
   // Main Layout
-  QVBoxLayout* mainLayout = new QVBoxLayout(this);
-  mainLayout->setContentsMargins(0, 0, 0, 0);
-  mainLayout->addWidget(tab_widget_);
+  auto* main_layout = new QVBoxLayout(this);
+  main_layout->setContentsMargins(0, 0, 0, 0);
+  main_layout->addWidget(tab_widget_);
   setMinimumSize(600, 400);
-  setLayout(mainLayout);
+  setLayout(main_layout);
 
   // Populate server table with data
   const QVector<ServiceConfig>& services = settings_->Services();
@@ -214,25 +215,25 @@ void SettingsWidget::SetupUi() {
     server_table_->setItem(i, 0, new QTableWidgetItem(service.service_name));
     server_table_->setItem(i, 1, new QTableWidgetItem(service.username));
 
-    QString serversTextList = "";
+    QString servers_text_list = "";
     for (const auto& s : service.servers) {
-      serversTextList += QString("%1\n").arg(s.name);
+      servers_text_list += QString("%1\n").arg(s.name);
     }
-    auto item = new QTableWidgetItem(serversTextList);
+    auto* item = new QTableWidgetItem(servers_text_list);
     item->setTextAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     item->setFlags(item->flags() | Qt::ItemIsEnabled);
-    item->setData(Qt::DisplayRole, serversTextList);
+    item->setData(Qt::DisplayRole, servers_text_list);
     server_table_->setItem(i, 2, item);
 
-    auto delete_button = new QPushButton(QObject::tr("Delete"), this);
+    auto* delete_button = new QPushButton(QObject::tr("Delete"), this);
     connect(delete_button, &QPushButton::clicked,
         [this, i]() { onRemoveServer(i); });
 
-    auto button_container = new QWidget();
-    auto actionLayout = new QHBoxLayout(button_container);
-    actionLayout->setContentsMargins(0, 0, 0, 0);
-    actionLayout->setAlignment(Qt::AlignCenter);
-    actionLayout->addWidget(delete_button);
+    auto* button_container = new QWidget();
+    auto* action_layout = new QHBoxLayout(button_container);
+    action_layout->setContentsMargins(0, 0, 0, 0);
+    action_layout->setAlignment(Qt::AlignCenter);
+    action_layout->addWidget(delete_button);
     server_table_->setCellWidget(i, 3, button_container);
   }
 }
@@ -251,13 +252,13 @@ void SettingsWidget::onExit() {
 
 void SettingsWidget::onLoadNewConfig() {
 #if __APPLE__  // show modal window only for mac
-  const QString filePath =
+  const QString file_path =
       QFileDialog::getOpenFileName(this, QObject::tr("Open FPTN Service File"),
           QDir::homePath(), "FPTN Files (*.fptn);;All files (*)", nullptr,
           QFileDialog::DontUseNativeDialog);
   QString token;
-  if (!filePath.isEmpty()) {
-    QFile file(filePath);
+  if (!file_path.isEmpty()) {
+    QFile file(file_path);
     if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
       QTextStream in(&file);
       token = in.readAll();
@@ -299,32 +300,25 @@ void SettingsWidget::onLoadNewConfig() {
         for (const auto& s : config.servers) {
           servers_text_list += QString("%1\n").arg(s.name);
         }
-        auto item = new QTableWidgetItem(servers_text_list);
+        auto* item = new QTableWidgetItem(servers_text_list);
         item->setTextAlignment(Qt::AlignLeft | Qt::AlignVCenter);
         item->setFlags(item->flags() | Qt::ItemIsEnabled);
         item->setData(Qt::DisplayRole, servers_text_list);
         server_table_->setItem(new_row, 2, item);
 
-        auto delete_button = new QPushButton(QObject::tr("Delete"), this);
+        auto* delete_button = new QPushButton(QObject::tr("Delete"), this);
         connect(delete_button, &QPushButton::clicked,
             [this, new_row]() { onRemoveServer(new_row); });
 
-        auto button_container = new QWidget();
+        auto* button_container = new QWidget();
         auto* button_layout = new QHBoxLayout(button_container);
         button_layout->setContentsMargins(0, 0, 0, 0);
         button_layout->setAlignment(Qt::AlignCenter);
         button_layout->addWidget(delete_button);
         server_table_->setCellWidget(new_row, 3, button_container);
 
-        if (exists_index != -1) {
-          // update data
-          QMessageBox::information(this, QObject::tr("Save Successful"),
-              QObject::tr("Data has been successfully saved."));
-        } else {
-          // new data
-          QMessageBox::information(this, QObject::tr("Save Successful"),
-              QObject::tr("Data has been successfully saved."));
-        }
+        QMessageBox::information(this, QObject::tr("Save Successful"),
+            QObject::tr("Data has been successfully saved."));
       } else {
         QMessageBox::critical(this, QObject::tr("Save Failed"),
             QObject::tr("An error occurred while saving the data."));

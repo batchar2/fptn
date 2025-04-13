@@ -29,10 +29,12 @@ bool VpnClient::IsStarted() noexcept {
 }
 
 void VpnClient::Start() noexcept {
+  // NOLINTNEXTLINE(modernize-avoid-bind)
   http_client_->SetNewIPPacketCallback(std::bind(
       &VpnClient::HandlePacketFromWebSocket, this, std::placeholders::_1));
 
   virtual_net_interface_->SetNewIPPacketCallback(
+      // NOLINTNEXTLINE(modernize-avoid-bind)
       std::bind(&VpnClient::HandlePacketFromVirtualNetworkInterface, this,
           std::placeholders::_1));
 

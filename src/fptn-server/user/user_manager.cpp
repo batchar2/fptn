@@ -44,11 +44,11 @@ bool UserManager::Login(const std::string& username,
     const std::string request = fmt::format(
         R"({{ "username": "{}", "password": "{}" }})", username, password);
     const auto resp =
-        http_client_->post("/api/v1/login", request, "application/json");
+        http_client_->Post("/api/v1/login", request, "application/json");
 
     if (resp.code == 200) {
       try {
-        const auto msg = resp.json();
+        const auto msg = resp.Json();
         if (msg.contains("access_token") && msg.contains("bandwidth_bit")) {
           bandwidthBit = msg["bandwidth_bit"].get<int>();
           return true;
@@ -65,8 +65,8 @@ bool UserManager::Login(const std::string& username,
           "User manager: request failed or response is null. Code: {} Msg: {}",
           resp.code, resp.errmsg);
     }
-  } else if (common_manager_->authenticate(username, password)) {
-    bandwidthBit = common_manager_->getUserBandwidthBit(username);
+  } else if (common_manager_->Authenticate(username, password)) {
+    bandwidthBit = common_manager_->GetUserBandwidthBit(username);
     return true;
   }
   return false;

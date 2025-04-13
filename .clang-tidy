@@ -116,8 +116,6 @@ Checks: >
   -bugprone-unused-return-value,
   -portability-template-virtual-member-function
 
-#  -modernize-concat-nested-namespaces,
-
 # Turn all the warnings from the checks above into errors.
 WarningsAsErrors: "*"
 HeaderFilterRegex: "(google/cloud/|generator/).*\\.h$"
