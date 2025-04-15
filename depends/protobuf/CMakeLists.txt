@@ -27,8 +27,7 @@ endif()
 if(CONAN_INCLUDE_DIRS_PROTOBUF)
   include_directories(${CONAN_INCLUDE_DIRS_PROTOBUF})
 endif()
-include_directories(${SOURCE_DIR} ${INCLUDE_DIR} ${CMAKE_CURRENT_BINARY_DIR}
-                    ${CMAKE_CURRENT_BINARY_DIR}/fptn_protocol)
+include_directories(${SOURCE_DIR} ${INCLUDE_DIR} ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_BINARY_DIR}/fptn_protocol)
 include_directories(${CMAKE_BINARY_DIR}/depends/protobuf/fptn_protocol/)
 
 # Generate C++ source and header files from the .proto files
@@ -37,7 +36,5 @@ protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ${protobuf_files})
 
 add_library("${PROJECT_NAME}" STATIC ${PROTO_SRCS} ${PROTO_HDRS})
 
-target_include_directories(
-  "${PROJECT_NAME}" INTERFACE ${CMAKE_CURRENT_BINARY_DIR} protobuf::protobuf)
-target_link_libraries("${PROJECT_NAME}" ${Protobuf_LIBRARIES}
-                      ${protobuf_LIBRARIES} protobuf::protobuf)
+target_include_directories("${PROJECT_NAME}" INTERFACE ${CMAKE_CURRENT_BINARY_DIR} protobuf::protobuf)
+target_link_libraries("${PROJECT_NAME}" ${Protobuf_LIBRARIES} ${protobuf_LIBRARIES} protobuf::protobuf)

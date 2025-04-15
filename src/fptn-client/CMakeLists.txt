@@ -65,9 +65,7 @@ target_link_libraries(
 # fptn-client-gui
 if("${FPTN_BUILD_WITH_GUI_CLIENT}")
   # --- disable clang-tidy for QT generated code ---
-  set_source_files_properties(
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/qrc_resources.cpp>
-    PROPERTIES SKIP_CLANG_TIDY ON)
+  set_source_files_properties($<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/qrc_resources.cpp> PROPERTIES SKIP_CLANG_TIDY ON)
   set(DISABLE_TIDY_DIR "${CMAKE_BINARY_DIR}/src/fptn-client")
   file(MAKE_DIRECTORY "${DISABLE_TIDY_DIR}")
   file(
@@ -97,10 +95,7 @@ WarningsAsErrors: ''
 
   # translations
   file(GLOB TRANSLATIONS gui/resources/translations/*.ts)
-  set_source_files_properties(
-    ${TRANSLATIONS}
-    PROPERTIES OUTPUT_LOCATION
-               "${CMAKE_CURRENT_SOURCE_DIR}/gui/resources/translations/")
+  set_source_files_properties(${TRANSLATIONS} PROPERTIES OUTPUT_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/gui/resources/translations/")
   qt6_add_translation(TRANSLATIONS_OUT ${TRANSLATIONS})
 
   add_executable(

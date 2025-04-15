@@ -25,8 +25,7 @@ add_compile_definitions(FPTN_SERVER_DEFAULT_NET_ADDRESS_IP4=\"172.20.0.0\")
 # github
 add_compile_definitions(FPTN_GITHUB_USERNAME=\"batchar2\")
 add_compile_definitions(FPTN_GITHUB_REPOSITORY=\"fptn\")
-add_compile_definitions(
-  FPTN_GITHUB_PAGE_LINK=\"https://batchar2.github.io/fptn/\")
+add_compile_definitions(FPTN_GITHUB_PAGE_LINK=\"https://batchar2.github.io/fptn/\")
 
 # enable ssl for cpphttp-lib
 add_compile_definitions(CPPHTTPLIB_OPENSSL_SUPPORT)
@@ -97,28 +96,20 @@ if(CLANG_TIDY_EXE)
     COMMAND ${CLANG_TIDY_EXE} --version
     OUTPUT_VARIABLE CLANG_TIDY_VERSION_STRING
     OUTPUT_STRIP_TRAILING_WHITESPACE)
-  message(
-    STATUS "[CLANG-TIDY] clang-tidy version: ${CLANG_TIDY_VERSION_STRING}")
+  message(STATUS "[CLANG-TIDY] clang-tidy version: ${CLANG_TIDY_VERSION_STRING}")
   if(CLANG_TIDY_VERSION_STRING MATCHES "version ([0-9]+)")
     set(CLANG_TIDY_VERSION ${CMAKE_MATCH_1})
     if(CLANG_TIDY_VERSION GREATER_EQUAL 20)
-      message(
-        STATUS
-          "[CLANG-TIDY]  clang-tidy ${CLANG_TIDY_VERSION} accepted, enabling")
+      message(STATUS "[CLANG-TIDY]  clang-tidy ${CLANG_TIDY_VERSION} accepted, enabling")
       set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY_EXE};-extra-arg=-std=c++20")
     else()
-      message(
-        WARNING
-          "[CLANG-TIDY]  clang-tidy version ${CLANG_TIDY_VERSION} is too old (<15), disabling"
-      )
+      message(WARNING "[CLANG-TIDY]  clang-tidy version ${CLANG_TIDY_VERSION} is too old (<15), disabling")
     endif()
   else()
-    message(
-      WARNING "[CLANG-TIDY]  Could not parse clang-tidy version, disabling")
+    message(WARNING "[CLANG-TIDY]  Could not parse clang-tidy version, disabling")
   endif()
 else()
-  message(
-    WARNING "[CLANG-TIDY]  clang-tidy not found, skipping clang-tidy checks.")
+  message(WARNING "[CLANG-TIDY]  clang-tidy not found, skipping clang-tidy checks.")
 endif()
 
 if(APPLE OR UNIX)
@@ -141,10 +132,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux") # deb
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     COMMAND
       bash -c
-      "\
-            ${CMAKE_CURRENT_SOURCE_DIR}/deploy/linux/deb/create-client-cli-deb-package.sh ${CMAKE_BINARY_DIR}/src/fptn-client/fptn-client-cli ${FPTN_VERSION}; \
-            ${CMAKE_CURRENT_SOURCE_DIR}/deploy/linux/deb/create-server-deb-package.sh ${CMAKE_BINARY_DIR}/src/fptn-server/fptn-server ${CMAKE_BINARY_DIR}/src/fptn-passwd/fptn-passwd ${FPTN_VERSION} \
-        "
+      "${CMAKE_CURRENT_SOURCE_DIR}/deploy/linux/deb/create-client-cli-deb-package.sh ${CMAKE_BINARY_DIR}/src/fptn-client/fptn-client-cli ${FPTN_VERSION}; ${CMAKE_CURRENT_SOURCE_DIR}/deploy/linux/deb/create-server-deb-package.sh ${CMAKE_BINARY_DIR}/src/fptn-server/fptn-server ${CMAKE_BINARY_DIR}/src/fptn-passwd/fptn-passwd ${FPTN_VERSION}"
     COMMENT "Building .deb package"
     VERBATIM)
   if("${FPTN_BUILD_WITH_GUI_CLIENT}")
@@ -153,9 +141,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux") # deb
       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
       COMMAND
         bash -c
-        "\
-                ${CMAKE_CURRENT_SOURCE_DIR}/deploy/linux/deb/create-client-gui-deb-package.sh ${CMAKE_BINARY_DIR}/src/fptn-client/fptn-client-gui ${CMAKE_CURRENT_SOURCE_DIR}/deploy/linux/deb/assets/FptnClient512x512.png ${FPTN_VERSION} \
-            "
+        "${CMAKE_CURRENT_SOURCE_DIR}/deploy/linux/deb/create-client-gui-deb-package.sh ${CMAKE_BINARY_DIR}/src/fptn-client/fptn-client-gui ${CMAKE_CURRENT_SOURCE_DIR}/deploy/linux/deb/assets/FptnClient512x512.png ${FPTN_VERSION}"
       COMMENT "Building .deb package"
       VERBATIM)
   endif()
@@ -163,7 +149,7 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin") # MacOS
   if("${FPTN_BUILD_WITH_GUI_CLIENT}")
     add_custom_target(
       build-pkg
-      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+      WORKING_DIRECTORY ${CMAKE_CURRENT_SOaURCE_DIR}
       COMMAND
         bash -c
         "${CMAKE_CURRENT_SOURCE_DIR}/deploy/macos/create-pkg.py --fptn-client-cli=${CMAKE_BINARY_DIR}/src/fptn-client/fptn-client-cli --fptn-client-gui=${CMAKE_BINARY_DIR}/src/fptn-client/fptn-client-gui  --version=${FPTN_VERSION}"
@@ -177,11 +163,10 @@ elseif(WIN32)
       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
       COMMAND ${CMAKE_COMMAND} -E echo "Building installer for Windows..."
       COMMAND
-        python ${CMAKE_CURRENT_SOURCE_DIR}/deploy/windows/create-installer.py
-        --wintun-dll=${CMAKE_BINARY_DIR}/wintun/wintun.dll
+        python ${CMAKE_CURRENT_SOURCE_DIR}/deploy/windows/create-installer.py --wintun-dll=${CMAKE_BINARY_DIR}/wintun/wintun.dll
         --fptn-client=${CMAKE_BINARY_DIR}/src/fptn-client/Release/fptn-client-gui.exe
-        --fptn-client-cli=${CMAKE_BINARY_DIR}/src/fptn-client/Release/fptn-client-cli.exe
-        --output-folder=${CMAKE_CURRENT_SOURCE_DIR} --version=${FPTN_VERSION}
+        --fptn-client-cli=${CMAKE_BINARY_DIR}/src/fptn-client/Release/fptn-client-cli.exe --output-folder=${CMAKE_CURRENT_SOURCE_DIR}
+        --version=${FPTN_VERSION}
       COMMENT "Building .exe installer"
       VERBATIM)
   endif()
