@@ -9,7 +9,9 @@
 ```bash
 
 pip install requests conan==2.9.2 numpy
-
+pip install clang-tidy
+pip install clang-format
+pip install cmake-format
 ```
 
 
