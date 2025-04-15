@@ -427,8 +427,6 @@ libxcb-ewmh-dev libxcb-res0-dev libxcb-util-dev pkg-config libgl-dev libgl1-mesa
 </details>
 
 ```bash
-git submodule update --init --recursive
-
 # Need a manual installation list of dependencies for Ubuntu.
 conan install . --output-folder=build --build=missing  -s compiler.cppstd=17 -o with_gui_client=True --settings build_type=Release
 
@@ -475,6 +473,7 @@ Need to install clang and clang-tidy (Example for ubuntu)
 
 pip install clang-tidy
 pip install clang-format
+pip install cmake-format
 sudo wget -qO- https://apt.llvm.org/llvm.sh | sudo bash -s -- 20
 sudo apt install cppcheck 
 ```
@@ -482,6 +481,7 @@ sudo apt install cppcheck
 And run
 
 ```bash
+cmake-format -i CMakeLists.txt src/fptn-client/CMakeLists.txt src/fptn-passwd/CMakeLists.txt src/fptn-server/CMakeLists.txt depends/protobuf/CMakeLists.txt depends/cmake/FetchBase64.cmake depends/cmake/FetchLibTunTap.cmake depends/cmake/FetchWintun.cmake
 # run linter 
 python3 cpplint.py --recursive --filter=-build/c++17 --counting=total ./src/ ./tests/
 # run cppcheck
