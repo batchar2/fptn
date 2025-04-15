@@ -1,8 +1,7 @@
 project(fptn-server)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
-include_directories(
-  "${CMAKE_CURRENT_BINARY_DIR}/depends/protobuf/fptn_protocol/")
+include_directories("${CMAKE_CURRENT_BINARY_DIR}/depends/protobuf/fptn_protocol/")
 
 if(APPLE)
   set(CMAKE_CXX_STANDARD 20)

@@ -1,8 +1,6 @@
 include(FetchContent)
 
-FetchContent_Declare(
-  Base64
-  URL https://github.com/tobiaslocker/base64/archive/refs/heads/master.zip)
+FetchContent_Declare(Base64 URL https://github.com/tobiaslocker/base64/archive/refs/heads/master.zip)
 
 FetchContent_GetProperties(Base64)
 if(NOT Base64_POPULATED)
