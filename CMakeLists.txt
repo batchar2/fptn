@@ -149,7 +149,7 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin") # MacOS
   if("${FPTN_BUILD_WITH_GUI_CLIENT}")
     add_custom_target(
       build-pkg
-      WORKING_DIRECTORY ${CMAKE_CURRENT_SOaURCE_DIR}
+      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
       COMMAND
         bash -c
         "${CMAKE_CURRENT_SOURCE_DIR}/deploy/macos/create-pkg.py --fptn-client-cli=${CMAKE_BINARY_DIR}/src/fptn-client/fptn-client-cli --fptn-client-gui=${CMAKE_BINARY_DIR}/src/fptn-client/fptn-client-gui  --version=${FPTN_VERSION}"
