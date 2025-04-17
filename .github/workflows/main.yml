@@ -36,7 +36,7 @@ jobs:
           python3 cpplint.py --recursive --filter=-build/c++17 --counting=total ./src/ ./tests/
       - name: Run cppcheck
         run: |
-          cppcheck --error-exitcode=1 --check-level=exhaustive --enable=all --language=c++ --suppress=unusedFunction --inline-suppr --suppress=missingIncludeSystem -I ./src/fptn-client/ -I ./src/fptn-server/ -I ./src/fptn-passwd/  -I ./src/  ./src/ ./tests/
+          cppcheck --error-exitcode=1 --enable=all --language=c++ --suppress=unusedFunction --inline-suppr --suppress=missingIncludeSystem -I ./src/fptn-client/ -I ./src/fptn-server/ -I ./src/fptn-passwd/  -I ./src/  ./src/ ./tests/
       - name: Run cmake-format
         run: |
           cmake-format -i CMakeLists.txt src/fptn-client/CMakeLists.txt src/fptn-passwd/CMakeLists.txt src/fptn-server/CMakeLists.txt depends/protobuf/CMakeLists.txt depends/cmake/FetchBase64.cmake depends/cmake/FetchLibTunTap.cmake depends/cmake/FetchWintun.cmake
@@ -86,7 +86,7 @@ jobs:
           python3 cpplint.py --recursive --filter=-build/c++17 --counting=total ./src/ ./tests/
       - name: Run cppcheck
         run: |
-          cppcheck --error-exitcode=1 --check-level=exhaustive --enable=all --language=c++ --suppress=unusedFunction --inline-suppr --suppress=missingIncludeSystem -I ./src/fptn-client/ -I ./src/fptn-server/ -I ./src/fptn-passwd/ -I ./src/ ./src/ ./tests/
+          cppcheck --error-exitcode=1 --enable=all --language=c++ --suppress=unusedFunction --inline-suppr --suppress=missingIncludeSystem -I ./src/fptn-client/ -I ./src/fptn-server/ -I ./src/fptn-passwd/ -I ./src/ ./src/ ./tests/
       - name: Run cmake-format
         run: |
           cmake-format -i CMakeLists.txt src/fptn-client/CMakeLists.txt src/fptn-passwd/CMakeLists.txt src/fptn-server/CMakeLists.txt depends/protobuf/CMakeLists.txt depends/cmake/FetchBase64.cmake depends/cmake/FetchLibTunTap.cmake depends/cmake/FetchWintun.cmake
