@@ -139,6 +139,9 @@ TrayApp::TrayApp(const SettingsModelPtr& settings, QObject* parent)
 }
 
 void TrayApp::UpdateTrayMenu() {
+  if (limited_zone_connect_menu_) {
+    limited_zone_connect_menu_->clear();
+  }
   if (connect_menu_) {
     connect_menu_->clear();
   }
@@ -146,6 +149,8 @@ void TrayApp::UpdateTrayMenu() {
     tray_menu_->removeAction(connect_menu_->menuAction());
     smart_connect_action_ = nullptr;
     empty_configuration_action_ = nullptr;
+
+    limited_zone_connect_menu_ = nullptr;
   }
 
   switch (connection_state_) {
@@ -163,8 +168,11 @@ void TrayApp::UpdateTrayMenu() {
         connect_menu_->addSeparator();
         // servers
         for (const auto& service : services) {
+          // usual servers
           for (const auto& server : service.servers) {
             auto* server_connect = new QAction(server.name, connect_menu_);
+
+            // FIXME
             connect(
                 server_connect, &QAction::triggered, [this, server, service]() {
                   smart_connect_ = false;
@@ -183,6 +191,36 @@ void TrayApp::UpdateTrayMenu() {
                   onConnectToServer();
                 });
             connect_menu_->addAction(server_connect);
+          }
+          // Censored zone servers
+          for (const auto& server : service.censored_zone_servers) {
+            if (!limited_zone_connect_menu_) {
+              limited_zone_connect_menu_ = new QMenu(
+                  QObject::tr("Limited access servers") + "  ", connect_menu_);
+              connect_menu_->addMenu(limited_zone_connect_menu_);
+            }
+            auto* server_connect =
+                new QAction(server.name, limited_zone_connect_menu_);
+            limited_zone_connect_menu_->addAction(server_connect);
+
+            // FIXME
+            connect(
+                server_connect, &QAction::triggered, [this, server, service]() {
+                  smart_connect_ = false;
+                  fptn::config::ConfigFile::Server cfg_server;
+                  {
+                    cfg_server.name = server.name.toStdString();
+                    cfg_server.host = server.host.toStdString();
+                    cfg_server.port = server.port;
+                    cfg_server.is_using = server.is_using;
+                    cfg_server.service_name =
+                        service.service_name.toStdString();
+                    cfg_server.username = service.username.toStdString();
+                    cfg_server.password = service.password.toStdString();
+                  }
+                  selected_server_ = cfg_server;
+                  onConnectToServer();
+                });
           }
         }
       } else {
@@ -560,6 +598,12 @@ void TrayApp::RetranslateUi() {
   if (smart_connect_action_) {
     smart_connect_action_->setText(QObject::tr("Smart Connect"));
   }
+
+  if (limited_zone_connect_menu_) {
+    limited_zone_connect_menu_->setTitle(
+        QObject::tr("Limited access servers") + "  ");
+  }
+
   if (disconnect_action_) {
     const QString disconnect_text =
         QString(QObject::tr("Disconnect") + ": %1 (%2)")

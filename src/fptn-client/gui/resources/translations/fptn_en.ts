@@ -234,5 +234,10 @@
             ]]>
             </translation>
         </message>
+
+        <message>
+            <source>Limited access servers</source>
+            <translation>Limited access servers</translation>
+        </message>
     </context>
 </TS>
