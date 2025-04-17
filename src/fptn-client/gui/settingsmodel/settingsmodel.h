@@ -40,6 +40,13 @@ namespace fptn::gui {
                         "host": "australia.fptn.online",
                         "port": 443
                     }
+                ],
+                "censored_zone_servers": [
+                    {
+                        "name": "Server1",
+                        "host": "127.0.0.1",
+                        "port": 443
+                    }
                 ]
             }
         }
@@ -52,6 +59,22 @@ struct ServerConfig {
   QString host;
   int port;
   bool is_using;
+
+  static ServerConfig parse(const QJsonObject& server_obj, bool& status) {
+    status = false;
+    if (!server_obj.contains("name") || !server_obj.contains("host") ||
+        !server_obj.contains("port")) {
+      return {};
+    }
+
+    ServerConfig server = {};
+    server.name = server_obj["name"].toString();
+    server.host = server_obj["host"].toString();
+    server.port = server_obj["port"].toInt();
+    server.is_using = true;
+    status = true;
+    return server;
+  }
 };
 
 struct ServiceConfig {
@@ -59,6 +82,7 @@ struct ServiceConfig {
   QString username;
   QString password;
   QVector<ServerConfig> servers;
+  QVector<ServerConfig> censored_zone_servers;
   QString language;
 };
 
@@ -74,7 +98,6 @@ class SettingsModel : public QObject {
   bool Save();
 
   QString UsingNetworkInterface() const;
-
 
   void SetUsingNetworkInterface(const QString&);
 

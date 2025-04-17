@@ -11,6 +11,8 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <windows.h>   // NOLINT(build/include_order)
 #endif
 
+#include <utility>
+
 #include <boost/asio.hpp>
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
@@ -24,8 +26,28 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include "routing//iptables.h"
 
+using fptn::gui::ServerConfig;
 using fptn::gui::ServiceConfig;
 using fptn::gui::SettingsModel;
+
+namespace {
+
+QVector<ServerConfig> ParseServers(const QJsonArray& servers_array) {
+  QVector<ServerConfig> servers;
+  for (const auto& server_value : servers_array) {
+    const QJsonObject server_obj = server_value.toObject();
+    bool status = false;
+    auto server = ServerConfig::parse(server_obj, status);
+    if (status) {
+      servers.push_back(std::move(server));
+    } else {
+      throw std::runtime_error("Missing required fields in server object.");
+    }
+  }
+  return servers;
+}
+
+};  // namespace
 
 SettingsModel::SettingsModel(const QMap<QString, QString>& languages,
     const QString& default_language,
@@ -78,15 +100,11 @@ void SettingsModel::Load() {
       service.username = jsonservice_obj["username"].toString();
       service.password = jsonservice_obj["password"].toString();
 
-      QJsonArray servers_array = jsonservice_obj["servers"].toArray();
-      for (const auto& server_value : servers_array) {
-        QJsonObject server_obj = server_value.toObject();
-        ServerConfig server;
-        server.name = server_obj["name"].toString();
-        server.host = server_obj["host"].toString();
-        server.port = server_obj["port"].toInt();
-        server.is_using = server_obj["is_using"].toBool();
-        service.servers.push_back(server);
+      // servers
+      service.servers = ParseServers(jsonservice_obj["servers"].toArray());
+      if (jsonservice_obj.contains("censored_zone_servers")) {
+        service.censored_zone_servers =
+            ParseServers(jsonservice_obj["censored_zone_servers"].toArray());
       }
       services_.push_back(service);
     }
@@ -186,6 +204,7 @@ bool SettingsModel::Save() {
     service_obj["username"] = service.username;
     service_obj["password"] = service.password;
 
+    // servers
     QJsonArray servers_array;
     for (const auto& server : service.servers) {
       QJsonObject server_obj;
@@ -196,6 +215,19 @@ bool SettingsModel::Save() {
       servers_array.append(server_obj);
     }
     service_obj["servers"] = servers_array;
+
+    // censored_zone_servers
+    QJsonArray censored_zone_servers;
+    for (const auto& server : service.censored_zone_servers) {
+      QJsonObject server_obj;
+      server_obj["name"] = server.name;
+      server_obj["host"] = server.host;
+      server_obj["port"] = server.port;
+      service_obj["is_using"] = server.is_using;
+      censored_zone_servers.append(server_obj);
+    }
+    service_obj["censored_zone_servers"] = censored_zone_servers;
+
     services_array.append(service_obj);
   }
 
@@ -243,21 +275,11 @@ ServiceConfig SettingsModel::ParseToken(const QString& token) {
   service.username = json_object["username"].toString();
   service.password = json_object["password"].toString();
 
-  QJsonArray servers_array = json_object["servers"].toArray();
-  for (const auto& server_value : servers_array) {
-    QJsonObject server_obj = server_value.toObject();
-    if (!server_obj.contains("name") || !server_obj.contains("host") ||
-        !server_obj.contains("port")) {
-      throw std::runtime_error("Missing required fields in server object.");
-    }
-
-    ServerConfig server;
-    server.name = server_obj["name"].toString();
-    server.host = server_obj["host"].toString();
-    server.port = server_obj["port"].toInt();
-    server.is_using = true;
-
-    service.servers.push_back(server);
+  // servers
+  service.servers = ParseServers(json_object["servers"].toArray());
+  if (json_object.contains("censored_zone_servers")) {
+    service.censored_zone_servers =
+        ParseServers(json_object["censored_zone_servers"].toArray());
   }
   return service;
 }
