@@ -23,7 +23,7 @@ Websocket::Websocket(pcpp::IPv4Address server_ip,
     NewIPPacketCallback new_ip_pkt_callback,
     std::string sni,
     std::string token)
-    : ctx_{boost::asio::ssl::context::tlsv12_client},
+    : ctx_{boost::asio::ssl::context::tls},
       resolver_(boost::asio::make_strand(ioc_)),
       ws_(boost::asio::make_strand(ioc_), ctx_),
       strand_(ioc_.get_executor()),
@@ -36,13 +36,8 @@ Websocket::Websocket(pcpp::IPv4Address server_ip,
       sni_(std::move(sni)),
       token_(std::move(token)) {
   SPDLOG_INFO("Init new connection: {}:{}", server_ip_.toString(), server_port);
-  ctx_.set_options(boost::asio::ssl::context::no_sslv2 |
-                   boost::asio::ssl::context::no_sslv3 |
-                   boost::asio::ssl::context::no_tlsv1 |
-                   boost::asio::ssl::context::no_tlsv1_1);
-  // set chrome ciphers
-  const std::string ciphers = fptn::common::https::ChromeCiphers();
-  SSL_CTX_set_cipher_list(ctx_.native_handle(), ciphers.c_str());
+  fptn::common::https::SetupSSL(
+      ctx_.native_handle(), ws_.next_layer().native_handle(), sni_);
   // SSL
   ctx_.set_verify_mode(boost::asio::ssl::verify_none);
 }
@@ -102,12 +97,12 @@ void Websocket::onConnect(boost::beast::error_code ec,
     boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::seconds(30));
 
     // Set SNI Hostname (many hosts need this to handshake successfully)
-    if (!SSL_set_tlsext_host_name(
-            ws_.next_layer().native_handle(), sni_.c_str())) {
-      ec = boost::beast::error_code(static_cast<int>(::ERR_get_error()),
-          boost::asio::error::get_ssl_category());
-      return Fail(ec, "connect");
-    }
+    //    if (!SSL_set_tlsext_host_name(
+    //            ws_.next_layer().native_handle(), sni_.c_str())) {
+    //      ec = boost::beast::error_code(static_cast<int>(::ERR_get_error()),
+    //          boost::asio::error::get_ssl_category());
+    //      return Fail(ec, "connect");
+    //    }
     ws_.text(false);
     ws_.binary(true);                  // Only binary
     ws_.auto_fragment(true);           // FIXME NEED CHECK

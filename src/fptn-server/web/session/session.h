@@ -50,6 +50,11 @@ class Session : public std::enable_shared_from_this<Session> {
   boost::asio::awaitable<void> RunReader();
   boost::asio::awaitable<void> RunSender();
 
+ protected:
+  boost::asio::awaitable<std::pair<bool, std::string>> DetectProbing();
+  boost::asio::awaitable<bool> HandleProxy(const std::string& sni, int port);
+
+ protected:
   boost::asio::awaitable<bool> ProcessRequest();
   boost::asio::awaitable<bool> HandleHttp(
       const boost::beast::http::request<boost::beast::http::string_body>&

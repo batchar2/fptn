@@ -394,6 +394,7 @@ conan profile detect --force
 Console version
 
 ```bash
+conan export ./.conan/recipes/boringssl/ --name=boringssl --version=0.20250415.0 --user=local --channel=local
 conan install . --output-folder=build --build=missing  -s compiler.cppstd=17 --settings build_type=Release
 cd build
 # only linux & macos

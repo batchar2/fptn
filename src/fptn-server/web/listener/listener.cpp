@@ -29,7 +29,7 @@ Listener::Listener(boost::asio::io_context& ioc,
     WebSocketNewIPPacketCallback ws_new_ippacket_callback,
     WebSocketCloseConnectionCallback ws_close_callback)
     : ioc_(ioc),
-      ctx_(boost::asio::ssl::context::tlsv12),
+      ctx_(boost::asio::ssl::context::tlsv13_server),
       acceptor_(ioc_),
       token_manager_(std::move(token_manager)),
       ws_open_callback_(std::move(ws_open_callback)),

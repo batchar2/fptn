@@ -8,6 +8,7 @@ set(FPTN_SERVER_PATH "${CMAKE_CURRENT_SOURCE_DIR}/src/fptn-server")
 
 enable_testing()
 
+# project
 add_compile_definitions(FPTN_VERSION=\"${FPTN_VERSION}\")
 add_compile_definitions(FPTN_MTU_SIZE=1500)
 add_compile_definitions(FPTN_DEFAULT_SNI=\"tv.telecom.kz\")
@@ -26,9 +27,10 @@ add_compile_definitions(FPTN_SERVER_DEFAULT_NET_ADDRESS_IP4=\"172.20.0.0\")
 add_compile_definitions(FPTN_GITHUB_USERNAME=\"batchar2\")
 add_compile_definitions(FPTN_GITHUB_REPOSITORY=\"fptn\")
 add_compile_definitions(FPTN_GITHUB_PAGE_LINK=\"https://batchar2.github.io/fptn/\")
-
-# enable ssl for cpphttp-lib
-add_compile_definitions(CPPHTTPLIB_OPENSSL_SUPPORT)
+# SSL
+add_compile_definitions(BOOST_ASIO_USE_BORINGSSL)
+add_compile_definitions(OPENSSL_IS_BORINGSSL)
+#add_definitions(-DBOOST_ASIO_USE_BORINGSSL)
 add_compile_definitions(BOOST_IOSTREAMS_USE_BZIP2)
 add_compile_definitions(BOOST_IOSTREAMS_USE_ZLIB)
 
@@ -41,7 +43,7 @@ if(WIN32)
   set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS TRUE)
 else()
   # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Werror")
-  set(CMAKE_CXX_FLAGS "-Wall -Wextra")
+#  set(CMAKE_CXX_FLAGS "-Wall -Wextra")
 endif()
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
@@ -57,6 +59,10 @@ elseif(WIN32)
 else()
   message(FATAL_ERROR "Unsupported platform")
 endif()
+
+# --- boringssl ---
+#include(depends/cmake/BoringSSL.cmake)
+
 # --- depends: base64 ---
 include(depends/cmake/FetchBase64.cmake)
 
