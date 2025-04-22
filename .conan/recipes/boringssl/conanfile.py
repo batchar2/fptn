@@ -1,5 +1,5 @@
 from conan import ConanFile
-from conan.tools.files import get
+from conan.tools.files import get, rename, copy
 from conan.tools.cmake import CMake, cmake_layout
 
 
@@ -17,13 +17,21 @@ class BoringSSLConan(ConanFile):
     )
 
     def source(self):
-        url = "https://boringssl.googlesource.com/boringssl/+archive/2b44a3701a4788e1ef866ddc7f143060a3d196c9.tar.gz"
+        # url = "https://github.com/batchar2/fptn/archive/refs/heads/master.zip"
+        url = "https://github.com/batchar2/boringssl/archive/refs/heads/main.tar.gz"
         get(self, url, strip_root=False)
+
+        copy(self, "*", src=(self.source_folder + "/boringssl-main"), dst=self.source_folder)
+        # rename(self, "boringssl-main", self.source_folder)  # Помещаем в source_folder
+        # url = "https://boringssl.googlesource.com/boringssl/+archive/2b44a3701a4788e1ef866ddc7f143060a3d196c9.tar.gz"
+        # get(self, url, strip_root=False)
 
     def build(self):
         cmake = CMake(self)
         # cmake.definitions["BORINGSSL_GREASE_ENABLED"] = "ON"
         cmake.configure()
+
+        # cmake.configure(source_folder="boringssl-main")
         cmake.build()
 
     def package(self):
