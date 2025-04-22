@@ -9,7 +9,6 @@ FPTN_VERSION = "0.0.0"
 class FPTN(ConanFile):
     name = "fptn"
     version = FPTN_VERSION
-    # python_requires = "boringssl/cci.latest@",
     requires = (
         "zlib/1.3.1",
         "fmt/11.1.3",
@@ -18,9 +17,7 @@ class FPTN(ConanFile):
         "jwt-cpp/0.7.0",
         "spdlog/1.15.1",
         "protobuf/5.27.0",
-        # "pcapplusplus/24.09",
         "pcapplusplus/23.09",
-        # "pcapplusplus/22.05",
         "nlohmann_json/3.11.3",
         "prometheus-cpp/1.3.0",
     )
@@ -104,9 +101,8 @@ class FPTN(ConanFile):
     }
 
     def requirements(self):
-        # NEED TO USE BORINGSSL
+        # WE USE BORINGSSL
         self.requires("openssl/boringssl@local/local", override=True, force=True)
-        # self.requires("openssl/3.4.1", override=True, force=True)
         if self.options.with_gui_client:
             self.requires("qt/6.7.1")
         if self.settings.os != "Windows":

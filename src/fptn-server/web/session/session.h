@@ -7,6 +7,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #pragma once
 
 #include <memory>
+#include <string>
 
 #include <boost/asio.hpp>
 #include <boost/asio/awaitable.hpp>
