@@ -18,8 +18,7 @@ else()
   set(TUNTAP_LIB Wintun rpcrt4 iphlpapi Kernel32.lib)
 endif()
 
-#find_package(boringssl REQUIRED CONFIG)
-#find_package(OpenSSL REQUIRED)
+find_package(OpenSSL REQUIRED)
 find_package(argparse REQUIRED)
 find_package(spdlog REQUIRED)
 find_package(fmt REQUIRED)
@@ -27,7 +26,7 @@ find_package(CURL REQUIRED)
 find_package(PcapPlusPlus REQUIRED)
 find_package(Boost REQUIRED COMPONENTS random filesystem)
 
-find_package(BoringSSL REQUIRED)
+#find_package(BoringSSL REQUIRED)
 
 find_package(ZLIB REQUIRED)
 
@@ -56,10 +55,8 @@ target_link_libraries(
   Boost::boost
   Boost::random
   Boost::filesystem
-  BoringSSL::SSL
-  BoringSSL::Crypto
-#  OpenSSL::SSL
-#  OpenSSL::Crypto
+  OpenSSL::SSL
+  OpenSSL::Crypto
   argparse::argparse
   nlohmann_json::nlohmann_json
   spdlog::spdlog
@@ -67,7 +64,6 @@ target_link_libraries(
   PcapPlusPlus::PcapPlusPlus
   fptn_protocol
   ${TUNTAP_LIB}
-  ${BoringSSL_LIB}
 )
 
 # fptn-client-gui

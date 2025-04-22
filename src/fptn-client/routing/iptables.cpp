@@ -289,6 +289,7 @@ bool IPTables::Clean() {  // NOLINT(bugprone-exception-escape)
   return true;
 }
 
+// NOLINT(bugprone-exception-escape)
 pcpp::IPv4Address fptn::routing::ResolveDomain(
     const std::string& domain) noexcept {
   try {

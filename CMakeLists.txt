@@ -28,8 +28,8 @@ add_compile_definitions(FPTN_GITHUB_USERNAME=\"batchar2\")
 add_compile_definitions(FPTN_GITHUB_REPOSITORY=\"fptn\")
 add_compile_definitions(FPTN_GITHUB_PAGE_LINK=\"https://batchar2.github.io/fptn/\")
 # SSL
-add_compile_definitions(BOOST_ASIO_USE_BORINGSSL)
-add_compile_definitions(OPENSSL_IS_BORINGSSL)
+#add_compile_definitions(BOOST_ASIO_USE_BORINGSSL)
+#add_compile_definitions(OPENSSL_IS_BORINGSSL)
 #add_definitions(-DBOOST_ASIO_USE_BORINGSSL)
 add_compile_definitions(BOOST_IOSTREAMS_USE_BZIP2)
 add_compile_definitions(BOOST_IOSTREAMS_USE_ZLIB)
@@ -39,18 +39,6 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-if(WIN32)
-  set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS TRUE)
-else()
-  # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Werror")
-#  set(CMAKE_CXX_FLAGS "-Wall -Wextra")
-endif()
-if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Release)
-  set(CMAKE_CXX_FLAGS_DEBUG "-g")
-  set(CMAKE_CXX_FLAGS_RELEASE "-O3")
-endif()
-
 # -- depends: tuntap  ---
 if(APPLE OR UNIX)
   include(depends/cmake/FetchLibTunTap.cmake)
@@ -59,9 +47,6 @@ elseif(WIN32)
 else()
   message(FATAL_ERROR "Unsupported platform")
 endif()
-
-# --- boringssl ---
-#include(depends/cmake/BoringSSL.cmake)
 
 # --- depends: base64 ---
 include(depends/cmake/FetchBase64.cmake)
@@ -77,6 +62,7 @@ include_directories(depends/)
 # --- project ---
 set(CMAKE_COMPILE_WARNING_AS_ERROR ON) # check all warnings!
 if(MSVC)
+  set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS TRUE)
   add_compile_options(/W4 /WX)
   # target_compile_options("/wd4996")  # Disable warning
 else()

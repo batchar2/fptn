@@ -31,6 +31,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/connect.hpp>
 #include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/ssl/detail/openssl_types.hpp>
 #include <boost/asio/ssl/error.hpp>
 #include <boost/asio/ssl/stream.hpp>
 #include <boost/asio/strand.hpp>
@@ -50,6 +51,8 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 namespace fptn::common::https {
 
 inline std::string ChromeCiphers() noexcept {
+// TLS_GREASE_6A6A:
+// TLS_GREASE_IS_THE_WORD_5A
   return "TLS_AES_128_GCM_SHA256:"
          "TLS_AES_256_GCM_SHA384:"
          "TLS_CHACHA20_POLY1305_SHA256:"
@@ -132,27 +135,148 @@ inline Headers RealBrowserHeaders(const std::string& host, int port) noexcept {
 #endif
 }
 
+inline SSL_CTX* CreateNewSslCtx() {
+  SSL_CTX* handle = ::SSL_CTX_new(::TLS_method());
+  // Set TLS version range (TLS 1.2-1.3)
+  if (0 == SSL_CTX_set_min_proto_version(handle, TLS1_2_VERSION)) {
+    throw boost::beast::system_error(
+        boost::beast::error_code(static_cast<int>(::ERR_get_error()),
+            boost::asio::error::get_ssl_category()),
+        fmt::format(R"(Failed to set min version)"));
+  }
+  if (0 == SSL_CTX_set_max_proto_version(handle, TLS1_3_VERSION)) {
+    throw boost::beast::system_error(
+        boost::beast::error_code(static_cast<int>(::ERR_get_error()),
+            boost::asio::error::get_ssl_category()),
+        fmt::format(R"(Failed to set max version)"));
+  }
+  // Disable older versions (redundant with min/max versions)
+  SSL_CTX_set_options(handle, SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 |
+                                  SSL_OP_NO_TLSv1 | SSL_OP_NO_TLSv1_1);
+  // Set ciphers
+  const std::string ciphers_list = ChromeCiphers();
+  if (0 == ::SSL_CTX_set_cipher_list(handle, ciphers_list.c_str())) {
+    throw boost::beast::system_error(
+        boost::beast::error_code(static_cast<int>(::ERR_get_error()),
+            boost::asio::error::get_ssl_category()),
+        fmt::format(R"(Failed to set ciphers)"));
+  }
+  // Set groups (Chrome's preferred order) // "0x0a0a:X25519:P-256:P-384:P-521:0x1a1a"
+  if (1 != SSL_CTX_set1_groups_list(handle, "P-256:X25519:P-384:P-521")) {
+    throw boost::beast::system_error(
+        boost::beast::error_code(static_cast<int>(::ERR_get_error()),
+            boost::asio::error::get_ssl_category()),
+        fmt::format(R"(Failed to groups list)"));
+  }
+
+  // set alpn
+  static unsigned char alpn[] = {
+      0x02, 'h', '2',                               // h2
+      0x08, 'h', 't', 't', 'p', '/', '1', '.', '1'  // http/1.1
+  };
+  if (0 != ::SSL_CTX_set_alpn_protos(handle, alpn, sizeof(alpn))) {
+    throw boost::beast::system_error(
+        boost::beast::error_code(static_cast<int>(::ERR_get_error()),
+            boost::asio::error::get_ssl_category()),
+        fmt::format(R"(Failed to set ALPN)"));
+  }
+
+  // Set signature algorithms (Chrome's preferences)
+  const std::string sigalgs_list =
+      "ECDSA+SHA256:RSA-PSS+SHA256:RSA+SHA256:ECDSA+SHA384:RSA-PSS+SHA384:RSA+"
+      "SHA384:RSA-PSS+SHA512:RSA+SHA512";
+  if (1 != SSL_CTX_set1_sigalgs_list(handle, sigalgs_list.c_str())) {
+    throw boost::beast::system_error(
+        boost::beast::error_code(static_cast<int>(::ERR_get_error()),
+            boost::asio::error::get_ssl_category()),
+        fmt::format(R"(Failed to sigalgs list)"));
+  }
+
+  // Additional Chrome-like settings
+  SSL_CTX_set_mode(handle, SSL_MODE_RELEASE_BUFFERS);
+  // https://github.com/thatsacrylic/chromium/blob/7cfb85cef096c94f4d4255a712b05a53f87333f9/net/socket/ssl_client_socket_impl.cc#L308
+  SSL_CTX_set_session_cache_mode(handle, SSL_SESS_CACHE_CLIENT | SSL_SESS_CACHE_NO_INTERNAL);
+  SSL_CTX_set_grease_enabled(handle, 1);
+  SSL_CTX_enable_ocsp_stapling(handle);
+
+  // Set signed_certificate_timestamp
+  SSL_CTX_set_signed_cert_timestamp_list(handle, nullptr, 0);
+
+//  SSL_CTX_enable_ct();
+//  SSL_CTX_set_ct_validation_callback(
+//      handle,
+//      SSL_CTX_get_default_ct_validation_callback()
+//  );
+//  SSL_CTX_set_signed_certificate_timestamp(handle, 1);
+
+//  SSL_CTX_set_signed_cert_timestamp_list
+
+  return handle;
+}
+
+inline bool SetupSni(SSL* ssl, const std::string& sni) {
+  // Set SNI (Server Name)
+  if (ssl && 1 != ::SSL_set_tlsext_host_name(ssl, sni.c_str())) {
+    throw boost::beast::system_error(
+        boost::beast::error_code(static_cast<int>(::ERR_get_error()),
+            boost::asio::error::get_ssl_category()),
+        fmt::format(R"(Failed to set SNI "{}")", sni));
+  }
+  if (ssl) {
+    // Add Chrome-like padding (to match packet size)
+    SSL_set_options(ssl, SSL_OP_LEGACY_SERVER_CONNECT);
+  }
+  return true;
+}
+
 inline bool SetupSSL(SSL_CTX* ctx, SSL* ssl, const std::string& sni) {
   (void)ctx;
   (void)ssl;
   (void)sni;
-  // Force TLS 1.2-1.3 only
-//  ::SSL_CTX_set_min_proto_version(ctx, TLS1_2_VERSION);
+  return true;
+}
+//  if (ssl != nullptr) {
+//    ::SSL_set_mode(ssl, SSL_get_mode(ssl) | SSL_MODE_ENABLE_FALSE_START);
+//  }
+//  // Force TLS 1.2-1.3 only
+//  SSL_CTX_set_options(
+//      ctx, SSL_OP_NO_TLSv1 | SSL_OP_NO_TLSv1_1 | SSL_OP_NO_TLSv1_2);
+////  if (0 == SSL_CTX_set_min_proto_version(ctx, TLS1_2_VERSION)) {
+////    throw boost::beast::system_error(
+////        boost::beast::error_code(static_cast<int>(::ERR_get_error()),
+////            boost::asio::error::get_ssl_category()),
+////        fmt::format(R"(Failed to set min version)"));
+////  }
+//
+//  if (0 == SSL_CTX_set_min_proto_version(ctx, TLS1_2_VERSION)) {
+//    throw boost::beast::system_error(
+//        boost::beast::error_code(static_cast<int>(::ERR_get_error()),
+//            boost::asio::error::get_ssl_category()),
+//        fmt::format(R"(Failed to set min version)"));
+//  }
+//  if (0 == SSL_CTX_set_max_proto_version(ctx, TLS1_3_VERSION)) {
+//    throw boost::beast::system_error(
+//        boost::beast::error_code(static_cast<int>(::ERR_get_error()),
+//            boost::asio::error::get_ssl_category()),
+//        fmt::format(R"(Failed to set max version)"));
+//  }
+//
+//  //  ::SSL_CTX_set_min_proto_version(ctx, TLS1_2_VERSION);
 //  //  ::SSL_CTX_set_min_proto_version(ctx, TLS1_3_VERSION);
-//  ::SSL_CTX_set_max_proto_version(ctx, TLS1_3_VERSION);
+//  //  ::SSL_CTX_set_max_proto_version(ctx, TLS1_3_VERSION);
 //  // Disable SSLv2
-//  ::SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv2);
-//  // Disable SSLv3
-//  ::SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv3);
-//  // Disable TLSv1
-//  ::SSL_CTX_set_options(ctx, SSL_OP_NO_TLSv1);
-//  // Disable TLSv1.1
-//  ::SSL_CTX_set_options(ctx, SSL_OP_NO_TLSv1_1);
+//  //  ::SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv2);
+//  //  // Disable SSLv3
+//  //  ::SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv3);
+//  //  // Disable TLSv1
+//  //  ::SSL_CTX_set_options(ctx, SSL_OP_NO_TLSv1);
+//  //  // Disable TLSv1.1
+//  //  ::SSL_CTX_set_options(ctx, SSL_OP_NO_TLSv1_1);
 //
 //  // Set ALPN (Application-Layer Protocol Negotiation)
 //  static unsigned char alpn[] = {
-//      0x02, 'h', '2'  // h2
-//      //      0x08, 'h', 't', 't', 'p', '/', '1', '.', '1'  // http/1.1
+//      0x02, 'h', '2',                               // h2
+//      0x08, 'h', 't', 't', 'p', '/', '1', '.', '1'  // http/1.1
 //  };
 //  //  static const unsigned char alpn[] = {4, 'e', 'c', 'h', 'o'};
 //  if (0 != ::SSL_CTX_set_alpn_protos(ctx, alpn, sizeof(alpn))) {
@@ -161,6 +285,28 @@ inline bool SetupSSL(SSL_CTX* ctx, SSL* ssl, const std::string& sni) {
 //            boost::asio::error::get_ssl_category()),
 //        fmt::format(R"(Failed to set ALPN)"));
 //  }
+////  SSL_CTX_set_alpn_select_cb(
+////      ctx,
+////      [](SSL* ssl, const uint8_t** out, uint8_t* outlen, const uint8_t* in,
+/// unsigned inlen, void* arg) -> int { /        (void)arg; /        static
+/// unsigned char alpn[] = { /            0x02, 'h', '2', // h2 / 0x08, 'h',
+/// 't', 't', 'p', '/', '1', '.', '1'  // http/1.1 /        }; /        const
+/// uint8_t* alpn_data = &alpn[0]; /        std::size_t alpn_data_size =
+/// sizeof(alpn);
+////
+////        if (SSL_select_next_proto(const_cast<unsigned char**>(out), outlen,
+/// alpn_data, alpn_data_size, in, inlen) != OPENSSL_NPN_NEGOTIATED) { /
+/// std::cerr << "+++1" << std::endl; /          return SSL_TLSEXT_ERR_NOACK; /
+///} else { /          std::cerr << "---1" << std::endl; /          return
+/// SSL_TLSEXT_ERR_OK; /        }
+//////        auto state = reinterpret_cast<std::pair<uint16_t, bool>*>(arg);
+//////        if (SSL_get_pending_cipher(ssl) != nullptr &&
+//////            SSL_version(ssl) == state->first) {
+//////          state->second = true;
+//////        }
+////        return SSL_TLSEXT_ERR_NOACK;
+////      },
+////      nullptr);
 //
 //  const std::string ciphers_list = ChromeCiphers();
 //  if (0 == ::SSL_CTX_set_cipher_list(ctx, ciphers_list.c_str())) {
@@ -178,6 +324,9 @@ inline bool SetupSSL(SSL_CTX* ctx, SSL* ssl, const std::string& sni) {
 //        fmt::format(R"(Failed to groups list)"));
 //  }
 //
+//  // !!!! Chrome's preferred curves
+//  SSL_CTX_set1_curves_list(ctx, "X25519:P-256:P-384:P-521");
+//
 //  // !!!!
 //  const std::string sigalgs_list =
 //      "ECDSA+SHA256:RSA-PSS+SHA256:RSA+SHA256:ECDSA+SHA384:RSA-PSS+SHA384:RSA+"
@@ -190,14 +339,16 @@ inline bool SetupSSL(SSL_CTX* ctx, SSL* ssl, const std::string& sni) {
 //  }
 //
 //  // Set SNI (Server Name)
-//  if (1 != ::SSL_set_tlsext_host_name(ssl, sni.c_str())) {
-//    throw boost::beast::system_error(
-//        boost::beast::error_code(static_cast<int>(::ERR_get_error()),
-//            boost::asio::error::get_ssl_category()),
-//        fmt::format(R"(Failed to set SNI "{}")", sni));
+//  if (ssl != nullptr) {
+//    if (1 != ::SSL_set_tlsext_host_name(ssl, sni.c_str())) {
+//      throw boost::beast::system_error(
+//          boost::beast::error_code(static_cast<int>(::ERR_get_error()),
+//              boost::asio::error::get_ssl_category()),
+//          fmt::format(R"(Failed to set SNI "{}")", sni));
+//    }
 //  }
-  return true;
-}
+//  return true;
+//}
 
 struct Response final {
   const std::string body;
@@ -225,7 +376,10 @@ class Client final {
     int respcode = 400;
     try {
       boost::asio::io_context ioc;
-      boost::asio::ssl::context ctx(boost::asio::ssl::context::tls);
+
+      SSL_CTX* ssl_ctx = CreateNewSslCtx();
+      boost::asio::ssl::context ctx(ssl_ctx);
+
       ctx.set_verify_mode(boost::asio::ssl::verify_none);  // disable validate
 
       boost::beast::net::ip::tcp::resolver resolver(ioc);
@@ -238,7 +392,9 @@ class Client final {
       boost::beast::get_lowest_layer(stream).connect(results);
 
       // Configure HTTPS protocol
-      SetupSSL(ctx.native_handle(), stream.native_handle(), sni_);
+      // SetupSSL(ctx.native_handle(), stream.native_handle(), sni_);
+
+      SetupSni(stream.native_handle(), sni_);
 
       stream.handshake(boost::asio::ssl::stream_base::client);
 
@@ -284,7 +440,12 @@ class Client final {
     int respcode = 400;
     try {
       boost::asio::io_context ioc;
-      boost::asio::ssl::context ctx(boost::asio::ssl::context::tls);
+      //      boost::asio::ssl::context ctx(boost::asio::ssl::context::tls);
+      //      boost::asio::ssl::context
+      //      ctx(boost::asio::ssl::context::tlsv13_client);
+      SSL_CTX* ssl_ctx = CreateNewSslCtx();
+      boost::asio::ssl::context ctx(ssl_ctx);
+
       ctx.set_verify_mode(boost::asio::ssl::verify_none);
 
       boost::beast::net::ip::tcp::resolver resolver(ioc);
@@ -297,7 +458,8 @@ class Client final {
       boost::beast::get_lowest_layer(stream).connect(results);
 
       // Configure HTTPS protocol
-      SetupSSL(ctx.native_handle(), stream.native_handle(), sni_);
+//      SetupSSL(ctx.native_handle(), stream.native_handle(), sni_);
+      SetupSni(stream.native_handle(), sni_);
 
       stream.handshake(boost::asio::ssl::stream_base::client);
 
