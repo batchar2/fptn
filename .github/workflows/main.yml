@@ -64,7 +64,7 @@ jobs:
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: build-outputs
+          name: Ubuntu86_64Artifacts
           path: |
             *.deb
           if-no-files-found: warn
@@ -122,7 +122,7 @@ jobs:
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: build-outputs
+          name: UbuntuArmArtifacts
           path: |
             *.deb
           if-no-files-found: warn
@@ -179,7 +179,7 @@ jobs:
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: build-outputs
+          name: MacOsArtifacts
           path: |
             *.pkg
           if-no-files-found: warn
@@ -252,7 +252,7 @@ jobs:
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: build-outputs
+          name: WindowsArtifacts
           path: |
             *.zip
           if-no-files-found: warn
