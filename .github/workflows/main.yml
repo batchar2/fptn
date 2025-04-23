@@ -30,6 +30,7 @@ jobs:
           sed -i "s/^FPTN_VERSION = \".*\"/FPTN_VERSION = \"$RELEASE_VERSION\"/" conanfile.py
       - name: Install dependencies
         run: |
+          conan export .conan/recipes/boringssl/ --name=openssl --version=boringssl --user=local --channel=local
           conan install . --output-folder=build --build=missing -o with_gui_client=True --settings build_type=Release -s compiler.cppstd=17
       - name: Run cpplint
         run: |
@@ -80,6 +81,7 @@ jobs:
           sed -i "s/^FPTN_VERSION = \".*\"/FPTN_VERSION = \"$RELEASE_VERSION\"/" conanfile.py
       - name: Install dependencies
         run: |
+          conan export .conan/recipes/boringssl/ --name=openssl --version=boringssl --user=local --channel=local
           conan install . --output-folder=build --build=missing -o with_gui_client=True --settings build_type=Release -s compiler.cppstd=17
       - name: Run cpplint
         run: |
@@ -130,6 +132,7 @@ jobs:
           sed -i '' "s/^FPTN_VERSION = \".*\"/FPTN_VERSION = \"$RELEASE_VERSION\"/" conanfile.py
       - name: Install dependencies
         run: |
+          CXXFLAGS="-Wno-vla-cxx-extension -Wno-error=vla-cxx-extension" conan export .conan/recipes/boringssl/ --name=openssl --version=boringssl --user=local --channel=local
           CXXFLAGS="-Wno-vla-cxx-extension -Wno-error=vla-cxx-extension" conan install . --output-folder=build --build=missing -o with_gui_client=True --settings build_type=Release -s compiler.cppstd=17
       - name: Run cpplint
         run: |
@@ -185,6 +188,7 @@ jobs:
       - name: Install dependencies
         shell: powershell
         run: |
+          conan export .conan/recipes/boringssl/ --name=openssl --version=boringssl --user=local --channel=local
           conan install . --output-folder=build --build=missing -o with_gui_client=True --settings build_type=Release -s compiler.cppstd=17
       - name: Run cpplint
         run: |
