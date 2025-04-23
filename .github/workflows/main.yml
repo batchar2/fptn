@@ -62,7 +62,7 @@ jobs:
           files: "fptn-*.deb"
           repo-token: ${{ secrets.CI_TOKEN }}
       - name: Upload Build Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: build-outputs
           path: |
@@ -122,7 +122,7 @@ jobs:
           files: "fptn-*.deb"
           repo-token: ${{ secrets.CI_TOKEN }}
       - name: Upload Build Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: build-outputs
           path: |
@@ -181,7 +181,7 @@ jobs:
           files: "*.pkg"
           repo-token: ${{ secrets.CI_TOKEN }}
       - name: Upload Build Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: build-outputs
           path: |
@@ -256,7 +256,7 @@ jobs:
           files: "*.zip"
           repo-token: ${{ secrets.CI_TOKEN }}
       - name: Upload Build Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: build-outputs
           path: |
