@@ -55,12 +55,21 @@ jobs:
           cd build
           cmake --build . --target build-deb
           cmake --build . --target build-deb-gui
-      - name: Upload deb
+      - name: Upload deb RELEASE
         if: github.event_name == 'release'
         uses: AButler/upload-release-assets@v3.0
         with:
           files: "fptn-*.deb"
           repo-token: ${{ secrets.CI_TOKEN }}
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-outputs
+          path: |
+            build/*.deb
+            build/*.pkg
+            build/*.zip
+          if-no-files-found: warn
   build_ubuntu_arm64:
     runs-on: Ubuntu_ARM64_Desktop
     steps:
@@ -112,6 +121,15 @@ jobs:
         with:
           files: "fptn-*.deb"
           repo-token: ${{ secrets.CI_TOKEN }}
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-outputs
+          path: |
+            build/*.deb
+            build/*.pkg
+            build/*.zip
+          if-no-files-found: warn
   build_macos_arm64:
     runs-on: MacOS_ARM64
     steps:
@@ -162,6 +180,15 @@ jobs:
         with:
           files: "*.pkg"
           repo-token: ${{ secrets.CI_TOKEN }}
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-outputs
+          path: |
+            build/*.deb
+            build/*.pkg
+            build/*.zip
+          if-no-files-found: warn
   build_windows_AMD64:
     runs-on: Windows11_AMD64
     steps:
@@ -228,3 +255,12 @@ jobs:
         with:
           files: "*.zip"
           repo-token: ${{ secrets.CI_TOKEN }}
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-outputs
+          path: |
+            build/*.deb
+            build/*.pkg
+            build/*.zip
+          if-no-files-found: warn
