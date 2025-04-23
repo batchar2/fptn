@@ -66,9 +66,7 @@ jobs:
         with:
           name: build-outputs
           path: |
-            build/*.deb
-            build/*.pkg
-            build/*.zip
+            *.deb
           if-no-files-found: warn
   build_ubuntu_arm64:
     runs-on: Ubuntu_ARM64_Desktop
@@ -126,9 +124,7 @@ jobs:
         with:
           name: build-outputs
           path: |
-            build/*.deb
-            build/*.pkg
-            build/*.zip
+            *.deb
           if-no-files-found: warn
   build_macos_arm64:
     runs-on: MacOS_ARM64
@@ -185,9 +181,7 @@ jobs:
         with:
           name: build-outputs
           path: |
-            build/*.deb
-            build/*.pkg
-            build/*.zip
+            *.pkg
           if-no-files-found: warn
   build_windows_AMD64:
     runs-on: Windows11_AMD64
@@ -260,7 +254,5 @@ jobs:
         with:
           name: build-outputs
           path: |
-            build/*.deb
-            build/*.pkg
-            build/*.zip
+            *.zip
           if-no-files-found: warn
