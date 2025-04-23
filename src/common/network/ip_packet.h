@@ -17,7 +17,9 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #endif
 
 #if _WIN32
-#include <Winsock2.h>
+#include <Winsock2.h>  // NOLINT(build/include_order)
+
+#include <openssl/base.h>  // NOLINT(build/include_order)
 #else
 #include <arpa/inet.h>
 #endif
