@@ -12,17 +12,16 @@ class BoringSSLConan(ConanFile):
     options = {"shared": [True, False], "fPIC": [True, False]}
     default_options = {"shared": False, "fPIC": True}
 
-    requires = ("zlib/1.3.1",)
+    requires = (
+        "zlib/1.3.1",
+        "nasm/2.16.01",
+    )
 
     def source(self):
         url = "https://github.com/batchar2/boringssl/archive/refs/heads/main.tar.gz"
         get(self, url, strip_root=False)
         src = self.source_folder + "/boringssl-main"
         copy(self, "*", src=src, dst=self.source_folder)
-
-    def build_requirements(self):
-        if self.settings.os == "Windows":
-            self.requires("nasm/2.16.01", override=True, force=True)
 
     def build(self):
         cmake = CMake(self)
