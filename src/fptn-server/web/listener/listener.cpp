@@ -22,13 +22,16 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 using fptn::web::Listener;
 
-Listener::Listener(boost::asio::io_context& ioc,
-    std::uint16_t port,
+Listener::Listener(std::uint16_t port,
+    bool enable_detect_probing,
+    boost::asio::io_context& ioc,
     fptn::common::jwt_token::TokenManagerSPtr token_manager,
     WebSocketOpenConnectionCallback ws_open_callback,
     WebSocketNewIPPacketCallback ws_new_ippacket_callback,
     WebSocketCloseConnectionCallback ws_close_callback)
-    : ioc_(ioc),
+    : port_(port),
+      enable_detect_probing_(enable_detect_probing),
+      ioc_(ioc),
       ctx_(boost::asio::ssl::context::tlsv13_server),
       acceptor_(ioc_),
       token_manager_(std::move(token_manager)),
@@ -42,15 +45,9 @@ Listener::Listener(boost::asio::io_context& ioc,
                    boost::asio::ssl::context::no_sslv2 |
                    boost::asio::ssl::context::no_sslv3 |
                    boost::asio::ssl::context::single_dh_use);
-
   ctx_.use_certificate_chain_file(token_manager_->ServerCrtPath());
   ctx_.use_private_key_file(
       token_manager_->ServerKeyPath(), boost::asio::ssl::context::pem);
-
-  // openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365
-  // -nodes ctx_.use_certificate_chain_file("/etc/fptn/cert.pem");
-  // ctx_.use_private_key_file("/etc/fptn/key.pem",
-  // boost::asio::ssl::context::pem);
   ctx_.set_verify_mode(boost::asio::ssl::verify_none);  // For development only!
                                                         // Avoid in production
 }
@@ -81,9 +78,9 @@ boost::asio::awaitable<void> Listener::run() {
       co_await acceptor_.async_accept(
           socket, boost::asio::redirect_error(boost::asio::use_awaitable, ec));
       if (!ec) {
-        auto session = std::make_shared<Session>(std::move(socket), ctx_,
-            api_handles_, ws_open_callback_, ws_new_ippacket_callback_,
-            ws_close_callback_);
+        auto session = std::make_shared<Session>(port_, enable_detect_probing_,
+            std::move(socket), ctx_, api_handles_, ws_open_callback_,
+            ws_new_ippacket_callback_, ws_close_callback_);
         // run coroutine
         boost::asio::co_spawn(
             ioc_,

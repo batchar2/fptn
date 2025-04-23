@@ -35,6 +35,8 @@ IncludeCategories:
     Priority:        2
   - Regex:           '^<boost/.*>'
     Priority:        2
+  - Regex:           '^<pcpp/.*>'
+    Priority:        2
   - Regex:           '^<jwt-cpp/.*>'
     Priority:        2
   - Regex:           '^<nlohmann/.*>'

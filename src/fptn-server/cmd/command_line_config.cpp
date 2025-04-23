@@ -69,7 +69,6 @@ CommandLineConfig::CommandLineConfig(int argc, char* argv[])
   args_.add_argument("--userfile")
       .help("Path to users file (default: /etc/fptn/users.list)")
       .default_value("/etc/fptn/users.list");
-  args_.add_argument("--use-https").help("Use https").default_value("true");
   // Packet filters
   args_.add_argument("--disable-bittorrent")
       .help(
@@ -99,6 +98,12 @@ CommandLineConfig::CommandLineConfig(int argc, char* argv[])
           "to 0 to use the default port.")
       .default_value(443)
       .scan<'i', int>();
+  // experimental
+  args_.add_argument("--enable-detect-probing")
+      .help(
+          "Enable detection of non-FPTN clients or probing attempts during SSL "
+          "handshake. ")
+      .default_value("false");
 }
 
 bool CommandLineConfig::Parse() noexcept {  // NOLINT(bugprone-exception-escape)
@@ -186,4 +191,8 @@ std::string CommandLineConfig::RemoteServerAuthHost() const {
 
 int CommandLineConfig::RemoteServerAuthPort() const {
   return args_.get<int>("--remote-server-auth-port");
+}
+
+bool CommandLineConfig::EnableDetectProbing() const {
+  return ParseBoolean(args_.get<std::string>("--enable-detect-probing"));
 }

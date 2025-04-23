@@ -6,7 +6,6 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #pragma once
 
-#include <iostream>  // DELETE IT
 #include <memory>
 #include <sstream>
 #include <string>
@@ -131,22 +130,46 @@ class Client final {
  public:
   static bool SetHandshakeSessionID(SSL* ssl) {
     // random
-    std::uint8_t session_id[32] = {0};
+    constexpr int kSessionLen = 32;
+    std::uint8_t session_id[kSessionLen] = {0};
     if (::RAND_bytes(session_id, sizeof(session_id)) != 1) {
       return false;
     }
     // copy timestamp
     const auto seconds = std::chrono::duration_cast<std::chrono::seconds>(
         std::chrono::system_clock::now().time_since_epoch());
-    const std::int32_t timestamp =
-        htons(static_cast<std::int32_t>(seconds.count()));
-    std::memcpy(&session_id[28], &timestamp, sizeof(timestamp));
+    const std::uint32_t timestamp =
+        htonl(static_cast<std::uint32_t>(seconds.count()));
+    std::memcpy(&session_id[kSessionLen - sizeof(timestamp)], &timestamp,
+        sizeof(timestamp));
 
-    if (1 == SSL_set_tls_hello_custom_session_id(
+    if (0 == ::SSL_set_tls_hello_custom_session_id(
                  ssl, session_id, sizeof(session_id))) {
-      return true;
+      return false;
     }
-    return false;
+    return true;
+  }
+
+  static bool IsFptnClientSessionID(
+      const std::uint8_t* session, std::size_t session_len) {
+    // Extract the last 4 bytes of the session as an int32 (network byte order)
+    std::uint32_t ntime = 0;
+    std::memcpy(&ntime, &session[session_len - sizeof(ntime)], sizeof(ntime));
+    // Convert from network byte order to host byte order
+    const std::uint32_t client_timestamp = ntohl(ntime);
+
+    // Get the current time in seconds since the epoch
+    const auto now = std::chrono::system_clock::now();
+    const auto now_seconds =
+        std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch())
+            .count();
+    const auto now_timestamp = static_cast<std::uint32_t>(now_seconds);
+
+    // Consider valid if the timestamp is not in the future
+    // and the difference is no more than 3 seconds
+    constexpr int kTimeGapSeconds = 3;
+    return (client_timestamp <= now_timestamp &&
+            client_timestamp + kTimeGapSeconds >= now_timestamp);
   }
 
   static bool SetHandshakeSni(SSL* ssl, const std::string& sni) {

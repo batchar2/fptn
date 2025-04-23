@@ -34,7 +34,9 @@ namespace fptn::web {
 
 class Session : public std::enable_shared_from_this<Session> {
  public:
-  explicit Session(boost::asio::ip::tcp::socket&& socket,
+  explicit Session(std::uint16_t port,
+      bool enable_detect_probing,
+      boost::asio::ip::tcp::socket&& socket,
       boost::asio::ssl::context& ctx,
       const ApiHandleMap& api_handles,
       WebSocketOpenConnectionCallback ws_open_callback,
@@ -52,7 +54,13 @@ class Session : public std::enable_shared_from_this<Session> {
   boost::asio::awaitable<void> RunSender();
 
  protected:
-  boost::asio::awaitable<std::pair<bool, std::string>> DetectProbing();
+  struct ProbingResult {
+    bool is_probing;
+    std::string sni;
+    bool should_close;
+  };
+
+  boost::asio::awaitable<ProbingResult> DetectProbing();
   boost::asio::awaitable<bool> HandleProxy(const std::string& sni, int port);
 
  protected:
@@ -68,6 +76,9 @@ class Session : public std::enable_shared_from_this<Session> {
   mutable std::mutex mutex_;
 
   fptn::ClientID client_id_ = MAX_CLIENT_ID;
+
+  const std::uint16_t port_;
+  const bool enable_detect_probing_;
 
   boost::beast::websocket::stream<
       boost::asio::ssl::stream<boost::beast::tcp_stream>>

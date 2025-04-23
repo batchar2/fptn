@@ -98,6 +98,8 @@ class FPTN(ConanFile):
         "qt/*:with_pulseaudio": False,
         # --- prometheuscpp dependency ---
         "civetweb/*:with_ssl": False,
+        "prometheus-cpp/*:with_compression": False,
+        "prometheus-cpp/*:with_push": False,
     }
 
     def requirements(self):

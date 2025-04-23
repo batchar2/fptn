@@ -100,6 +100,7 @@ Server::Server(std::uint16_t port,
     const std::string& prometheus_access_key,
     const pcpp::IPv4Address& dns_server_ipv4,
     const pcpp::IPv6Address& dns_server_ipv6,
+    bool enable_detect_probing,
     int thread_number)
     : running_(false),
       port_(port),
@@ -110,6 +111,7 @@ Server::Server(std::uint16_t port,
       prometheus_access_key_(prometheus_access_key),
       dns_server_ipv4_(dns_server_ipv4),
       dns_server_ipv6_(dns_server_ipv6),
+      enable_detect_probing_(enable_detect_probing),
       thread_number_(std::max<std::size_t>(1, thread_number)),
       ioc_(thread_number),
       from_client_(std::make_unique<fptn::common::data::Channel>()),
@@ -122,7 +124,8 @@ Server::Server(std::uint16_t port,
   using std::placeholders::_6;
   using std::placeholders::_7;
 
-  listener_ = std::make_shared<Listener>(ioc_, port_, token_manager,
+  listener_ = std::make_shared<Listener>(port_, enable_detect_probing_, ioc_,
+      token_manager,
       // NOLINTNEXTLINE(modernize-avoid-bind)
       std::bind(
           &Server::HandleWsOpenConnection, this, _1, _2, _3, _4, _5, _6, _7),

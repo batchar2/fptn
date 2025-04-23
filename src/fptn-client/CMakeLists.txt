@@ -22,7 +22,6 @@ find_package(OpenSSL REQUIRED)
 find_package(argparse REQUIRED)
 find_package(spdlog REQUIRED)
 find_package(fmt REQUIRED)
-find_package(CURL REQUIRED)
 find_package(PcapPlusPlus REQUIRED)
 find_package(Boost REQUIRED COMPONENTS random filesystem)
 
@@ -63,8 +62,7 @@ target_link_libraries(
   fmt::fmt
   PcapPlusPlus::PcapPlusPlus
   fptn_protocol
-  ${TUNTAP_LIB}
-)
+  ${TUNTAP_LIB})
 
 # fptn-client-gui
 if("${FPTN_BUILD_WITH_GUI_CLIENT}")

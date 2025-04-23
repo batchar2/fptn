@@ -46,8 +46,8 @@ SERVER_PUB=
 PORT=443
 TUN_INTERFACE_NAME=fptn0
 
-# true or false
-USE_HTTPS=true
+# Enable detection of probing attempts (experimental; accepted values: true or false)
+ENABLE_DETECT_PROBING=false
 
 # true or false
 DISABLE_BITTORRENT=true
@@ -84,9 +84,9 @@ ExecStart=/usr/bin/$(basename "$SERVER_BIN") \
   --server-pub=\${SERVER_PUB} \
   --out-network-interface=\${OUT_NETWORK_INTERFACE} \
   --server-port=\${PORT} \
+  --enable-detect-probing=\${ENABLE_DETECT_PROBING} \
   --tun-interface-name=\${TUN_INTERFACE_NAME} \
   --disable-bittorrent=\${DISABLE_BITTORRENT} \
-  --use-https=\${USE_HTTPS} \
   --prometheus-access-key=\${PROMETHEUS_SECRET_ACCESS_KEY} \
   --use-remote-server-auth=\${USE_REMOTE_SERVER_AUTH} \
   --remote-server-auth-host=\${REMOTE_SERVER_AUTH_HOST} \

@@ -100,7 +100,7 @@ int main(int argc, char* argv[]) {
     auto web_server = std::make_unique<fptn::web::Server>(config.ServerPort(),
         nat_table, user_manager, token_manager, prometheus,
         config.PrometheusAccessKey(), config.TunInterfaceIPv4(),
-        config.TunInterfaceIPv6());
+        config.TunInterfaceIPv6(), config.EnableDetectProbing());
 
     /* init packet filter */
     auto filter_manager = std::make_shared<fptn::filter::Manager>();
@@ -128,10 +128,10 @@ int main(int argc, char* argv[]) {
         "VPN NETWORK IPv4:  {}\n"
         "VPN NETWORK IPv6:  {}\n"
         "VPN SERVER PORT:   {}\n",
-        FPTN_VERSION, config.OutNetworkInterface(),
+        "DETECT_PROBING:    {}\n" FPTN_VERSION, config.OutNetworkInterface(),
         config.TunInterfaceNetworkIPv4Address().toString(),
-        config.TunInterfaceNetworkIPv6Address().toString(),
-        config.ServerPort());
+        config.TunInterfaceNetworkIPv6Address().toString(), config.ServerPort(),
+        config.EnableDetectProbing() ? "YES" : "NO");
 
     /* start/wait/stop */
     manager.Start();

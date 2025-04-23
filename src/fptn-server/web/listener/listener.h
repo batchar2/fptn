@@ -24,8 +24,9 @@ namespace fptn::web {
 
 class Listener final {
  public:
-  explicit Listener(boost::asio::io_context& ioc,
-      std::uint16_t port,
+  explicit Listener(std::uint16_t port,
+      bool enable_detect_probing,
+      boost::asio::io_context& ioc,
       fptn::common::jwt_token::TokenManagerSPtr token_manager,
       WebSocketOpenConnectionCallback ws_open_callback,
       WebSocketNewIPPacketCallback ws_new_ippacket_callback,
@@ -38,6 +39,9 @@ class Listener final {
       const ApiHandle& handle);
 
  protected:
+  const std::uint16_t port_;
+  const bool enable_detect_probing_;
+
   boost::asio::io_context& ioc_;
   boost::asio::ssl::context ctx_;
   boost::asio::ip::tcp::acceptor acceptor_;
