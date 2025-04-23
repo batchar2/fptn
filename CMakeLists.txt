@@ -4,10 +4,6 @@ project(
   VERSION "${FPTN_VERSION}"
   LANGUAGES CXX)
 
-set(FPTN_SERVER_PATH "${CMAKE_CURRENT_SOURCE_DIR}/src/fptn-server")
-
-enable_testing()
-
 # project
 add_compile_definitions(FPTN_VERSION=\"${FPTN_VERSION}\")
 add_compile_definitions(FPTN_MTU_SIZE=1500)
@@ -27,10 +23,7 @@ add_compile_definitions(FPTN_SERVER_DEFAULT_NET_ADDRESS_IP4=\"172.20.0.0\")
 add_compile_definitions(FPTN_GITHUB_USERNAME=\"batchar2\")
 add_compile_definitions(FPTN_GITHUB_REPOSITORY=\"fptn\")
 add_compile_definitions(FPTN_GITHUB_PAGE_LINK=\"https://batchar2.github.io/fptn/\")
-# SSL
-#add_compile_definitions(BOOST_ASIO_USE_BORINGSSL)
-#add_compile_definitions(OPENSSL_IS_BORINGSSL)
-#add_definitions(-DBOOST_ASIO_USE_BORINGSSL)
+# Boost
 add_compile_definitions(BOOST_IOSTREAMS_USE_BZIP2)
 add_compile_definitions(BOOST_IOSTREAMS_USE_ZLIB)
 
@@ -38,6 +31,8 @@ add_compile_definitions(BOOST_IOSTREAMS_USE_ZLIB)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+set(FPTN_SERVER_PATH "${CMAKE_CURRENT_SOURCE_DIR}/src/fptn-server")
 
 # -- depends: tuntap  ---
 if(APPLE OR UNIX)
@@ -167,4 +162,5 @@ else()
 endif()
 
 # --- tests ---
+enable_testing()
 add_subdirectory(tests)

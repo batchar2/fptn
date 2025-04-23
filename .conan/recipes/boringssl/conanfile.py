@@ -22,7 +22,7 @@ class BoringSSLConan(ConanFile):
 
     def build(self):
         cmake = CMake(self)
-        cmake.configure()
+        cmake.configure(variables={"BUILD_TESTING": False, "ENABLE_EXPRESSION_TESTS": False})
         cmake.build()
 
     def package(self):
