@@ -79,6 +79,7 @@ class TrayApp : public QWidget {
   QMenu* tray_menu_ = nullptr;
   QMenu* connect_menu_ = nullptr;
   QAction* smart_connect_action_ = nullptr;
+  QMenu* limited_zone_connect_menu_ = nullptr;
   QAction* empty_configuration_action_ = nullptr;
   QAction* disconnect_action_ = nullptr;
   QAction* settings_action_ = nullptr;

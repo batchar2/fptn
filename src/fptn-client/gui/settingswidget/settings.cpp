@@ -300,6 +300,11 @@ void SettingsWidget::onLoadNewConfig() {
         for (const auto& s : config.servers) {
           servers_text_list += QString("%1\n").arg(s.name);
         }
+
+        for (const auto& s : config.censored_zone_servers) {
+          servers_text_list += QString("* %1\n").arg(s.name);
+        }
+
         auto* item = new QTableWidgetItem(servers_text_list);
         item->setTextAlignment(Qt::AlignLeft | Qt::AlignVCenter);
         item->setFlags(item->flags() | Qt::ItemIsEnabled);
