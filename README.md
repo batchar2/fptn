@@ -1,4 +1,4 @@
-#  FPTN  
+-DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake#  FPTN  
 
 [![Ubuntu](https://img.shields.io/badge/Ubuntu-E95420?style=for-the-badge\&logo=ubuntu\&logoColor=white)](https://github.com/batchar2/fptn/releases)
 [![Mac OS](https://img.shields.io/badge/mac%20os-000000?style=for-the-badge\&logo=macos\&logoColor=F0F0F0)](https://github.com/batchar2/fptn/releases)
@@ -394,6 +394,11 @@ conan profile detect --force
 Console version
 
 ```bash
+conan export ./.conan/recipes/boringssl/ --name=openssl --version=boringssl --user=local --channel=local
+
+# only for macos
+export CXXFLAGS="-Wno-vla-cxx-extension -Wno-error=vla-cxx-extension" 
+
 conan install . --output-folder=build --build=missing  -s compiler.cppstd=17 --settings build_type=Release
 cd build
 # only linux & macos

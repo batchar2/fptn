@@ -43,6 +43,8 @@ class CommandLineConfig {
   [[nodiscard]] std::string RemoteServerAuthHost() const;
   [[nodiscard]] int RemoteServerAuthPort() const;
 
+  [[nodiscard]] bool EnableDetectProbing() const;
+
  private:
   int argc_;
   char** argv_;

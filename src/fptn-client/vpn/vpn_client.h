@@ -8,6 +8,8 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include <memory>
 
+#include <openssl/base.h>  // NOLINT(build/include_order)
+
 #include "common/network/ip_packet.h"
 #include "common/network/net_interface.h"
 

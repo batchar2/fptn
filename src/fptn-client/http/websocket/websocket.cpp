@@ -23,7 +23,7 @@ Websocket::Websocket(pcpp::IPv4Address server_ip,
     NewIPPacketCallback new_ip_pkt_callback,
     std::string sni,
     std::string token)
-    : ctx_{boost::asio::ssl::context::tlsv12_client},
+    : ctx_(fptn::common::https::Client::CreateNewSslCtx()),
       resolver_(boost::asio::make_strand(ioc_)),
       ws_(boost::asio::make_strand(ioc_), ctx_),
       strand_(ioc_.get_executor()),
@@ -36,14 +36,11 @@ Websocket::Websocket(pcpp::IPv4Address server_ip,
       sni_(std::move(sni)),
       token_(std::move(token)) {
   SPDLOG_INFO("Init new connection: {}:{}", server_ip_.toString(), server_port);
-  ctx_.set_options(boost::asio::ssl::context::no_sslv2 |
-                   boost::asio::ssl::context::no_sslv3 |
-                   boost::asio::ssl::context::no_tlsv1 |
-                   boost::asio::ssl::context::no_tlsv1_1);
-  // set chrome ciphers
-  const std::string ciphers = fptn::common::https::ChromeCiphers();
-  SSL_CTX_set_cipher_list(ctx_.native_handle(), ciphers.c_str());
-  // SSL
+
+  fptn::common::https::Client::SetHandshakeSni(
+      ws_.next_layer().native_handle(), sni_);
+  fptn::common::https::Client::SetHandshakeSessionID(
+      ws_.next_layer().native_handle());
   ctx_.set_verify_mode(boost::asio::ssl::verify_none);
 }
 
@@ -70,8 +67,24 @@ bool Websocket::Stop() {
   const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
   running_ = false;
-  if (!ioc_.stopped()) {
-    ioc_.stop();
+
+  try {
+    boost::beast::get_lowest_layer(ws_).cancel();
+    if (ws_.is_open()) {
+      boost::beast::error_code ec;
+      ws_.close(boost::beast::websocket::close_code::normal, ec);
+      if (ec) {
+        SPDLOG_ERROR("WebSocket sync close error: {}", ec.message());
+      }
+    }
+    if (!ioc_.stopped()) {
+      ioc_.stop();
+    }
+  } catch (boost::system::system_error& err) {
+    SPDLOG_ERROR("Stop error: {}", err.what());
+    if (!ioc_.stopped()) {
+      ioc_.stop();
+    }
   }
   return true;
 }
@@ -101,13 +114,6 @@ void Websocket::onConnect(boost::beast::error_code ec,
     // Set a timeout on the operation
     boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::seconds(30));
 
-    // Set SNI Hostname (many hosts need this to handshake successfully)
-    if (!SSL_set_tlsext_host_name(
-            ws_.next_layer().native_handle(), sni_.c_str())) {
-      ec = boost::beast::error_code(static_cast<int>(::ERR_get_error()),
-          boost::asio::error::get_ssl_category());
-      return Fail(ec, "connect");
-    }
     ws_.text(false);
     ws_.binary(true);                  // Only binary
     ws_.auto_fragment(true);           // FIXME NEED CHECK
@@ -190,21 +196,17 @@ void Websocket::onRead(boost::beast::error_code ec, std::size_t transferred) {
 void Websocket::Fail(boost::beast::error_code ec, char const* what) {
   if (ec == boost::asio::error::operation_aborted) {
     SPDLOG_ERROR("fail: {} {}", what, ec.what());
-    if (!ws_.is_open()) {
-      SPDLOG_ERROR("Client is stopping");
-      if (!ioc_.stopped() && running_) {
-        ioc_.stop();
-      }
-      running_ = false;
-    }
+    Stop();
   } else {
     SPDLOG_ERROR("error: {} {}", what, ec.what());
   }
 }
 
 void Websocket::DoRead() {
-  ws_.async_read(buffer_,
-      boost::beast::bind_front_handler(&Websocket::onRead, shared_from_this()));
+  if (running_) {
+    ws_.async_read(buffer_, boost::beast::bind_front_handler(
+                                &Websocket::onRead, shared_from_this()));
+  }
 }
 
 bool Websocket::Send(fptn::common::network::IPPacketPtr packet) {

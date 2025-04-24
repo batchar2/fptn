@@ -14,7 +14,6 @@ class FPTN(ConanFile):
         "fmt/11.1.3",
         "boost/1.83.0",
         "argparse/3.1",
-        "openssl/3.2.2",
         "jwt-cpp/0.7.0",
         "spdlog/1.15.1",
         "protobuf/5.27.0",
@@ -60,9 +59,7 @@ class FPTN(ConanFile):
         "boost/*:without_random": False,
         "boost/*:without_iostreams": False,
         "boost/*:without_regex": False,
-
         "boost/*:without_zlib": False,
-
         "boost/*:without_python": True,
         "boost/*:without_chrono": True,
         "boost/*:without_contract": True,
@@ -87,6 +84,7 @@ class FPTN(ConanFile):
         "boost/*:without_wave": True,
         # --- Qt ---
         "qt/*:shared": True,
+        "qt/*:openssl": False,
         "qt/*:qttools": True,
         "qt/*:with_harfbuzz": False,
         "qt/*:with_mysql": False,
@@ -98,9 +96,15 @@ class FPTN(ConanFile):
         "qt/*:with_openal": False,
         "qt/*:with_gstreamer": False,
         "qt/*:with_pulseaudio": False,
+        # --- prometheuscpp dependency ---
+        "civetweb/*:with_ssl": False,
+        "prometheus-cpp/*:with_compression": False,
+        "prometheus-cpp/*:with_push": False,
     }
 
     def requirements(self):
+        # WE USE BORINGSSL
+        self.requires("openssl/boringssl@local/local", override=True, force=True)
         if self.options.with_gui_client:
             self.requires("qt/6.7.1")
         if self.settings.os != "Windows":

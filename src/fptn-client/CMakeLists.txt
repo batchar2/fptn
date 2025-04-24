@@ -22,9 +22,10 @@ find_package(OpenSSL REQUIRED)
 find_package(argparse REQUIRED)
 find_package(spdlog REQUIRED)
 find_package(fmt REQUIRED)
-find_package(CURL REQUIRED)
 find_package(PcapPlusPlus REQUIRED)
 find_package(Boost REQUIRED COMPONENTS random filesystem)
+
+#find_package(BoringSSL REQUIRED)
 
 find_package(ZLIB REQUIRED)
 
@@ -46,6 +47,7 @@ add_executable(
   routing/iptables.cpp
   config/config_file.cpp
   config/config_file.h)
+
 target_link_libraries(
   "${PROJECT_NAME}-cli"
   ZLIB::ZLIB

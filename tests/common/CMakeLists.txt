@@ -7,18 +7,25 @@ find_package(PcapPlusPlus REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(jwt-cpp REQUIRED)
 
-if (WIN32)
-    set(TUNTAP_LIB Wintun rpcrt4)
+if(WIN32)
+  set(TUNTAP_LIB Wintun rpcrt4)
 else()
-    set(TUNTAP_LIB tuntap++)
+  set(TUNTAP_LIB tuntap++)
 endif()
 
 set(LIBS
-    GTest::gtest GTest::gtest_main
-    Boost::boost OpenSSL::SSL OpenSSL::Crypto nlohmann_json::nlohmann_json jwt-cpp::jwt-cpp
-    spdlog::spdlog fmt::fmt PcapPlusPlus::PcapPlusPlus fptn_protocol
-    ${TUNTAP_LIB}
-)
+    GTest::gtest
+    GTest::gtest_main
+    Boost::boost
+    OpenSSL::SSL
+    OpenSSL::Crypto
+    nlohmann_json::nlohmann_json
+    jwt-cpp::jwt-cpp
+    spdlog::spdlog
+    fmt::fmt
+    PcapPlusPlus::PcapPlusPlus
+    fptn_protocol
+    ${TUNTAP_LIB})
 
 # --- Channel test ---
 add_executable(ChannelTest data/ChannelTest.cpp)

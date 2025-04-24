@@ -27,6 +27,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "web/server.h"
 
 namespace {
+
 void WaitForSignal() {
   boost::asio::io_context io_context;
   boost::asio::signal_set signals(io_context, SIGINT, SIGTERM /*, SIGQUIT*/);
@@ -100,7 +101,7 @@ int main(int argc, char* argv[]) {
     auto web_server = std::make_unique<fptn::web::Server>(config.ServerPort(),
         nat_table, user_manager, token_manager, prometheus,
         config.PrometheusAccessKey(), config.TunInterfaceIPv4(),
-        config.TunInterfaceIPv6());
+        config.TunInterfaceIPv6(), config.EnableDetectProbing());
 
     /* init packet filter */
     auto filter_manager = std::make_shared<fptn::filter::Manager>();
@@ -116,11 +117,6 @@ int main(int argc, char* argv[]) {
         config.TunInterfaceIPv6(), config.TunInterfaceNetworkIPv6Address(),
         config.TunInterfaceNetworkIPv6Mask()));
 
-    /* init vpn manager */
-    fptn::vpn::Manager manager(std::move(web_server),
-        std::move(virtual_network_interface), nat_table, filter_manager,
-        prometheus);
-
     SPDLOG_INFO(
         "\n--- Starting server---\n"
         "VERSION:           {}\n"
@@ -128,18 +124,20 @@ int main(int argc, char* argv[]) {
         "VPN NETWORK IPv4:  {}\n"
         "VPN NETWORK IPv6:  {}\n"
         "VPN SERVER PORT:   {}\n",
-        FPTN_VERSION, config.OutNetworkInterface(),
+        "DETECT_PROBING:    {}\n" FPTN_VERSION, config.OutNetworkInterface(),
         config.TunInterfaceNetworkIPv4Address().toString(),
-        config.TunInterfaceNetworkIPv6Address().toString(),
-        config.ServerPort());
+        config.TunInterfaceNetworkIPv6Address().toString(), config.ServerPort(),
+        config.EnableDetectProbing() ? "YES" : "NO");
+
+    // Init vpn manager
+    fptn::vpn::Manager manager(std::move(web_server),
+        std::move(virtual_network_interface), nat_table, filter_manager,
+        prometheus);
 
     /* start/wait/stop */
     manager.Start();
     WaitForSignal();
     manager.Stop();
-
-    spdlog::shutdown();
-
     return EXIT_SUCCESS;
   } catch (const std::exception& ex) {
     SPDLOG_ERROR("An error occurred: {}. Exiting...", ex.what());

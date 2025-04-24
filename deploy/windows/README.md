@@ -52,6 +52,10 @@ Remove-Item $env:USERPROFILE\AppData\Local\Microsoft\WindowsApps\Microsoft.Deskt
 
 Download and install [PowerShell](https://github.com/PowerShell/PowerShell/releases/download/v7.4.6/PowerShell-7.4.6-win-x64.msi)
 
+# Install NASM
+
+download and install [NASM](https://labs.bilimedtech.com/nasm/windows-install/2.html#download-netwide-assembler-nasm) and add it system PATH
+
 
 ### Add conanan 
 

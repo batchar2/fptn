@@ -1,13 +1,14 @@
 cmake_minimum_required(VERSION 3.16)
 project(
-  fptn
-  VERSION "${FPTN_VERSION}"
-  LANGUAGES CXX)
+        fptn
+        VERSION "${FPTN_VERSION}"
+        LANGUAGES CXX)
 
-set(FPTN_SERVER_PATH "${CMAKE_CURRENT_SOURCE_DIR}/src/fptn-server")
-
-enable_testing()
-
+# project settings
+set(CMAKE_INCLUDE_CURRENT_DIR ON)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+# Global project definitions
 add_compile_definitions(FPTN_VERSION=\"${FPTN_VERSION}\")
 add_compile_definitions(FPTN_MTU_SIZE=1500)
 add_compile_definitions(FPTN_DEFAULT_SNI=\"tv.telecom.kz\")
@@ -26,28 +27,17 @@ add_compile_definitions(FPTN_SERVER_DEFAULT_NET_ADDRESS_IP4=\"172.20.0.0\")
 add_compile_definitions(FPTN_GITHUB_USERNAME=\"batchar2\")
 add_compile_definitions(FPTN_GITHUB_REPOSITORY=\"fptn\")
 add_compile_definitions(FPTN_GITHUB_PAGE_LINK=\"https://batchar2.github.io/fptn/\")
-
-# enable ssl for cpphttp-lib
-add_compile_definitions(CPPHTTPLIB_OPENSSL_SUPPORT)
+# Boost
 add_compile_definitions(BOOST_IOSTREAMS_USE_BZIP2)
 add_compile_definitions(BOOST_IOSTREAMS_USE_ZLIB)
+# Fix boringssl build for windows
+add_definitions(-DNOMINMAX)
+add_definitions(-DWIN32_LEAN_AND_MEAN)
+# Minimize Windows headers and avoid NOMINMAX conflict (needed for BoringSSL)
+add_definitions(-DNOMINMAX)
+add_definitions(-DWIN32_LEAN_AND_MEAN)
 
-# cmake_policy(SET CMP0077 NEW)
-set(CMAKE_INCLUDE_CURRENT_DIR ON)
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-if(WIN32)
-  set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS TRUE)
-else()
-  # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Werror")
-  set(CMAKE_CXX_FLAGS "-Wall -Wextra")
-endif()
-if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Release)
-  set(CMAKE_CXX_FLAGS_DEBUG "-g")
-  set(CMAKE_CXX_FLAGS_RELEASE "-O3")
-endif()
+set(FPTN_SERVER_PATH "${CMAKE_CURRENT_SOURCE_DIR}/src/fptn-server")
 
 # -- depends: tuntap  ---
 if(APPLE OR UNIX)
@@ -57,6 +47,7 @@ elseif(WIN32)
 else()
   message(FATAL_ERROR "Unsupported platform")
 endif()
+
 # --- depends: base64 ---
 include(depends/cmake/FetchBase64.cmake)
 
@@ -71,6 +62,7 @@ include_directories(depends/)
 # --- project ---
 set(CMAKE_COMPILE_WARNING_AS_ERROR ON) # check all warnings!
 if(MSVC)
+  set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS TRUE)
   add_compile_options(/W4 /WX)
   # target_compile_options("/wd4996")  # Disable warning
 else()
@@ -81,8 +73,8 @@ endif()
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # search clang-tidy
 find_program(
-  CLANG_TIDY_EXE
-  NAMES clang-tidy-22
+        CLANG_TIDY_EXE
+        NAMES clang-tidy-22
         clang-tidy-21
         clang-tidy-20
         clang-tidy-19
@@ -93,9 +85,9 @@ find_program(
         clang-tidy)
 if(CLANG_TIDY_EXE)
   execute_process(
-    COMMAND ${CLANG_TIDY_EXE} --version
-    OUTPUT_VARIABLE CLANG_TIDY_VERSION_STRING
-    OUTPUT_STRIP_TRAILING_WHITESPACE)
+          COMMAND ${CLANG_TIDY_EXE} --version
+          OUTPUT_VARIABLE CLANG_TIDY_VERSION_STRING
+          OUTPUT_STRIP_TRAILING_WHITESPACE)
   message(STATUS "[CLANG-TIDY] clang-tidy version: ${CLANG_TIDY_VERSION_STRING}")
   if(CLANG_TIDY_VERSION_STRING MATCHES "version ([0-9]+)")
     set(CLANG_TIDY_VERSION ${CMAKE_MATCH_1})
@@ -128,51 +120,52 @@ endif()
 # --- packaging ---
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux") # deb
   add_custom_target(
-    build-deb
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    COMMAND
-      bash -c
-      "${CMAKE_CURRENT_SOURCE_DIR}/deploy/linux/deb/create-client-cli-deb-package.sh ${CMAKE_BINARY_DIR}/src/fptn-client/fptn-client-cli ${FPTN_VERSION}; ${CMAKE_CURRENT_SOURCE_DIR}/deploy/linux/deb/create-server-deb-package.sh ${CMAKE_BINARY_DIR}/src/fptn-server/fptn-server ${CMAKE_BINARY_DIR}/src/fptn-passwd/fptn-passwd ${FPTN_VERSION}"
-    COMMENT "Building .deb package"
-    VERBATIM)
+          build-deb
+          WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+          COMMAND
+          bash -c
+          "${CMAKE_CURRENT_SOURCE_DIR}/deploy/linux/deb/create-client-cli-deb-package.sh ${CMAKE_BINARY_DIR}/src/fptn-client/fptn-client-cli ${FPTN_VERSION}; ${CMAKE_CURRENT_SOURCE_DIR}/deploy/linux/deb/create-server-deb-package.sh ${CMAKE_BINARY_DIR}/src/fptn-server/fptn-server ${CMAKE_BINARY_DIR}/src/fptn-passwd/fptn-passwd ${FPTN_VERSION}"
+          COMMENT "Building .deb package"
+          VERBATIM)
   if("${FPTN_BUILD_WITH_GUI_CLIENT}")
     add_custom_target(
-      build-deb-gui
-      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-      COMMAND
-        bash -c
-        "${CMAKE_CURRENT_SOURCE_DIR}/deploy/linux/deb/create-client-gui-deb-package.sh ${CMAKE_BINARY_DIR}/src/fptn-client/fptn-client-gui ${CMAKE_CURRENT_SOURCE_DIR}/deploy/linux/deb/assets/FptnClient512x512.png ${FPTN_VERSION}"
-      COMMENT "Building .deb package"
-      VERBATIM)
+            build-deb-gui
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            COMMAND
+            bash -c
+            "${CMAKE_CURRENT_SOURCE_DIR}/deploy/linux/deb/create-client-gui-deb-package.sh ${CMAKE_BINARY_DIR}/src/fptn-client/fptn-client-gui ${CMAKE_CURRENT_SOURCE_DIR}/deploy/linux/deb/assets/FptnClient512x512.png ${FPTN_VERSION}"
+            COMMENT "Building .deb package"
+            VERBATIM)
   endif()
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin") # MacOS
   if("${FPTN_BUILD_WITH_GUI_CLIENT}")
     add_custom_target(
-      build-pkg
-      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-      COMMAND
-        bash -c
-        "${CMAKE_CURRENT_SOURCE_DIR}/deploy/macos/create-pkg.py --fptn-client-cli=${CMAKE_BINARY_DIR}/src/fptn-client/fptn-client-cli --fptn-client-gui=${CMAKE_BINARY_DIR}/src/fptn-client/fptn-client-gui  --version=${FPTN_VERSION}"
-      COMMENT "Building .dmg package"
-      VERBATIM)
+            build-pkg
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            COMMAND
+            bash -c
+            "${CMAKE_CURRENT_SOURCE_DIR}/deploy/macos/create-pkg.py --fptn-client-cli=${CMAKE_BINARY_DIR}/src/fptn-client/fptn-client-cli --fptn-client-gui=${CMAKE_BINARY_DIR}/src/fptn-client/fptn-client-gui  --version=${FPTN_VERSION}"
+            COMMENT "Building .dmg package"
+            VERBATIM)
   endif()
 elseif(WIN32)
   if("${FPTN_BUILD_WITH_GUI_CLIENT}")
     add_custom_target(
-      build-installer
-      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-      COMMAND ${CMAKE_COMMAND} -E echo "Building installer for Windows..."
-      COMMAND
-        python ${CMAKE_CURRENT_SOURCE_DIR}/deploy/windows/create-installer.py --wintun-dll=${CMAKE_BINARY_DIR}/wintun/wintun.dll
-        --fptn-client=${CMAKE_BINARY_DIR}/src/fptn-client/Release/fptn-client-gui.exe
-        --fptn-client-cli=${CMAKE_BINARY_DIR}/src/fptn-client/Release/fptn-client-cli.exe --output-folder=${CMAKE_CURRENT_SOURCE_DIR}
-        --version=${FPTN_VERSION}
-      COMMENT "Building .exe installer"
-      VERBATIM)
+            build-installer
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            COMMAND ${CMAKE_COMMAND} -E echo "Building installer for Windows..."
+            COMMAND
+            python ${CMAKE_CURRENT_SOURCE_DIR}/deploy/windows/create-installer.py --wintun-dll=${CMAKE_BINARY_DIR}/wintun/wintun.dll
+            --fptn-client=${CMAKE_BINARY_DIR}/src/fptn-client/Release/fptn-client-gui.exe
+            --fptn-client-cli=${CMAKE_BINARY_DIR}/src/fptn-client/Release/fptn-client-cli.exe --output-folder=${CMAKE_CURRENT_SOURCE_DIR}
+            --version=${FPTN_VERSION}
+            COMMENT "Building .exe installer"
+            VERBATIM)
   endif()
 else()
   message(FATAL_ERROR "Unsupported platform")
 endif()
 
 # --- tests ---
+enable_testing()
 add_subdirectory(tests)

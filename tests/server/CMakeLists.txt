@@ -8,19 +8,26 @@ find_package(nlohmann_json REQUIRED)
 find_package(jwt-cpp REQUIRED)
 find_package(prometheus-cpp REQUIRED)
 
-if (WIN32)
-    set(TUNTAP_LIB Wintun rpcrt4)
+if(WIN32)
+  set(TUNTAP_LIB Wintun rpcrt4)
 else()
-    set(TUNTAP_LIB tuntap++)
+  set(TUNTAP_LIB tuntap++)
 endif()
 
 set(LIBS
-    GTest::gtest GTest::gtest_main
-    Boost::boost OpenSSL::SSL OpenSSL::Crypto nlohmann_json::nlohmann_json jwt-cpp::jwt-cpp
-    spdlog::spdlog fmt::fmt PcapPlusPlus::PcapPlusPlus fptn_protocol
+    GTest::gtest
+    GTest::gtest_main
+    Boost::boost
+    OpenSSL::SSL
+    OpenSSL::Crypto
+    nlohmann_json::nlohmann_json
+    jwt-cpp::jwt-cpp
+    spdlog::spdlog
+    fmt::fmt
+    PcapPlusPlus::PcapPlusPlus
+    fptn_protocol
     prometheus-cpp::prometheus-cpp
-    ${TUNTAP_LIB}
-)
+    ${TUNTAP_LIB})
 
 include_directories(${FPTN_SERVER_PATH})
 
@@ -30,6 +37,7 @@ target_link_libraries(MetricTest ${LIBS})
 add_test(NAME MetricTest COMMAND MetricTest)
 
 # --- AntiScan test ---
-add_executable(AntiScanTest filter/antiscan/AntiScanTest.cpp ${FPTN_SERVER_PATH}/filter/filters/antiscan/antiscan.h ${FPTN_SERVER_PATH}/filter/filters/antiscan/antiscan.cpp)
+add_executable(AntiScanTest filter/antiscan/AntiScanTest.cpp ${FPTN_SERVER_PATH}/filter/filters/antiscan/antiscan.h
+                            ${FPTN_SERVER_PATH}/filter/filters/antiscan/antiscan.cpp)
 target_link_libraries(AntiScanTest ${LIBS})
 add_test(NAME AntiScanTest COMMAND AntiScanTest)
