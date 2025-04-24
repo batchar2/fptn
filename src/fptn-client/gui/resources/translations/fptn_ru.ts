@@ -235,5 +235,9 @@
             </translation>
         </message>
 
+        <message>
+            <source>Limited access servers</source>
+            <translation>Серверы с ограниченным доступом</translation>
+        </message>
     </context>
 </TS>
