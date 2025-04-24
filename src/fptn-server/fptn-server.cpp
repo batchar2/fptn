@@ -27,6 +27,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "web/server.h"
 
 namespace {
+
 void WaitForSignal() {
   boost::asio::io_context io_context;
   boost::asio::signal_set signals(io_context, SIGINT, SIGTERM /*, SIGQUIT*/);
@@ -116,11 +117,6 @@ int main(int argc, char* argv[]) {
         config.TunInterfaceIPv6(), config.TunInterfaceNetworkIPv6Address(),
         config.TunInterfaceNetworkIPv6Mask()));
 
-    /* init vpn manager */
-    fptn::vpn::Manager manager(std::move(web_server),
-        std::move(virtual_network_interface), nat_table, filter_manager,
-        prometheus);
-
     SPDLOG_INFO(
         "\n--- Starting server---\n"
         "VERSION:           {}\n"
@@ -133,13 +129,15 @@ int main(int argc, char* argv[]) {
         config.TunInterfaceNetworkIPv6Address().toString(), config.ServerPort(),
         config.EnableDetectProbing() ? "YES" : "NO");
 
+    // Init vpn manager
+    fptn::vpn::Manager manager(std::move(web_server),
+        std::move(virtual_network_interface), nat_table, filter_manager,
+        prometheus);
+
     /* start/wait/stop */
     manager.Start();
     WaitForSignal();
     manager.Stop();
-
-    spdlog::shutdown();
-
     return EXIT_SUCCESS;
   } catch (const std::exception& ex) {
     SPDLOG_ERROR("An error occurred: {}. Exiting...", ex.what());

@@ -214,25 +214,27 @@ boost::asio::awaitable<void> Server::RunSender() {
 }
 
 bool Server::Stop() {
-  running_ = false;
-  SPDLOG_INFO("Server stop");
+  if (running_) {
+    running_ = false;
+    SPDLOG_INFO("Server stop");
 
-  for (auto& session : sessions_) {
-    session.second->Close();
-  }
-
-  {
-    const std::unique_lock<std::mutex> lock(mutex_);
-    sessions_.clear();
-  }
-
-  ioc_.stop();
-  for (auto& th : ioc_threads_) {
-    if (th.joinable()) {
-      th.join();
+    for (auto& session : sessions_) {
+      if (session.second) {
+        session.second->Close();
+      }
     }
+    sessions_.clear();
+    if (!ioc_.stopped()) {
+      ioc_.stop();
+    }
+    for (auto& th : ioc_threads_) {
+      if (th.joinable()) {
+        th.join();
+      }
+    }
+    return true;
   }
-  return true;
+  return false;
 }
 
 void Server::Send(fptn::common::network::IPPacketPtr packet) {
@@ -357,8 +359,11 @@ bool Server::HandleWsOpenConnection(fptn::ClientID client_id,
             username, client_id, bandwidth_bites_seconds, client_ip.toString(),
             nat_session->FakeClientIPv4().toString(),
             nat_session->FakeClientIPv6().toString());
-        sessions_.insert({client_id, session});
-        return true;
+        if (running_) {
+          sessions_.insert({client_id, session});
+          return true;
+        }
+        return false;
       }
     } else {
       SPDLOG_WARN("WRONG TOKEN: {}", username);
@@ -376,7 +381,8 @@ void Server::HandleWsNewIPPacket(
 
 void Server::HandleWsCloseConnection(fptn::ClientID clientId) noexcept {
   SessionSPtr session;
-  {
+
+  if (running_) {
     const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
     auto it = sessions_.find(clientId);

@@ -96,6 +96,8 @@ class Session : public std::enable_shared_from_this<Session> {
   std::atomic<bool> running_;
   bool init_completed_;
   std::atomic<bool> full_queue_;
+
+  boost::asio::cancellation_signal cancel_signal_;
 };
 
 using SessionSPtr = std::shared_ptr<Session>;

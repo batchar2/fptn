@@ -289,13 +289,14 @@ boost::asio::awaitable<bool> Session::HandleProxy(
 boost::asio::awaitable<void> Session::RunReader() {
   boost::system::error_code ec;
   boost::beast::flat_buffer buffer;
+
+  auto token = boost::asio::redirect_error(boost::asio::use_awaitable, ec);
   while (running_) {
     try {
       // read
-      co_await ws_.async_read(
-          buffer, boost::asio::redirect_error(boost::asio::use_awaitable, ec));
+      co_await ws_.async_read(buffer, token);
       if (ec) {
-        break;
+          break;
       }
       // parse
       if (buffer.size() != 0) {
@@ -327,12 +328,14 @@ boost::asio::awaitable<void> Session::RunReader() {
     }
   }
   Close();
+  co_return;
 }
 
 boost::asio::awaitable<void> Session::RunSender() {
   boost::system::error_code ec;
 
-  auto token = boost::asio::redirect_error(boost::asio::use_awaitable, ec);
+  auto token = boost::asio::bind_cancellation_slot(cancel_signal_.slot(),
+      boost::asio::redirect_error(boost::asio::use_awaitable, ec));
 
   std::string msg;
   msg.reserve(4096);
@@ -341,7 +344,6 @@ boost::asio::awaitable<void> Session::RunSender() {
     // read
     auto packet = co_await write_channel_.async_receive(token);
     if (!running_ || !write_channel_.is_open() || ec) {
-      SPDLOG_ERROR("Session::runSender close, ec = {}", ec.value());
       break;
     }
     if (packet != nullptr) {
@@ -359,6 +361,7 @@ boost::asio::awaitable<void> Session::RunSender() {
       }
     }
   }
+  Close();
   co_return;
 }
 
@@ -478,10 +481,12 @@ void Session::Close() {
   if (!running_) {
     return;
   }
-
   const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
+  // close coroutines
   running_ = false;
+  // send signal to sender
+  cancel_signal_.emit(boost::asio::cancellation_type::all);
   write_channel_.close();
   try {
     boost::system::error_code ec;
@@ -501,7 +506,6 @@ void Session::Close() {
     if (client_id_ != MAX_CLIENT_ID && ws_close_callback_) {
       ws_close_callback_(client_id_);
     }
-    SPDLOG_INFO("--- close successful {} ---", client_id_);
   } catch (boost::system::system_error& err) {
     SPDLOG_ERROR("Session::close error: {}", err.what());
   } catch (...) {

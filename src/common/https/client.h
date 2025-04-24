@@ -15,7 +15,9 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include <fmt/format.h>  // NOLINT(build/include_order)
 #include <nlohmann/json.hpp>
+#include <openssl/evp.h>    // NOLINT(build/include_order)
 #include <openssl/rand.h>   // NOLINT(build/include_order)
+#include <openssl/sha.h>    // NOLINT(build/include_order)
 #include <openssl/ssl.h>    // NOLINT(build/include_order)
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 #include <zlib.h>           // NOLINT(build/include_order)
@@ -128,6 +130,49 @@ struct Response final {
 
 class Client final {
  public:
+  static std::string GetSHA1Hash(std::uint32_t number) {
+    EVP_MD_CTX* mdctx = EVP_MD_CTX_new();
+    if (!mdctx) {
+      return {};
+    }
+
+    const EVP_MD* md = EVP_get_digestbyname("SHA1");
+    if (!md) {
+      EVP_MD_CTX_free(mdctx);
+      return {};
+    }
+
+    if (!EVP_DigestInit_ex(mdctx, md, nullptr)) {
+      EVP_MD_CTX_free(mdctx);
+      return {};
+    }
+
+    if (!EVP_DigestUpdate(mdctx, &number, sizeof(number))) {
+      EVP_MD_CTX_free(mdctx);
+      return {};
+    }
+
+    unsigned int outlen = 0;
+    unsigned char buffer[EVP_MAX_MD_SIZE] = {0};
+    if (!EVP_DigestFinal_ex(mdctx, buffer, &outlen)) {
+      EVP_MD_CTX_free(mdctx);
+      return {};
+    }
+    EVP_MD_CTX_free(mdctx);
+    return std::string(reinterpret_cast<const char*>(buffer), outlen);
+  }
+
+  static std::string GenerateFptnKey(std::uint32_t timestamp) {
+    std::string result = GetSHA1Hash(htonl(timestamp));
+    if (result.size() > 4) {  //  key len
+      return result.substr(0, 4);
+    }
+    throw boost::beast::system_error(
+        boost::beast::error_code(static_cast<int>(::ERR_get_error()),
+            boost::asio::error::get_ssl_category()),
+        "Error generate Session ID");
+  }
+
   static bool SetHandshakeSessionID(SSL* ssl) {
     // random
     constexpr int kSessionLen = 32;
@@ -138,38 +183,36 @@ class Client final {
     // copy timestamp
     const auto seconds = std::chrono::duration_cast<std::chrono::seconds>(
         std::chrono::system_clock::now().time_since_epoch());
-    const std::uint32_t timestamp =
-        htonl(static_cast<std::uint32_t>(seconds.count()));
-    std::memcpy(&session_id[kSessionLen - sizeof(timestamp)], &timestamp,
-        sizeof(timestamp));
+    const auto timestamp = static_cast<std::uint32_t>(seconds.count());
+    const std::string key = GenerateFptnKey(timestamp);
 
-    if (0 == ::SSL_set_tls_hello_custom_session_id(
-                 ssl, session_id, sizeof(session_id))) {
-      return false;
-    }
-    return true;
+    std::memcpy(&session_id[kSessionLen - key.size()], key.c_str(), key.size());
+
+    return 0 != ::SSL_set_tls_hello_custom_session_id(
+                    ssl, session_id, sizeof(session_id));
   }
 
   static bool IsFptnClientSessionID(
       const std::uint8_t* session, std::size_t session_len) {
-    // Extract the last 4 bytes of the session as an int32 (network byte order)
-    std::uint32_t ntime = 0;
-    std::memcpy(&ntime, &session[session_len - sizeof(ntime)], sizeof(ntime));
-    // Convert from network byte order to host byte order
-    const std::uint32_t client_timestamp = ntohl(ntime);
+    char data[4] = {0};
+    std::memcpy(&data, &session[session_len - sizeof(data)], sizeof(data));
 
-    // Get the current time in seconds since the epoch
+    const std::string recv_key(data, sizeof(data));
+
     const auto now = std::chrono::system_clock::now();
     const auto now_seconds =
         std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch())
             .count();
     const auto now_timestamp = static_cast<std::uint32_t>(now_seconds);
 
-    // Consider valid if the timestamp is not in the future
-    // and the difference is no more than 3 seconds
-    constexpr int kTimeGapSeconds = 3;
-    return (client_timestamp <= now_timestamp &&
-            client_timestamp + kTimeGapSeconds >= now_timestamp);
+    constexpr std::uint32_t kTimeShiftSeconds = 3;
+    for (std::uint32_t shift = 0; shift <= kTimeShiftSeconds; shift++) {
+      const std::string key = GenerateFptnKey(now_timestamp - shift);
+      if (recv_key == key) {
+        return true;
+      }
+    }
+    return false;
   }
 
   static bool SetHandshakeSni(SSL* ssl, const std::string& sni) {
@@ -413,10 +456,10 @@ class Client final {
   }
 
  protected:
-  std::string DecompressGzip(const std::string& compressed) {
-    constexpr size_t CHUNK_SIZE = 4096;
+  static std::string DecompressGzip(const std::string& compressed) {
+    constexpr size_t kChunkSize = 4096;
 
-    std::vector<char> buffer(CHUNK_SIZE);
+    std::vector<char> buffer(kChunkSize);
 
     z_stream strm{};
     strm.next_in =
