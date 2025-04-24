@@ -67,8 +67,24 @@ bool Websocket::Stop() {
   const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
   running_ = false;
-  if (!ioc_.stopped()) {
-    ioc_.stop();
+
+  try {
+    boost::beast::get_lowest_layer(ws_).cancel();
+    if (ws_.is_open()) {
+      boost::beast::error_code ec;
+      ws_.close(boost::beast::websocket::close_code::normal, ec);
+      if (ec) {
+        SPDLOG_ERROR("WebSocket sync close error: {}", ec.message());
+      }
+    }
+    if (!ioc_.stopped()) {
+      ioc_.stop();
+    }
+  } catch (boost::system::system_error& err) {
+    SPDLOG_ERROR("Stop error: {}", err.what());
+    if (!ioc_.stopped()) {
+      ioc_.stop();
+    }
   }
   return true;
 }
@@ -180,21 +196,17 @@ void Websocket::onRead(boost::beast::error_code ec, std::size_t transferred) {
 void Websocket::Fail(boost::beast::error_code ec, char const* what) {
   if (ec == boost::asio::error::operation_aborted) {
     SPDLOG_ERROR("fail: {} {}", what, ec.what());
-    if (!ws_.is_open()) {
-      SPDLOG_ERROR("Client is stopping");
-      if (!ioc_.stopped() && running_) {
-        ioc_.stop();
-      }
-      running_ = false;
-    }
+    Stop();
   } else {
     SPDLOG_ERROR("error: {} {}", what, ec.what());
   }
 }
 
 void Websocket::DoRead() {
-  ws_.async_read(buffer_,
-      boost::beast::bind_front_handler(&Websocket::onRead, shared_from_this()));
+  if (running_) {
+    ws_.async_read(buffer_, boost::beast::bind_front_handler(
+                                &Websocket::onRead, shared_from_this()));
+  }
 }
 
 bool Websocket::Send(fptn::common::network::IPPacketPtr packet) {
