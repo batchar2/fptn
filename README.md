@@ -1,5 +1,3 @@
--DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake#  FPTN  
-
 [![Ubuntu](https://img.shields.io/badge/Ubuntu-E95420?style=for-the-badge\&logo=ubuntu\&logoColor=white)](https://github.com/batchar2/fptn/releases)
 [![Mac OS](https://img.shields.io/badge/mac%20os-000000?style=for-the-badge\&logo=macos\&logoColor=F0F0F0)](https://github.com/batchar2/fptn/releases)
 [![Windows](https://img.shields.io/badge/Windows-0078D6?style=for-the-badge\&logo=windows\&logoColor=white)](https://github.com/batchar2/fptn/releases)
