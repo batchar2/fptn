@@ -26,7 +26,6 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <openssl/x509.h>  // NOLINT(build/include_order)
 
 #include "common/jwt_token/token_manager.h"
-#include "common/protobuf/protocol.h"
 
 #include "web/api/handle.h"
 

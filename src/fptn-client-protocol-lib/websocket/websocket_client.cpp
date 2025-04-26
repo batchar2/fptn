@@ -4,26 +4,26 @@ Copyright (c) 2024-2025 Stas Skokov
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
 
-#include "http/websocket/websocket.h"
+#include "websocket/websocket_client.h"
 
 #include <string>
 #include <utility>
 
-#include <spdlog/spdlog.h>  // NOLINT(build/include_order)
+#include <spdlog/spdlog.h>  // NOLINT(bui
 
-#include "common/https/client.h"
-#include "common/protobuf/protocol.h"
+#include "https/https_client.h"
+#include "protobuf/protocol.h"
 
-using fptn::http::Websocket;
+using fptn::client::protocol::lib::websocket::WebsocketClient;
 
-Websocket::Websocket(pcpp::IPv4Address server_ip,
+WebsocketClient::WebsocketClient(pcpp::IPv4Address server_ip,
     int server_port,
     pcpp::IPv4Address tun_interface_address_ipv4,
     pcpp::IPv6Address tun_interface_address_ipv6,
     NewIPPacketCallback new_ip_pkt_callback,
     std::string sni,
     std::string token)
-    : ctx_(fptn::common::https::Client::CreateNewSslCtx()),
+    : ctx_(fptn::client::protocol::lib::https::HttpsClient::CreateNewSslCtx()),
       resolver_(boost::asio::make_strand(ioc_)),
       ws_(boost::asio::make_strand(ioc_), ctx_),
       strand_(ioc_.get_executor()),
@@ -35,16 +35,17 @@ Websocket::Websocket(pcpp::IPv4Address server_ip,
       new_ip_pkt_callback_(std::move(new_ip_pkt_callback)),
       sni_(std::move(sni)),
       token_(std::move(token)) {
-  SPDLOG_INFO("Init new connection: {}:{}", server_ip_.toString(), server_port);
+  //  SPDLOG_INFO("Init new connection: {}:{}", server_ip_.toString(),
+  //  server_port);
 
-  fptn::common::https::Client::SetHandshakeSni(
+  fptn::client::protocol::lib::https::HttpsClient::SetHandshakeSni(
       ws_.next_layer().native_handle(), sni_);
-  fptn::common::https::Client::SetHandshakeSessionID(
+  fptn::client::protocol::lib::https::HttpsClient::SetHandshakeSessionID(
       ws_.next_layer().native_handle());
   ctx_.set_verify_mode(boost::asio::ssl::verify_none);
 }
 
-void Websocket::Run() {
+void WebsocketClient::Run() {
   const std::string port_str = std::to_string(server_port_);
   auto self = shared_from_this();
   resolver_.async_resolve(server_ip_.toString(), port_str,
@@ -63,7 +64,7 @@ void Websocket::Run() {
   running_ = false;
 }
 
-bool Websocket::Stop() {
+bool WebsocketClient::Stop() {
   const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
   running_ = false;
@@ -73,15 +74,15 @@ bool Websocket::Stop() {
     if (ws_.is_open()) {
       boost::beast::error_code ec;
       ws_.close(boost::beast::websocket::close_code::normal, ec);
-      if (ec) {
-        SPDLOG_ERROR("WebSocket sync close error: {}", ec.message());
-      }
+      //      if (ec) {
+      //        SPDLOG_ERROR("WebSocket sync close error: {}", ec.message());
+      //      }
     }
     if (!ioc_.stopped()) {
       ioc_.stop();
     }
   } catch (boost::system::system_error& err) {
-    SPDLOG_ERROR("Stop error: {}", err.what());
+    //    SPDLOG_ERROR("Stop error: {}", err.what());
     if (!ioc_.stopped()) {
       ioc_.stop();
     }
@@ -89,7 +90,7 @@ bool Websocket::Stop() {
   return true;
 }
 
-void Websocket::onResolve(boost::beast::error_code ec,
+void WebsocketClient::onResolve(boost::beast::error_code ec,
     // NOLINTNEXTLINE(performance-unnecessary-value-param)
     boost::asio::ip::tcp::resolver::results_type results) {
   if (ec) {
@@ -100,10 +101,10 @@ void Websocket::onResolve(boost::beast::error_code ec,
   // Make the connection on the IP address we get from a lookup
   boost::beast::get_lowest_layer(ws_).async_connect(
       results, boost::beast::bind_front_handler(
-                   &Websocket::onConnect, shared_from_this()));
+                   &WebsocketClient::onConnect, shared_from_this()));
 }
 
-void Websocket::onConnect(boost::beast::error_code ec,
+void WebsocketClient::onConnect(boost::beast::error_code ec,
     // NOLINTNEXTLINE(performance-unnecessary-value-param)
     boost::asio::ip::tcp::resolver::results_type::endpoint_type) {
   if (ec) {
@@ -125,14 +126,14 @@ void Websocket::onConnect(boost::beast::error_code ec,
 
     ws_.next_layer().async_handshake(boost::asio::ssl::stream_base::client,
         boost::beast::bind_front_handler(
-            &Websocket::onSslHandshake, shared_from_this()));
+            &WebsocketClient::onSslHandshake, shared_from_this()));
   } catch (boost::system::system_error& err) {
     SPDLOG_ERROR("onConnect error: {}", err.what());
     Stop();
   }
 }
 
-void Websocket::onSslHandshake(boost::beast::error_code ec) {
+void WebsocketClient::onSslHandshake(boost::beast::error_code ec) {
   if (ec) {
     return Fail(ec, "onSslHandshake");
   }
@@ -148,8 +149,9 @@ void Websocket::onSslHandshake(boost::beast::error_code ec) {
   ws_.set_option(boost::beast::websocket::stream_base::decorator(
       [this](boost::beast::websocket::request_type& req) {
         // set browser headers
+        using fptn::client::protocol::lib::https::HttpsClient;
         const auto headers =
-            fptn::common::https::RealBrowserHeaders(sni_, server_port_);
+            HttpsClient::RealBrowserHeaders(sni_, server_port_);
         for (const auto& [key, value] : headers) {
           req.set(key, value);
         }
@@ -164,10 +166,10 @@ void Websocket::onSslHandshake(boost::beast::error_code ec) {
   // Perform the websocket handshake
   ws_.async_handshake(server_ip_.toString(), "/fptn",
       boost::beast::bind_front_handler(
-          &Websocket::onHandshake, shared_from_this()));
+          &WebsocketClient::onHandshake, shared_from_this()));
 }
 
-void Websocket::onHandshake(boost::beast::error_code ec) {
+void WebsocketClient::onHandshake(boost::beast::error_code ec) {
   if (ec) {
     return Fail(ec, "onHandshake");
   }
@@ -176,14 +178,16 @@ void Websocket::onHandshake(boost::beast::error_code ec) {
   DoRead();
 }
 
-void Websocket::onRead(boost::beast::error_code ec, std::size_t transferred) {
+void WebsocketClient::onRead(
+    boost::beast::error_code ec, std::size_t transferred) {
   if (ec) {
     return Fail(ec, "read");
   }
   if (running_) {
     // FIXME REDUNDANT COPY
     const auto data = boost::beast::buffers_to_string(buffer_.data());
-    std::string raw = fptn::common::protobuf::protocol::GetProtoPayload(data);
+    std::string raw =
+        fptn::client::protocol::lib::protobuf::GetProtoPayload(data);
     auto packet = fptn::common::network::IPPacket::Parse(std::move(raw));
     if (packet) {
       new_ip_pkt_callback_(std::move(packet));
@@ -193,7 +197,7 @@ void Websocket::onRead(boost::beast::error_code ec, std::size_t transferred) {
   }
 }
 
-void Websocket::Fail(boost::beast::error_code ec, char const* what) {
+void WebsocketClient::Fail(boost::beast::error_code ec, char const* what) {
   if (ec == boost::asio::error::operation_aborted) {
     SPDLOG_ERROR("fail: {} {}", what, ec.what());
     Stop();
@@ -202,14 +206,14 @@ void Websocket::Fail(boost::beast::error_code ec, char const* what) {
   }
 }
 
-void Websocket::DoRead() {
+void WebsocketClient::DoRead() {
   if (running_) {
     ws_.async_read(buffer_, boost::beast::bind_front_handler(
-                                &Websocket::onRead, shared_from_this()));
+                                &WebsocketClient::onRead, shared_from_this()));
   }
 }
 
-bool Websocket::Send(fptn::common::network::IPPacketPtr packet) {
+bool WebsocketClient::Send(fptn::common::network::IPPacketPtr packet) {
   if (out_queue_.size() < out_queue_max_size_ && running_) {
     boost::asio::post(strand_,
         [self = shared_from_this(), msg = std::move(packet)]() mutable {
@@ -226,18 +230,19 @@ bool Websocket::Send(fptn::common::network::IPPacketPtr packet) {
   return false;
 }
 
-void Websocket::DoWrite() {
+void WebsocketClient::DoWrite() {
   try {
     if (!out_queue_.empty() && running_) {
       // PACK DATA
       fptn::common::network::IPPacketPtr packet = std::move(out_queue_.front());
       const std::string msg =
-          fptn::common::protobuf::protocol::CreateProtoPacket(
+          fptn::client::protocol::lib::protobuf::CreateProtoPayload(
               std::move(packet));
       const boost::asio::const_buffer buffer(msg.data(), msg.size());
 
-      ws_.async_write(buffer, boost::beast::bind_front_handler(
-                                  &Websocket::onWrite, shared_from_this()));
+      ws_.async_write(
+          buffer, boost::beast::bind_front_handler(
+                      &WebsocketClient::onWrite, shared_from_this()));
     }
   } catch (boost::system::system_error& err) {
     SPDLOG_ERROR("doWrite system_error: {}", err.what());
@@ -246,7 +251,7 @@ void Websocket::DoWrite() {
   }
 }
 
-void Websocket::onWrite(boost::beast::error_code ec, std::size_t) {
+void WebsocketClient::onWrite(boost::beast::error_code ec, std::size_t) {
   if (ec) {
     return Fail(ec, "onWrite");
   }
@@ -261,4 +266,4 @@ void Websocket::onWrite(boost::beast::error_code ec, std::size_t) {
   }
 }
 
-bool Websocket::IsStarted() { return running_; }
+bool WebsocketClient::IsStarted() { return running_; }

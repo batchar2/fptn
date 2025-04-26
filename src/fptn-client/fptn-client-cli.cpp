@@ -121,7 +121,7 @@ int main(int argc, char* argv[]) {
     /* check config */
     const auto access_token = args.get<std::string>("--access-token");
     fptn::config::ConfigFile config(access_token, sni);
-    fptn::config::ConfigFile::Server selected_server;
+    fptn::client::protocol::lib::server::Server selected_server;
     try {
       config.Parse();
       selected_server = config.FindFastestServer();

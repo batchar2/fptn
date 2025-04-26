@@ -10,47 +10,29 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <utility>
 #include <vector>
 
+#include "fptn-client-protocol-lib/server/speed_estimator.h"
+
 namespace fptn::config {
 class ConfigFile final {
- public:
-  struct Server {
-    std::string name;
-    std::string host;
-    int port;
-    bool is_using;
-
-    // FIX USING FOR CLI
-    std::string username;
-    std::string password;
-    std::string service_name;
-
-    Server() : port(0), is_using(false) {}
-
-    Server(std::string _name, std::string _host, int _port)
-        : name(std::move(_name)),
-          host(std::move(_host)),
-          port(_port),
-          is_using(false) {}
-  };
-
  public:
   explicit ConfigFile(std::string sni);
   explicit ConfigFile(std::string token, std::string sni);
 
   bool Parse();
-  Server FindFastestServer() const;
-  bool AddServer(const Server& s);
+  fptn::client::protocol::lib::server::Server FindFastestServer() const;
+  std::uint64_t GetDownloadTimeMs(
+      fptn::client::protocol::lib::server::Server const& server,
+      const std::string& sni,
+      int const timeout);
 
- public:
+  bool AddServer(const fptn::client::protocol::lib::server::Server& s);
+
   int GetVersion() const noexcept;
   const std::string& GetServiceName() const noexcept;
   const std::string& GetUsername() const noexcept;
   const std::string& GetPassword() const noexcept;
-  const std::vector<Server>& GetServers() const noexcept;
-
- public:
-  std::uint64_t GetDownloadTimeMs(
-      const Server& server, int timeout = 4) const noexcept;
+  const std::vector<fptn::client::protocol::lib::server::Server>& GetServers()
+      const noexcept;
 
  private:
   const std::string token_;
@@ -60,6 +42,6 @@ class ConfigFile final {
   std::string service_name_;
   std::string username_;
   std::string password_;
-  std::vector<Server> servers_;
+  std::vector<fptn::client::protocol::lib::server::Server> servers_;
 };
 }  // namespace fptn::config

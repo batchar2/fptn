@@ -51,10 +51,6 @@ endif()
 # --- depends: base64 ---
 include(depends/cmake/FetchBase64.cmake)
 
-# --- protobuf ---
-include_directories(${CMAKE_BINARY_DIR}/depends/protobuf/fptn_protocol/)
-add_subdirectory(depends/protobuf)
-
 # --- include ---
 include_directories(src/)
 include_directories(depends/)
@@ -108,8 +104,8 @@ if(APPLE OR UNIX)
   add_subdirectory(src/fptn-server)
   add_subdirectory(src/fptn-passwd)
 endif()
+add_subdirectory(src/fptn-client-protocol-lib)
 add_subdirectory(src/fptn-client)
-
 # --- install ---
 install(TARGETS fptn-client-cli DESTINATION bin)
 if(APPLE OR UNIX)

@@ -24,13 +24,17 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <pcapplusplus/SSLLayer.h>      // NOLINT(build/include_order)
 #include <spdlog/spdlog.h>              // NOLINT(build/include_order)
 
-#include "common/https/client.h"
+#include "fptn-client-protocol-lib/https/https_client.h"
+#include "fptn-client-protocol-lib/protobuf/protocol.h"
 
 namespace {
 std::atomic<fptn::ClientID> client_id = 0;
 }
 
+using fptn::client::protocol::lib::https::HttpsClient;
 using fptn::web::Session;
+
+namespace fptn_protocol = fptn::client::protocol::lib::protobuf;
 
 Session::Session(std::uint16_t port,
     bool enable_detect_probing,
@@ -205,8 +209,7 @@ boost::asio::awaitable<Session::ProbingResult> Session::DetectProbing() {
   std::memcpy(session_id, hello->getSessionID(), session_len);
 
   // Check Session ID
-  if (!fptn::common::https::Client::IsFptnClientSessionID(
-          session_id, session_len)) {
+  if (!HttpsClient::IsFptnClientSessionID(session_id, session_len)) {
     SPDLOG_ERROR("Session ID does not match FPTN client format");
     co_return ProbingResult{
         .is_probing = true, .sni = sni, .should_close = false};
@@ -296,13 +299,12 @@ boost::asio::awaitable<void> Session::RunReader() {
       // read
       co_await ws_.async_read(buffer, token);
       if (ec) {
-          break;
+        break;
       }
       // parse
       if (buffer.size() != 0) {
         std::string rawdata = boost::beast::buffers_to_string(buffer.data());
-        std::string rawip = fptn::common::protobuf::protocol::GetProtoPayload(
-            std::move(rawdata));
+        std::string rawip = fptn_protocol::GetProtoPayload(std::move(rawdata));
         auto packet = fptn::common::network::IPPacket::Parse(
             std::move(rawip), client_id_);
         if (packet != nullptr && ws_new_ippacket_callback_) {
@@ -310,12 +312,11 @@ boost::asio::awaitable<void> Session::RunReader() {
         }
         buffer.consume(buffer.size());  // flush
       }
-    } catch (const fptn::common::protobuf::protocol::ProcessingError& err) {
+    } catch (const fptn_protocol::ProcessingError& err) {
       SPDLOG_ERROR("Session::runReader Processing error: {}", err.what());
-    } catch (const fptn::common::protobuf::protocol::MessageError& err) {
+    } catch (const fptn_protocol::MessageError& err) {
       SPDLOG_ERROR("Session::runReader Message error: {}", err.what());
-    } catch (const fptn::common::protobuf::protocol::UnsoportedProtocolVersion&
-            err) {
+    } catch (const fptn_protocol::UnsupportedProtocolVersion& err) {
       SPDLOG_ERROR(
           "Session::runReader Unsupported protocol version: {}", err.what());
     } catch (boost::system::system_error& err) {
@@ -348,8 +349,7 @@ boost::asio::awaitable<void> Session::RunSender() {
     }
     if (packet != nullptr) {
       // send
-      msg = fptn::common::protobuf::protocol::CreateProtoPacket(
-          std::move(packet));
+      msg = fptn_protocol::CreateProtoPayload(std::move(packet));
       if (!msg.empty()) {
         co_await ws_.async_write(
             boost::asio::buffer(msg.data(), msg.size()), token);
@@ -415,7 +415,7 @@ boost::asio::awaitable<bool> Session::HandleHttp(
   resp.set(boost::beast::http::field::expires, "Fri, 07 Jun 1974 04:00:00 GMT");
   resp.set("x_bitrix_composite", "Cache (200)");
 
-  const ApiHandle handler = getApiHandle(api_handles_, url, method);
+  const ApiHandle handler = GetApiHandle(api_handles_, url, method);
   if (handler) {
     int status = handler(request, resp);
     resp.result(status);

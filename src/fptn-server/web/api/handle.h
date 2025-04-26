@@ -41,7 +41,7 @@ inline void AddApiHandle(ApiHandleMap& m,
   m[key] = handle;
 }
 
-inline ApiHandle getApiHandle(const ApiHandleMap& m,
+inline ApiHandle GetApiHandle(const ApiHandleMap& m,
     const std::string& url,
     const std::string& method) noexcept {
   const std::string key = GetApiKey(url, method);
