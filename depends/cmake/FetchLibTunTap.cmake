@@ -14,7 +14,9 @@ set(Libtuntap_BINARY_DIR "${CMAKE_BINARY_DIR}/_deps/libtuntap-build")
 set(Libtuntap_INCLUDE_DIR "${Libtuntap_BINARY_DIR}/include")
 
 set(BUILD_TESTING OFF)
-set(LIBTUNTAP_BUILD_TESTS OFF CACHE BOOL "Disable libtuntap tests")
+set(LIBTUNTAP_BUILD_TESTS
+    OFF
+    CACHE BOOL "Disable libtuntap tests")
 add_subdirectory("${Libtuntap_SOURCE_DIR}" "${Libtuntap_BINARY_DIR}" EXCLUDE_FROM_ALL)
 include_directories("${Libtuntap_SOURCE_DIR}/libtuntap/")
 include_directories("${Libtuntap_SOURCE_DIR}/libtuntap/bindings/cpp")

@@ -74,7 +74,7 @@ set(FPTN_CLIENT_PROTOCOL_SOURCES
     https/https_client.cpp
     protobuf/protocol.h
     protobuf/protocol.cpp
-        server/server_info.h
+    server/server_info.h
     server/speed_estimator.h
     server/speed_estimator.cpp
     websocket/websocket_client.h
