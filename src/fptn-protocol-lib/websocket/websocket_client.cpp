@@ -81,7 +81,8 @@ bool WebsocketClient::Stop() {
     if (!ioc_.stopped()) {
       ioc_.stop();
     }
-  } catch (boost::system::system_error& err) {
+  } catch (const boost::system::system_error& err) {
+    (void)err;
     //    SPDLOG_ERROR("Stop error: {}", err.what());
     if (!ioc_.stopped()) {
       ioc_.stop();
