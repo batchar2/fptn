@@ -1,4 +1,4 @@
-project(fptn-client-protocol-lib LANGUAGES CXX)
+project(fptn-protocol-lib LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -50,7 +50,7 @@ if(CONAN_INCLUDE_DIRS_PROTOBUF)
   include_directories(${CONAN_INCLUDE_DIRS_PROTOBUF})
 endif()
 include_directories(${SOURCE_DIR} ${INCLUDE_DIR} ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_BINARY_DIR}/fptn_protocol)
-include_directories(${CMAKE_BINARY_DIR}/depends/protobuf/fptn_protocol/)
+include_directories(${CMAKE_BINARY_DIR}/src/fptn-protocol-lib/protobuf)
 
 # Generate C++ source and header files from the .proto files
 set(protobuf_files protobuf/protocol.proto)
@@ -59,7 +59,7 @@ protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ${protobuf_files})
 # --- disable clang-tidy for protobuf generated code ---
 set_source_files_properties($<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/protocol.pb.h> PROPERTIES SKIP_CLANG_TIDY ON)
 set_source_files_properties($<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/protocol.pb.сс> PROPERTIES SKIP_CLANG_TIDY ON)
-set(DISABLE_TIDY_DIR "${CMAKE_BINARY_DIR}/src/fptn-client-protocol-lib/protobuf/")
+set(DISABLE_TIDY_DIR "${CMAKE_BINARY_DIR}/src/fptn-protocol-lib/protobuf/")
 file(MAKE_DIRECTORY "${DISABLE_TIDY_DIR}")
 file(
   WRITE "${DISABLE_TIDY_DIR}/.clang-tidy"
@@ -74,7 +74,7 @@ set(FPTN_CLIENT_PROTOCOL_SOURCES
     https/https_client.cpp
     protobuf/protocol.h
     protobuf/protocol.cpp
-    server/server.h
+        server/server_info.h
     server/speed_estimator.h
     server/speed_estimator.cpp
     websocket/websocket_client.h

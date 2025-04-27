@@ -24,17 +24,15 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <pcapplusplus/SSLLayer.h>      // NOLINT(build/include_order)
 #include <spdlog/spdlog.h>              // NOLINT(build/include_order)
 
-#include "fptn-client-protocol-lib/https/https_client.h"
-#include "fptn-client-protocol-lib/protobuf/protocol.h"
+#include "fptn-protocol-lib/https/https_client.h"
+#include "fptn-protocol-lib/protobuf/protocol.h"
 
 namespace {
 std::atomic<fptn::ClientID> client_id = 0;
 }
 
-using fptn::client::protocol::lib::https::HttpsClient;
+using fptn::protocol::https::HttpsClient;
 using fptn::web::Session;
-
-namespace fptn_protocol = fptn::client::protocol::lib::protobuf;
 
 Session::Session(std::uint16_t port,
     bool enable_detect_probing,
@@ -285,7 +283,6 @@ boost::asio::awaitable<bool> Session::HandleProxy(
   } catch (const std::exception& e) {
     SPDLOG_ERROR("Proxy error: {}", e.what());
   }
-
   co_return false;
 }
 
@@ -304,7 +301,8 @@ boost::asio::awaitable<void> Session::RunReader() {
       // parse
       if (buffer.size() != 0) {
         std::string rawdata = boost::beast::buffers_to_string(buffer.data());
-        std::string rawip = fptn_protocol::GetProtoPayload(std::move(rawdata));
+        std::string rawip =
+            fptn::protocol::protobuf::GetProtoPayload(std::move(rawdata));
         auto packet = fptn::common::network::IPPacket::Parse(
             std::move(rawip), client_id_);
         if (packet != nullptr && ws_new_ippacket_callback_) {
@@ -312,11 +310,11 @@ boost::asio::awaitable<void> Session::RunReader() {
         }
         buffer.consume(buffer.size());  // flush
       }
-    } catch (const fptn_protocol::ProcessingError& err) {
+    } catch (const fptn::protocol::protobuf::ProcessingError& err) {
       SPDLOG_ERROR("Session::runReader Processing error: {}", err.what());
-    } catch (const fptn_protocol::MessageError& err) {
+    } catch (const fptn::protocol::protobuf::MessageError& err) {
       SPDLOG_ERROR("Session::runReader Message error: {}", err.what());
-    } catch (const fptn_protocol::UnsupportedProtocolVersion& err) {
+    } catch (const fptn::protocol::protobuf::UnsupportedProtocolVersion& err) {
       SPDLOG_ERROR(
           "Session::runReader Unsupported protocol version: {}", err.what());
     } catch (boost::system::system_error& err) {
@@ -349,7 +347,7 @@ boost::asio::awaitable<void> Session::RunSender() {
     }
     if (packet != nullptr) {
       // send
-      msg = fptn_protocol::CreateProtoPayload(std::move(packet));
+      msg = fptn::protocol::protobuf::CreateProtoPayload(std::move(packet));
       if (!msg.empty()) {
         co_await ws_.async_write(
             boost::asio::buffer(msg.data(), msg.size()), token);

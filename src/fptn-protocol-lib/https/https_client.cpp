@@ -4,7 +4,7 @@ Copyright (c) 2024-2025 Stas Skokov
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
 
-#include "https/https_client.h"
+#include "fptn-protocol-lib/https/https_client.h"
 
 #include <memory>
 #include <sstream>
@@ -50,9 +50,9 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #pragma warning(pop)
 #endif
 
-using fptn::client::protocol::lib::https::Headers;
-using fptn::client::protocol::lib::https::HttpsClient;
-using fptn::client::protocol::lib::https::Response;
+using fptn::protocol::https::Headers;
+using fptn::protocol::https::HttpsClient;
+using fptn::protocol::https::Response;
 
 namespace {
 
@@ -61,7 +61,7 @@ std::string DecompressGzip(const std::string& compressed) {
 
   std::vector<char> buffer(kChunkSize);
 
-  z_stream strm{};
+  ::z_stream strm{};
   strm.next_in = reinterpret_cast<Bytef*>(const_cast<char*>(compressed.data()));
   strm.avail_in = static_cast<unsigned int>(compressed.size());
 

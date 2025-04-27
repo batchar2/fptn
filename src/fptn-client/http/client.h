@@ -16,7 +16,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include "common/network/ip_packet.h"
 
-#include "fptn-client-protocol-lib/websocket/websocket_client.h"
+#include "fptn-protocol-lib/websocket/websocket_client.h"
 
 namespace fptn::http {
 
@@ -58,7 +58,7 @@ class Client final {
   NewIPPacketCallback new_ip_pkt_callback_;
 
   std::string token_;
-  fptn::client::protocol::lib::websocket::WebsocketClientSPtr ws_;
+  fptn::protocol::websocket::WebsocketClientSPtr ws_;
 };
 
 using ClientPtr = std::unique_ptr<Client>;

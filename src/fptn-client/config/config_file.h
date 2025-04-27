@@ -10,7 +10,8 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <utility>
 #include <vector>
 
-#include "fptn-client-protocol-lib/server/speed_estimator.h"
+#include "fptn-protocol-lib/server/server_info.h"
+#include "fptn-protocol-lib/server/speed_estimator.h"
 
 namespace fptn::config {
 class ConfigFile final {
@@ -19,19 +20,19 @@ class ConfigFile final {
   explicit ConfigFile(std::string token, std::string sni);
 
   bool Parse();
-  fptn::client::protocol::lib::server::Server FindFastestServer() const;
+  fptn::protocol::server::ServerInfo FindFastestServer() const;
   std::uint64_t GetDownloadTimeMs(
-      fptn::client::protocol::lib::server::Server const& server,
+      const fptn::protocol::server::ServerInfo& server,
       const std::string& sni,
-      int const timeout);
+      int timeout);
 
-  bool AddServer(const fptn::client::protocol::lib::server::Server& s);
+  bool AddServer(const fptn::protocol::server::ServerInfo& s);
 
   int GetVersion() const noexcept;
   const std::string& GetServiceName() const noexcept;
   const std::string& GetUsername() const noexcept;
   const std::string& GetPassword() const noexcept;
-  const std::vector<fptn::client::protocol::lib::server::Server>& GetServers()
+  const std::vector<fptn::protocol::server::ServerInfo>& GetServers()
       const noexcept;
 
  private:
@@ -42,6 +43,6 @@ class ConfigFile final {
   std::string service_name_;
   std::string username_;
   std::string password_;
-  std::vector<fptn::client::protocol::lib::server::Server> servers_;
+  std::vector<fptn::protocol::server::ServerInfo> servers_;
 };
 }  // namespace fptn::config

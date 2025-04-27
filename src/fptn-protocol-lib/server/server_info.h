@@ -9,9 +9,9 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <string>
 #include <utility>
 
-namespace fptn::client::protocol::lib::server {
+namespace fptn::protocol::server {
 
-struct Server {
+struct ServerInfo {
   std::string name;
   std::string host;
   int port;
@@ -21,13 +21,13 @@ struct Server {
   std::string password;
   std::string service_name;
 
-  Server() : port(0), is_using(false) {}
+  ServerInfo() : port(0), is_using(false) {}
 
-  Server(std::string _name, std::string _host, int _port)
+  ServerInfo(std::string _name, std::string _host, int _port)
       : name(std::move(_name)),
         host(std::move(_host)),
         port(_port),
         is_using(false) {}
 };
 
-}  // namespace fptn::client::protocol::lib::server
+}  // namespace fptn::protocol::server

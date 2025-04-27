@@ -71,7 +71,7 @@ class TrayApp : public QWidget {
 
  private:
   bool smart_connect_ = false;
-  fptn::client::protocol::lib::server::Server selected_server_;
+  fptn::protocol::server::ServerInfo selected_server_;
 
   SettingsModelPtr settings_;
 

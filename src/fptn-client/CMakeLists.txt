@@ -46,7 +46,7 @@ target_link_libraries(
   spdlog::spdlog
   fmt::fmt
   PcapPlusPlus::PcapPlusPlus
-  fptn-client-protocol-lib_static
+  fptn-protocol-lib_static
   ${TUNTAP_LIB})
 
 # fptn-client-gui
@@ -131,7 +131,7 @@ WarningsAsErrors: ''
     Qt6::Gui
     Qt6::Widgets
     Qt6::Network
-    fptn-client-protocol-lib_static
+    fptn-protocol-lib_static
     ${TUNTAP_LIB})
 
   set_target_properties("${PROJECT_NAME}-gui" PROPERTIES AUTOMOC ON)

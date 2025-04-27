@@ -38,7 +38,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include "common/network/ip_packet.h"
 
-namespace fptn::client::protocol::lib::websocket {
+namespace fptn::protocol::websocket {
 class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
  public:
   using NewIPPacketCallback =
@@ -102,4 +102,4 @@ class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
 };
 
 using WebsocketClientSPtr = std::shared_ptr<WebsocketClient>;
-}  // namespace fptn::client::protocol::lib::websocket
+}  // namespace fptn::protocol::websocket

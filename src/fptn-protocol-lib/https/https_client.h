@@ -15,7 +15,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <nlohmann/json.hpp>
 #include <openssl/ssl.h>  // NOLINT(build/include_order)
 
-namespace fptn::client::protocol::lib::https {
+namespace fptn::protocol::https {
 
 using Headers = std::unordered_map<std::string, std::string>;
 
@@ -57,4 +57,4 @@ class HttpsClient final {
 };
 
 using HttpsClientPtr = std::unique_ptr<HttpsClient>;
-}  // namespace fptn::client::protocol::lib::https
+}  // namespace fptn::protocol::https

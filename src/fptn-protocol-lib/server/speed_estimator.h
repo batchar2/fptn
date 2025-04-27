@@ -9,16 +9,14 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <string>
 #include <vector>
 
-#include "server/server.h"
+#include "fptn-protocol-lib/server/server_info.h"
 
-namespace fptn::client::protocol::lib::server {
+namespace fptn::protocol::server {
 
 std::uint64_t GetDownloadTimeMs(
-    const fptn::client::protocol::lib::server::Server& server,
-    const std::string& sni,
-    int timeout);
+    const ServerInfo& server, const std::string& sni, int timeout);
 
-Server FindFastestServer(
-    const std::string& sni, const std::vector<Server>& servers);
+ServerInfo FindFastestServer(
+    const std::string& sni, const std::vector<ServerInfo>& servers);
 
-};  // namespace fptn::client::protocol::lib::server
+};  // namespace fptn::protocol::server

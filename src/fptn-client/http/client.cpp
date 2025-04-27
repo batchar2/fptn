@@ -14,11 +14,11 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
-#include "fptn-client-protocol-lib/https/https_client.h"
+#include "fptn-protocol-lib/https/https_client.h"
 #include "routing/iptables.h"
 
-using fptn::client::protocol::lib::https::HttpsClient;
 using fptn::http::Client;
+using fptn::protocol::https::HttpsClient;
 
 Client::Client(pcpp::IPv4Address server_ip,
     int server_port,
@@ -110,14 +110,12 @@ bool Client::Send(fptn::common::network::IPPacketPtr packet) {
 }
 
 void Client::Run() {
-  using fptn::client::protocol::lib::websocket::WebsocketClient;
   while (running_) {
     {
       const std::unique_lock<std::mutex> lock(mutex_);  // mutex
-
-      ws_ = std::make_shared<WebsocketClient>(server_ip_, server_port_,
-          tun_interface_address_ipv4_, tun_interface_address_ipv6_,
-          new_ip_pkt_callback_, sni_, token_);
+      ws_ = std::make_shared<fptn::protocol::websocket::WebsocketClient>(
+          server_ip_, server_port_, tun_interface_address_ipv4_,
+          tun_interface_address_ipv6_, new_ip_pkt_callback_, sni_, token_);
     }
     ws_->Run();
 

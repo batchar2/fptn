@@ -4,17 +4,17 @@ Copyright (c) 2024-2025 Stas Skokov
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
 
-#include "websocket/websocket_client.h"
+#include "fptn-protocol-lib/websocket/websocket_client.h"
 
 #include <string>
 #include <utility>
 
 #include <spdlog/spdlog.h>  // NOLINT(bui
 
-#include "https/https_client.h"
-#include "protobuf/protocol.h"
+#include "fptn-protocol-lib/https/https_client.h"
+#include "fptn-protocol-lib/protobuf/protocol.h"
 
-using fptn::client::protocol::lib::websocket::WebsocketClient;
+using fptn::protocol::websocket::WebsocketClient;
 
 WebsocketClient::WebsocketClient(pcpp::IPv4Address server_ip,
     int server_port,
@@ -23,7 +23,7 @@ WebsocketClient::WebsocketClient(pcpp::IPv4Address server_ip,
     NewIPPacketCallback new_ip_pkt_callback,
     std::string sni,
     std::string token)
-    : ctx_(fptn::client::protocol::lib::https::HttpsClient::CreateNewSslCtx()),
+    : ctx_(fptn::protocol::https::HttpsClient::CreateNewSslCtx()),
       resolver_(boost::asio::make_strand(ioc_)),
       ws_(boost::asio::make_strand(ioc_), ctx_),
       strand_(ioc_.get_executor()),
@@ -38,9 +38,9 @@ WebsocketClient::WebsocketClient(pcpp::IPv4Address server_ip,
   //  SPDLOG_INFO("Init new connection: {}:{}", server_ip_.toString(),
   //  server_port);
 
-  fptn::client::protocol::lib::https::HttpsClient::SetHandshakeSni(
+  fptn::protocol::https::HttpsClient::SetHandshakeSni(
       ws_.next_layer().native_handle(), sni_);
-  fptn::client::protocol::lib::https::HttpsClient::SetHandshakeSessionID(
+  fptn::protocol::https::HttpsClient::SetHandshakeSessionID(
       ws_.next_layer().native_handle());
   ctx_.set_verify_mode(boost::asio::ssl::verify_none);
 }
@@ -149,7 +149,7 @@ void WebsocketClient::onSslHandshake(boost::beast::error_code ec) {
   ws_.set_option(boost::beast::websocket::stream_base::decorator(
       [this](boost::beast::websocket::request_type& req) {
         // set browser headers
-        using fptn::client::protocol::lib::https::HttpsClient;
+        using fptn::protocol::https::HttpsClient;
         const auto headers =
             HttpsClient::RealBrowserHeaders(sni_, server_port_);
         for (const auto& [key, value] : headers) {
@@ -186,8 +186,7 @@ void WebsocketClient::onRead(
   if (running_) {
     // FIXME REDUNDANT COPY
     const auto data = boost::beast::buffers_to_string(buffer_.data());
-    std::string raw =
-        fptn::client::protocol::lib::protobuf::GetProtoPayload(data);
+    std::string raw = fptn::protocol::protobuf::GetProtoPayload(data);
     auto packet = fptn::common::network::IPPacket::Parse(std::move(raw));
     if (packet) {
       new_ip_pkt_callback_(std::move(packet));
@@ -236,8 +235,7 @@ void WebsocketClient::DoWrite() {
       // PACK DATA
       fptn::common::network::IPPacketPtr packet = std::move(out_queue_.front());
       const std::string msg =
-          fptn::client::protocol::lib::protobuf::CreateProtoPayload(
-              std::move(packet));
+          fptn::protocol::protobuf::CreateProtoPayload(std::move(packet));
       const boost::asio::const_buffer buffer(msg.data(), msg.size());
 
       ws_.async_write(

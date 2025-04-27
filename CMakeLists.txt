@@ -104,7 +104,7 @@ if(APPLE OR UNIX)
   add_subdirectory(src/fptn-server)
   add_subdirectory(src/fptn-passwd)
 endif()
-add_subdirectory(src/fptn-client-protocol-lib)
+add_subdirectory(src/fptn-protocol-lib)
 add_subdirectory(src/fptn-client)
 # --- install ---
 install(TARGETS fptn-client-cli DESTINATION bin)

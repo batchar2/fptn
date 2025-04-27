@@ -14,7 +14,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "common/network/ip_packet.h"
 #include "common/utils/utils.h"
 
-namespace fptn::client::protocol::lib::protobuf {
+namespace fptn::protocol::protobuf {
 class ProcessingError : public std::runtime_error {
  public:
   explicit ProcessingError(const std::string& message)
@@ -35,4 +35,4 @@ class UnsupportedProtocolVersion : public std::runtime_error {
 
 std::string GetProtoPayload(const std::string& raw);
 std::string CreateProtoPayload(fptn::common::network::IPPacketPtr packet);
-}  // namespace fptn::client::protocol::lib::protobuf
+}  // namespace fptn::protocol::protobuf

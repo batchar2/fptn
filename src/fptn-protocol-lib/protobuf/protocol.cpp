@@ -4,7 +4,7 @@ Copyright (c) 2024-2025 Stas Skokov
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
 
-#include "protobuf/protocol.h"
+#include "fptn-protocol-lib/protobuf/protocol.h"
 
 #include <ctime>
 #include <random>
@@ -15,7 +15,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "common/network/ip_packet.h"
 #include "common/utils/utils.h"
 
-namespace fptn::client::protocol::lib::protobuf {
+namespace fptn::protocol::protobuf {
 
 std::string GetProtoPayload(const std::string& raw) {
   fptn::protocol::Message message;
@@ -61,7 +61,7 @@ std::string CreateProtoPayload(fptn::common::network::IPPacketPtr packet) {
   const std::size_t current_payload_size = ip_packet_payload->payload().size();
 
   if (current_payload_size < FPTN_IP_PACKET_MAX_SIZE) {
-    static std::mt19937 gen{std::random_device {}() };
+    static std::mt19937 gen {std::random_device {}()};
     std::uniform_int_distribution<std::size_t> dist(
         current_payload_size, FPTN_IP_PACKET_MAX_SIZE);
 
@@ -79,4 +79,4 @@ std::string CreateProtoPayload(fptn::common::network::IPPacketPtr packet) {
   }
   return serialized_data;
 }
-}  // namespace fptn::client::protocol::lib::protobuf
+}  // namespace fptn::protocol::protobuf

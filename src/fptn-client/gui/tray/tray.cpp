@@ -176,7 +176,7 @@ void TrayApp::UpdateTrayMenu() {
             connect(
                 server_connect, &QAction::triggered, [this, server, service]() {
                   smart_connect_ = false;
-                  fptn::client::protocol::lib::server::Server cfg_server;
+                  fptn::protocol::server::ServerInfo cfg_server;
                   {
                     cfg_server.name = server.name.toStdString();
                     cfg_server.host = server.host.toStdString();
@@ -207,7 +207,7 @@ void TrayApp::UpdateTrayMenu() {
             connect(
                 server_connect, &QAction::triggered, [this, server, service]() {
                   smart_connect_ = false;
-                  fptn::client::protocol::lib::server::Server cfg_server;
+                  fptn::protocol::server::ServerInfo cfg_server;
                   {
                     cfg_server.name = server.name.toStdString();
                     cfg_server.host = server.host.toStdString();
@@ -417,7 +417,7 @@ void TrayApp::handleConnecting() {
   if (smart_connect_) {                  // find the best server
     for (const auto& service : settings_->Services()) {
       for (const auto& s : service.servers) {
-        fptn::client::protocol::lib::server::Server cfg_server;
+        fptn::protocol::server::ServerInfo cfg_server;
         {
           cfg_server.name = s.name.toStdString();
           cfg_server.host = s.host.toStdString();

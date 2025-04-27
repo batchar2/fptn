@@ -4,7 +4,7 @@ Copyright (c) 2024-2025 Stas Skokov
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
 
-#include "server/speed_estimator.h"
+#include "fptn-protocol-lib/server/speed_estimator.h"
 
 #include <algorithm>
 #include <future>
@@ -12,17 +12,17 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <utility>
 #include <vector>
 
-#include "https/https_client.h"
+#include "fptn-protocol-lib/https/https_client.h"
 
-using fptn::client::protocol::lib::https::HttpsClient;
-using fptn::client::protocol::lib::server::Server;
+using fptn::protocol::https::HttpsClient;
+using fptn::protocol::server::ServerInfo;
 
 constexpr std::uint64_t kMaxTimeout = UINT64_MAX;
 
-namespace fptn::client::protocol::lib::server {
+namespace fptn::protocol::server {
 
 std::uint64_t GetDownloadTimeMs(
-    const Server& server, const std::string& sni, int timeout) {
+    const ServerInfo& server, const std::string& sni, int timeout) {
   auto const start = std::chrono::high_resolution_clock::now();  // start
 
   HttpsClient cli(server.host, server.port, sni);
@@ -35,8 +35,8 @@ std::uint64_t GetDownloadTimeMs(
   return kMaxTimeout;
 }
 
-Server FindFastestServer(
-    const std::string& sni, const std::vector<Server>& servers) {
+ServerInfo FindFastestServer(
+    const std::string& sni, const std::vector<ServerInfo>& servers) {
   constexpr int kTimeout = 5;
   std::vector<std::future<std::uint64_t>> futures;
 
@@ -88,4 +88,4 @@ Server FindFastestServer(
 
   return servers[fastest_server_index];
 }
-}  // namespace fptn::client::protocol::lib::server
+}  // namespace fptn::protocol::server

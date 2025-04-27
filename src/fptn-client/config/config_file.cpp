@@ -16,15 +16,15 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "common/utils/base64.h"
 #include "common/utils/utils.h"
 
-using fptn::client::protocol::lib::server::Server;
 using fptn::config::ConfigFile;
+using fptn::protocol::server::ServerInfo;
 
 ConfigFile::ConfigFile(std::string sni) : sni_(std::move(sni)), version_(0) {}
 
 ConfigFile::ConfigFile(std::string token, std::string sni)
     : token_(std::move(token)), sni_(std::move(sni)), version_(0) {}
 
-bool ConfigFile::AddServer(Server const& s) {
+bool ConfigFile::AddServer(const ServerInfo& s) {
   servers_.push_back(s);
   return true;
 }
@@ -42,7 +42,7 @@ bool ConfigFile::Parse() {
     username_ = config.at("username").get<std::string>();
     password_ = config.at("password").get<std::string>();
     for (auto const& server : config.at("servers")) {
-      Server s(server.at("name").get<std::string>(),
+      ServerInfo s(server.at("name").get<std::string>(),
           server.at("host").get<std::string>(), server.at("port").get<int>());
       servers_.push_back(s);
     }
@@ -56,15 +56,14 @@ bool ConfigFile::Parse() {
   return false;
 }
 
-Server ConfigFile::FindFastestServer() const {
-  return fptn::client::protocol::lib::server::FindFastestServer(sni_, servers_);
+ServerInfo ConfigFile::FindFastestServer() const {
+  return fptn::protocol::server::FindFastestServer(sni_, servers_);
 }
 
 // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
 std::uint64_t ConfigFile::GetDownloadTimeMs(
-    const Server& server, const std::string& sni, int timeout) {
-  return fptn::client::protocol::lib::server::GetDownloadTimeMs(
-      server, sni, timeout);
+    const ServerInfo& server, const std::string& sni, int timeout) {
+  return fptn::protocol::server::GetDownloadTimeMs(server, sni, timeout);
 }
 
 int ConfigFile::GetVersion() const noexcept { return version_; }
@@ -81,6 +80,6 @@ const std::string& ConfigFile::GetPassword() const noexcept {
   return password_;
 }
 
-const std::vector<Server>& ConfigFile::GetServers() const noexcept {
+const std::vector<ServerInfo>& ConfigFile::GetServers() const noexcept {
   return servers_;
 }

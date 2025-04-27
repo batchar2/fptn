@@ -77,5 +77,5 @@ target_link_libraries(
   fmt::fmt
   PcapPlusPlus::PcapPlusPlus
   tuntap++
-  fptn-client-protocol-lib_static
+  fptn-protocol-lib_static
   prometheus-cpp::prometheus-cpp)
