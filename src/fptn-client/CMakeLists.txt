@@ -35,6 +35,7 @@ add_executable(
 
 target_link_libraries(
   "${PROJECT_NAME}-cli"
+  PRIVATE
   ZLIB::ZLIB
   Boost::boost
   Boost::random
@@ -117,6 +118,7 @@ WarningsAsErrors: ''
     ${TRANSLATIONS_OUT})
   target_link_libraries(
     "${PROJECT_NAME}-gui"
+    PRIVATE
     ZLIB::ZLIB
     Boost::boost
     Boost::random
