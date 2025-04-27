@@ -28,6 +28,7 @@
     <meta name="yandex-verification" content="45a56e6c5ca1504b" />
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
     <title>FPTN Project</title>
     <style>
         :root {
@@ -270,6 +271,13 @@
             align-items: center;
         }
 
+        .swiper-slide {
+            height: 550px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
         @media (max-width: 768px) {
             .wrapper {
                 flex-direction: column;
@@ -377,12 +385,21 @@
                     <p>
                         The VPN-client is a mobile application or a compact desktop application with an interface located in the system tray.
                         No registration process is required! We will send the access token via the <a target="_blank" href="https://t.me/fptn_bot">bot</a> on Telegram.
-                        <img style="width: 100%; max-width: 400px" class="img-center" src="images/tray_view_en.png" alt="Application"/>
                     </p>
 
-                    <p>
-                        <img style="width: 100%; max-width: 350px" class="img-center" src="images/android/en/04.jpeg" alt="Application"/>
-                    </p>
+                    <div class="swiper mySwiper">
+                        <div class="swiper-wrapper">
+                            <div class="swiper-slide">
+                                <img style="width: auto; max-height: 550px" class="img-center" src="images/android/en/04.jpeg" alt="Application"/>
+                            </div>
+                            <div class="swiper-slide">
+                                <img style="width: auto; max-height: 200px" class="img-center" src="images/tray_view_en.png" alt="Application"/>
+                            </div>
+                        </div>
+                        <div class="swiper-pagination"></div>
+                        <div class="swiper-button-next"></div>
+                        <div class="swiper-button-prev"></div>
+                    </div>
 
                     <p>
                         FPTN operates over the HTTPS protocol, effectively masking traffic and enabling users to bypass censorship restrictions.
@@ -402,12 +419,21 @@
                     <p>
                         VPN-клиент — мобильное приложение или миниатюрная программа для компьютера, интерфейс которой размещается в трее.
                         Здесь нет процесса регистрации! Мы пришлем токен доступа через <a target="_blank" href="https://t.me/fptn_bot">бота</a> в Telegram
-                        <img style="width: 100%; max-width: 400px" class="img-center" src="images/tray_view_ru.png" alt="Application"/>
                     </p>
 
-                    <p>
-                        <img style="width: 100%; max-width: 350px" class="img-center" src="images/android/ru/04.jpeg" alt="Application"/>
-                    </p>
+                    <div class="swiper mySwiper">
+                        <div class="swiper-wrapper">
+                            <div class="swiper-slide">
+                                <img style="width: auto; max-height: 550px" class="img-center" src="images/android/ru/04.jpeg" alt="Application"/>
+                            </div>
+                            <div class="swiper-slide">
+                                <img style="width: auto; max-height: 200px" class="img-center" src="images/tray_view_ru.png" alt="Application"/>
+                            </div>
+                        </div>
+                        <div class="swiper-pagination"></div>
+                        <div class="swiper-button-next"></div>
+                        <div class="swiper-button-prev"></div>
+                    </div>
 
                     <p>
                         FPTN работает через протокол HTTPS, эффективно маскируя трафик и позволяя обходить ограничения цензуры.
@@ -936,6 +962,7 @@
     </div>
 </footer>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
 <script>
     const owner = 'batchar2';
     const repo = 'fptn';
@@ -1038,6 +1065,16 @@
     function editLan(lan) {
         hideBlocks(lan)
     }
+
+    var swiper = new Swiper(".mySwiper", {
+      pagination: {
+        el: ".swiper-pagination",
+      },
+      navigation: {
+        nextEl: ".swiper-button-next",
+        prevEl: ".swiper-button-prev",
+      },
+    });
 </script>
 </body>
 </html>
