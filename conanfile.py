@@ -31,11 +31,13 @@ class FPTN(ConanFile):
     options = {
         "setup": [True, False],
         "with_gui_client": [True, False],
+        "build_only_fptn_lib": [True, False]
     }
     default_options = {
         # --- program ---
         "setup": False,
         "with_gui_client": False,
+        "build_only_fptn_lib": False,
         # -- depends --
         "*:fPIC": True,
         "*:shared": False,
@@ -119,6 +121,8 @@ class FPTN(ConanFile):
         tc = CMakeToolchain(self)
         if self.options.with_gui_client:
             tc.variables["FPTN_BUILD_WITH_GUI_CLIENT"] = "True"
+        if self.options.build_only_fptn_lib:
+            tc.variables["FPTN_BUILD_ONLY_FPTN_LIB"] = "True"
         tc.variables["FPTN_VERSION"] = FPTN_VERSION
         tc.generate()
 

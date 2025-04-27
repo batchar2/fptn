@@ -35,20 +35,19 @@ add_executable(
 
 target_link_libraries(
   "${PROJECT_NAME}-cli"
-  PRIVATE
-  ZLIB::ZLIB
-  Boost::boost
-  Boost::random
-  Boost::filesystem
-  OpenSSL::SSL
-  OpenSSL::Crypto
-  argparse::argparse
-  nlohmann_json::nlohmann_json
-  spdlog::spdlog
-  fmt::fmt
-  PcapPlusPlus::PcapPlusPlus
-  fptn-protocol-lib_static
-  ${TUNTAP_LIB})
+  PRIVATE ZLIB::ZLIB
+          Boost::boost
+          Boost::random
+          Boost::filesystem
+          OpenSSL::SSL
+          OpenSSL::Crypto
+          argparse::argparse
+          nlohmann_json::nlohmann_json
+          spdlog::spdlog
+          fmt::fmt
+          PcapPlusPlus::PcapPlusPlus
+          fptn-protocol-lib_static
+          ${TUNTAP_LIB})
 
 # fptn-client-gui
 if("${FPTN_BUILD_WITH_GUI_CLIENT}")
@@ -118,23 +117,22 @@ WarningsAsErrors: ''
     ${TRANSLATIONS_OUT})
   target_link_libraries(
     "${PROJECT_NAME}-gui"
-    PRIVATE
-    ZLIB::ZLIB
-    Boost::boost
-    Boost::random
-    Boost::filesystem
-    OpenSSL::SSL
-    OpenSSL::Crypto
-    argparse::argparse
-    spdlog::spdlog
-    fmt::fmt
-    PcapPlusPlus::PcapPlusPlus
-    Qt6::Core
-    Qt6::Gui
-    Qt6::Widgets
-    Qt6::Network
-    fptn-protocol-lib_static
-    ${TUNTAP_LIB})
+    PRIVATE ZLIB::ZLIB
+            Boost::boost
+            Boost::random
+            Boost::filesystem
+            OpenSSL::SSL
+            OpenSSL::Crypto
+            argparse::argparse
+            spdlog::spdlog
+            fmt::fmt
+            PcapPlusPlus::PcapPlusPlus
+            Qt6::Core
+            Qt6::Gui
+            Qt6::Widgets
+            Qt6::Network
+            fptn-protocol-lib_static
+            ${TUNTAP_LIB})
 
   set_target_properties("${PROJECT_NAME}-gui" PROPERTIES AUTOMOC ON)
 endif()

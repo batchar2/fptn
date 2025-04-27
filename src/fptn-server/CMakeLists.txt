@@ -66,17 +66,16 @@ add_executable(
 
 target_link_libraries(
   "${PROJECT_NAME}"
-  PRIVATE
-  ZLIB::ZLIB
-  Boost::boost
-  OpenSSL::SSL
-  OpenSSL::Crypto
-  argparse::argparse
-  nlohmann_json::nlohmann_json
-  jwt-cpp::jwt-cpp
-  spdlog::spdlog
-  fmt::fmt
-  PcapPlusPlus::PcapPlusPlus
-  tuntap++
-  fptn-protocol-lib_static
-  prometheus-cpp::prometheus-cpp)
+  PRIVATE ZLIB::ZLIB
+          Boost::boost
+          OpenSSL::SSL
+          OpenSSL::Crypto
+          argparse::argparse
+          nlohmann_json::nlohmann_json
+          jwt-cpp::jwt-cpp
+          spdlog::spdlog
+          fmt::fmt
+          PcapPlusPlus::PcapPlusPlus
+          tuntap++
+          fptn-protocol-lib_static
+          prometheus-cpp::prometheus-cpp)
