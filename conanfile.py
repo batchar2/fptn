@@ -1,3 +1,5 @@
+import subprocess
+
 from conan import ConanFile
 from conan.tools.cmake import CMakeToolchain, CMake
 
@@ -31,7 +33,7 @@ class FPTN(ConanFile):
     options = {
         "setup": [True, False],
         "with_gui_client": [True, False],
-        "build_only_fptn_lib": [True, False]
+        "build_only_fptn_lib": [True, False],
     }
     default_options = {
         # --- program ---
@@ -106,6 +108,7 @@ class FPTN(ConanFile):
 
     def requirements(self):
         # WE USE BORINGSSL
+        self._register_boring_ssl()
         self.requires("openssl/boringssl@local/local", override=True, force=True)
         if self.options.with_gui_client:
             self.requires("qt/6.7.1")
@@ -134,3 +137,17 @@ class FPTN(ConanFile):
     def config_options(self):
         if self.settings.os == "Windows":
             self.options.rm_safe("fPIC")
+
+    def _register_boring_ssl(self):
+        subprocess.run(
+            [
+                "conan",
+                "export",
+                "./.conan/recipes/boringssl/",
+                "--name=openssl",
+                "--version=boringssl",
+                "--user=local",
+                "--channel=local",
+            ],
+            check=True,
+        )

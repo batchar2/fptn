@@ -392,8 +392,6 @@ conan profile detect --force
 Console version
 
 ```bash
-conan export ./.conan/recipes/boringssl/ --name=openssl --version=boringssl --user=local --channel=local
-
 # only for macos
 export CXXFLAGS="-Wno-vla-cxx-extension -Wno-error=vla-cxx-extension" 
 
