@@ -1,8 +1,22 @@
+import os
 import subprocess
 
 from conan import ConanFile
 from conan.tools.cmake import CMakeToolchain, CMake
-
+from conan.tools.files import (
+    apply_conandata_patches,
+    chdir,
+    collect_libs,
+    copy,
+    export_conandata_patches,
+    get,
+    mkdir,
+    rename,
+    replace_in_file,
+    rm,
+    rmdir,
+    save,
+)
 
 # CI will replace this automatically
 FPTN_VERSION = "0.0.0"
@@ -138,12 +152,17 @@ class FPTN(ConanFile):
         if self.settings.os == "Windows":
             self.options.rm_safe("fPIC")
 
+    def export(self):
+        copy(self, f"*", src=self.recipe_folder, dst=self.export_folder)
+
     def _register_boring_ssl(self):
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        recipe_rel_path = os.path.join(script_dir, ".conan", "recipes", "boringssl")
         subprocess.run(
             [
                 "conan",
                 "export",
-                "./.conan/recipes/boringssl/",
+                recipe_rel_path,
                 "--name=openssl",
                 "--version=boringssl",
                 "--user=local",
