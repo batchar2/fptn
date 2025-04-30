@@ -51,6 +51,7 @@ if(CONAN_INCLUDE_DIRS_PROTOBUF)
 endif()
 include_directories(${SOURCE_DIR} ${INCLUDE_DIR} ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_BINARY_DIR}/fptn_protocol)
 include_directories(${CMAKE_BINARY_DIR}/src/fptn-protocol-lib/protobuf)
+include_directories("${CMAKE_CURRENT_BINARY_DIR}/protobuf")
 
 # Generate C++ source and header files from the .proto files
 set(protobuf_files protobuf/protocol.proto)
@@ -102,10 +103,11 @@ foreach(target "${PROJECT_NAME}_static" "${PROJECT_NAME}_shared")
     nlohmann_json::nlohmann_json
     spdlog::spdlog
     fmt::fmt
-    PcapPlusPlus::PcapPlusPlus)
-  set_target_properties(
-    ${target}
-    PROPERTIES VERSION ${FPTN_VERSION}
-               SOVERSION 1
-               OUTPUT_NAME "${PROJECT_NAME}")
+    PcapPlusPlus::PcapPlusPlus
+  )
+#  set_target_properties(
+#    ${target}
+#    PROPERTIES VERSION ${FPTN_VERSION}
+#               SOVERSION 1
+#               OUTPUT_NAME "${PROJECT_NAME}")
 endforeach()

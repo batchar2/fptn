@@ -159,7 +159,7 @@ if(NOT FPTN_BUILD_ONLY_FPTN_LIB)
         VERBATIM)
     endif()
   endif()
+  # --- tests ---
+  enable_testing()
+  add_subdirectory(tests)
 endif()
-# --- tests ---
-enable_testing()
-add_subdirectory(tests)
