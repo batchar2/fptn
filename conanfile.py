@@ -108,7 +108,7 @@ class FPTN(ConanFile):
 
     def requirements(self):
         # WE USE BORINGSSL
-        self._register_local_recipe("boringssl", "openssl", "boringssl")
+        self._register_local_recipe("boringssl", "openssl", "boringssl", True, False)
         self._register_local_recipe("pcapplusplus", "pcapplusplus", "23.09")
         if self.options.with_gui_client:
             self.requires("qt/6.7.1")
@@ -145,7 +145,7 @@ class FPTN(ConanFile):
     def export(self):
         copy(self, f"*", src=self.recipe_folder, dst=self.export_folder)
 
-    def _register_local_recipe(self, recipe, name, version):
+    def _register_local_recipe(self, recipe, name, version, override=False, force=False):
         script_dir = os.path.dirname(os.path.abspath(__file__))
         recipe_rel_path = os.path.join(script_dir, ".conan", "recipes", recipe)
         subprocess.run(
@@ -160,4 +160,4 @@ class FPTN(ConanFile):
             ],
             check=True,
         )
-        self.requires(f"{name}/{version}@local/local", override=True, force=True)
+        self.requires(f"{name}/{version}@local/local", override=override, force=force)
