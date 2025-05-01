@@ -2,6 +2,7 @@ import subprocess
 
 from conan import ConanFile
 from conan.tools.cmake import CMakeToolchain, CMake
+from conan.tools.files import copy
 
 
 # CI will replace this automatically
@@ -137,6 +138,9 @@ class FPTN(ConanFile):
     def config_options(self):
         if self.settings.os == "Windows":
             self.options.rm_safe("fPIC")
+
+    def export(self):
+        copy(self, f"*", src=self.recipe_folder, dst=self.export_folder)
 
     def _register_boring_ssl(self):
         subprocess.run(
