@@ -109,7 +109,7 @@ class FPTN(ConanFile):
     def requirements(self):
         # WE USE BORINGSSL
         self._register_local_recipe("boringssl", "openssl", "boringssl", True, False)
-        self._register_local_recipe("pcapplusplus", "pcapplusplus", "23.09")
+        self._register_local_recipe("pcapplusplus", "pcapplusplus", "24.09")
         if self.options.with_gui_client:
             self.requires("qt/6.7.1")
         if self.settings.os != "Windows":
