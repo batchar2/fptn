@@ -66,7 +66,6 @@ std::string GenerateFptnKey(std::uint32_t timestamp) {
 
 bool SetHandshakeSessionID(SSL* ssl) {
   // random
-  std::cerr << "+" << std::endl;
   constexpr int kSessionLen = 32;
   std::uint8_t session_id[kSessionLen] = {0};
   if (::RAND_bytes(session_id, sizeof(session_id)) != 1) {
