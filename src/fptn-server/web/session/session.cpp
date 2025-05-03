@@ -24,14 +24,13 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <pcapplusplus/SSLLayer.h>      // NOLINT(build/include_order)
 #include <spdlog/spdlog.h>              // NOLINT(build/include_order)
 
-#include "fptn-protocol-lib/https/https_client.h"
+#include "fptn-protocol-lib/tls/tls.h"
 #include "fptn-protocol-lib/protobuf/protocol.h"
 
 namespace {
 std::atomic<fptn::ClientID> client_id = 0;
 }
 
-using fptn::protocol::https::HttpsClient;
 using fptn::web::Session;
 
 Session::Session(std::uint16_t port,
@@ -207,7 +206,7 @@ boost::asio::awaitable<Session::ProbingResult> Session::DetectProbing() {
   std::memcpy(session_id, hello->getSessionID(), session_len);
 
   // Check Session ID
-  if (!HttpsClient::IsFptnClientSessionID(session_id, session_len)) {
+  if (!fptn::protocol::tls::IsFptnClientSessionID(session_id, session_len)) {
     SPDLOG_ERROR("Session ID does not match FPTN client format");
     co_return ProbingResult{
         .is_probing = true, .sni = sni, .should_close = false};
