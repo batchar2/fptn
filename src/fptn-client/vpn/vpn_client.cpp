@@ -24,11 +24,11 @@ VpnClient::VpnClient(fptn::http::ClientPtr http_client,
 
 VpnClient::~VpnClient() { Stop(); }
 
-bool VpnClient::IsStarted() noexcept {
+bool VpnClient::IsStarted() {
   return http_client_ && http_client_->IsStarted();
 }
 
-void VpnClient::Start() noexcept {
+void VpnClient::Start() {
   // NOLINTNEXTLINE(modernize-avoid-bind)
   http_client_->SetNewIPPacketCallback(std::bind(
       &VpnClient::HandlePacketFromWebSocket, this, std::placeholders::_1));
@@ -42,7 +42,7 @@ void VpnClient::Start() noexcept {
   virtual_net_interface_->Start();
 }
 
-void VpnClient::Stop() noexcept {
+void VpnClient::Stop() {
   if (http_client_) {
     http_client_->Stop();
     http_client_.reset();
@@ -53,20 +53,20 @@ void VpnClient::Stop() noexcept {
   }
 }
 
-std::size_t VpnClient::GetSendRate() noexcept {
+std::size_t VpnClient::GetSendRate() {
   return virtual_net_interface_->GetSendRate();
 }
 
-std::size_t VpnClient::GetReceiveRate() noexcept {
+std::size_t VpnClient::GetReceiveRate() {
   return virtual_net_interface_->GetReceiveRate();
 }
 
 void VpnClient::HandlePacketFromVirtualNetworkInterface(
-    fptn::common::network::IPPacketPtr packet) noexcept {
+    fptn::common::network::IPPacketPtr packet) {
   http_client_->Send(std::move(packet));
 }
 
 void VpnClient::HandlePacketFromWebSocket(
-    fptn::common::network::IPPacketPtr packet) noexcept {
+    fptn::common::network::IPPacketPtr packet) {
   virtual_net_interface_->Send(std::move(packet));
 }

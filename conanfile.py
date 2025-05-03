@@ -10,7 +10,6 @@ FPTN_VERSION = "0.0.0"
 
 
 class FPTN(ConanFile):
-    name = "fptn"
     version = FPTN_VERSION
     requires = (
         "zlib/1.3.1",
@@ -39,7 +38,7 @@ class FPTN(ConanFile):
         # --- program ---
         "setup": False,
         "with_gui_client": False,
-        "build_only_fptn_lib": True,
+        "build_only_fptn_lib": False,
         # -- depends --
         "*:fPIC": True,
         "*:shared": False,
@@ -109,7 +108,7 @@ class FPTN(ConanFile):
     def requirements(self):
         # WE USE BORINGSSL
         self._register_local_recipe("boringssl", "openssl", "boringssl", True, False)
-        self._register_local_recipe("pcapplusplus", "pcapplusplus", "23.09")
+        self._register_local_recipe("pcapplusplus", "pcapplusplus", "24.09")
         if self.options.with_gui_client:
             self.requires("qt/6.7.1")
         if self.settings.os != "Windows":
@@ -123,15 +122,17 @@ class FPTN(ConanFile):
 
     def generate(self):
         tc = CMakeToolchain(self)
+
         if self.options.with_gui_client:
             tc.variables["FPTN_BUILD_WITH_GUI_CLIENT"] = "True"
+
         if self.settings.os in ("Android",):
-            tc.variables["FPTN_BUILD_WITH_GUI_CLIENT"] = "False"
             tc.variables["FPTN_BUILD_ONLY_FPTN_LIB"] = "True"
         elif self.options.build_only_fptn_lib:
             tc.variables["FPTN_BUILD_ONLY_FPTN_LIB"] = "True"
 
         tc.variables["FPTN_VERSION"] = FPTN_VERSION
+
         tc.generate()
 
     def build(self):

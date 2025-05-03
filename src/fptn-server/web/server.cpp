@@ -333,8 +333,8 @@ bool Server::HandleWsOpenConnection(fptn::ClientID client_id,
     SPDLOG_ERROR("Wrong URL \"{}\"", url);
     return false;
   }
-  if (client_vpn_ipv4 != pcpp::IPv4Address("") &&
-      client_vpn_ipv6 != pcpp::IPv6Address("")) {
+  if (client_vpn_ipv4 != pcpp::IPv4Address() &&
+      client_vpn_ipv6 != pcpp::IPv6Address()) {
     std::string username;
     std::size_t bandwidth_bites_seconds = 0;
     if (token_manager_->Validate(

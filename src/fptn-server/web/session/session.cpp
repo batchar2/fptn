@@ -24,14 +24,13 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <pcapplusplus/SSLLayer.h>      // NOLINT(build/include_order)
 #include <spdlog/spdlog.h>              // NOLINT(build/include_order)
 
-#include "fptn-protocol-lib/https/https_client.h"
+#include "fptn-protocol-lib/tls/tls.h"
 #include "fptn-protocol-lib/protobuf/protocol.h"
 
 namespace {
 std::atomic<fptn::ClientID> client_id = 0;
 }
 
-using fptn::protocol::https::HttpsClient;
 using fptn::web::Session;
 
 Session::Session(std::uint16_t port,
@@ -207,7 +206,7 @@ boost::asio::awaitable<Session::ProbingResult> Session::DetectProbing() {
   std::memcpy(session_id, hello->getSessionID(), session_len);
 
   // Check Session ID
-  if (!HttpsClient::IsFptnClientSessionID(session_id, session_len)) {
+  if (!fptn::protocol::tls::IsFptnClientSessionID(session_id, session_len)) {
     SPDLOG_ERROR("Session ID does not match FPTN client format");
     co_return ProbingResult{
         .is_probing = true, .sni = sni, .should_close = false};
@@ -458,19 +457,23 @@ boost::asio::awaitable<bool> Session::HandleWebSocket(
                                           .to_string();
 
     // Create IPv4Address objects
-    const pcpp::IPv4Address client_ip(client_ip_str);
-    const pcpp::IPv4Address client_vpn_ipv4(client_vpn_ipv4_str);
+    try {
+      const pcpp::IPv4Address client_ip(client_ip_str);
+      const pcpp::IPv4Address client_vpn_ipv4(client_vpn_ipv4_str);
 
-    const std::string client_vpn_ipv6_str =
-        (request.find("ClientIPv6") != request.end()
-                ? request["ClientIPv6"]
-                : FPTN_CLIENT_DEFAULT_ADDRESS_IP6);  // default value
-    const pcpp::IPv6Address client_vpn_ipv6(client_vpn_ipv6_str);
-    // run
-    const bool status =
-        ws_open_callback_(client_id_, client_ip, client_vpn_ipv4,
-            client_vpn_ipv6, shared_from_this(), request.target(), token);
-    co_return status;
+      const std::string client_vpn_ipv6_str =
+          (request.find("ClientIPv6") != request.end()
+                  ? request["ClientIPv6"]
+                  : FPTN_CLIENT_DEFAULT_ADDRESS_IP6);  // default value
+      const pcpp::IPv6Address client_vpn_ipv6(client_vpn_ipv6_str);
+      // run
+      const bool status =
+          ws_open_callback_(client_id_, client_ip, client_vpn_ipv4,
+              client_vpn_ipv6, shared_from_this(), request.target(), token);
+      co_return status;
+    } catch (const std::exception& ex) {
+      SPDLOG_ERROR("Session error: {}", ex.what());
+    }
   }
   co_return false;
 }

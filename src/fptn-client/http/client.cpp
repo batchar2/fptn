@@ -82,12 +82,14 @@ std::pair<pcpp::IPv4Address, pcpp::IPv6Address> Client::GetDns() {
       }
     } catch (const nlohmann::json::parse_error& e) {
       SPDLOG_ERROR("Error parsing JSON response: {}", e.what());
+    } catch (const std::exception& ex) {
+      SPDLOG_ERROR("Exception: {}", ex.what());
     }
   } else {
     SPDLOG_ERROR(
         "Error: Request failed code: {} msg: {}", resp.code, resp.errmsg);
   }
-  return {pcpp::IPv4Address("0.0.0.0"), pcpp::IPv6Address("")};
+  return {pcpp::IPv4Address(), pcpp::IPv6Address()};
 }
 
 void Client::SetNewIPPacketCallback(

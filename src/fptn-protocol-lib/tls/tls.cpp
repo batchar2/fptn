@@ -66,6 +66,7 @@ std::string GenerateFptnKey(std::uint32_t timestamp) {
 
 bool SetHandshakeSessionID(SSL* ssl) {
   // random
+  std::cerr << "+" << std::endl;
   constexpr int kSessionLen = 32;
   std::uint8_t session_id[kSessionLen] = {0};
   if (::RAND_bytes(session_id, sizeof(session_id)) != 1) {
@@ -89,7 +90,6 @@ bool IsFptnClientSessionID(
   std::memcpy(&data, &session[session_len - sizeof(data)], sizeof(data));
 
   const std::string recv_key(data, sizeof(data));
-
   const auto now = std::chrono::system_clock::now();
   const auto now_seconds =
       std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch())

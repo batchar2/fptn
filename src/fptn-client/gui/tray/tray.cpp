@@ -482,8 +482,8 @@ void TrayApp::handleConnecting() {
 
   // get dns
   const auto [dns_server_ipv4, dns_server_ipv6] = http_client->GetDns();
-  if (dns_server_ipv4 == pcpp::IPv4Address("0.0.0.0") ||
-      dns_server_ipv6 == pcpp::IPv6Address("")) {
+  if (dns_server_ipv4 == pcpp::IPv4Address() ||
+      dns_server_ipv6 == pcpp::IPv6Address()) {
     showError(QObject::tr("Connection error"),
         QObject::tr("DNS server error! Check your connection!"));
     connection_state_ = ConnectionState::None;
