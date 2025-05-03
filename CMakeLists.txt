@@ -39,20 +39,25 @@ add_definitions(-DWIN32_LEAN_AND_MEAN)
 
 set(FPTN_SERVER_PATH "${CMAKE_CURRENT_SOURCE_DIR}/src/fptn-server")
 
-# --- depends: base64 ---
+# --- depends ---
 include(depends/cmake/FetchBase64.cmake)
-
-# --- include ---
-include_directories(src/)
+if(NOT FPTN_BUILD_ONLY_FPTN_LIB)
+  if(APPLE OR UNIX)
+    include(depends/cmake/FetchLibTunTap.cmake)
+  elseif(WIN32)
+    include(depends/cmake/FetchWintun.cmake)
+  else()
+    message(FATAL_ERROR "Unsupported platform")
+  endif()
+endif()
 
 # --- project ---
 set(CMAKE_COMPILE_WARNING_AS_ERROR ON) # check all warnings!
 if(MSVC)
   set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS TRUE)
   add_compile_options(/W4 /WX)
-  # target_compile_options("/wd4996")  # Disable warning
 else()
-  add_compile_options(-Wall -Werror)
+  add_compile_options(-Wall -Werror -pedantic)
 endif()
 
 # --- clang-tidy setup ---
@@ -90,18 +95,12 @@ else()
   message(WARNING "[CLANG-TIDY]  clang-tidy not found, skipping clang-tidy checks.")
 endif()
 
+# --- include ---
+include_directories(src/)
+
 # --- build ---
 add_subdirectory(src/fptn-protocol-lib)
 if(NOT FPTN_BUILD_ONLY_FPTN_LIB)
-  # -- depends: tuntap  ---
-  if(APPLE OR UNIX)
-    include(depends/cmake/FetchLibTunTap.cmake)
-  elseif(WIN32)
-    include(depends/cmake/FetchWintun.cmake)
-  else()
-    message(FATAL_ERROR "Unsupported platform")
-  endif()
-
   if(APPLE OR UNIX)
     add_subdirectory(src/fptn-server)
     add_subdirectory(src/fptn-passwd)

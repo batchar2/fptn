@@ -146,7 +146,9 @@ class FPTN(ConanFile):
     def export(self):
         copy(self, f"*", src=self.recipe_folder, dst=self.export_folder)
 
-    def _register_local_recipe(self, recipe, name, version, override=False, force=False):
+    def _register_local_recipe(
+        self, recipe, name, version, override=False, force=False
+    ):
         script_dir = os.path.dirname(os.path.abspath(__file__))
         recipe_rel_path = os.path.join(script_dir, ".conan", "recipes", recipe)
         subprocess.run(

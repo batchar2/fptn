@@ -13,6 +13,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include "fptn-protocol-lib/https/https_client.h"
 #include "fptn-protocol-lib/protobuf/protocol.h"
+#include "fptn-protocol-lib/tls/tls.h"
 
 using fptn::protocol::websocket::WebsocketClient;
 
@@ -23,7 +24,7 @@ WebsocketClient::WebsocketClient(pcpp::IPv4Address server_ip,
     NewIPPacketCallback new_ip_pkt_callback,
     std::string sni,
     std::string token)
-    : ctx_(fptn::protocol::https::HttpsClient::CreateNewSslCtx()),
+    : ctx_(fptn::protocol::tls::CreateNewSslCtx()),
       resolver_(boost::asio::make_strand(ioc_)),
       ws_(boost::asio::make_strand(ioc_), ctx_),
       strand_(ioc_.get_executor()),
@@ -35,13 +36,8 @@ WebsocketClient::WebsocketClient(pcpp::IPv4Address server_ip,
       new_ip_pkt_callback_(std::move(new_ip_pkt_callback)),
       sni_(std::move(sni)),
       token_(std::move(token)) {
-  //  SPDLOG_INFO("Init new connection: {}:{}", server_ip_.toString(),
-  //  server_port);
-
-  fptn::protocol::https::HttpsClient::SetHandshakeSni(
-      ws_.next_layer().native_handle(), sni_);
-  fptn::protocol::https::HttpsClient::SetHandshakeSessionID(
-      ws_.next_layer().native_handle());
+  fptn::protocol::tls::SetHandshakeSni(ws_.next_layer().native_handle(), sni_);
+  fptn::protocol::tls::SetHandshakeSessionID(ws_.next_layer().native_handle());
   ctx_.set_verify_mode(boost::asio::ssl::verify_none);
 }
 
@@ -152,7 +148,7 @@ void WebsocketClient::onSslHandshake(boost::beast::error_code ec) {
         // set browser headers
         using fptn::protocol::https::HttpsClient;
         const auto headers =
-            HttpsClient::RealBrowserHeaders(sni_, server_port_);
+            fptn::protocol::https::RealBrowserHeaders(sni_, server_port_);
         for (const auto& [key, value] : headers) {
           req.set(key, value);
         }

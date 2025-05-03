@@ -11,13 +11,10 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <unordered_map>
 #include <utility>
 
-#include <boost/beast/http.hpp>
 #include <nlohmann/json.hpp>
 #include <openssl/ssl.h>  // NOLINT(build/include_order)
 
 namespace fptn::protocol::https {
-
-using Headers = std::unordered_map<std::string, std::string>;
 
 struct Response final {
   const std::string body;
@@ -30,18 +27,11 @@ struct Response final {
   nlohmann::json Json() const { return nlohmann::json::parse(body); }
 };
 
+using Headers = std::unordered_map<std::string, std::string>;
+Headers RealBrowserHeaders(const std::string& host, int port);
+
 class HttpsClient final {
  public:
-  static std::string GetSHA1Hash(std::uint32_t number);
-  static std::string GenerateFptnKey(std::uint32_t timestamp);
-  static bool SetHandshakeSessionID(SSL* ssl);
-  static bool IsFptnClientSessionID(
-      const std::uint8_t* session, std::size_t session_len);
-  static bool SetHandshakeSni(SSL* ssl, const std::string& sni);
-  static SSL_CTX* CreateNewSslCtx();
-  static std::string ChromeCiphers();
-  static Headers RealBrowserHeaders(const std::string& host, int port);
-
   explicit HttpsClient(const std::string& host, int port);
   explicit HttpsClient(std::string host, int port, std::string sni);
   Response Get(const std::string& handle, int timeout = 5);

@@ -21,7 +21,6 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #pragma warning(disable : 4267)
 #pragma warning(disable : 4244)
 #pragma warning(disable : 4702)
-// #pragma warning(disable: 2220)  // Disable "warning treated as error"
 #endif
 
 #include <boost/asio/buffer.hpp>

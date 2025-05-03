@@ -71,6 +71,8 @@ WarningsAsErrors: ''
 set(FPTN_CLIENT_PROTOCOL_SOURCES
     ${PROTO_SRCS}
     ${PROTO_HDRS}
+    tls/tls.h
+    tls/tls.cpp
     https/https_client.h
     https/https_client.cpp
     protobuf/protocol.h
@@ -103,11 +105,10 @@ foreach(target "${PROJECT_NAME}_static" "${PROJECT_NAME}_shared")
     nlohmann_json::nlohmann_json
     spdlog::spdlog
     fmt::fmt
-    PcapPlusPlus::PcapPlusPlus
-  )
-#  set_target_properties(
-#    ${target}
-#    PROPERTIES VERSION ${FPTN_VERSION}
-#               SOVERSION 1
-#               OUTPUT_NAME "${PROJECT_NAME}")
+    PcapPlusPlus::PcapPlusPlus)
+  #  set_target_properties(
+  #    ${target}
+  #    PROPERTIES VERSION ${FPTN_VERSION}
+  #               SOVERSION 1
+  #               OUTPUT_NAME "${PROJECT_NAME}")
 endforeach()
