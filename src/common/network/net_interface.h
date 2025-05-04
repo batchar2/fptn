@@ -168,7 +168,7 @@ class PosixTunInterface final : public BaseNetInterface {
       thread_ = std::thread(&PosixTunInterface::run, this);
       return thread_.joinable();
     } catch (const std::exception& ex) {
-      spdlog::error("Error start: {}", ex.what());
+      SPDLOG_ERROR("Error start: {}", ex.what());
     }
     return false;
   }
@@ -257,7 +257,7 @@ class WindowsTunInterface : public BaseNetInterface {
     if (!wintun_) {
       return false;
     }
-    spdlog::info("WINTUN: {} version loaded",
+    SPDLOG_INFO("WINTUN: {} version loaded",
         ParseWinTunVersion(WintunGetRunningDriverVersion()));
 
     // --- open adapter ---
@@ -265,7 +265,7 @@ class WindowsTunInterface : public BaseNetInterface {
     adapter_ = WintunCreateAdapter(
         interfaceName.c_str(), interfaceName.c_str(), &guid_);
     if (!adapter_) {
-      spdlog::error("Network adapter wasn't created!");
+      SPDLOG_ERROR("Network adapter wasn't created!");
       return false;
     }
     if (!SetIPv4AndNetmask(IPv4Addr(), IPv4Netmask())) {
@@ -280,7 +280,7 @@ class WindowsTunInterface : public BaseNetInterface {
     const int capacity = 0x20000;
     session_ = WintunStartSession(adapter_, capacity);
     if (!session_) {
-      spdlog::error("Open sessoion error");
+      SPDLOG_ERROR("Open sessoion error");
       return false;
     }
     // --- start thread ---
@@ -339,12 +339,12 @@ class WindowsTunInterface : public BaseNetInterface {
 
     if (1 != inet_pton(AF_INET, ipaddr.c_str(),
                  &(address_row.Address.Ipv4.sin_addr))) {
-      spdlog::error("Wrong IPv4 address");
+      SPDLOG_ERROR("Wrong IPv4 address");
       return false;
     }
     const auto res = CreateUnicastIpAddressEntry(&address_row);
     if (res != ERROR_SUCCESS && res != ERROR_OBJECT_ALREADY_EXISTS) {
-      spdlog::error("Failed to set {} IPv4 address", ipaddr);
+      SPDLOG_ERROR("Failed to set {} IPv4 address", ipaddr);
       return false;
     }
     return true;
@@ -363,12 +363,12 @@ class WindowsTunInterface : public BaseNetInterface {
 
     if (1 != inet_pton(AF_INET6, ipaddr.c_str(),
                  &(address_row.Address.Ipv6.sin6_addr))) {
-      spdlog::error("Wrong IPv6 address");
+      SPDLOG_ERROR("Wrong IPv6 address");
       return false;
     }
     const auto res = CreateUnicastIpAddressEntry(&address_row);
     if (res != ERROR_SUCCESS && res != ERROR_OBJECT_ALREADY_EXISTS) {
-      spdlog::error("Failed to set {} IPv6 address", ipaddr);
+      SPDLOG_ERROR("Failed to set {} IPv6 address", ipaddr);
       return false;
     }
     return true;
@@ -429,7 +429,7 @@ class WindowsTunInterface : public BaseNetInterface {
     HMODULE wintun = LoadLibraryExW(L"wintun.dll", nullptr,
         LOAD_LIBRARY_SEARCH_APPLICATION_DIR | LOAD_LIBRARY_SEARCH_SYSTEM32);
     if (!wintun) {
-      spdlog::error("WINTUN NOT FOUND!");
+      SPDLOG_ERROR("WINTUN NOT FOUND!");
       return nullptr;
     }
 #define X(Name)                                                              \
@@ -445,11 +445,11 @@ class WindowsTunInterface : public BaseNetInterface {
       DWORD LastError = GetLastError();
       FreeLibrary(wintun);
       SetLastError(LastError);
-      spdlog::error("Error whilst loading the lib: {}", LastError);
+      SPDLOG_ERROR("Error whilst loading the lib: {}", LastError);
       return nullptr;
     }
 #undef X
-    spdlog::info("Wintun initialization successful");
+    SPDLOG_INFO("Wintun initialization successful");
     return wintun;
   }
 

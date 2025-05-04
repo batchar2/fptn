@@ -362,7 +362,7 @@ std::string fptn::routing::GetDefaultNetworkInterfaceName() noexcept {
     std::vector<std::string> stdoutput;
     fptn::common::system::command::run(command, stdoutput);
     if (stdoutput.empty()) {
-      spdlog::warn("Warning: Default gateway IP address not found.");
+      SPDLOG_WARN("Warning: Default gateway IP address not found.");
       return {};
     }
     for (const auto& line : stdoutput) {
@@ -387,7 +387,7 @@ static std::string GetWindowsInterfaceNumber(const std::string& interfaceName) {
     fptn::common::system::command::run(command, stdoutput);
 
     if (stdoutput.empty()) {
-      spdlog::warn("Warning: Interface index not found.");
+      SPDLOG_WARN("Warning: Interface index not found.");
       return {};
     }
     for (const auto& line : stdoutput) {

@@ -66,13 +66,13 @@ class TokenManager {
               .with_issuer("auth0");
       return true;
     } catch (const jwt::error::invalid_json_exception& e) {
-      spdlog::error("Token parsing error: {}", e.what());
+      SPDLOG_ERROR("Token parsing error: {}", e.what());
     } catch (const jwt::error::token_verification_exception& e) {
-      spdlog::error("Unauthorized: Invalid token: {}", e.what());
+      SPDLOG_ERROR("Unauthorized: Invalid token: {}", e.what());
     } catch (const std::exception& e) {
-      spdlog::error("Handle other standard exceptions: {}", e.what());
+      SPDLOG_ERROR("Handle other standard exceptions: {}", e.what());
     } catch (...) {
-      spdlog::error("Undefined error");
+      SPDLOG_ERROR("Undefined error");
     }
     return false;
   }
@@ -87,7 +87,7 @@ class TokenManager {
   std::string ReadFromFile(const std::string& path) noexcept {
     std::ifstream is(path, std::ios::binary);
     if (!is) {
-      spdlog::error("Failed to open file: {}", path);
+      SPDLOG_ERROR("Failed to open file: {}", path);
       return {};
     }
     std::string contents(

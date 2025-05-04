@@ -63,26 +63,33 @@ void WebsocketClient::Run() {
 bool WebsocketClient::Stop() {
   const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
-  running_ = false;
-
-  try {
-    boost::beast::get_lowest_layer(ws_).cancel();
-    if (ws_.is_open()) {
-      boost::beast::error_code ec;
-      ws_.close(boost::beast::websocket::close_code::normal, ec);
-      //      if (ec) {
-      //        SPDLOG_ERROR("WebSocket sync close error: {}", ec.message());
-      //      }
+  if (running_) {
+    running_ = false;
+    // close connection
+    try {
+      boost::beast::get_lowest_layer(ws_).cancel();
+    } catch (const boost::system::system_error& err) {
+      SPDLOG_WARN("Error close get_lowest_layer: {}", err.what());
     }
+
+    // close websocket
+    try {
+      if (ws_.is_open()) {
+        boost::beast::error_code ec;
+        ws_.close(boost::beast::websocket::close_code::normal, ec);
+      }
+    } catch (const boost::system::system_error& err) {
+      SPDLOG_WARN("Error close ws_: {}", err.what());
+    }
+  }
+
+  // close ioc
+  try {
     if (!ioc_.stopped()) {
       ioc_.stop();
     }
   } catch (const boost::system::system_error& err) {
-    (void)err;
-    //    SPDLOG_ERROR("Stop error: {}", err.what());
-    if (!ioc_.stopped()) {
-      ioc_.stop();
-    }
+    SPDLOG_WARN("Error close ioc_: {}", err.what());
   }
   return true;
 }

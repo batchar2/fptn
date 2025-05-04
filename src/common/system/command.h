@@ -36,9 +36,9 @@ inline bool run(const std::string& command) {
     return child.exit_code() == 0;
   } catch (const std::exception& e) {
     const std::string msg = e.what();
-    spdlog::error("Command error: " + msg);
+    SPDLOG_ERROR("Command error: " + msg);
   } catch (...) {
-    spdlog::error("Command error: undefined error");
+    SPDLOG_ERROR("Command error: undefined error");
   }
   return false;
 }
@@ -63,7 +63,7 @@ inline bool run(
     child.wait();
     return child.exit_code() == 0;
   } catch (const std::exception& ex) {
-    spdlog::error(
+    SPDLOG_ERROR(
         "Error: failed to run command '{}'. Error: {}", command, ex.what());
   }
   return false;
