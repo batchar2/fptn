@@ -9,8 +9,9 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <memory>
 #include <string>
 
-#include "common/https/client.h"
 #include "common/user/common_user_manager.h"
+
+#include "fptn-protocol-lib/https/https_client.h"
 
 namespace fptn::user {
 
@@ -63,7 +64,7 @@ class UserManager {
   const int remote_server_port_;
 
   /// HTTP client for sending requests to the remote authentication server.
-  fptn::common::https::ClientPtr http_client_;
+  fptn::protocol::https::HttpsClientPtr http_client_;
 
   /// Local user manager for handling authentication using a local user file.
   fptn::common::user::CommonUserManagerPtr common_manager_;

@@ -21,7 +21,6 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #pragma warning(disable : 4267)
 #pragma warning(disable : 4244)
 #pragma warning(disable : 4702)
-// #pragma warning(disable: 2220)  // Disable "warning treated as error"
 #endif
 
 #include <boost/asio/buffer.hpp>
@@ -38,18 +37,22 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include "common/network/ip_packet.h"
 
-namespace fptn::http {
-class Websocket : public std::enable_shared_from_this<Websocket> {
+namespace fptn::protocol::websocket {
+class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
  public:
   using NewIPPacketCallback =
       std::function<void(fptn::common::network::IPPacketPtr packet)>;
-  explicit Websocket(pcpp::IPv4Address server_ip,
+
+ public:
+  explicit WebsocketClient(pcpp::IPv4Address server_ip,
       int server_port,
       pcpp::IPv4Address tun_interface_address_ipv4,
       pcpp::IPv6Address tun_interface_address_ipv6,
       NewIPPacketCallback new_ip_pkt_callback,
       std::string sni,
       std::string token);
+
+ public:
   void Run();
   bool Stop();
   bool Send(fptn::common::network::IPPacketPtr packet);
@@ -97,5 +100,5 @@ class Websocket : public std::enable_shared_from_this<Websocket> {
   const std::string token_;
 };
 
-using WebsocketSPtr = std::shared_ptr<Websocket>;
-}  // namespace fptn::http
+using WebsocketClientSPtr = std::shared_ptr<WebsocketClient>;
+}  // namespace fptn::protocol::websocket

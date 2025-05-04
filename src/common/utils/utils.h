@@ -13,7 +13,6 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <vector>
 
 #include <boost/algorithm/string.hpp>
-#include <protocol.pb.h>  // NOLINT(build/include_order)
 
 #include "common/network/ip_packet.h"
 

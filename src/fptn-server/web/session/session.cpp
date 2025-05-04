@@ -24,7 +24,8 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <pcapplusplus/SSLLayer.h>      // NOLINT(build/include_order)
 #include <spdlog/spdlog.h>              // NOLINT(build/include_order)
 
-#include "common/https/client.h"
+#include "fptn-protocol-lib/tls/tls.h"
+#include "fptn-protocol-lib/protobuf/protocol.h"
 
 namespace {
 std::atomic<fptn::ClientID> client_id = 0;
@@ -205,8 +206,7 @@ boost::asio::awaitable<Session::ProbingResult> Session::DetectProbing() {
   std::memcpy(session_id, hello->getSessionID(), session_len);
 
   // Check Session ID
-  if (!fptn::common::https::Client::IsFptnClientSessionID(
-          session_id, session_len)) {
+  if (!fptn::protocol::tls::IsFptnClientSessionID(session_id, session_len)) {
     SPDLOG_ERROR("Session ID does not match FPTN client format");
     co_return ProbingResult{
         .is_probing = true, .sni = sni, .should_close = false};
@@ -282,7 +282,6 @@ boost::asio::awaitable<bool> Session::HandleProxy(
   } catch (const std::exception& e) {
     SPDLOG_ERROR("Proxy error: {}", e.what());
   }
-
   co_return false;
 }
 
@@ -296,13 +295,13 @@ boost::asio::awaitable<void> Session::RunReader() {
       // read
       co_await ws_.async_read(buffer, token);
       if (ec) {
-          break;
+        break;
       }
       // parse
       if (buffer.size() != 0) {
         std::string rawdata = boost::beast::buffers_to_string(buffer.data());
-        std::string rawip = fptn::common::protobuf::protocol::GetProtoPayload(
-            std::move(rawdata));
+        std::string rawip =
+            fptn::protocol::protobuf::GetProtoPayload(std::move(rawdata));
         auto packet = fptn::common::network::IPPacket::Parse(
             std::move(rawip), client_id_);
         if (packet != nullptr && ws_new_ippacket_callback_) {
@@ -310,12 +309,11 @@ boost::asio::awaitable<void> Session::RunReader() {
         }
         buffer.consume(buffer.size());  // flush
       }
-    } catch (const fptn::common::protobuf::protocol::ProcessingError& err) {
+    } catch (const fptn::protocol::protobuf::ProcessingError& err) {
       SPDLOG_ERROR("Session::runReader Processing error: {}", err.what());
-    } catch (const fptn::common::protobuf::protocol::MessageError& err) {
+    } catch (const fptn::protocol::protobuf::MessageError& err) {
       SPDLOG_ERROR("Session::runReader Message error: {}", err.what());
-    } catch (const fptn::common::protobuf::protocol::UnsoportedProtocolVersion&
-            err) {
+    } catch (const fptn::protocol::protobuf::UnsupportedProtocolVersion& err) {
       SPDLOG_ERROR(
           "Session::runReader Unsupported protocol version: {}", err.what());
     } catch (boost::system::system_error& err) {
@@ -348,8 +346,7 @@ boost::asio::awaitable<void> Session::RunSender() {
     }
     if (packet != nullptr) {
       // send
-      msg = fptn::common::protobuf::protocol::CreateProtoPacket(
-          std::move(packet));
+      msg = fptn::protocol::protobuf::CreateProtoPayload(std::move(packet));
       if (!msg.empty()) {
         co_await ws_.async_write(
             boost::asio::buffer(msg.data(), msg.size()), token);
@@ -415,7 +412,7 @@ boost::asio::awaitable<bool> Session::HandleHttp(
   resp.set(boost::beast::http::field::expires, "Fri, 07 Jun 1974 04:00:00 GMT");
   resp.set("x_bitrix_composite", "Cache (200)");
 
-  const ApiHandle handler = getApiHandle(api_handles_, url, method);
+  const ApiHandle handler = GetApiHandle(api_handles_, url, method);
   if (handler) {
     int status = handler(request, resp);
     resp.result(status);
@@ -460,19 +457,23 @@ boost::asio::awaitable<bool> Session::HandleWebSocket(
                                           .to_string();
 
     // Create IPv4Address objects
-    const pcpp::IPv4Address client_ip(client_ip_str);
-    const pcpp::IPv4Address client_vpn_ipv4(client_vpn_ipv4_str);
+    try {
+      const pcpp::IPv4Address client_ip(client_ip_str);
+      const pcpp::IPv4Address client_vpn_ipv4(client_vpn_ipv4_str);
 
-    const std::string client_vpn_ipv6_str =
-        (request.find("ClientIPv6") != request.end()
-                ? request["ClientIPv6"]
-                : FPTN_CLIENT_DEFAULT_ADDRESS_IP6);  // default value
-    const pcpp::IPv6Address client_vpn_ipv6(client_vpn_ipv6_str);
-    // run
-    const bool status =
-        ws_open_callback_(client_id_, client_ip, client_vpn_ipv4,
-            client_vpn_ipv6, shared_from_this(), request.target(), token);
-    co_return status;
+      const std::string client_vpn_ipv6_str =
+          (request.find("ClientIPv6") != request.end()
+                  ? request["ClientIPv6"]
+                  : FPTN_CLIENT_DEFAULT_ADDRESS_IP6);  // default value
+      const pcpp::IPv6Address client_vpn_ipv6(client_vpn_ipv6_str);
+      // run
+      const bool status =
+          ws_open_callback_(client_id_, client_ip, client_vpn_ipv4,
+              client_vpn_ipv6, shared_from_this(), request.target(), token);
+      co_return status;
+    } catch (const std::exception& ex) {
+      SPDLOG_ERROR("Session error: {}", ex.what());
+    }
   }
   co_return false;
 }

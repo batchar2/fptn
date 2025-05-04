@@ -1,13 +1,15 @@
+import os
+import subprocess
+
 from conan import ConanFile
 from conan.tools.cmake import CMakeToolchain, CMake
-
+from conan.tools.files import copy
 
 # CI will replace this automatically
 FPTN_VERSION = "0.0.0"
 
 
 class FPTN(ConanFile):
-    name = "fptn"
     version = FPTN_VERSION
     requires = (
         "zlib/1.3.1",
@@ -17,7 +19,6 @@ class FPTN(ConanFile):
         "jwt-cpp/0.7.0",
         "spdlog/1.15.1",
         "protobuf/5.27.0",
-        "pcapplusplus/23.09",
         "nlohmann_json/3.11.3",
         "prometheus-cpp/1.3.0",
     )
@@ -31,11 +32,13 @@ class FPTN(ConanFile):
     options = {
         "setup": [True, False],
         "with_gui_client": [True, False],
+        "build_only_fptn_lib": [True, False],
     }
     default_options = {
         # --- program ---
         "setup": False,
         "with_gui_client": False,
+        "build_only_fptn_lib": False,
         # -- depends --
         "*:fPIC": True,
         "*:shared": False,
@@ -104,22 +107,32 @@ class FPTN(ConanFile):
 
     def requirements(self):
         # WE USE BORINGSSL
-        self.requires("openssl/boringssl@local/local", override=True, force=True)
+        self._register_local_recipe("boringssl", "openssl", "boringssl", True, False)
+        self._register_local_recipe("pcapplusplus", "pcapplusplus", "24.09")
         if self.options.with_gui_client:
             self.requires("qt/6.7.1")
         if self.settings.os != "Windows":
             self.requires("meson/1.4.1", override=True, force=True)
 
     def build_requirements(self):
+        self.build_requires("cmake/3.22.0", override=True)
         self.test_requires("gtest/1.14.0")
         if self.settings.os != "Windows":
             self.build_requires("meson/1.4.1", override=True)
 
     def generate(self):
         tc = CMakeToolchain(self)
+
         if self.options.with_gui_client:
             tc.variables["FPTN_BUILD_WITH_GUI_CLIENT"] = "True"
+
+        if self.settings.os in ("Android",):
+            tc.variables["FPTN_BUILD_ONLY_FPTN_LIB"] = "True"
+        elif self.options.build_only_fptn_lib:
+            tc.variables["FPTN_BUILD_ONLY_FPTN_LIB"] = "True"
+
         tc.variables["FPTN_VERSION"] = FPTN_VERSION
+
         tc.generate()
 
     def build(self):
@@ -130,3 +143,25 @@ class FPTN(ConanFile):
     def config_options(self):
         if self.settings.os == "Windows":
             self.options.rm_safe("fPIC")
+
+    def export(self):
+        copy(self, f"*", src=self.recipe_folder, dst=self.export_folder)
+
+    def _register_local_recipe(
+        self, recipe, name, version, override=False, force=False
+    ):
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        recipe_rel_path = os.path.join(script_dir, ".conan", "recipes", recipe)
+        subprocess.run(
+            [
+                "conan",
+                "export",
+                recipe_rel_path,
+                f"--name={name}",
+                f"--version={version}",
+                "--user=local",
+                "--channel=local",
+            ],
+            check=True,
+        )
+        self.requires(f"{name}/{version}@local/local", override=override, force=force)

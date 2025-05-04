@@ -14,9 +14,11 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
-#include "routing//iptables.h"
+#include "fptn-protocol-lib/https/https_client.h"
+#include "routing/iptables.h"
 
 using fptn::http::Client;
+using fptn::protocol::https::HttpsClient;
 
 Client::Client(pcpp::IPv4Address server_ip,
     int server_port,
@@ -36,7 +38,7 @@ bool Client::Login(const std::string& username, const std::string& password) {
   const std::string request = fmt::format(
       R"({{ "username": "{}", "password": "{}" }})", username, password);
 
-  fptn::common::https::Client cli(server_ip_.toString(), server_port_, sni_);
+  HttpsClient cli(server_ip_.toString(), server_port_, sni_);
   const auto resp = cli.Post("/api/v1/login", request, "application/json");
   if (resp.code == 200) {
     try {
@@ -63,7 +65,7 @@ bool Client::Login(const std::string& username, const std::string& password) {
 std::pair<pcpp::IPv4Address, pcpp::IPv6Address> Client::GetDns() {
   SPDLOG_INFO("DNS. Connect to {}:{}", server_ip_.toString(), server_port_);
 
-  fptn::common::https::Client cli(server_ip_.toString(), server_port_, sni_);
+  HttpsClient cli(server_ip_.toString(), server_port_, sni_);
   const auto resp = cli.Get("/api/v1/dns");
   if (resp.code == 200) {
     try {
@@ -80,12 +82,14 @@ std::pair<pcpp::IPv4Address, pcpp::IPv6Address> Client::GetDns() {
       }
     } catch (const nlohmann::json::parse_error& e) {
       SPDLOG_ERROR("Error parsing JSON response: {}", e.what());
+    } catch (const std::exception& ex) {
+      SPDLOG_ERROR("Exception: {}", ex.what());
     }
   } else {
     SPDLOG_ERROR(
         "Error: Request failed code: {} msg: {}", resp.code, resp.errmsg);
   }
-  return {pcpp::IPv4Address("0.0.0.0"), pcpp::IPv6Address("")};
+  return {pcpp::IPv4Address(), pcpp::IPv6Address()};
 }
 
 void Client::SetNewIPPacketCallback(
@@ -111,10 +115,9 @@ void Client::Run() {
   while (running_) {
     {
       const std::unique_lock<std::mutex> lock(mutex_);  // mutex
-
-      ws_ = std::make_shared<Websocket>(server_ip_, server_port_,
-          tun_interface_address_ipv4_, tun_interface_address_ipv6_,
-          new_ip_pkt_callback_, sni_, token_);
+      ws_ = std::make_shared<fptn::protocol::websocket::WebsocketClient>(
+          server_ip_, server_port_, tun_interface_address_ipv4_,
+          tun_interface_address_ipv6_, new_ip_pkt_callback_, sni_, token_);
     }
     ws_->Run();
 

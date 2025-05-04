@@ -23,17 +23,17 @@ class VpnClient final {
       const pcpp::IPv4Address& dns_server_ipv4,
       const pcpp::IPv6Address& dns_server_ipv6);
   ~VpnClient();
-  void Start() noexcept;
-  void Stop() noexcept;
-  std::size_t GetSendRate() noexcept;
-  std::size_t GetReceiveRate() noexcept;
-  bool IsStarted() noexcept;
+  void Start();
+  void Stop();
+  std::size_t GetSendRate();
+  std::size_t GetReceiveRate();
+  bool IsStarted();
 
  protected:
   void HandlePacketFromVirtualNetworkInterface(
-      fptn::common::network::IPPacketPtr packet) noexcept;
+      fptn::common::network::IPPacketPtr packet);
   void HandlePacketFromWebSocket(
-      fptn::common::network::IPPacketPtr packet) noexcept;
+      fptn::common::network::IPPacketPtr packet);
 
  private:
   fptn::http::ClientPtr http_client_;

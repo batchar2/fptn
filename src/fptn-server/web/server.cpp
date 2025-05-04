@@ -133,23 +133,23 @@ Server::Server(std::uint16_t port,
       std::bind(&Server::HandleWsNewIPPacket, this, _1),
       // NOLINTNEXTLINE(modernize-avoid-bind)
       std::bind(&Server::HandleWsCloseConnection, this, _1));
-  listener_->httpRegister(
+  listener_->AddApiHandle(
       // NOLINTNEXTLINE(modernize-avoid-bind)
       kUrlHome_, "GET", std::bind(&Server::HandleApiHome, this, _1, _2));
-  listener_->httpRegister(
+  listener_->AddApiHandle(
       // NOLINTNEXTLINE(modernize-avoid-bind)
       kUrlDns_, "GET", std::bind(&Server::HandleApiDns, this, _1, _2));
-  listener_->httpRegister(
+  listener_->AddApiHandle(
       // NOLINTNEXTLINE(modernize-avoid-bind)
       kUrlLogin_, "POST", std::bind(&Server::HandleApiLogin, this, _1, _2));
-  listener_->httpRegister(kUrlTestFileBin_, "GET",
+  listener_->AddApiHandle(kUrlTestFileBin_, "GET",
       // NOLINTNEXTLINE(modernize-avoid-bind)
       std::bind(&Server::HandleApiTestFile, this, _1, _2));
   if (!prometheus_access_key.empty()) {
     // Construct the URL for accessing Prometheus statistics by appending the
     // access key
     const std::string metrics = kUrlMetrics_ + '/' + prometheus_access_key;
-    listener_->httpRegister(
+    listener_->AddApiHandle(
         // NOLINTNEXTLINE(modernize-avoid-bind)
         metrics, "GET", std::bind(&Server::HandleApiMetrics, this, _1, _2));
   }
@@ -163,7 +163,7 @@ bool Server::Start() {
     // run listener
     boost::asio::co_spawn(
         ioc_,
-        [this]() -> boost::asio::awaitable<void> { co_await listener_->run(); },
+        [this]() -> boost::asio::awaitable<void> { co_await listener_->Run(); },
         boost::asio::detached);
     // run senders
     for (std::size_t i = 0; i < 1; i++) {
@@ -333,8 +333,8 @@ bool Server::HandleWsOpenConnection(fptn::ClientID client_id,
     SPDLOG_ERROR("Wrong URL \"{}\"", url);
     return false;
   }
-  if (client_vpn_ipv4 != pcpp::IPv4Address("") &&
-      client_vpn_ipv6 != pcpp::IPv6Address("")) {
+  if (client_vpn_ipv4 != pcpp::IPv4Address() &&
+      client_vpn_ipv6 != pcpp::IPv6Address()) {
     std::string username;
     std::size_t bandwidth_bites_seconds = 0;
     if (token_manager_->Validate(

@@ -24,7 +24,7 @@ UserManager::UserManager(const std::string& userfile,
       remote_server_port_(remote_server_port) {
   if (use_remote_server_) {
     // remote user list
-    http_client_ = std::make_unique<fptn::common::https::Client>(
+    http_client_ = std::make_unique<fptn::protocol::https::HttpsClient>(
         remote_server_ip_, remote_server_port);
   } else {
     // local user list

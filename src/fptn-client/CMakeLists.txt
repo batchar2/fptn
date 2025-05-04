@@ -1,15 +1,5 @@
 project(fptn-client)
 
-if(APPLE)
-  add_compile_definitions(FPTN_USER_OS=\"MacOS\")
-elseif(WIN32)
-  add_compile_definitions(FPTN_USER_OS=\"Windows\")
-elseif(UNIX)
-  add_compile_definitions(FPTN_USER_OS=\"Linux\")
-else()
-  message(FATAL_ERROR "Unsupported platform")
-endif()
-
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 if(APPLE OR UNIX)
@@ -24,9 +14,6 @@ find_package(spdlog REQUIRED)
 find_package(fmt REQUIRED)
 find_package(PcapPlusPlus REQUIRED)
 find_package(Boost REQUIRED COMPONENTS random filesystem)
-
-#find_package(BoringSSL REQUIRED)
-
 find_package(ZLIB REQUIRED)
 
 find_package(nlohmann_json REQUIRED)
@@ -41,8 +28,6 @@ add_executable(
   vpn/vpn_client.cpp
   http/client.h
   http/client.cpp
-  http/websocket/websocket.h
-  http/websocket/websocket.cpp
   routing/iptables.h
   routing/iptables.cpp
   config/config_file.cpp
@@ -50,19 +35,19 @@ add_executable(
 
 target_link_libraries(
   "${PROJECT_NAME}-cli"
-  ZLIB::ZLIB
-  Boost::boost
-  Boost::random
-  Boost::filesystem
-  OpenSSL::SSL
-  OpenSSL::Crypto
-  argparse::argparse
-  nlohmann_json::nlohmann_json
-  spdlog::spdlog
-  fmt::fmt
-  PcapPlusPlus::PcapPlusPlus
-  fptn_protocol
-  ${TUNTAP_LIB})
+  PRIVATE ZLIB::ZLIB
+          Boost::boost
+          Boost::random
+          Boost::filesystem
+          OpenSSL::SSL
+          OpenSSL::Crypto
+          argparse::argparse
+          nlohmann_json::nlohmann_json
+          spdlog::spdlog
+          fmt::fmt
+          PcapPlusPlus::PcapPlusPlus
+          fptn-protocol-lib_static
+          ${TUNTAP_LIB})
 
 # fptn-client-gui
 if("${FPTN_BUILD_WITH_GUI_CLIENT}")
@@ -108,8 +93,6 @@ WarningsAsErrors: ''
     vpn/vpn_client.cpp
     http/client.h
     http/client.cpp
-    http/websocket/websocket.h
-    http/websocket/websocket.cpp
     routing/iptables.h
     routing/iptables.cpp
     config/config_file.cpp
@@ -134,22 +117,22 @@ WarningsAsErrors: ''
     ${TRANSLATIONS_OUT})
   target_link_libraries(
     "${PROJECT_NAME}-gui"
-    ZLIB::ZLIB
-    Boost::boost
-    Boost::random
-    Boost::filesystem
-    OpenSSL::SSL
-    OpenSSL::Crypto
-    argparse::argparse
-    spdlog::spdlog
-    fmt::fmt
-    PcapPlusPlus::PcapPlusPlus
-    Qt6::Core
-    Qt6::Gui
-    Qt6::Widgets
-    Qt6::Network
-    fptn_protocol
-    ${TUNTAP_LIB})
+    PRIVATE ZLIB::ZLIB
+            Boost::boost
+            Boost::random
+            Boost::filesystem
+            OpenSSL::SSL
+            OpenSSL::Crypto
+            argparse::argparse
+            spdlog::spdlog
+            fmt::fmt
+            PcapPlusPlus::PcapPlusPlus
+            Qt6::Core
+            Qt6::Gui
+            Qt6::Widgets
+            Qt6::Network
+            fptn-protocol-lib_static
+            ${TUNTAP_LIB})
 
   set_target_properties("${PROJECT_NAME}-gui" PROPERTIES AUTOMOC ON)
 endif()

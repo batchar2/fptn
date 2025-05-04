@@ -32,9 +32,9 @@ class Listener final {
       WebSocketNewIPPacketCallback ws_new_ippacket_callback,
       WebSocketCloseConnectionCallback ws_close_callback);
 
-  boost::asio::awaitable<void> run();
-  bool stop();
-  void httpRegister(const std::string& url,
+  boost::asio::awaitable<void> Run();
+  bool Stop();
+  void AddApiHandle(const std::string& url,
       const std::string& method,
       const ApiHandle& handle);
 

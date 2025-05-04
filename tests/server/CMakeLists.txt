@@ -25,7 +25,7 @@ set(LIBS
     spdlog::spdlog
     fmt::fmt
     PcapPlusPlus::PcapPlusPlus
-    fptn_protocol
+    fptn-protocol-lib_static
     prometheus-cpp::prometheus-cpp
     ${TUNTAP_LIB})
 
@@ -33,11 +33,11 @@ include_directories(${FPTN_SERVER_PATH})
 
 # --- MetricTest test ---
 add_executable(MetricTest statistic/MetricTest.cpp ${FPTN_SERVER_PATH}/statistic/metrics.h ${FPTN_SERVER_PATH}/statistic/metrics.cpp)
-target_link_libraries(MetricTest ${LIBS})
+target_link_libraries(MetricTest PRIVATE ${LIBS})
 add_test(NAME MetricTest COMMAND MetricTest)
 
 # --- AntiScan test ---
 add_executable(AntiScanTest filter/antiscan/AntiScanTest.cpp ${FPTN_SERVER_PATH}/filter/filters/antiscan/antiscan.h
                             ${FPTN_SERVER_PATH}/filter/filters/antiscan/antiscan.cpp)
-target_link_libraries(AntiScanTest ${LIBS})
+target_link_libraries(AntiScanTest PRIVATE ${LIBS})
 add_test(NAME AntiScanTest COMMAND AntiScanTest)

@@ -176,7 +176,7 @@ void TrayApp::UpdateTrayMenu() {
             connect(
                 server_connect, &QAction::triggered, [this, server, service]() {
                   smart_connect_ = false;
-                  fptn::config::ConfigFile::Server cfg_server;
+                  fptn::protocol::server::ServerInfo cfg_server;
                   {
                     cfg_server.name = server.name.toStdString();
                     cfg_server.host = server.host.toStdString();
@@ -207,7 +207,7 @@ void TrayApp::UpdateTrayMenu() {
             connect(
                 server_connect, &QAction::triggered, [this, server, service]() {
                   smart_connect_ = false;
-                  fptn::config::ConfigFile::Server cfg_server;
+                  fptn::protocol::server::ServerInfo cfg_server;
                   {
                     cfg_server.name = server.name.toStdString();
                     cfg_server.host = server.host.toStdString();
@@ -417,7 +417,7 @@ void TrayApp::handleConnecting() {
   if (smart_connect_) {                  // find the best server
     for (const auto& service : settings_->Services()) {
       for (const auto& s : service.servers) {
-        fptn::config::ConfigFile::Server cfg_server;
+        fptn::protocol::server::ServerInfo cfg_server;
         {
           cfg_server.name = s.name.toStdString();
           cfg_server.host = s.host.toStdString();
@@ -440,7 +440,8 @@ void TrayApp::handleConnecting() {
     }
   } else {
     // check connection to selected server
-    const std::uint64_t time = config.GetDownloadTimeMs(selected_server_);
+    const std::uint64_t time =
+        config.GetDownloadTimeMs(selected_server_, sni, 5);
     if (time == UINT64_MAX) {
       showError(QObject::tr("Connection Error"),
           QString(QObject::tr(
@@ -481,8 +482,8 @@ void TrayApp::handleConnecting() {
 
   // get dns
   const auto [dns_server_ipv4, dns_server_ipv6] = http_client->GetDns();
-  if (dns_server_ipv4 == pcpp::IPv4Address("0.0.0.0") ||
-      dns_server_ipv6 == pcpp::IPv6Address("")) {
+  if (dns_server_ipv4 == pcpp::IPv4Address() ||
+      dns_server_ipv6 == pcpp::IPv6Address()) {
     showError(QObject::tr("Connection error"),
         QObject::tr("DNS server error! Check your connection!"));
     connection_state_ = ConnectionState::None;

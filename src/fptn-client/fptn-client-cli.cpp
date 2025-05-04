@@ -121,7 +121,7 @@ int main(int argc, char* argv[]) {
     /* check config */
     const auto access_token = args.get<std::string>("--access-token");
     fptn::config::ConfigFile config(access_token, sni);
-    fptn::config::ConfigFile::Server selected_server;
+    fptn::protocol::server::ServerInfo selected_server;
     try {
       config.Parse();
       selected_server = config.FindFastestServer();
@@ -131,7 +131,7 @@ int main(int argc, char* argv[]) {
     }
     const int server_port = selected_server.port;
     const auto server_ip = fptn::routing::ResolveDomain(selected_server.host);
-    if (server_ip == pcpp::IPv4Address("0.0.0.0")) {
+    if (server_ip == pcpp::IPv4Address()) {
       SPDLOG_ERROR("DNS resolve error: {}", selected_server.host);
       return EXIT_FAILURE;
     }
@@ -163,8 +163,8 @@ int main(int argc, char* argv[]) {
       return EXIT_FAILURE;
     }
     const auto [dnsServerIPv4, dnsServerIPv6] = http_client->GetDns();
-    if (dnsServerIPv4 == pcpp::IPv4Address("0.0.0.0") ||
-        dnsServerIPv6 == pcpp::IPv6Address("")) {
+    if (dnsServerIPv4 == pcpp::IPv4Address() ||
+        dnsServerIPv6 == pcpp::IPv6Address()) {
       SPDLOG_ERROR("DNS server error! Check your connection!");
       return EXIT_FAILURE;
     }

@@ -52,13 +52,13 @@ Listener::Listener(std::uint16_t port,
                                                         // Avoid in production
 }
 
-void Listener::httpRegister(const std::string& url,
+void Listener::AddApiHandle(const std::string& url,
     const std::string& method,
     const ApiHandle& handle) {
-  AddApiHandle(api_handles_, url, method, handle);
+  fptn::web::AddApiHandle(api_handles_, url, method, handle);
 }
 
-boost::asio::awaitable<void> Listener::run() {
+boost::asio::awaitable<void> Listener::Run() {
   try {
     acceptor_.open(endpoint_.protocol());
     acceptor_.set_option(boost::asio::ip::tcp::no_delay(true));
@@ -99,7 +99,7 @@ boost::asio::awaitable<void> Listener::run() {
   co_return;
 }
 
-bool Listener::stop() {
+bool Listener::Stop() {
   try {
     acceptor_.close();
   } catch (boost::system::system_error& err) {

@@ -16,15 +16,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
-#include "common/https/client.h"
-
-#if _WIN32
-#ifdef max
-#pragma push_macro("max")
-#undef max
-#define MAX_MACRO_WAS_DEFINED
-#endif
-#endif
+#include "fptn-protocol-lib/https/https_client.h"
 
 namespace fptn::gui::autoupdate {
 namespace version {
@@ -54,7 +46,7 @@ inline int compare(const std::string& version1, const std::string& version2) {
 }  // namespace version
 
 inline std::pair<bool, std::string> Check() {
-  fptn::common::https::Client cli("api.github.com", 443);
+  fptn::protocol::https::HttpsClient cli("api.github.com", 443);
 
   const auto url = fmt::format("/repos/{}/{}/releases/latest",
       FPTN_GITHUB_USERNAME, FPTN_GITHUB_REPOSITORY);
@@ -78,12 +70,5 @@ inline std::pair<bool, std::string> Check() {
   }
   return {false, {}};
 }
-
-#if _WIN32
-#ifdef MAX_MACRO_WAS_DEFINED
-#pragma pop_macro("max")
-#undef MAX_MACRO_WAS_DEFINED
-#endif
-#endif
 
 }  // namespace fptn::gui::autoupdate
