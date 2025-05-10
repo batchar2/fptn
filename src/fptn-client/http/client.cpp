@@ -99,6 +99,8 @@ void Client::SetNewIPPacketCallback(
 
 bool Client::Send(fptn::common::network::IPPacketPtr packet) {
   try {
+    const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
     if (ws_ && running_) {
       ws_->Send(std::move(packet));
       return true;
@@ -112,6 +114,7 @@ bool Client::Send(fptn::common::network::IPPacketPtr packet) {
 }
 
 void Client::Run() {
+  std::cerr << "RUN1" << std::endl;
   while (running_) {
     {
       const std::unique_lock<std::mutex> lock(mutex_);  // mutex

@@ -30,7 +30,7 @@ WebsocketClient::WebsocketClient(pcpp::IPv4Address server_ip,
       strand_(ioc_.get_executor()),
       running_(false),
       server_ip_(std::move(server_ip)),
-      server_port_(server_port),
+      server_port_str_(std::to_string(server_port)),
       tun_interface_address_ipv4_(std::move(tun_interface_address_ipv4)),
       tun_interface_address_ipv6_(std::move(tun_interface_address_ipv6)),
       new_ip_pkt_callback_(std::move(new_ip_pkt_callback)),
@@ -42,21 +42,25 @@ WebsocketClient::WebsocketClient(pcpp::IPv4Address server_ip,
 }
 
 void WebsocketClient::Run() {
-  const std::string port_str = std::to_string(server_port_);
-  auto self = shared_from_this();
-  resolver_.async_resolve(server_ip_.toString(), port_str,
-      [self](boost::beast::error_code ec,
-          boost::asio::ip::tcp::resolver::results_type results) {
-        if (ec) {
-          SPDLOG_ERROR("Resolve error: {}", ec.message());
-        } else {
-          self->onResolve(ec, std::move(results));
-        }
-      });
-  if (ioc_.stopped()) {
-    ioc_.restart();
+  try {
+    SPDLOG_INFO("Connection: {}:{}", server_ip_.toString(), server_port_str_);
+
+    auto self = shared_from_this();
+    resolver_.async_resolve(server_ip_.toString(), server_port_str_,
+        [self](boost::beast::error_code ec,
+            boost::asio::ip::tcp::resolver::results_type results) {
+          if (ec) {
+            SPDLOG_ERROR("Resolve error: {}", ec.message());
+          } else {
+            self->onResolve(ec, std::move(results));
+          }
+        });
+    ioc_.run();
+  } catch (const boost::system::system_error& err) {
+    SPDLOG_ERROR("Error run ws_: {}", err.what());
+  } catch (...) {
+    SPDLOG_ERROR("Undefined ws error");
   }
-  ioc_.run();
   running_ = false;
 }
 
@@ -155,7 +159,7 @@ void WebsocketClient::onSslHandshake(boost::beast::error_code ec) {
         // set browser headers
         using fptn::protocol::https::HttpsClient;
         const auto headers =
-            fptn::protocol::https::RealBrowserHeaders(sni_, server_port_);
+            fptn::protocol::https::RealBrowserHeaders(sni_);
         for (const auto& [key, value] : headers) {
           req.set(key, value);
         }

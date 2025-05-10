@@ -372,163 +372,187 @@ void TrayApp::handleDefaultState() {
 }
 
 void TrayApp::handleConnecting() {
-  SPDLOG_DEBUG("Handling connecting state");
-  UpdateTrayMenu();
-
-  tray_icon_->setIcon(QIcon(inactive_icon_path_));
-
-  const pcpp::IPv4Address tun_interface_address_ipv4(
-      FPTN_CLIENT_DEFAULT_ADDRESS_IP4);
-  const pcpp::IPv6Address tun_interface_address_ipv6(
-      FPTN_CLIENT_DEFAULT_ADDRESS_IP6);
-  const std::string tun_interface_name = "tun0";
-
-  /* check gateway address */
-  const auto gateway_ip =
-      (settings_->GatewayIp() == "auto"
-              ? fptn::routing::GetDefaultGatewayIPAddress()
-              : pcpp::IPv4Address(settings_->GatewayIp().toStdString()));
-
-  if (gateway_ip == pcpp::IPv4Address("0.0.0.0")) {
-    showError(QObject::tr("Connection Error"),
-        QObject::tr("Unable to find the default gateway IP address. "
-                    "Please check your connection and make sure no other VPN "
-                    "is active. "
-                    "If the error persists, specify the gateway address in the "
-                    "FPTN settings using your router's IP address, "
-                    "and ensure that an active internet interface (adapter) is "
-                    "selected. If the issue remains unresolved, "
-                    "please contact the developer via Telegram @fptn_chat."));
-    connection_state_ = ConnectionState::None;
+  try {
+    SPDLOG_DEBUG("Handling connecting state");
     UpdateTrayMenu();
-    return;
-  }
 
-  /* config */
-  const std::string network_interface =
-      (settings_->UsingNetworkInterface() == "auto"
-              ? ""
-              : settings_->UsingNetworkInterface().toStdString());
+    tray_icon_->setIcon(QIcon(inactive_icon_path_));
 
-  const std::string sni = !settings_->SNI().isEmpty()
-                              ? settings_->SNI().toStdString()
-                              : FPTN_DEFAULT_SNI;
-  fptn::config::ConfigFile config(sni);  // SET SNI
-  if (smart_connect_) {                  // find the best server
-    for (const auto& service : settings_->Services()) {
-      for (const auto& s : service.servers) {
-        fptn::protocol::server::ServerInfo cfg_server;
-        {
-          cfg_server.name = s.name.toStdString();
-          cfg_server.host = s.host.toStdString();
-          cfg_server.port = s.port;
-          cfg_server.is_using = s.is_using;
-          cfg_server.service_name = service.service_name.toStdString();
-          cfg_server.username = service.username.toStdString();
-          cfg_server.password = service.password.toStdString();
-        }
-        config.AddServer(cfg_server);
-      }
-    }
-    try {
-      selected_server_ = config.FindFastestServer();
-    } catch (std::runtime_error& err) {
-      showError(QObject::tr("Config error"), err.what());
+    const pcpp::IPv4Address tun_interface_address_ipv4(
+        FPTN_CLIENT_DEFAULT_ADDRESS_IP4);
+    const pcpp::IPv6Address tun_interface_address_ipv6(
+        FPTN_CLIENT_DEFAULT_ADDRESS_IP6);
+    const std::string tun_interface_name = "tun0";
+
+    /* check gateway address */
+    const auto gateway_ip =
+        (settings_->GatewayIp() == "auto"
+                ? fptn::routing::GetDefaultGatewayIPAddress()
+                : pcpp::IPv4Address(settings_->GatewayIp().toStdString()));
+
+    if (gateway_ip == pcpp::IPv4Address()) {
+      showError(QObject::tr("Connection Error"),
+          QObject::tr(
+              "Unable to find the default gateway IP address. "
+              "Please check your connection and make sure no other VPN "
+              "is active. "
+              "If the error persists, specify the gateway address in the "
+              "FPTN settings using your router's IP address, "
+              "and ensure that an active internet interface (adapter) is "
+              "selected. If the issue remains unresolved, "
+              "please contact the developer via Telegram @fptn_chat."));
       connection_state_ = ConnectionState::None;
       UpdateTrayMenu();
       return;
     }
-  } else {
-    // check connection to selected server
-    const std::uint64_t time =
-        config.GetDownloadTimeMs(selected_server_, sni, 5);
-    if (time == UINT64_MAX) {
-      showError(QObject::tr("Connection Error"),
-          QString(QObject::tr(
-                      "The server is unavailable. Please select another server "
-                      "or use Auto-connect to find the best available server."))
+
+    /* config */
+    const std::string network_interface =
+        (settings_->UsingNetworkInterface() == "auto"
+                ? ""
+                : settings_->UsingNetworkInterface().toStdString());
+
+    const std::string sni = !settings_->SNI().isEmpty()
+                                ? settings_->SNI().toStdString()
+                                : FPTN_DEFAULT_SNI;
+    fptn::config::ConfigFile config(sni);  // SET SNI
+    if (smart_connect_) {                  // find the best server
+      for (const auto& service : settings_->Services()) {
+        for (const auto& s : service.servers) {
+          fptn::protocol::server::ServerInfo cfg_server;
+          {
+            cfg_server.name = s.name.toStdString();
+            cfg_server.host = s.host.toStdString();
+            cfg_server.port = s.port;
+            cfg_server.is_using = s.is_using;
+            cfg_server.service_name = service.service_name.toStdString();
+            cfg_server.username = service.username.toStdString();
+            cfg_server.password = service.password.toStdString();
+          }
+          config.AddServer(cfg_server);
+        }
+      }
+      try {
+        selected_server_ = config.FindFastestServer();
+      } catch (std::runtime_error& err) {
+        showError(QObject::tr("Config error"), err.what());
+        connection_state_ = ConnectionState::None;
+        UpdateTrayMenu();
+        return;
+      }
+    } else {
+      // check connection to selected server
+      const std::uint64_t time =
+          config.GetDownloadTimeMs(selected_server_, sni, 5);
+      if (time == UINT64_MAX) {
+        showError(QObject::tr("Connection Error"),
+            QString(
+                QObject::tr(
+                    "The server is unavailable. Please select another server "
+                    "or use Auto-connect to find the best available server."))
+                .arg(QString::fromStdString(selected_server_.host)));
+        connection_state_ = ConnectionState::None;
+        UpdateTrayMenu();
+        return;
+      }
+    }
+
+    const int server_port = selected_server_.port;
+    const auto server_ip = fptn::routing::ResolveDomain(selected_server_.host);
+    if (server_ip == pcpp::IPv4Address()) {
+      showError(QObject::tr("DNS resolution error"),
+          QString(QObject::tr("DNS resolution error") + ": %1")
               .arg(QString::fromStdString(selected_server_.host)));
       connection_state_ = ConnectionState::None;
       UpdateTrayMenu();
       return;
     }
-  }
 
-  const int server_port = selected_server_.port;
-  const auto server_ip = fptn::routing::ResolveDomain(selected_server_.host);
-  if (server_ip == pcpp::IPv4Address("0.0.0.0")) {
-    showError(QObject::tr("DNS resolution error"),
-        QString(QObject::tr("DNS resolution error") + ": %1")
-            .arg(QString::fromStdString(selected_server_.host)));
-    connection_state_ = ConnectionState::None;
-    UpdateTrayMenu();
-    return;
-  }
-
-  auto http_client = std::make_unique<fptn::http::Client>(server_ip,
-      server_port, tun_interface_address_ipv4, tun_interface_address_ipv6, sni);
-  // login
-  bool login_status =
-      http_client->Login(selected_server_.username, selected_server_.password);
-  if (!login_status) {
-    showError(QObject::tr("Connection Error"),
-        QObject::tr("Connection error to the server! Please download the "
-                    "latest file with your personal settings through the "
-                    "Telegram bot and try again."));
-    connection_state_ = ConnectionState::None;
-    UpdateTrayMenu();
-    return;
-  }
-
-  // get dns
-  const auto [dns_server_ipv4, dns_server_ipv6] = http_client->GetDns();
-  if (dns_server_ipv4 == pcpp::IPv4Address() ||
-      dns_server_ipv6 == pcpp::IPv6Address()) {
-    showError(QObject::tr("Connection error"),
-        QObject::tr("DNS server error! Check your connection!"));
-    connection_state_ = ConnectionState::None;
-    UpdateTrayMenu();
-    return;
-  }
-
-  // setup ip tables
-  ip_tables_ = std::make_unique<fptn::routing::IPTables>(network_interface,
-      tun_interface_name, server_ip, dns_server_ipv4, dns_server_ipv6,
-      gateway_ip, tun_interface_address_ipv4, tun_interface_address_ipv6);
-
-  // setup tun interface
-  auto virtual_network_interface =
-      std::make_unique<fptn::common::network::TunInterface>(tun_interface_name,
-          /* IPv4 */
-          tun_interface_address_ipv4, 30,
-          /* IPv6 */
-          tun_interface_address_ipv6, 126);
-
-  // setup vpn client
-  vpn_client_ = std::make_unique<fptn::vpn::VpnClient>(std::move(http_client),
-      std::move(virtual_network_interface), dns_server_ipv4, dns_server_ipv6);
-
-  // Wait for the WebSocket tunnel to establish
-  vpn_client_->Start();
-  constexpr auto kTimeout = std::chrono::seconds(5);
-  const auto start = std::chrono::steady_clock::now();
-  while (!vpn_client_->IsStarted()) {
-    if (std::chrono::steady_clock::now() - start > kTimeout) {
-      showError(QObject::tr("Connection error"),
-          QObject::tr("Couldn't open websocket tunnel!"));
+    auto http_client =
+        std::make_unique<fptn::http::Client>(server_ip, server_port,
+            tun_interface_address_ipv4, tun_interface_address_ipv6, sni);
+    // login
+    bool login_status = http_client->Login(
+        selected_server_.username, selected_server_.password);
+    if (!login_status) {
+      showError(QObject::tr("Connection Error"),
+          QObject::tr("Connection error to the server! Please download the "
+                      "latest file with your personal settings through the "
+                      "Telegram bot and try again."));
       connection_state_ = ConnectionState::None;
       UpdateTrayMenu();
       return;
     }
-    std::this_thread::sleep_for(std::chrono::microseconds(200));
+
+    // get dns
+    const auto [dns_server_ipv4, dns_server_ipv6] = http_client->GetDns();
+    if (dns_server_ipv4 == pcpp::IPv4Address() ||
+        dns_server_ipv6 == pcpp::IPv6Address()) {
+      showError(QObject::tr("Connection error"),
+          QObject::tr("DNS server error! Check your connection!"));
+      connection_state_ = ConnectionState::None;
+      UpdateTrayMenu();
+      return;
+    }
+
+    // setup ip tables
+    ip_tables_ = std::make_unique<fptn::routing::IPTables>(network_interface,
+        tun_interface_name, server_ip, dns_server_ipv4, dns_server_ipv6,
+        gateway_ip, tun_interface_address_ipv4, tun_interface_address_ipv6);
+
+    // setup tun interface
+    auto virtual_network_interface =
+        std::make_unique<fptn::common::network::TunInterface>(
+            tun_interface_name,
+            /* IPv4 */
+            tun_interface_address_ipv4, 30,
+            /* IPv6 */
+            tun_interface_address_ipv6, 126);
+
+    // setup vpn client
+    vpn_client_ = std::make_unique<fptn::vpn::VpnClient>(std::move(http_client),
+        std::move(virtual_network_interface), dns_server_ipv4, dns_server_ipv6);
+
+    std::cerr << "+++gui1" << std::endl;
+
+    // Wait for the WebSocket tunnel to establish
+    vpn_client_->Start();
+    constexpr auto kTimeout = std::chrono::seconds(5);
+    const auto start = std::chrono::steady_clock::now();
+    while (!vpn_client_->IsStarted()) {
+      std::cerr << "+++gui1.1" << std::endl;
+      if (std::chrono::steady_clock::now() - start > kTimeout) {
+        showError(QObject::tr("Connection error"),
+            QObject::tr("Couldn't open websocket tunnel!"));
+        connection_state_ = ConnectionState::None;
+        UpdateTrayMenu();
+        return;
+      }
+      std::this_thread::sleep_for(std::chrono::microseconds(1000));
+    }
+
+    std::cerr << "+++gui2" << std::endl;
+
+    ip_tables_->Apply();
+
+    std::cerr << "+++gui3" << std::endl;
+
+    connection_state_ = ConnectionState::Connected;
+    UpdateTrayMenu();
+    std::cerr << "+++gui4" << std::endl;
+    emit connected();
+  } catch (const std::exception& ex) {
+    showError(QObject::tr("Unexpected Error"),
+        QObject::tr("An unexpected error occurred: %1").arg(ex.what()));
+    connection_state_ = ConnectionState::None;
+    UpdateTrayMenu();
+  } catch (...) {
+    showError(QObject::tr("Unknown Error"),
+        QObject::tr("An unknown error occurred."));
+    connection_state_ = ConnectionState::None;
+    UpdateTrayMenu();
   }
-
-  ip_tables_->Apply();
-
-  connection_state_ = ConnectionState::Connected;
-  UpdateTrayMenu();
-
-  emit connected();
+  std::cerr << "+++gui5" << std::endl;
 }
 
 void TrayApp::handleConnected() {

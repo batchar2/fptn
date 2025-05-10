@@ -257,30 +257,31 @@ class WindowsTunInterface : public BaseNetInterface {
     if (!wintun_) {
       return false;
     }
+
     SPDLOG_INFO("WINTUN: {} version loaded",
         ParseWinTunVersion(WintunGetRunningDriverVersion()));
 
     // --- open adapter ---
-    const std::wstring interfaceName = ToWString(Name());
+    const std::wstring interface_name = ToWString(Name());
     adapter_ = WintunCreateAdapter(
-        interfaceName.c_str(), interfaceName.c_str(), &guid_);
+        interface_name.c_str(), interface_name.c_str(), &guid_);
     if (!adapter_) {
       SPDLOG_ERROR("Network adapter wasn't created!");
       return false;
     }
     if (!SetIPv4AndNetmask(IPv4Addr(), IPv4Netmask())) {
+      SPDLOG_ERROR("Set IPv4 error!");
       return false;
     }
-
     if (!SetIPv6AndNetmask(IPv6Addr(), IPv6Netmask())) {
-      // pass IPv6
-      // return false;
+      SPDLOG_ERROR("Set IPv6 error!");
+      return false;
     }
     // --- start session ---
     const int capacity = 0x20000;
     session_ = WintunStartSession(adapter_, capacity);
     if (!session_) {
-      SPDLOG_ERROR("Open sessoion error");
+      SPDLOG_ERROR("Open session error");
       return false;
     }
     // --- start thread ---
@@ -381,6 +382,7 @@ class WindowsTunInterface : public BaseNetInterface {
       if (ERROR_SUCCESS == ReadPacketNonblock(session_, buffer, &size)) {
         auto packet = IPPacket::Parse(buffer, size);
         if (packet != nullptr && new_ippacket_callback) {
+          std::cerr << "+";
           receive_rate_calculator_.Update(packet->Size());  // calculate rate
           new_ippacket_callback(std::move(packet));
         }
@@ -402,14 +404,14 @@ class WindowsTunInterface : public BaseNetInterface {
   // cppcheck-suppress unusedFunction
   int ReadPacketNonblock(
       WINTUN_SESSION_HANDLE session, BYTE* buff, DWORD* size) {
-    static constexpr size_t retryAmount = 20;
+    static constexpr size_t kRetryAmount = 20;
     while (running_) {
-      for (size_t i = 0; i < retryAmount; i++) {
-        DWORD packetSize;
-        BYTE* packet = WintunReceivePacket(session, &packetSize);
+      for (size_t i = 0; i < kRetryAmount; i++) {
+        DWORD packet_size;
+        BYTE* packet = WintunReceivePacket(session, &packet_size);
         if (packet && running_) {
-          memcpy(buff, packet, packetSize);
-          *size = packetSize;
+          memcpy(buff, packet, packet_size);
+          *size = packet_size;
           WintunReleaseReceivePacket(session, packet);
           return ERROR_SUCCESS;
         } else if (GetLastError() == ERROR_NO_MORE_ITEMS) {
