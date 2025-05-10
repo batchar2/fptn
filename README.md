@@ -286,10 +286,36 @@ Use the following template:
 
 Once the configuration file is ready, open the FPTN Client settings and load your configuration file.
 
+##### Step 10 Token creation 
 
-##### Step 10 (optional). Telegram and Grafana
+To create a token, encode the content from the file in Step 9 using Base64.
+Go to [Base64 Encode](https://www.base64encode.org), paste the content into the input field, and generate the encoded string. After encoding, remove any `=` characters at the end of the Base64 string — the result will be your token.
+and you can use this base 64 like a token
 
-Please follow the instructions for setting up both the [Telegram bot](sysadmin-tools/telegram-bot/README.md) and [Grafana](sysadmin-tools/grafana/README.md).
+Example
+
+Original Base64 (before removing `=`):
+
+```
+AicG9ydCI6IDQ0MwogICAgICAgIH0KICAgIF0KfQ==
+```
+
+Final token (after removing `=`):
+
+```
+AicG9ydCI6IDQ0MwogICAgICAgIH0KICAgIF0KfQ
+```
+
+
+(Optional) Add `fptn:` prefix
+```
+fptn:AicG9ydCI6IDQ0MwogICAgICAgIH0KICAgIF0KfQ
+```
+
+
+##### Step 11 (optional). Telegram and Grafana
+
+To create a token, you need to encode the content from step 9 using Base64. To do this, copy the content from step 9 and visit [Telegram bot](sysadmin-tools/telegram-bot/README.md) and [Grafana](sysadmin-tools/grafana/README.md).
 With these tools, you can run your own bot and monitoring routing.
 
 <img src="sysadmin-tools/grafana/images/grafana-1.jpg" alt="Grafana"/>
