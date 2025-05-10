@@ -290,8 +290,7 @@ bool IPTables::Clean() {  // NOLINT(bugprone-exception-escape)
 }
 
 // NOLINT(bugprone-exception-escape)
-pcpp::IPv4Address fptn::routing::ResolveDomain(
-    const std::string& domain) noexcept {
+pcpp::IPv4Address fptn::routing::ResolveDomain(const std::string& domain) {
   try {
     try {
       // error test
@@ -313,7 +312,7 @@ pcpp::IPv4Address fptn::routing::ResolveDomain(
   return domain;
 }
 
-pcpp::IPv4Address fptn::routing::GetDefaultGatewayIPAddress() noexcept {
+pcpp::IPv4Address fptn::routing::GetDefaultGatewayIPAddress() {
   try {
 #ifdef __linux__
     const std::string command = "ip route get 8.8.8.8 | awk '{print $3; exit}'";
@@ -331,12 +330,12 @@ pcpp::IPv4Address fptn::routing::GetDefaultGatewayIPAddress() noexcept {
     for (const auto& line : stdoutput) {
       std::string result = line;
       // NOLINTNEXTLINE(modernize-use-ranges)
-      result.erase(std::remove_if(result.begin(), result.end(),
-                       [](char c) { return !std::isdigit(c) && c != '.'; }),
-          result.end());
+//      result.erase(std::remove_if(result.begin(), result.end(),
+//                       [](char c) { return !std::isdigit(c) && c != '.'; }),
+//          result.end());
       if (!result.empty() &&
-          pcpp::IPv4Address(result) != pcpp::IPv4Address("0.0.0.0")) {
-        return result;
+          pcpp::IPv4Address(result) != pcpp::IPv4Address()) {
+        return ResolveDomain(result);
       }
     }
   } catch (const std::exception& ex) {
@@ -346,7 +345,7 @@ pcpp::IPv4Address fptn::routing::GetDefaultGatewayIPAddress() noexcept {
   return {};
 }
 
-std::string fptn::routing::GetDefaultNetworkInterfaceName() noexcept {
+std::string fptn::routing::GetDefaultNetworkInterfaceName() {
   std::string result;
   try {
 #ifdef __linux__
