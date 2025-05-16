@@ -12,15 +12,15 @@ FPTN_VERSION = "0.0.0"
 class FPTN(ConanFile):
     version = FPTN_VERSION
     requires = (
-        "zlib/1.3.1",
+        "argparse/3.2",
+        "boost/1.87.0",
         "fmt/11.1.3",
-        "boost/1.83.0",
-        "argparse/3.1",
-        "jwt-cpp/0.7.0",
-        "spdlog/1.15.1",
-        "protobuf/5.27.0",
-        "nlohmann_json/3.11.3",
+        "jwt-cpp/0.7.1",
+        "nlohmann_json/3.12.0",
         "prometheus-cpp/1.3.0",
+        "protobuf/5.27.0",
+        "spdlog/1.15.1",
+        "zlib/1.3.1",
     )
     settings = (
         "os",
@@ -66,18 +66,15 @@ class FPTN(ConanFile):
         "boost/*:without_python": True,
         "boost/*:without_chrono": True,
         "boost/*:without_contract": True,
-        "boost/*:without_date_time": True,
         "boost/*:without_fiber": True,
         "boost/*:without_graph": True,
         "boost/*:without_graph_parallel": True,
-        # "boost/*:without_iostreams": True,
         "boost/*:without_locale": True,
         "boost/*:without_log": True,
         "boost/*:without_math": True,
         "boost/*:without_mpi": True,
         "boost/*:without_nowide": True,
         "boost/*:without_program_options": True,
-        # "boost/*:without_regex": True,
         "boost/*:without_serialization": True,
         "boost/*:without_stacktrace": True,
         "boost/*:without_test": True,
@@ -148,7 +145,7 @@ class FPTN(ConanFile):
         copy(self, f"*", src=self.recipe_folder, dst=self.export_folder)
 
     def _register_local_recipe(
-        self, recipe, name, version, override=False, force=False
+            self, recipe, name, version, override=False, force=False
     ):
         script_dir = os.path.dirname(os.path.abspath(__file__))
         recipe_rel_path = os.path.join(script_dir, ".conan", "recipes", recipe)
