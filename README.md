@@ -6,7 +6,7 @@
 
 [![Build and Test](https://github.com/batchar2/fptn/actions/workflows/main.yml/badge.svg)](https://github.com/batchar2/fptn/actions/workflows/main.yml) [![Github All Releases](https://img.shields.io/github/downloads/batchar2/fptn/total.svg)]()
 
-FPTN is a non-commercial VPN, a volunteer project for bypassing censorship.
+FPTN is a non-commercial VPN, a volunteer project for bypassing censorship. [Visit our website.](http://batchar2.github.io/fptn/)
 
 ##### Features
 
@@ -19,7 +19,7 @@ FPTN is a non-commercial VPN, a volunteer project for bypassing censorship.
 * ✅ `Grafana & Prometheus Integration`: Collects and visualizes service metrics with Grafana and Prometheus.
 * ✅ `Chrome Ciphers`: Utilizes Chrome's cipher suite to reduce the risk of traffic detection.
 * ✅ `Cross-Platform Support`: Client compatible with Windows, Ubuntu, and macOS.
-* ✅ `Android Application`: Android app. [WebSite](http://batchar2.github.io/fptn/)
+* ✅ `Android Application`: Android app.
 
 
 ##### Next Steps
