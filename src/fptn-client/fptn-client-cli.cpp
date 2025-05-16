@@ -103,10 +103,10 @@ int main(int argc, char* argv[]) {
 
     /* check gateway address */
     const auto using_gateway_ip =
-        (gateway_ip == pcpp::IPv4Address("0.0.0.0")
+        (gateway_ip == pcpp::IPv4Address()
                 ? fptn::routing::GetDefaultGatewayIPAddress()
                 : pcpp::IPv4Address(gateway_ip));
-    if (using_gateway_ip == pcpp::IPv4Address("0.0.0.0")) {
+    if (using_gateway_ip == pcpp::IPv4Address()) {
       SPDLOG_ERROR(
           "Unable to find the default gateway IP address. "
           "Please check your connection and make sure no other VPN is active. "

@@ -23,9 +23,9 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #endif
 
 namespace fptn::routing {
-std::string GetDefaultNetworkInterfaceName() noexcept;
-pcpp::IPv4Address GetDefaultGatewayIPAddress() noexcept;
-pcpp::IPv4Address ResolveDomain(const std::string& domain) noexcept;
+std::string GetDefaultNetworkInterfaceName();
+pcpp::IPv4Address GetDefaultGatewayIPAddress();
+pcpp::IPv4Address ResolveDomain(const std::string& domain);
 
 class IPTables final {
  public:
