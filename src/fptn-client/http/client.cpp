@@ -114,7 +114,6 @@ bool Client::Send(fptn::common::network::IPPacketPtr packet) {
 }
 
 void Client::Run() {
-  std::cerr << "RUN1" << std::endl;
   while (running_) {
     {
       const std::unique_lock<std::mutex> lock(mutex_);  // mutex

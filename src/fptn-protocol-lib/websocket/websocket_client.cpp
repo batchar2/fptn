@@ -48,7 +48,7 @@ void WebsocketClient::Run() {
     auto self = shared_from_this();
     resolver_.async_resolve(server_ip_.toString(), server_port_str_,
         [self](boost::beast::error_code ec,
-            boost::asio::ip::tcp::resolver::results_type results) {
+            boost::asio::ip::tcp::resolver::results_type results) mutable {
           if (ec) {
             SPDLOG_ERROR("Resolve error: {}", ec.message());
           } else {
@@ -154,19 +154,20 @@ void WebsocketClient::onSslHandshake(boost::beast::error_code ec) {
       boost::beast::role_type::client));
 
   // Set https headers
+  auto self = shared_from_this();
   ws_.set_option(boost::beast::websocket::stream_base::decorator(
-      [this](boost::beast::websocket::request_type& req) {
+      [self](boost::beast::websocket::request_type& req) mutable {
         // set browser headers
         using fptn::protocol::https::HttpsClient;
         const auto headers =
-            fptn::protocol::https::RealBrowserHeaders(sni_);
+            fptn::protocol::https::RealBrowserHeaders(self->sni_);
         for (const auto& [key, value] : headers) {
           req.set(key, value);
         }
         // set custom headers
-        req.set("Authorization", "Bearer " + token_);
-        req.set("ClientIP", tun_interface_address_ipv4_.toString());
-        req.set("ClientIPv6", tun_interface_address_ipv6_.toString());
+        req.set("Authorization", "Bearer " + self->token_);
+        req.set("ClientIP", self->tun_interface_address_ipv4_.toString());
+        req.set("ClientIPv6", self->tun_interface_address_ipv6_.toString());
         req.set("Client-Agent",
             fmt::format("FptnClient({}/{})", FPTN_USER_OS, FPTN_VERSION));
       }));

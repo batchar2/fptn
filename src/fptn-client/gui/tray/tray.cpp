@@ -513,14 +513,11 @@ void TrayApp::handleConnecting() {
     vpn_client_ = std::make_unique<fptn::vpn::VpnClient>(std::move(http_client),
         std::move(virtual_network_interface), dns_server_ipv4, dns_server_ipv6);
 
-    std::cerr << "+++gui1" << std::endl;
-
     // Wait for the WebSocket tunnel to establish
     vpn_client_->Start();
     constexpr auto kTimeout = std::chrono::seconds(5);
     const auto start = std::chrono::steady_clock::now();
     while (!vpn_client_->IsStarted()) {
-      std::cerr << "+++gui1.1" << std::endl;
       if (std::chrono::steady_clock::now() - start > kTimeout) {
         showError(QObject::tr("Connection error"),
             QObject::tr("Couldn't open websocket tunnel!"));
@@ -530,16 +527,10 @@ void TrayApp::handleConnecting() {
       }
       std::this_thread::sleep_for(std::chrono::microseconds(1000));
     }
-
-    std::cerr << "+++gui2" << std::endl;
-
     ip_tables_->Apply();
-
-    std::cerr << "+++gui3" << std::endl;
-
     connection_state_ = ConnectionState::Connected;
     UpdateTrayMenu();
-    std::cerr << "+++gui4" << std::endl;
+
     emit connected();
   } catch (const std::exception& ex) {
     showError(QObject::tr("Unexpected Error"),
@@ -552,7 +543,6 @@ void TrayApp::handleConnecting() {
     connection_state_ = ConnectionState::None;
     UpdateTrayMenu();
   }
-  std::cerr << "+++gui5" << std::endl;
 }
 
 void TrayApp::handleConnected() {

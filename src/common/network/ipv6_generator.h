@@ -33,7 +33,7 @@ class IPv6AddressGenerator {
   IPv6AddressGenerator(
       const pcpp::IPv6Address& net_address, std::uint32_t subnet_mask) {
     const auto net_address_boost =
-        boost::asio::ip::address_v6::from_string(net_address.toString());
+        boost::asio::ip::make_address_v6(net_address.toString());
     net_addr_ = ipv6::toUInt128(net_address_boost);
     max_addr_ =
         net_addr_ |
@@ -44,9 +44,9 @@ class IPv6AddressGenerator {
   pcpp::IPv6Address GetNextAddress() noexcept {
     const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
-    const auto newIP = current_addr_ + 1;
-    if (newIP < max_addr_) {
-      current_addr_ = newIP;
+    const auto new_ip = current_addr_ + 1;
+    if (new_ip < max_addr_) {
+      current_addr_ = new_ip;
     } else {
       current_addr_ = net_addr_ + 1;
     }

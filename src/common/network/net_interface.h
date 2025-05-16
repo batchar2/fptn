@@ -382,7 +382,6 @@ class WindowsTunInterface : public BaseNetInterface {
       if (ERROR_SUCCESS == ReadPacketNonblock(session_, buffer, &size)) {
         auto packet = IPPacket::Parse(buffer, size);
         if (packet != nullptr && new_ippacket_callback) {
-          std::cerr << "+";
           receive_rate_calculator_.Update(packet->Size());  // calculate rate
           new_ippacket_callback(std::move(packet));
         }
