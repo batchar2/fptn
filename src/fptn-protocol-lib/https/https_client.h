@@ -28,7 +28,7 @@ struct Response final {
 };
 
 using Headers = std::unordered_map<std::string, std::string>;
-Headers RealBrowserHeaders(const std::string& host, int port);
+Headers RealBrowserHeaders(const std::string& host);
 
 class HttpsClient final {
  public:

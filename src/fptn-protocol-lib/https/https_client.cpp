@@ -7,7 +7,6 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "fptn-protocol-lib/https/https_client.h"
 
 #include <memory>
-#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -56,7 +55,7 @@ std::string DecompressGzip(const std::string& compressed) {
   strm.next_in = reinterpret_cast<Bytef*>(const_cast<char*>(compressed.data()));
   strm.avail_in = static_cast<unsigned int>(compressed.size());
 
-  if (inflateInit2(&strm, 16 + MAX_WBITS) != Z_OK) {
+  if (::inflateInit2(&strm, 16 + MAX_WBITS) != Z_OK) {
     return {};
   }
 
@@ -91,12 +90,10 @@ std::string GetHttpBody(
 
 namespace fptn::protocol::https {
 
-Headers RealBrowserHeaders(const std::string& host, int port) {
+Headers RealBrowserHeaders(const std::string& host) {
   /* Just to ensure that FPTN is as similar to a web browser as possible. */
-  const std::string host_header =
-      (port == 443 ? host : fmt::format("{}:{}", host, port));
 #ifdef __linux__  // chromium ubuntu arm
-  return {{"Host", host_header},
+  return {{"Host", host},
       {"User-Agent",
           "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like "
           "Gecko) Chrome/134.0.0.0 Safari/537.36"},
@@ -114,7 +111,7 @@ Headers RealBrowserHeaders(const std::string& host, int port) {
       {"Sec-Fetch-Dest", "document"}, {"Priority", "u=0, i"}};
 #elif __APPLE__
   // apple silicon chrome
-  return {{"Host", host_header},
+  return {{"Host", host},
       {"sec-ch-ua",
           R"("Chromium";v="128", "Not;A=Brand";v="24", "Google Chrome";v="128")"},
       {"sec-ch-ua-platform", "\"macOS\""}, {"sec-ch-ua-mobile", "?0"},
@@ -133,7 +130,7 @@ Headers RealBrowserHeaders(const std::string& host, int port) {
       {"priority", "u=4, i"}};
 #elif _WIN32
   // chrome windows amd64
-  return {{"Host", host_header},
+  return {{"Host", host},
       {"sec-ch-ua",
           R"("Chromium";v="128", "Not;A=Brand";v="24", "Google Chrome";v="128")"},
       {"sec-ch-ua-mobile", "?0"}, {"sec-ch-ua-platform", "\"Windows\""},
@@ -193,7 +190,7 @@ Response HttpsClient::Get(const std::string& handle, int timeout) {
     boost::beast::http::request<boost::beast::http::string_body> req{
         boost::beast::http::verb::get, handle, 11};
     // set http headers
-    const auto headers = RealBrowserHeaders(sni_, port_);
+    const auto headers = RealBrowserHeaders(sni_);
     for (const auto& [key, value] : headers) {
       req.set(key, value);
     }
@@ -258,7 +255,7 @@ Response HttpsClient::Post(const std::string& handle,
     req.set(boost::beast::http::field::content_type, content_type);
     req.set(boost::beast::http::field::content_length,
         std::to_string(request.size()));
-    const auto headers = RealBrowserHeaders(sni_, port_);
+    const auto headers = RealBrowserHeaders(sni_);
     for (const auto& [key, value] : headers) {
       req.set(key, value);
     }

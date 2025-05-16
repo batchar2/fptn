@@ -25,6 +25,10 @@ inline bool init(const std::string& appName) {
 #else
 #error "Unsupported system!"
 #endif
+  // Set locale
+  std::locale::global(std::locale::classic());
+  std::setlocale(LC_ALL, "C");
+
   if (!std::filesystem::exists(logDir)) {
     try {
       std::filesystem::create_directories(logDir);
