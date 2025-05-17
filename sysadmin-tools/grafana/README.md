@@ -8,20 +8,41 @@ Grafana is used for monitoring server activity, including traffic amount and act
 
 #### To set it up:
 
-1. Copy and Configure Environment File:
-   - Copy the .env.demo file to .env:
-        ```bash
-        cp .env.demo .env
-        ```
-   - Open the .env file and fill in all required fields. Pay special attention to the `PROMETHEUS_SECRET_ACCESS_KEY` parameter. 
-   - This value should match the access key configured for the fptn-server.
-2. Run Docker Compose:
+1. **Clone the repository:**
+
+```bash
+git clone https://github.com/batchar2/fptn.git
+```
+
+2. **Navigate to the Grafana configuration folder:**
+
+```bash
+cd sysadmin-tools/grafana
+```
+
+3. **Copy and configure the environment file:**
+    - Copy the `.env.demo` file to `.env`:
+
+      ```bash
+      cp .env.demo .env
+      ```
+
+    - Open the `.env` file in a text editor and fill in all required fields.
+    - Pay special attention to the `PROMETHEUS_SECRET_ACCESS_KEY` parameter:
+        - This value **must match** the access key defined in your `fptn-server` config at `/etc/fptn/server.conf`.
+        - Use a **secure, random string** of **at least 30 characters** for this value.
+
+4. **Run Docker Compose:**
+   - Need install docker. To install it on ubuntu use [this docs](https://docs.docker.com/engine/install/ubuntu/)
    - Start Grafana and its dependencies using Docker Compose:
+   
         ```bash
-        docker-compose up -d
+        docker compose down && docker compose up -d
         ```
-3. Access Grafana:
-   Open your browser and navigate to the Grafana interface using the selected port. You can then proceed to set up your Grafana instance.
+5. **Access Grafana:**
+    - Open your browser and navigate to the Grafana interface using the selected port (**3000 by default**).
+    - Log in using the default credentials: `admin` / `admin`.
+    - After logging in, Grafana will prompt you to change the default password — **do it immediately and avoid using default credentials going forward!**
 
 #### Notes:
 
