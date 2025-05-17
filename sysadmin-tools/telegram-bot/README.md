@@ -50,12 +50,22 @@ API_TOKEN=your_actual_api_token_here
 
 ### Servers
 
+Copy the public demo server list and edit it with your actual server details:
 
-```
+```bash
 cp servers.json.demo server.json
 ```
 
-Edit this config file to provide your own servers
+Open servers.json and add your public server configurations.
+
+
+Copy the servers in censored regions
+
+```bash
+cp servers_censored_zone.json.demo servers_censored_zone.json
+```
+
+Then open censored_zone_servers.json and either edit this file.
 
 
 # Welcome message for the bot
@@ -85,7 +95,8 @@ USERS_FILE=/etc/fptn/users.list
 After setting up the environment file, start the bot with:
 
 ```bash
-docker-compose up -d
+docker compose build
+docker compose up -d
 ```
 
 This command will start the bot in detached mode, allowing it to run in the background.
@@ -95,7 +106,7 @@ This command will start the bot in detached mode, allowing it to run in the back
 To stop the bot, use:
 
 ```bash
-docker-compose down
+docker compose down
 ```
 
 This will stop and remove the running containers associated with your bot.

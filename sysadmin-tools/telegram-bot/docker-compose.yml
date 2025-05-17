@@ -9,10 +9,13 @@ services:
       - FPTN_WELCOME_MESSAGE_RU=${FPTN_WELCOME_MESSAGE_RU}
       - MAX_USER_SPEED_LIMIT=${MAX_USER_SPEED_LIMIT}
       - USERS_FILE=${USERS_FILE}
-      - SERVERS_LIST_FILE=/etc/fptn/servers.json
+      - SERVERS_LIST_FILE=/etc/servers.json
+      - SERVERS_CENSORED_LIST_FILE=/etc/servers_censored_zone.json
       - SERVICE_NAME=${SERVICE_NAME}
     volumes:
       - /etc/fptn/:/etc/fptn/:rw
       - ./logs:/var/log/fptn_bot:rw
-      - ${SERVERS_LIST_FILE}:/etc/fptn/servers.json:rw
+      - ./src/bot.py:/app/src/bot.py:r
+      - ./servers.json:/etc/servers.json:r
+      - ./servers_censored_zone.json:/etc/servers_censored_zone.json:r
     restart: unless-stopped
