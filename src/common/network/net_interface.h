@@ -201,7 +201,7 @@ class PosixTunInterface final : public BaseNetInterface {
     return receive_rate_calculator_.GetRateForSecond();
   }
 
- private:
+ protected:
   void run() noexcept {
     std::unique_ptr<std::uint8_t[]> data =
         std::make_unique<std::uint8_t[]>(mtu_);
@@ -236,23 +236,24 @@ using TunInterface = PosixTunInterface;
 class WindowsTunInterface : public BaseNetInterface {
  public:
   WindowsTunInterface(const std::string& name,
-      const pcpp::IPv4Address& ipv4Addr,
-      const int ipv4Netmask,
-      const pcpp::IPv6Address& ipv6Addr,
-      const int ipv6Netmask,
+      const pcpp::IPv4Address& ipv4_addr,
+      const int ipv4_netmask,
+      const pcpp::IPv6Address& ipv6_addr,
+      const int ipv6_netmask,
       const NewIPPacketCallback& callback = nullptr)
       : BaseNetInterface(
-            name, ipv4Addr, ipv4Netmask, ipv6Addr, ipv6Netmask, callback),
+            name, ipv4_addr, ipv4_netmask, ipv6_addr, ipv6_netmask, callback),
         running_(false),
         wintun_(nullptr),
         adapter_(0),
         session_(0),
-        ipContext_(0),
-        ipInstance_(0) {
+        ip_context_(0),
+        ip_instance_(0) {
     wintun_ = InitializeWintun();
     UuidCreate(&guid_);
   }
   ~WindowsTunInterface() override {}
+
   bool Start() noexcept override {
     if (!wintun_) {
       return false;
@@ -261,9 +262,9 @@ class WindowsTunInterface : public BaseNetInterface {
         ParseWinTunVersion(WintunGetRunningDriverVersion()));
 
     // --- open adapter ---
-    const std::wstring interfaceName = ToWString(Name());
+    const std::wstring interface_name = ToWString(Name());
     adapter_ = WintunCreateAdapter(
-        interfaceName.c_str(), interfaceName.c_str(), &guid_);
+        interface_name.c_str(), interface_name.c_str(), &guid_);
     if (!adapter_) {
       spdlog::error("Network adapter wasn't created!");
       return false;
@@ -394,22 +395,22 @@ class WindowsTunInterface : public BaseNetInterface {
   }
 
   // cppcheck-suppress unusedFunction
-  inline std::string ParseWinTunVersion(DWORD versionNumber) {
-    return std::to_string((versionNumber >> 16) & 0xff) + "." +
-           std::to_string((versionNumber >> 0) & 0xff);
+  inline std::string ParseWinTunVersion(DWORD version_number) {
+    return std::to_string((version_number >> 16) & 0xff) + "." +
+           std::to_string((version_number >> 0) & 0xff);
   }
 
   // cppcheck-suppress unusedFunction
   int ReadPacketNonblock(
       WINTUN_SESSION_HANDLE session, BYTE* buff, DWORD* size) {
-    static constexpr size_t retryAmount = 20;
+    static constexpr size_t retry_amount = 20;
     while (running_) {
-      for (size_t i = 0; i < retryAmount; i++) {
-        DWORD packetSize;
-        BYTE* packet = WintunReceivePacket(session, &packetSize);
+      for (size_t i = 0; i < retry_amount; i++) {
+        DWORD packet_size;
+        BYTE* packet = WintunReceivePacket(session, &packet_size);
         if (packet && running_) {
-          memcpy(buff, packet, packetSize);
-          *size = packetSize;
+          memcpy(buff, packet, packet_size);
+          *size = packet_size;
           WintunReleaseReceivePacket(session, packet);
           return ERROR_SUCCESS;
         } else if (GetLastError() == ERROR_NO_MORE_ITEMS) {
@@ -442,10 +443,10 @@ class WindowsTunInterface : public BaseNetInterface {
         X(WintunGetReadWaitEvent) || X(WintunReceivePacket) ||
         X(WintunReleaseReceivePacket) || X(WintunAllocateSendPacket) ||
         X(WintunSendPacket)) {
-      DWORD LastError = GetLastError();
+      DWORD last_error = GetLastError();
       FreeLibrary(wintun);
-      SetLastError(LastError);
-      spdlog::error("Error whilst loading the lib: {}", LastError);
+      SetLastError(last_error);
+      spdlog::error("Error whilst loading the lib: {}", last_error);
       return nullptr;
     }
 #undef X
@@ -478,8 +479,8 @@ class WindowsTunInterface : public BaseNetInterface {
   HMODULE wintun_;
   WINTUN_ADAPTER_HANDLE adapter_;
   WINTUN_SESSION_HANDLE session_;
-  ULONG ipContext_;
-  ULONG ipInstance_;
+  ULONG ip_context_;
+  ULONG ip_instance_;
 
   DataRateCalculator send_rate_calculator_;
   DataRateCalculator receive_rate_calculator_;

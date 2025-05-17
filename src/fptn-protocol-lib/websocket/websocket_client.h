@@ -74,6 +74,8 @@ class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
   void Fail(boost::beast::error_code ec, char const* what);
 
  private:
+  const std::string kUrlWebSocket_ = "/fptn";
+
   boost::asio::io_context ioc_;
   boost::asio::ssl::context ctx_;
   boost::asio::ip::tcp::resolver resolver_;
@@ -91,7 +93,7 @@ class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
   mutable std::atomic<bool> running_;
 
   const pcpp::IPv4Address server_ip_;
-  const int server_port_;
+  const std::string server_port_str_;
 
   const pcpp::IPv4Address tun_interface_address_ipv4_;
   const pcpp::IPv6Address tun_interface_address_ipv6_;

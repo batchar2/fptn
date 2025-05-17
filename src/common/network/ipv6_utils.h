@@ -24,8 +24,7 @@ inline boost::multiprecision::uint128_t toUInt128(
 
 inline boost::multiprecision::uint128_t toUInt128(
     const pcpp::IPv6Address& address) {
-  return toUInt128(
-      boost::asio::ip::address_v6::from_string(address.toString()));
+  return toUInt128(boost::asio::ip::make_address_v6(address.toString()));
 }
 
 inline std::string toString(const boost::multiprecision::uint128_t& val) {

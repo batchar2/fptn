@@ -30,7 +30,7 @@ WebsocketClient::WebsocketClient(pcpp::IPv4Address server_ip,
       strand_(ioc_.get_executor()),
       running_(false),
       server_ip_(std::move(server_ip)),
-      server_port_(server_port),
+      server_port_str_(std::to_string(server_port)),
       tun_interface_address_ipv4_(std::move(tun_interface_address_ipv4)),
       tun_interface_address_ipv6_(std::move(tun_interface_address_ipv6)),
       new_ip_pkt_callback_(std::move(new_ip_pkt_callback)),
@@ -42,47 +42,58 @@ WebsocketClient::WebsocketClient(pcpp::IPv4Address server_ip,
 }
 
 void WebsocketClient::Run() {
-  const std::string port_str = std::to_string(server_port_);
-  auto self = shared_from_this();
-  resolver_.async_resolve(server_ip_.toString(), port_str,
-      [self](boost::beast::error_code ec,
-          boost::asio::ip::tcp::resolver::results_type results) {
-        if (ec) {
-          SPDLOG_ERROR("Resolve error: {}", ec.message());
-        } else {
-          self->onResolve(ec, std::move(results));
-        }
-      });
-  if (ioc_.stopped()) {
-    ioc_.restart();
+  try {
+    SPDLOG_INFO("Connection: {}:{}", server_ip_.toString(), server_port_str_);
+
+    auto self = shared_from_this();
+    resolver_.async_resolve(server_ip_.toString(), server_port_str_,
+        [self](boost::beast::error_code ec,
+            boost::asio::ip::tcp::resolver::results_type results) mutable {
+          if (ec) {
+            SPDLOG_ERROR("Resolve error: {}", ec.message());
+          } else {
+            self->onResolve(ec, std::move(results));
+          }
+        });
+    ioc_.run();
+  } catch (const boost::system::system_error& err) {
+    SPDLOG_ERROR("Error run ws_: {}", err.what());
+  } catch (...) {
+    SPDLOG_ERROR("Undefined ws error");
   }
-  ioc_.run();
   running_ = false;
 }
 
 bool WebsocketClient::Stop() {
   const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
-  running_ = false;
-
-  try {
-    boost::beast::get_lowest_layer(ws_).cancel();
-    if (ws_.is_open()) {
-      boost::beast::error_code ec;
-      ws_.close(boost::beast::websocket::close_code::normal, ec);
-      //      if (ec) {
-      //        SPDLOG_ERROR("WebSocket sync close error: {}", ec.message());
-      //      }
+  if (running_) {
+    running_ = false;
+    // close connection
+    try {
+      boost::beast::get_lowest_layer(ws_).cancel();
+    } catch (const boost::system::system_error& err) {
+      SPDLOG_WARN("Error close get_lowest_layer: {}", err.what());
     }
+
+    // close websocket
+    try {
+      if (ws_.is_open()) {
+        boost::beast::error_code ec;
+        ws_.close(boost::beast::websocket::close_code::normal, ec);
+      }
+    } catch (const boost::system::system_error& err) {
+      SPDLOG_WARN("Error close ws_: {}", err.what());
+    }
+  }
+
+  // close ioc
+  try {
     if (!ioc_.stopped()) {
       ioc_.stop();
     }
   } catch (const boost::system::system_error& err) {
-    (void)err;
-    //    SPDLOG_ERROR("Stop error: {}", err.what());
-    if (!ioc_.stopped()) {
-      ioc_.stop();
-    }
+    SPDLOG_WARN("Error close ioc_: {}", err.what());
   }
   return true;
 }
@@ -143,25 +154,26 @@ void WebsocketClient::onSslHandshake(boost::beast::error_code ec) {
       boost::beast::role_type::client));
 
   // Set https headers
+  auto self = shared_from_this();
   ws_.set_option(boost::beast::websocket::stream_base::decorator(
-      [this](boost::beast::websocket::request_type& req) {
+      [self](boost::beast::websocket::request_type& req) mutable {
         // set browser headers
         using fptn::protocol::https::HttpsClient;
         const auto headers =
-            fptn::protocol::https::RealBrowserHeaders(sni_, server_port_);
+            fptn::protocol::https::RealBrowserHeaders(self->sni_);
         for (const auto& [key, value] : headers) {
           req.set(key, value);
         }
         // set custom headers
-        req.set("Authorization", "Bearer " + token_);
-        req.set("ClientIP", tun_interface_address_ipv4_.toString());
-        req.set("ClientIPv6", tun_interface_address_ipv6_.toString());
+        req.set("Authorization", "Bearer " + self->token_);
+        req.set("ClientIP", self->tun_interface_address_ipv4_.toString());
+        req.set("ClientIPv6", self->tun_interface_address_ipv6_.toString());
         req.set("Client-Agent",
             fmt::format("FptnClient({}/{})", FPTN_USER_OS, FPTN_VERSION));
       }));
 
   // Perform the websocket handshake
-  ws_.async_handshake(server_ip_.toString(), "/fptn",
+  ws_.async_handshake(server_ip_.toString(), kUrlWebSocket_,
       boost::beast::bind_front_handler(
           &WebsocketClient::onHandshake, shared_from_this()));
 }
