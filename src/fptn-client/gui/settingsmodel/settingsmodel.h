@@ -29,7 +29,7 @@ namespace fptn::gui {
             "service_name": "FPTN.ONLINE",
             "username": "test",
             "password": "test",
-                "servers": [
+            "servers": [
                     {
                         "name": "pq1",
                         "host": "74.119.195.151",
@@ -41,7 +41,7 @@ namespace fptn::gui {
                         "port": 443
                     }
                 ],
-                "censored_zone_servers": [
+            "censored_zone_servers": [
                     {
                         "name": "Server1",
                         "host": "127.0.0.1",

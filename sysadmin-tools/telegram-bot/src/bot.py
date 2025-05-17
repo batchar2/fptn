@@ -29,9 +29,16 @@ MAX_USER_SPEED_LIMIT = int(os.getenv("MAX_USER_SPEED_LIMIT"))
 SERVICE_NAME = os.getenv("SERVICE_NAME")
 USERS_FILE = Path(os.getenv("USERS_FILE", "/etc/fptn/users.list"))
 SERVERS_LIST_FILE = os.getenv("SERVERS_LIST_FILE")
+SERVERS_CENSORED_LIST_FILE = os.getenv("SERVERS_CENSORED_LIST_FILE")
 
 with open(SERVERS_LIST_FILE, "r") as fp:
     SERVERS_LIST = json.load(fp)
+
+if SERVERS_CENSORED_LIST_FILE is not None:
+    with open(SERVERS_CENSORED_LIST_FILE, "r") as fp:
+        SERVERS_CENSORED_LIST = json.load(fp)
+else:
+    SERVERS_CENSORED_LIST = []
 
 
 def init_logger():
@@ -159,6 +166,7 @@ def generate_token(username: str, password: str) -> str:
         "username": username,
         "password": password,
         "servers": SERVERS_LIST,
+        "censored_zone_servers": SERVERS_CENSORED_LIST,
     }
     return json.dumps(data)
 

@@ -1,5 +1,6 @@
 logs/
 servers.json
+servers_censored_zone.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
