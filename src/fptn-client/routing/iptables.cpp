@@ -14,7 +14,37 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "common/system/command.h"
 
 #ifdef _WIN32
-static std::string GetWindowsInterfaceNumber(const std::string& interfaceName);
+namespace {
+std::string GetWindowsInterfaceNumber(const std::string& interface_name) {
+  try {
+    const std::string command =
+        "powershell -Command \"(Get-NetAdapter -Name '" + interface_name +
+        "').ifIndex\"";
+    std::vector<std::string> cmd_stdout;
+    fptn::common::system::command::run(command, cmd_stdout);
+
+    if (cmd_stdout.empty()) {
+      spdlog::warn("Warning: Interface index not found.");
+      return {};
+    }
+    for (const auto& line : cmd_stdout) {
+      std::string result = line;
+      result.erase(result.find_last_not_of(" \n\r\t") + 1);
+      result.erase(0, result.find_first_not_of(" \n\r\t"));
+      if (!result.empty() &&
+          std::all_of(result.begin(), result.end(), ::isdigit)) {
+        return result;
+      }
+    }
+    SPDLOG_ERROR("Error: Invalid interface index format.");
+    return {};
+  } catch (const std::exception& ex) {
+    SPDLOG_ERROR(
+        "Error: failed to retrieve the interface index. Msg: {}", ex.what());
+  }
+  return {};
+}
+}  // namespace
 #endif
 
 using fptn::routing::IPTables;
@@ -44,7 +74,7 @@ IPTables::~IPTables() {  // NOLINT(bugprone-exception-escape)
 }
 
 bool IPTables::Apply() {
-  const std::unique_lock<std::mutex> lock(mutex_);
+  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
   running_ = true;
 #if defined(__APPLE__) || defined(__linux__)
@@ -325,16 +355,19 @@ pcpp::IPv4Address fptn::routing::GetDefaultGatewayIPAddress() {
 #else
 #error "Unsupported system!"
 #endif
-    std::vector<std::string> stdoutput;
-    fptn::common::system::command::run(command, stdoutput);
-    for (const auto& line : stdoutput) {
+    std::vector<std::string> cmd_stdout;
+    fptn::common::system::command::run(command, cmd_stdout);
+    for (const auto& line : cmd_stdout) {
       std::string result = line;
-      // NOLINTNEXTLINE(modernize-use-ranges)
-//      result.erase(std::remove_if(result.begin(), result.end(),
-//                       [](char c) { return !std::isdigit(c) && c != '.'; }),
-//          result.end());
-      if (!result.empty() &&
-          pcpp::IPv4Address(result) != pcpp::IPv4Address()) {
+      result.erase(
+          // NOLINTNEXTLINE(modernize-use-ranges)
+          std::remove_if(result.begin(), result.end(),
+              [](char c) {
+                /* Allow: a-z, A-Z, 0-9, dot, dash */
+                return !std::isalnum(c) && c != '.' && c != '-' && c != '_';
+              }),
+          result.end());
+      if (!result.empty()) {
         return ResolveDomain(result);
       }
     }
@@ -358,13 +391,13 @@ std::string fptn::routing::GetDefaultNetworkInterfaceName() {
     const std::string command =
         R"(cmd.exe /c "FOR /F "tokens=1,2,3" %i IN ('route print ^| findstr /R /C:"0.0.0.0"') DO @echo %i")";
 #endif
-    std::vector<std::string> stdoutput;
-    fptn::common::system::command::run(command, stdoutput);
-    if (stdoutput.empty()) {
+    std::vector<std::string> cmd_stdout;
+    fptn::common::system::command::run(command, cmd_stdout);
+    if (cmd_stdout.empty()) {
       spdlog::warn("Warning: Default gateway IP address not found.");
       return {};
     }
-    for (const auto& line : stdoutput) {
+    for (const auto& line : cmd_stdout) {
       result = line;
       result.erase(result.find_last_not_of(" \n\r\t") + 1);
       result.erase(0, result.find_first_not_of(" \n\r\t"));
@@ -375,35 +408,3 @@ std::string fptn::routing::GetDefaultNetworkInterfaceName() {
   }
   return result;
 }
-
-#if _WIN32
-static std::string GetWindowsInterfaceNumber(const std::string& interfaceName) {
-  try {
-    const std::string command =
-        "powershell -Command \"(Get-NetAdapter -Name '" + interfaceName +
-        "').ifIndex\"";
-    std::vector<std::string> stdoutput;
-    fptn::common::system::command::run(command, stdoutput);
-
-    if (stdoutput.empty()) {
-      spdlog::warn("Warning: Interface index not found.");
-      return {};
-    }
-    for (const auto& line : stdoutput) {
-      std::string result = line;
-      result.erase(result.find_last_not_of(" \n\r\t") + 1);
-      result.erase(0, result.find_first_not_of(" \n\r\t"));
-      if (!result.empty() &&
-          std::all_of(result.begin(), result.end(), ::isdigit)) {
-        return result;
-      }
-    }
-    SPDLOG_ERROR("Error: Invalid interface index format.");
-    return {};
-  } catch (const std::exception& ex) {
-    SPDLOG_ERROR(
-        "Error: failed to retrieve the interface index. Msg: {}", ex.what());
-  }
-  return {};
-}
-#endif
