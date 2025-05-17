@@ -87,14 +87,14 @@ wpa_passphrase=1passwordpassword
 Dnsmasq is a tool that automatically assigns IP addresses to all clients connected to the WiFi. Copy the dnsmasq configuration file:
 
 ```bash
-sudo cp hostapd/fptn-dnsmasq.conf /etc/
+sudo cp dnsmasq/fptn-dnsmasq.conf /etc/
 ```
 
 Copy the dnsmasq service file:
 
 
 ```bash
-sudo cp hostapd/fptn-dnsmasq.service /etc/systemd/system/
+sudo cp dnsmasq/fptn-dnsmasq.service /etc/systemd/system/
 ```
 
 ### Step 7: Traffic Routing Setup
