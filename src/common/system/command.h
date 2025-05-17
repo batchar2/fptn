@@ -17,7 +17,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <boost/process.hpp>
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 #if _WIN32
-#include <boost/process/windows.hpp>
+#include <boost/process/v1/windows.hpp>
 #endif
 
 namespace fptn::common::system::command {
