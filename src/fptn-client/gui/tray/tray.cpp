@@ -409,7 +409,7 @@ void TrayApp::handleConnecting() {
               ? fptn::routing::GetDefaultGatewayIPAddress()
               : pcpp::IPv4Address(settings_->GatewayIp().toStdString()));
 
-  if (gateway_ip == pcpp::IPv4Address("0.0.0.0")) {
+  if (gateway_ip == pcpp::IPv4Address()) {
     showError(QObject::tr("Connection Error"),
         QObject::tr("Unable to find the default gateway IP address. "
                     "Please check your connection and make sure no other VPN "

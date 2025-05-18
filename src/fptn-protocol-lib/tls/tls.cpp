@@ -231,8 +231,7 @@ std::string GetCertificateMD5Fingerprint(const X509* cert) {
 void AttachCertificateVerificationCallback(
     SSL* ssl, std::function<bool(const std::string&)> verify_func) {
   // Store the lambda on the heap
-  auto* func_ptr =
-      new std::function<bool(const std::string&)>(std::move(verify_func));
+  auto* func_ptr = new std::function<bool(const std::string&)>(verify_func);
   SSL_set_app_data(ssl, func_ptr);
 
   SSL_set_verify(
