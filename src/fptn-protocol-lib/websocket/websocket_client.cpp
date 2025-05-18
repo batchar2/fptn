@@ -9,7 +9,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <string>
 #include <utility>
 
-#include <spdlog/spdlog.h>  // NOLINT(bui
+#include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
 #include "fptn-protocol-lib/https/https_client.h"
 #include "fptn-protocol-lib/protobuf/protocol.h"
@@ -23,7 +23,8 @@ WebsocketClient::WebsocketClient(pcpp::IPv4Address server_ip,
     pcpp::IPv6Address tun_interface_address_ipv6,
     NewIPPacketCallback new_ip_pkt_callback,
     std::string sni,
-    std::string token)
+    std::string access_token,
+    std::string expected_md5_fingerprint)
     : ctx_(fptn::protocol::tls::CreateNewSslCtx()),
       resolver_(boost::asio::make_strand(ioc_)),
       ws_(boost::asio::make_strand(ioc_), ctx_),
@@ -35,10 +36,34 @@ WebsocketClient::WebsocketClient(pcpp::IPv4Address server_ip,
       tun_interface_address_ipv6_(std::move(tun_interface_address_ipv6)),
       new_ip_pkt_callback_(std::move(new_ip_pkt_callback)),
       sni_(std::move(sni)),
-      token_(std::move(token)) {
+      access_token_(std::move(access_token)),
+      expected_md5_fingerprint_(std::move(expected_md5_fingerprint)) {
   fptn::protocol::tls::SetHandshakeSni(ws_.next_layer().native_handle(), sni_);
   fptn::protocol::tls::SetHandshakeSessionID(ws_.next_layer().native_handle());
-  ctx_.set_verify_mode(boost::asio::ssl::verify_none);
+
+  // Validate the server certificate
+  ssl_ = ws_.next_layer().native_handle();
+  fptn::protocol::tls::AttachCertificateVerificationCallback(
+      ws_.next_layer().native_handle(),
+      [this](const std::string& md5_fingerprint) {
+        if (md5_fingerprint == expected_md5_fingerprint_) {
+          SPDLOG_INFO("Certificate verified successfully (MD5 matched: {}).",
+              md5_fingerprint);
+          return true;
+        }
+        SPDLOG_ERROR(
+            "Certificate MD5 mismatch. Expected: {}, got: {}. "
+            "Please update your token.",
+            expected_md5_fingerprint_, md5_fingerprint);
+        return false;
+      });
+}
+
+WebsocketClient::~WebsocketClient() {
+  if (ssl_) {
+    fptn::protocol::tls::AttachCertificateVerificationCallbackDelete(ssl_);
+    ssl_ = nullptr;
+  }
 }
 
 void WebsocketClient::Run() {
@@ -165,7 +190,7 @@ void WebsocketClient::onSslHandshake(boost::beast::error_code ec) {
           req.set(key, value);
         }
         // set custom headers
-        req.set("Authorization", "Bearer " + self->token_);
+        req.set("Authorization", "Bearer " + self->access_token_);
         req.set("ClientIP", self->tun_interface_address_ipv4_.toString());
         req.set("ClientIPv6", self->tun_interface_address_ipv6_.toString());
         req.set("Client-Agent",
@@ -207,9 +232,11 @@ void WebsocketClient::onRead(
 
 void WebsocketClient::Fail(boost::beast::error_code ec, char const* what) {
   if (ec == boost::asio::error::operation_aborted) {
-    SPDLOG_ERROR("fail: {} {}", what, ec.what());
+    if (running_) {
+      SPDLOG_ERROR("fail: {} {}", what, ec.what());
+    }
     Stop();
-  } else {
+  } else if (running_) {
     SPDLOG_ERROR("error: {} {}", what, ec.what());
   }
 }

@@ -129,7 +129,6 @@ int main(int argc, char* argv[]) {
       SPDLOG_ERROR("Config error: {}", err.what());
       return EXIT_FAILURE;
     }
-    const int server_port = selected_server.port;
     const auto server_ip = fptn::routing::ResolveDomain(selected_server.host);
     if (server_ip == pcpp::IPv4Address()) {
       SPDLOG_ERROR("DNS resolve error: {}", selected_server.host);
@@ -153,9 +152,9 @@ int main(int argc, char* argv[]) {
         tun_interface_address_ipv6.toString());
 
     /* auth & dns */
-    auto http_client =
-        std::make_unique<fptn::http::Client>(server_ip, server_port,
-            tun_interface_address_ipv4, tun_interface_address_ipv6, sni);
+    auto http_client = std::make_unique<fptn::http::Client>(server_ip,
+        selected_server.port, tun_interface_address_ipv4,
+        tun_interface_address_ipv6, sni, selected_server.md5_fingerprint);
     const bool status =
         http_client->Login(config.GetUsername(), config.GetPassword());
     if (!status) {

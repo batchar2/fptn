@@ -156,8 +156,20 @@ Headers RealBrowserHeaders(const std::string& host) {
 HttpsClient::HttpsClient(const std::string& host, int port)
     : host_(host), port_(port), sni_(host) {}
 
-HttpsClient::HttpsClient(std::string host, int port, std::string sni)
-    : host_(std::move(host)), port_(port), sni_(std::move(sni)) {}
+HttpsClient::HttpsClient(
+    std::string host, int port, std::string sni, std::string md5_fingerprint)
+    : host_(std::move(host)),
+      port_(port),
+      sni_(std::move(sni)),
+      expected_md5_fingerprint_(std::move(md5_fingerprint)) {}
+
+HttpsClient::~HttpsClient() {
+  if (ssl_) {
+    // free memory
+    fptn::protocol::tls::AttachCertificateVerificationCallbackDelete(ssl_);
+    ssl_ = nullptr;
+  }
+}
 
 Response HttpsClient::Get(const std::string& handle, int timeout) {
   std::string body;
@@ -168,8 +180,6 @@ Response HttpsClient::Get(const std::string& handle, int timeout) {
 
     SSL_CTX* ssl_ctx = fptn::protocol::tls::CreateNewSslCtx();
     boost::asio::ssl::context ctx(ssl_ctx);
-
-    ctx.set_verify_mode(boost::asio::ssl::verify_none);  // disable validate
 
     boost::beast::net::ip::tcp::resolver resolver(ioc);
     boost::beast::ssl_stream<boost::beast::tcp_stream> stream(ioc, ctx);
@@ -183,7 +193,20 @@ Response HttpsClient::Get(const std::string& handle, int timeout) {
     // Configure HTTPS protocol
     fptn::protocol::tls::SetHandshakeSessionID(stream.native_handle());
     fptn::protocol::tls::SetHandshakeSni(stream.native_handle(), sni_);
+    // Validate the server certificate
+    if (!expected_md5_fingerprint_.empty()) {
+      ssl_ = stream.native_handle();
+      fptn::protocol::tls::AttachCertificateVerificationCallback(
+          stream.native_handle(),
+          [this, &error](const std::string& md5_fingerprint) {
+            return onVerifyCertificate(md5_fingerprint, error);
+          });
+    } else {
+      // disable validation
+      ctx.set_verify_mode(boost::asio::ssl::verify_none);
+    }
 
+    // handshake
     stream.handshake(boost::asio::ssl::stream_base::client);
 
     // request params
@@ -246,7 +269,20 @@ Response HttpsClient::Post(const std::string& handle,
     // Configure HTTPS protocol
     fptn::protocol::tls::SetHandshakeSessionID(stream.native_handle());
     fptn::protocol::tls::SetHandshakeSni(stream.native_handle(), sni_);
+    // Validate the server certificate
+    if (!expected_md5_fingerprint_.empty()) {
+      ssl_ = stream.native_handle();
+      fptn::protocol::tls::AttachCertificateVerificationCallback(
+          stream.native_handle(),
+          [this, &error](const std::string& md5_fingerprint) {
+            return onVerifyCertificate(md5_fingerprint, error);
+          });
+    } else {
+      // disable validation
+      ctx.set_verify_mode(boost::asio::ssl::verify_none);
+    }
 
+    // handshake
     stream.handshake(boost::asio::ssl::stream_base::client);
 
     boost::beast::http::request<boost::beast::http::string_body> req{
@@ -286,4 +322,19 @@ Response HttpsClient::Post(const std::string& handle,
     error = e.what();
   }
   return {body, respcode, error};
+}
+
+bool HttpsClient::onVerifyCertificate(
+    const std::string& md5_fingerprint, std::string& error) const {
+  if (md5_fingerprint == expected_md5_fingerprint_) {
+    SPDLOG_INFO("Certificate verified successfully (MD5 matched: {}).",
+        md5_fingerprint);
+    return true;
+  }
+  error = fmt::format(
+      "Certificate MD5 mismatch. Expected: {}, got: {}. "
+      "Please update your token.",
+      expected_md5_fingerprint_, md5_fingerprint);
+  SPDLOG_ERROR(error);
+  return false;
 }

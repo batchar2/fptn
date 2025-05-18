@@ -6,6 +6,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #pragma once
 
+#include <functional>
 #include <string>
 
 #include <openssl/ssl.h>  // NOLINT(build/include_order)
@@ -24,5 +25,14 @@ bool SetHandshakeSni(SSL* ssl, const std::string& sni);
 SSL_CTX* CreateNewSslCtx();
 
 std::string ChromeCiphers();
+
+std::string GetCertificateMD5Fingerprint(const X509* cert);
+
+// Callbacks
+using CertificateVerificationCallback = std::function<bool(const std::string&)>;
+void AttachCertificateVerificationCallback(
+    SSL* ssl, const CertificateVerificationCallback& callback);
+
+void AttachCertificateVerificationCallbackDelete(SSL* ssl);
 
 }  // namespace fptn::protocol::tls

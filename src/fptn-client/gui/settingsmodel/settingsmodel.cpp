@@ -41,7 +41,10 @@ QVector<ServerConfig> ParseServers(const QJsonArray& servers_array) {
     if (status) {
       servers.push_back(std::move(server));
     } else {
-      throw std::runtime_error("Missing required fields in server object.");
+      QString error = QObject::tr(
+          "Missing required fields in configuration. Generate and apply a new "
+          "token.");
+      throw std::runtime_error(error.toStdString());
     }
   }
   return servers;
@@ -57,7 +60,7 @@ SettingsModel::SettingsModel(const QMap<QString, QString>& languages,
       default_language_(default_language),
       selected_language_(default_language),
       client_autostart_(false) {
-  Load();
+  Load(true);
 }
 
 // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
@@ -71,7 +74,7 @@ QString SettingsModel::GetFilePath() const {
   return directory + "/fptn-settings.json";
 }
 
-void SettingsModel::Load() {
+void SettingsModel::Load(bool dont_load_server) {
   // Load servers
   services_.clear();
 
@@ -101,10 +104,12 @@ void SettingsModel::Load() {
       service.password = jsonservice_obj["password"].toString();
 
       // servers
-      service.servers = ParseServers(jsonservice_obj["servers"].toArray());
-      if (jsonservice_obj.contains("censored_zone_servers")) {
-        service.censored_zone_servers =
-            ParseServers(jsonservice_obj["censored_zone_servers"].toArray());
+      if (!dont_load_server) {
+        service.servers = ParseServers(jsonservice_obj["servers"].toArray());
+        if (jsonservice_obj.contains("censored_zone_servers")) {
+          service.censored_zone_servers =
+              ParseServers(jsonservice_obj["censored_zone_servers"].toArray());
+        }
       }
       services_.push_back(service);
     }
@@ -211,7 +216,8 @@ bool SettingsModel::Save() {
       server_obj["name"] = server.name;
       server_obj["host"] = server.host;
       server_obj["port"] = server.port;
-      service_obj["is_using"] = server.is_using;
+      server_obj["is_using"] = server.is_using;
+      server_obj["md5_fingerprint"] = server.md5_fingerprint;
       servers_array.append(server_obj);
     }
     service_obj["servers"] = servers_array;
@@ -223,11 +229,11 @@ bool SettingsModel::Save() {
       server_obj["name"] = server.name;
       server_obj["host"] = server.host;
       server_obj["port"] = server.port;
-      service_obj["is_using"] = server.is_using;
+      server_obj["is_using"] = server.is_using;
+      server_obj["md5_fingerprint"] = server.md5_fingerprint;
       censored_zone_servers.append(server_obj);
     }
     service_obj["censored_zone_servers"] = censored_zone_servers;
-
     services_array.append(service_obj);
   }
 

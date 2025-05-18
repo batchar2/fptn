@@ -13,8 +13,10 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 namespace fptn::protocol::server {
 
-std::uint64_t GetDownloadTimeMs(
-    const ServerInfo& server, const std::string& sni, int timeout);
+std::uint64_t GetDownloadTimeMs(const ServerInfo& server,
+    const std::string& sni,
+    int timeout,
+    const std::string& md5_fingerprint);
 
 ServerInfo FindFastestServer(
     const std::string& sni, const std::vector<ServerInfo>& servers);

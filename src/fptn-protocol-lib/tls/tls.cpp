@@ -7,6 +7,8 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "fptn-protocol-lib/tls/tls.h"
 
 #include <string>
+#include <unordered_map>
+#include <utility>
 
 #include <boost/asio/ssl/detail/openssl_types.hpp>
 #include <boost/asio/ssl/error.hpp>
@@ -14,10 +16,12 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <boost/beast/http.hpp>
 #include <fmt/format.h>  // NOLINT(build/include_order)
 #include <nlohmann/json.hpp>
-#include <openssl/evp.h>   // NOLINT(build/include_order)
-#include <openssl/rand.h>  // NOLINT(build/include_order)
-#include <openssl/sha.h>   // NOLINT(build/include_order)
-#include <openssl/ssl.h>   // NOLINT(build/include_order)
+#include <openssl/evp.h>    // NOLINT(build/include_order)
+#include <openssl/md5.h>    // NOLINT(build/include_order)
+#include <openssl/rand.h>   // NOLINT(build/include_order)
+#include <openssl/sha.h>    // NOLINT(build/include_order)
+#include <openssl/ssl.h>    // NOLINT(build/include_order)
+#include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
 namespace fptn::protocol::tls {
 
@@ -207,6 +211,77 @@ std::string ChromeCiphers() {
          "TLS_RSA_WITH_AES_256_GCM_SHA384:"
          "TLS_RSA_WITH_AES_128_CBC_SHA:"
          "TLS_RSA_WITH_AES_256_CBC_SHA";
+}
+
+std::string GetCertificateMD5Fingerprint(const X509* cert) {
+  unsigned char md[MD5_DIGEST_LENGTH] = {};
+  if (X509_digest(cert, EVP_md5(), md, nullptr) != 1) {
+    SPDLOG_ERROR("Failed to compute MD5 digest");
+    return {};
+  }
+
+  std::stringstream ss;
+  // NOLINTNEXTLINE(modernize-loop-convert)
+  for (int i = 0; i < MD5_DIGEST_LENGTH; i++) {
+    ss << std::hex << std::setw(2) << std::setfill('0')
+       << static_cast<int>(md[i]);
+  }
+  return ss.str();
+}
+
+// MAYBE IT WILL REFACTOR
+namespace {
+std::unordered_map<SSL*, CertificateVerificationCallback*> attach_callbacks;
+std::mutex attach_callback_mutex;
+}  // namespace
+
+void AttachCertificateVerificationCallback(
+    SSL* ssl, const CertificateVerificationCallback& callback) {
+  auto* func_ptr = new CertificateVerificationCallback(callback);
+  {
+    const std::lock_guard<std::mutex> lock(attach_callback_mutex);  // mutex
+    attach_callbacks[ssl] = func_ptr;
+  }
+
+  ::SSL_set_verify(
+      ssl, SSL_VERIFY_PEER, [](int preverified, X509_STORE_CTX* ctx) -> int {
+        (void)preverified;
+
+        const X509* cert = ::X509_STORE_CTX_get_current_cert(ctx);
+        if (!cert) {
+          return 0;
+        }
+
+        SSL* ssl = static_cast<SSL*>(::X509_STORE_CTX_get_ex_data(
+            ctx, ::SSL_get_ex_data_X509_STORE_CTX_idx()));
+        if (!ssl) {
+          return 0;
+        }
+
+        const std::string md5_fingerprint = GetCertificateMD5Fingerprint(cert);
+        if (md5_fingerprint.empty()) {
+          return 0;
+        }
+
+        const std::lock_guard<std::mutex> lock(attach_callback_mutex);  // mutex
+        {
+          const auto it = attach_callbacks.find(ssl);
+          if (it == attach_callbacks.end()) {
+            return 0;
+          }
+          return (it->second && (*it->second)(md5_fingerprint) ? 1 : 0);
+        }
+      });
+}
+
+void AttachCertificateVerificationCallbackDelete(SSL* ssl) {
+  const std::lock_guard<std::mutex> lock(attach_callback_mutex);  // mutex
+
+  auto it = attach_callbacks.find(ssl);
+  if (it != attach_callbacks.end()) {
+    delete it->second;  // Clean up the allocated callback
+    attach_callbacks.erase(it);
+  }
 }
 
 }  // namespace fptn::protocol::tls

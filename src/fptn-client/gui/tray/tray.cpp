@@ -7,6 +7,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "gui/tray/tray.h"
 
 #include <memory>
+#include <numeric>
 #include <string>
 #include <utility>
 
@@ -130,12 +131,19 @@ TrayApp::TrayApp(const SettingsModelPtr& settings, QObject* parent)
 
   tray_icon_->setContextMenu(tray_menu_);
 
-  UpdateTrayMenu();
   tray_icon_->show();
 
   // check update
   update_version_future_ =
       std::async(std::launch::async, fptn::gui::autoupdate::Check);
+
+  try {
+    settings_->Load(false);  // use this to show notification about change
+                             // structure v1 and v2 config
+  } catch (std::runtime_error& err) {
+    showError(QObject::tr("Settings"), err.what());
+  }
+  UpdateTrayMenu();
 }
 
 void TrayApp::UpdateTrayMenu() {
@@ -157,7 +165,15 @@ void TrayApp::UpdateTrayMenu() {
     case ConnectionState::None: {
       tray_icon_->setIcon(QIcon(inactive_icon_path_));
       const auto& services = settings_->Services();
-      if (!services.empty()) {
+
+      // calculate services
+      const std::size_t servers_number =
+          std::accumulate(services.begin(), services.end(), std::size_t{0},
+              [](std::size_t sum, const auto& service) {
+                return sum + service.servers.size();
+              });
+
+      if (0 != servers_number) {
         smart_connect_action_ =
             new QAction(QObject::tr("Smart Connect"), connect_menu_);
         connect(smart_connect_action_, &QAction::triggered, [this]() {
@@ -186,6 +202,8 @@ void TrayApp::UpdateTrayMenu() {
                         service.service_name.toStdString();
                     cfg_server.username = service.username.toStdString();
                     cfg_server.password = service.password.toStdString();
+                    cfg_server.md5_fingerprint =
+                        server.md5_fingerprint.toStdString();
                   }
                   selected_server_ = cfg_server;
                   onConnectToServer();
@@ -217,6 +235,8 @@ void TrayApp::UpdateTrayMenu() {
                         service.service_name.toStdString();
                     cfg_server.username = service.username.toStdString();
                     cfg_server.password = service.password.toStdString();
+                    cfg_server.md5_fingerprint =
+                        server.md5_fingerprint.toStdString();
                   }
                   selected_server_ = cfg_server;
                   onConnectToServer();
@@ -389,7 +409,7 @@ void TrayApp::handleConnecting() {
               ? fptn::routing::GetDefaultGatewayIPAddress()
               : pcpp::IPv4Address(settings_->GatewayIp().toStdString()));
 
-  if (gateway_ip == pcpp::IPv4Address("0.0.0.0")) {
+  if (gateway_ip == pcpp::IPv4Address()) {
     showError(QObject::tr("Connection Error"),
         QObject::tr("Unable to find the default gateway IP address. "
                     "Please check your connection and make sure no other VPN "
@@ -426,6 +446,7 @@ void TrayApp::handleConnecting() {
           cfg_server.service_name = service.service_name.toStdString();
           cfg_server.username = service.username.toStdString();
           cfg_server.password = service.password.toStdString();
+          cfg_server.md5_fingerprint = s.md5_fingerprint.toStdString();
         }
         config.AddServer(cfg_server);
       }
@@ -440,8 +461,8 @@ void TrayApp::handleConnecting() {
     }
   } else {
     // check connection to selected server
-    const std::uint64_t time =
-        config.GetDownloadTimeMs(selected_server_, sni, 5);
+    const std::uint64_t time = config.GetDownloadTimeMs(
+        selected_server_, sni, 5, selected_server_.md5_fingerprint);
     if (time == UINT64_MAX) {
       showError(QObject::tr("Connection Error"),
           QString(QObject::tr(
@@ -454,7 +475,6 @@ void TrayApp::handleConnecting() {
     }
   }
 
-  const int server_port = selected_server_.port;
   const auto server_ip = fptn::routing::ResolveDomain(selected_server_.host);
   if (server_ip == pcpp::IPv4Address("0.0.0.0")) {
     showError(QObject::tr("DNS resolution error"),
@@ -466,15 +486,19 @@ void TrayApp::handleConnecting() {
   }
 
   auto http_client = std::make_unique<fptn::http::Client>(server_ip,
-      server_port, tun_interface_address_ipv4, tun_interface_address_ipv6, sni);
+      selected_server_.port, tun_interface_address_ipv4,
+      tun_interface_address_ipv6, sni, selected_server_.md5_fingerprint);
   // login
   bool login_status =
       http_client->Login(selected_server_.username, selected_server_.password);
   if (!login_status) {
+    const std::string error = http_client->LatestError();
     showError(QObject::tr("Connection Error"),
-        QObject::tr("Connection error to the server! Please download the "
-                    "latest file with your personal settings through the "
-                    "Telegram bot and try again."));
+        QObject::tr("Unable to connect to the server. Please use the Telegram "
+                    "bot to generate a new TOKEN with your personal settings, "
+                    "then try again.") +
+            "\n\n" + QObject::tr("Error message: ") +
+            QString::fromStdString(error));
     connection_state_ = ConnectionState::None;
     UpdateTrayMenu();
     return;
@@ -484,8 +508,10 @@ void TrayApp::handleConnecting() {
   const auto [dns_server_ipv4, dns_server_ipv6] = http_client->GetDns();
   if (dns_server_ipv4 == pcpp::IPv4Address() ||
       dns_server_ipv6 == pcpp::IPv6Address()) {
+    const std::string error = http_client->LatestError();
     showError(QObject::tr("Connection error"),
-        QObject::tr("DNS server error! Check your connection!"));
+        QObject::tr("DNS server error! Check your connection!") + "\n\n" +
+            QObject::tr("Error message: ") + QString::fromStdString(error));
     connection_state_ = ConnectionState::None;
     UpdateTrayMenu();
     return;
@@ -515,8 +541,9 @@ void TrayApp::handleConnecting() {
   while (!vpn_client_->IsStarted()) {
     if (std::chrono::steady_clock::now() - start > kTimeout) {
       showError(QObject::tr("Connection error"),
-          QObject::tr("Couldn't open websocket tunnel!"));
+          QObject::tr("Failed to connect to the server!"));
       connection_state_ = ConnectionState::None;
+      vpn_client_->Stop();
       UpdateTrayMenu();
       return;
     }

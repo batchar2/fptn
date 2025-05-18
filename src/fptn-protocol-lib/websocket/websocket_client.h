@@ -50,7 +50,10 @@ class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
       pcpp::IPv6Address tun_interface_address_ipv6,
       NewIPPacketCallback new_ip_pkt_callback,
       std::string sni,
-      std::string token);
+      std::string access_token,
+      std::string expected_md5_fingerprint);
+
+  virtual ~WebsocketClient();
 
  public:
   void Run();
@@ -99,7 +102,10 @@ class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
   const pcpp::IPv6Address tun_interface_address_ipv6_;
   const NewIPPacketCallback new_ip_pkt_callback_;
   const std::string sni_;
-  const std::string token_;
+  const std::string access_token_;
+  const std::string expected_md5_fingerprint_;
+
+  SSL* ssl_{nullptr};
 };
 
 using WebsocketClientSPtr = std::shared_ptr<WebsocketClient>;

@@ -33,17 +33,27 @@ Headers RealBrowserHeaders(const std::string& host);
 class HttpsClient final {
  public:
   explicit HttpsClient(const std::string& host, int port);
-  explicit HttpsClient(std::string host, int port, std::string sni);
+  explicit HttpsClient(
+      std::string host, int port, std::string sni, std::string md5_fingerprint);
+  ~HttpsClient();
+
   Response Get(const std::string& handle, int timeout = 5);
   Response Post(const std::string& handle,
       const std::string& request,
       const std::string& content_type,
       int timeout = 5);
 
+ protected:
+  bool onVerifyCertificate(
+      const std::string& md5_fingerprint, std::string& error) const;
+
  private:
   const std::string host_;
   const int port_;
   const std::string sni_;
+  const std::string expected_md5_fingerprint_;
+
+  SSL* ssl_{nullptr};
 };
 
 using HttpsClientPtr = std::unique_ptr<HttpsClient>;

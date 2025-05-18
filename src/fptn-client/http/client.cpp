@@ -25,6 +25,7 @@ Client::Client(pcpp::IPv4Address server_ip,
     pcpp::IPv4Address tun_interface_address_ipv4,
     pcpp::IPv6Address tun_interface_address_ipv6,
     std::string sni,
+    std::string md5_fingerprint,
     NewIPPacketCallback new_ip_pkt_callback)
     : running_(false),
       server_ip_(std::move(server_ip)),
@@ -32,13 +33,13 @@ Client::Client(pcpp::IPv4Address server_ip,
       tun_interface_address_ipv4_(std::move(tun_interface_address_ipv4)),
       tun_interface_address_ipv6_(std::move(tun_interface_address_ipv6)),
       sni_(std::move(sni)),
+      md5_fingerprint_(std::move(md5_fingerprint)),
       new_ip_pkt_callback_(std::move(new_ip_pkt_callback)) {}
 
 bool Client::Login(const std::string& username, const std::string& password) {
   const std::string request = fmt::format(
       R"({{ "username": "{}", "password": "{}" }})", username, password);
-
-  HttpsClient cli(server_ip_.toString(), server_port_, sni_);
+  HttpsClient cli(server_ip_.toString(), server_port_, sni_, md5_fingerprint_);
   const auto resp = cli.Post("/api/v1/login", request, "application/json");
   if (resp.code == 200) {
     try {
@@ -48,14 +49,19 @@ bool Client::Login(const std::string& username, const std::string& password) {
             "Error: Access token not found in the response. Check your "
             "conection");
       } else {
-        token_ = msg["access_token"];
+        access_token_ = msg["access_token"];
         SPDLOG_INFO("Login successful");
         return true;
       }
     } catch (const nlohmann::json::parse_error& e) {
+      latest_error_ = e.what();
       SPDLOG_ERROR("Error parsing JSON response: {} ", e.what());
+    } catch (const std::exception& ex) {
+      latest_error_ = ex.what();
+      SPDLOG_ERROR("Exception: {}", ex.what());
     }
   } else {
+    latest_error_ = resp.errmsg;
     SPDLOG_ERROR(
         "Error: Request failed code: {} msg: {}", resp.code, resp.errmsg);
   }
@@ -65,7 +71,7 @@ bool Client::Login(const std::string& username, const std::string& password) {
 std::pair<pcpp::IPv4Address, pcpp::IPv6Address> Client::GetDns() {
   SPDLOG_INFO("DNS. Connect to {}:{}", server_ip_.toString(), server_port_);
 
-  HttpsClient cli(server_ip_.toString(), server_port_, sni_);
+  HttpsClient cli(server_ip_.toString(), server_port_, sni_, md5_fingerprint_);
   const auto resp = cli.Get("/api/v1/dns");
   if (resp.code == 200) {
     try {
@@ -81,11 +87,14 @@ std::pair<pcpp::IPv4Address, pcpp::IPv6Address> Client::GetDns() {
         return {pcpp::IPv4Address(dns_ipv4), pcpp::IPv6Address(dns_ipv6)};
       }
     } catch (const nlohmann::json::parse_error& e) {
+      latest_error_ = e.what();
       SPDLOG_ERROR("Error parsing JSON response: {}", e.what());
     } catch (const std::exception& ex) {
+      latest_error_ = ex.what();
       SPDLOG_ERROR("Exception: {}", ex.what());
     }
   } else {
+    latest_error_ = resp.errmsg;
     SPDLOG_ERROR(
         "Error: Request failed code: {} msg: {}", resp.code, resp.errmsg);
   }
@@ -117,7 +126,8 @@ void Client::Run() {
       const std::unique_lock<std::mutex> lock(mutex_);  // mutex
       ws_ = std::make_shared<fptn::protocol::websocket::WebsocketClient>(
           server_ip_, server_port_, tun_interface_address_ipv4_,
-          tun_interface_address_ipv6_, new_ip_pkt_callback_, sni_, token_);
+          tun_interface_address_ipv6_, new_ip_pkt_callback_, sni_,
+          access_token_, md5_fingerprint_);
     }
     ws_->Run();
 
@@ -153,3 +163,5 @@ bool Client::IsStarted() {
 
   return ws_ && ws_->IsStarted();
 }
+
+const std::string& Client::LatestError() const { return latest_error_; }

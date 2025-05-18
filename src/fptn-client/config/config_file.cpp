@@ -31,10 +31,11 @@ bool ConfigFile::AddServer(const ServerInfo& s) {
 
 bool ConfigFile::Parse() {
   try {
-    const std::string clean_token = fptn::common::utils::RemoveSubstring(
-        token_, {"fptn://", "fptn:", " ", "\n", "\r", "\t"});
+    const std::string sanitized_token = fptn::common::utils::RemoveSubstring(
+        token_, {"fptn://", "fptn:", " ", "\n", "\r", "\t", "="});
+
     const std::string decoded_token =
-        fptn::common::utils::base64::decode(clean_token);
+        fptn::common::utils::base64::decode(sanitized_token);
     auto const config = nlohmann::json::parse(decoded_token);
 
     version_ = config.at("version").get<int>();
@@ -43,7 +44,8 @@ bool ConfigFile::Parse() {
     password_ = config.at("password").get<std::string>();
     for (auto const& server : config.at("servers")) {
       ServerInfo s(server.at("name").get<std::string>(),
-          server.at("host").get<std::string>(), server.at("port").get<int>());
+          server.at("host").get<std::string>(), server.at("port").get<int>(),
+          server.at("md5_fingerprint").get<std::string>());
       servers_.push_back(s);
     }
     if (!servers_.empty()) {
@@ -51,7 +53,8 @@ bool ConfigFile::Parse() {
     }
     throw std::runtime_error("Server list is empty!");
   } catch (nlohmann::json::exception const& e) {
-    throw std::runtime_error(std::string("JSON parsing error: ") + e.what());
+    throw std::runtime_error(std::string("JSON parsing error: ") + e.what() +
+                             ". Try to update your token");
   }
   return false;
 }
@@ -61,9 +64,12 @@ ServerInfo ConfigFile::FindFastestServer() const {
 }
 
 // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
-std::uint64_t ConfigFile::GetDownloadTimeMs(
-    const ServerInfo& server, const std::string& sni, int timeout) {
-  return fptn::protocol::server::GetDownloadTimeMs(server, sni, timeout);
+std::uint64_t ConfigFile::GetDownloadTimeMs(const ServerInfo& server,
+    const std::string& sni,
+    int timeout,
+    const std::string& md5_fingerprint) {
+  return fptn::protocol::server::GetDownloadTimeMs(
+      server, sni, timeout, md5_fingerprint);
 }
 
 int ConfigFile::GetVersion() const noexcept { return version_; }

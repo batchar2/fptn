@@ -21,11 +21,14 @@ constexpr std::uint64_t kMaxTimeout = UINT64_MAX;
 
 namespace fptn::protocol::server {
 
-std::uint64_t GetDownloadTimeMs(
-    const ServerInfo& server, const std::string& sni, int timeout) {
+// NOLINTNEXTLINE(misc-use-internal-linkage)
+std::uint64_t GetDownloadTimeMs(const ServerInfo& server,
+    const std::string& sni,
+    int timeout,
+    const std::string& md5_fingerprint) {
   auto const start = std::chrono::high_resolution_clock::now();  // start
 
-  HttpsClient cli(server.host, server.port, sni);
+  HttpsClient cli(server.host, server.port, sni, md5_fingerprint);
   auto const resp = cli.Get("/api/v1/test/file.bin", timeout);
   if (resp.code == 200) {
     auto const end = std::chrono::high_resolution_clock::now();
@@ -52,7 +55,8 @@ ServerInfo FindFastestServer(
               // NOLINTNEXTLINE(bugprone-exception-escape)
               [server, sni, kTimeout]() {
                 (void)kTimeout;  // fix Windows build
-                return GetDownloadTimeMs(server, sni, kTimeout);
+                return GetDownloadTimeMs(
+                    server, sni, kTimeout, server.md5_fingerprint);
               });
         } catch (const std::exception& ex) {
           (void)ex;

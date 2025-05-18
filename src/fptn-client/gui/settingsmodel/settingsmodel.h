@@ -25,7 +25,7 @@ namespace fptn::gui {
     "network_interface": "auto",
     "services": [
         {
-            "version": 1,
+            "version": 2,
             "service_name": "FPTN.ONLINE",
             "username": "test",
             "password": "test",
@@ -33,11 +33,7 @@ namespace fptn::gui {
                     {
                         "name": "pq1",
                         "host": "74.119.195.151",
-                        "port": 443
-                    },
-                    {
-                        "name": "australia.fptn.online",
-                        "host": "australia.fptn.online",
+                        "md5_fingerprint": "5c903603cbcfbf0601193c4cc859292c",
                         "port": 443
                     }
                 ],
@@ -45,7 +41,8 @@ namespace fptn::gui {
                     {
                         "name": "Server1",
                         "host": "127.0.0.1",
-                        "port": 443
+                        "port": 443,
+                        "md5_fingerprint": "5c903603cbcfbf0601193c4cc859292c"
                     }
                 ]
             }
@@ -59,18 +56,20 @@ struct ServerConfig {
   QString host;
   int port;
   bool is_using;
+  QString md5_fingerprint;
 
   static ServerConfig parse(const QJsonObject& server_obj, bool& status) {
     status = false;
     if (!server_obj.contains("name") || !server_obj.contains("host") ||
-        !server_obj.contains("port")) {
+        !server_obj.contains("port") ||
+        !server_obj.contains("md5_fingerprint")) {
       return {};
     }
-
     ServerConfig server = {};
     server.name = server_obj["name"].toString();
     server.host = server_obj["host"].toString();
     server.port = server_obj["port"].toInt();
+    server.md5_fingerprint = server_obj["md5_fingerprint"].toString();
     server.is_using = true;
     status = true;
     return server;
@@ -94,7 +93,7 @@ class SettingsModel : public QObject {
       const QString& default_language = "en",
       QObject* parent = nullptr);
 
-  void Load();
+  void Load(bool dont_load_server = false);
   bool Save();
 
   QString UsingNetworkInterface() const;
