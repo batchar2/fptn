@@ -42,6 +42,7 @@ WebsocketClient::WebsocketClient(pcpp::IPv4Address server_ip,
   fptn::protocol::tls::SetHandshakeSessionID(ws_.next_layer().native_handle());
 
   // Validate the server certificate
+  ssl_ = ws_.next_layer().native_handle();
   fptn::protocol::tls::AttachCertificateVerificationCallback(
       ws_.next_layer().native_handle(),
       [this](const std::string& md5_fingerprint) {
@@ -56,6 +57,13 @@ WebsocketClient::WebsocketClient(pcpp::IPv4Address server_ip,
             expected_md5_fingerprint_, md5_fingerprint);
         return false;
       });
+}
+
+WebsocketClient::~WebsocketClient() {
+  if (ssl_) {
+    fptn::protocol::tls::AttachCertificateVerificationCallbackDelete(ssl_);
+    ssl_ = nullptr;
+  }
 }
 
 void WebsocketClient::Run() {

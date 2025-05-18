@@ -7,6 +7,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "fptn-protocol-lib/tls/tls.h"
 
 #include <string>
+#include <unordered_map>
 #include <utility>
 
 #include <boost/asio/ssl/detail/openssl_types.hpp>
@@ -228,13 +229,21 @@ std::string GetCertificateMD5Fingerprint(const X509* cert) {
   return ss.str();
 }
 
-void AttachCertificateVerificationCallback(
-    SSL* ssl, std::function<bool(const std::string&)> verify_func) {
-  // Store the lambda on the heap
-  auto* func_ptr = new std::function<bool(const std::string&)>(verify_func);
-  SSL_set_app_data(ssl, func_ptr);
+// MAYBE IT WILL REFACTOR
+namespace {
+std::unordered_map<SSL*, CertificateVerificationCallback*> attach_callbacks;
+std::mutex attach_callback_mutex;
+}  // namespace
 
-  SSL_set_verify(
+void AttachCertificateVerificationCallback(
+    SSL* ssl, const CertificateVerificationCallback& callback) {
+  auto* func_ptr = new CertificateVerificationCallback(callback);
+  {
+    const std::lock_guard<std::mutex> lock(attach_callback_mutex);  // mutex
+    attach_callbacks[ssl] = func_ptr;
+  }
+
+  ::SSL_set_verify(
       ssl, SSL_VERIFY_PEER, [](int preverified, X509_STORE_CTX* ctx) -> int {
         (void)preverified;
 
@@ -242,15 +251,37 @@ void AttachCertificateVerificationCallback(
         if (!cert) {
           return 0;
         }
-        const SSL* ssl = static_cast<SSL*>(X509_STORE_CTX_get_ex_data(
-            ctx, SSL_get_ex_data_X509_STORE_CTX_idx()));
-        const auto* func =
-            static_cast<std::function<bool(const std::string&)>*>(
-                SSL_get_app_data(ssl));
+
+        SSL* ssl = static_cast<SSL*>(::X509_STORE_CTX_get_ex_data(
+            ctx, ::SSL_get_ex_data_X509_STORE_CTX_idx()));
+        if (!ssl) {
+          return 0;
+        }
 
         const std::string md5_fingerprint = GetCertificateMD5Fingerprint(cert);
-        return func && (*func)(md5_fingerprint) ? 1 : 0;
+        if (md5_fingerprint.empty()) {
+          return 0;
+        }
+
+        const std::lock_guard<std::mutex> lock(attach_callback_mutex);  // mutex
+        {
+          const auto it = attach_callbacks.find(ssl);
+          if (it == attach_callbacks.end()) {
+            return 0;
+          }
+          return (it->second && (*it->second)(md5_fingerprint) ? 1 : 0);
+        }
       });
+}
+
+void AttachCertificateVerificationCallbackDelete(SSL* ssl) {
+  const std::lock_guard<std::mutex> lock(attach_callback_mutex);  // mutex
+
+  auto it = attach_callbacks.find(ssl);
+  if (it != attach_callbacks.end()) {
+    delete it->second;  // Clean up the allocated callback
+    attach_callbacks.erase(it);
+  }
 }
 
 }  // namespace fptn::protocol::tls

@@ -53,6 +53,8 @@ class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
       std::string access_token,
       std::string expected_md5_fingerprint);
 
+  virtual ~WebsocketClient();
+
  public:
   void Run();
   bool Stop();
@@ -102,6 +104,8 @@ class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
   const std::string sni_;
   const std::string access_token_;
   const std::string expected_md5_fingerprint_;
+
+  SSL* ssl_{nullptr};
 };
 
 using WebsocketClientSPtr = std::shared_ptr<WebsocketClient>;

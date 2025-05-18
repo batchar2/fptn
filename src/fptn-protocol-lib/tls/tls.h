@@ -28,7 +28,11 @@ std::string ChromeCiphers();
 
 std::string GetCertificateMD5Fingerprint(const X509* cert);
 
+// Callbacks
+using CertificateVerificationCallback = std::function<bool(const std::string&)>;
 void AttachCertificateVerificationCallback(
-    SSL* ssl, std::function<bool(const std::string&)> verify_func);
+    SSL* ssl, const CertificateVerificationCallback& callback);
+
+void AttachCertificateVerificationCallbackDelete(SSL* ssl);
 
 }  // namespace fptn::protocol::tls

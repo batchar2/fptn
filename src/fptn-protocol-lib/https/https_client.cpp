@@ -163,6 +163,14 @@ HttpsClient::HttpsClient(
       sni_(std::move(sni)),
       expected_md5_fingerprint_(std::move(md5_fingerprint)) {}
 
+HttpsClient::~HttpsClient() {
+  if (ssl_) {
+    // free memory
+    fptn::protocol::tls::AttachCertificateVerificationCallbackDelete(ssl_);
+    ssl_ = nullptr;
+  }
+}
+
 Response HttpsClient::Get(const std::string& handle, int timeout) {
   std::string body;
   std::string error;
@@ -187,6 +195,7 @@ Response HttpsClient::Get(const std::string& handle, int timeout) {
     fptn::protocol::tls::SetHandshakeSni(stream.native_handle(), sni_);
     // Validate the server certificate
     if (!expected_md5_fingerprint_.empty()) {
+      ssl_ = stream.native_handle();
       fptn::protocol::tls::AttachCertificateVerificationCallback(
           stream.native_handle(),
           [this, &error](const std::string& md5_fingerprint) {
@@ -262,6 +271,7 @@ Response HttpsClient::Post(const std::string& handle,
     fptn::protocol::tls::SetHandshakeSni(stream.native_handle(), sni_);
     // Validate the server certificate
     if (!expected_md5_fingerprint_.empty()) {
+      ssl_ = stream.native_handle();
       fptn::protocol::tls::AttachCertificateVerificationCallback(
           stream.native_handle(),
           [this, &error](const std::string& md5_fingerprint) {
