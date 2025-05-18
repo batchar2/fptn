@@ -15,6 +15,7 @@ find_package(fmt REQUIRED)
 find_package(PcapPlusPlus REQUIRED)
 find_package(Boost REQUIRED COMPONENTS random filesystem)
 find_package(ZLIB REQUIRED)
+find_package(httplib REQUIRED)
 
 find_package(nlohmann_json REQUIRED)
 
@@ -132,6 +133,7 @@ WarningsAsErrors: ''
             Qt6::Widgets
             Qt6::Network
             fptn-protocol-lib_static
+            httplib::httplib
             ${TUNTAP_LIB})
 
   set_target_properties("${PROJECT_NAME}-gui" PROPERTIES AUTOMOC ON)

@@ -7,6 +7,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "fptn-protocol-lib/tls/tls.h"
 
 #include <string>
+#include <utility>
 
 #include <boost/asio/ssl/detail/openssl_types.hpp>
 #include <boost/asio/ssl/error.hpp>
@@ -14,10 +15,12 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <boost/beast/http.hpp>
 #include <fmt/format.h>  // NOLINT(build/include_order)
 #include <nlohmann/json.hpp>
-#include <openssl/evp.h>   // NOLINT(build/include_order)
-#include <openssl/rand.h>  // NOLINT(build/include_order)
-#include <openssl/sha.h>   // NOLINT(build/include_order)
-#include <openssl/ssl.h>   // NOLINT(build/include_order)
+#include <openssl/evp.h>    // NOLINT(build/include_order)
+#include <openssl/md5.h>    // NOLINT(build/include_order)
+#include <openssl/rand.h>   // NOLINT(build/include_order)
+#include <openssl/sha.h>    // NOLINT(build/include_order)
+#include <openssl/ssl.h>    // NOLINT(build/include_order)
+#include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
 namespace fptn::protocol::tls {
 
@@ -207,6 +210,48 @@ std::string ChromeCiphers() {
          "TLS_RSA_WITH_AES_256_GCM_SHA384:"
          "TLS_RSA_WITH_AES_128_CBC_SHA:"
          "TLS_RSA_WITH_AES_256_CBC_SHA";
+}
+
+std::string GetCertificateMD5Fingerprint(const X509* cert) {
+  unsigned char md[MD5_DIGEST_LENGTH] = {};
+  if (X509_digest(cert, EVP_md5(), md, nullptr) != 1) {
+    SPDLOG_ERROR("Failed to compute MD5 digest");
+    return {};
+  }
+
+  std::stringstream ss;
+  // NOLINTNEXTLINE(modernize-loop-convert)
+  for (int i = 0; i < MD5_DIGEST_LENGTH; i++) {
+    ss << std::hex << std::setw(2) << std::setfill('0')
+       << static_cast<int>(md[i]);
+  }
+  return ss.str();
+}
+
+void AttachCertificateVerificationCallback(
+    SSL* ssl, std::function<bool(const std::string&)> verify_func) {
+  // Store the lambda on the heap
+  auto* func_ptr =
+      new std::function<bool(const std::string&)>(std::move(verify_func));
+  SSL_set_app_data(ssl, func_ptr);
+
+  SSL_set_verify(
+      ssl, SSL_VERIFY_PEER, [](int preverified, X509_STORE_CTX* ctx) -> int {
+        (void)preverified;
+
+        const X509* cert = ::X509_STORE_CTX_get_current_cert(ctx);
+        if (!cert) {
+          return 0;
+        }
+        const SSL* ssl = static_cast<SSL*>(X509_STORE_CTX_get_ex_data(
+            ctx, SSL_get_ex_data_X509_STORE_CTX_idx()));
+        const auto* func =
+            static_cast<std::function<bool(const std::string&)>*>(
+                SSL_get_app_data(ssl));
+
+        const std::string md5_fingerprint = GetCertificateMD5Fingerprint(cert);
+        return func && (*func)(md5_fingerprint) ? 1 : 0;
+      });
 }
 
 }  // namespace fptn::protocol::tls

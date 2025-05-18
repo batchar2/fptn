@@ -59,35 +59,18 @@ To configure your bot, you'll need to edit the .env file. This file contains sen
 ```bash
 # Telegram bot API token
 API_TOKEN=your_actual_api_token_here
+````
 
-
-**Servers**
-
-Copy the public demo server list and edit it with your actual server details:
+**Welcome message for the bot (en)**
 
 ```bash
-cp servers.json.demo server.json
+FPTN_WELCOME_MESSAGE_EN=...
 ```
 
-Open servers.json and add your public server configurations.
+**Welcome message for the bot (ru)**
 
-
-Copy the servers in censored regions
-
-```bash
-cp servers_censored_zone.json.demo servers_censored_zone.json
-```
-
-Then open censored_zone_servers.json and either edit this file.
-
-
-**Welcome message for the bot**
-
-```bash
-FPTN_WELCOME_MESSAGE="⚡⚡⚡ Welcome to the FPTN service bot! ⚡⚡⚡\n\n
-This bot allows you to get access to VPN services or restore your password.\n
-How can I assist you today?"
-```
+FPTN_WELCOME_MESSAGE_RU = ....
+"
 
 **Maximum speed limit for users in Mbps.**
 
@@ -113,7 +96,44 @@ FPTN_SERVER_PORT=your-server-port
 USERS_FILE=/etc/fptn/users.list
 ```
 
-6. **Run the Bot**
+
+6. **🟢 Configure Public Servers**:
+
+To set up your server list, follow these steps:
+
+Start by copying the demo server list:
+
+```bash
+cp servers.json.demo server.json
+```
+
+Then open `servers.json` in any text editor and replace the example entries with your actual server information:
+
+- name: A label for your server (any value).
+- host: The public IP address or hostname of your server.
+- port: The public port your VPN server listens on.
+- md5_fingerprint: The MD5 fingerprint of your server's TLS certificate.
+
+To get the fingerprint, run this command on the server:
+
+```bash
+openssl x509 -noout -fingerprint -md5 -in /etc/fptn/server.crt | cut -d'=' -f2 | tr -d ':' | tr 'A-F' 'a-f'
+```
+
+Copy the value and paste it into the md5_fingerprint field.
+
+7. **🔴 Configure Servers for Censored Regions**:
+
+Copy the demo configuration:
+
+```bash
+cp servers_censored_zone.json.demo servers_censored_zone.json
+```
+
+Then open `servers_censored_zone.json` and edit it the same way as `servers.json`, using server details intended for restricted or high-surveillance regions.
+
+
+8. **Run the Bot**
 
 After setting up the environment file, start the bot with:
 
@@ -124,7 +144,7 @@ docker compose up -d
 
 This command will start the bot in detached mode, allowing it to run in the background.
 
-7. **Stop the Bot**
+9. **Stop the Bot**
 
 To stop the bot, use:
 

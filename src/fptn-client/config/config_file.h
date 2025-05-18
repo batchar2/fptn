@@ -24,7 +24,8 @@ class ConfigFile final {
   std::uint64_t GetDownloadTimeMs(
       const fptn::protocol::server::ServerInfo& server,
       const std::string& sni,
-      int timeout);
+      int timeout,
+      const std::string& md5_fingerprint);
 
   bool AddServer(const fptn::protocol::server::ServerInfo& s);
 

@@ -31,6 +31,7 @@ class Client final {
       pcpp::IPv4Address tun_interface_address_ipv4,
       pcpp::IPv6Address tun_interface_address_ipv6,
       std::string sni,
+      std::string md5_fingerprint,
       NewIPPacketCallback new_ip_pkt_callback = nullptr);
   bool Login(const std::string& username, const std::string& password);
   std::pair<pcpp::IPv4Address, pcpp::IPv6Address> GetDns();
@@ -39,6 +40,8 @@ class Client final {
   bool Send(fptn::common::network::IPPacketPtr packet);
   void SetNewIPPacketCallback(const NewIPPacketCallback& callback) noexcept;
   bool IsStarted();
+
+  const std::string& LatestError() const;
 
  protected:
   void Run();
@@ -54,11 +57,14 @@ class Client final {
   const pcpp::IPv4Address tun_interface_address_ipv4_;
   const pcpp::IPv6Address tun_interface_address_ipv6_;
   const std::string sni_;
+  const std::string md5_fingerprint_;
 
   NewIPPacketCallback new_ip_pkt_callback_;
 
-  std::string token_;
+  std::string access_token_;
   fptn::protocol::websocket::WebsocketClientSPtr ws_;
+
+  std::string latest_error_;
 };
 
 using ClientPtr = std::unique_ptr<Client>;

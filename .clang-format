@@ -41,6 +41,8 @@ IncludeCategories:
     Priority:        2
   - Regex:           '^<nlohmann/.*>'
     Priority:        2
+  - Regex:           '^<httplib/.*>'
+    Priority:        2
   - Regex:           '^<spdlog/.*>'
     Priority:        2
   - Regex:           '^<pcapplusplus/.*>'

@@ -13,6 +13,7 @@ class FPTN(ConanFile):
     version = FPTN_VERSION
     requires = (
         "argparse/3.2",
+        "cpp-httplib/0.19.0",
         "boost/1.87.0",
         "fmt/11.1.3",
         "jwt-cpp/0.7.1",

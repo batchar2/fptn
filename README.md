@@ -260,6 +260,8 @@ You can also test DNS resolution to confirm that the server is working:
 dig @127.0.0.1 google.com
 ```
 
+openssl x509 -noout -fingerprint -md5 -in /etc/fptn/server.crt | cut -d'=' -f2 | tr -d ':' | tr 'A-F' 'a-f'
+
 ##### Step 9: Running
 
 To connect the client to your server, create an FPTN configuration file and save it as `MyFptnServer.fptn`
@@ -276,15 +278,23 @@ Use the following template:
         {
             "name": "MyFptnServer",
             "host": "YOUR_IP",
+            "md5_fingerprint": "YOUR_SERVER_FINGERPRINT"
             "port": 443
         }
     ]
 }
 ```
 * Replace `YOUR_USER` and `YOUR_PASSWORD` with the `username` and `password` you created in `Step 5: Add User`.
-* Set the `host` field to the public IP address of your server.
+* Replace the `YOUR_SERVER_FINGERPRINT` value with your server’s certificate fingerprint. To get it, run the following command and copy the result:
+  
+  ```bash
+  openssl x509 -noout -fingerprint -md5 -in /etc/fptn/server.crt | cut -d'=' -f2 | tr -d ':' | tr 'A-F' 'a-f'
+  ```
 
-Once the configuration file is ready, open the FPTN Client settings and load your configuration file.
+* Replace the `YOUR_IP` field to the public IP address of your server.
+
+💡 You can use this file on macOS clients to connect.
+For other types of clients, you may need to create a `TOKEN` instead.
 
 ##### Step 10 Token creation 
 

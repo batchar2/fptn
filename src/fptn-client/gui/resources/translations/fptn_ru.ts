@@ -56,8 +56,8 @@
             <translation>Ошибка подключения</translation>
         </message>
         <message>
-            <source>Connection error to the server! Please download the latest file with your personal settings through the Telegram bot and try again.</source>
-            <translation>Ошибка подключения к серверу! Пожалуйста, получите последний файл с вашими персональными настройками через телеграм-бота и попробуйте снова.</translation>
+            <source>Unable to connect to the server. Please use the Telegram bot to generate a new TOKEN with your personal settings, then try again.</source>
+            <translation>Невозможно подключиться к серверу. Пожалуйста, сгенерируйте новый TOKEN с вашими персональными настройками через Telegram-бота и повторите попытку.</translation>
         </message>
         <message>
             <source>DNS server error! Check your connection!</source>
@@ -238,6 +238,16 @@
         <message>
             <source>Limited access servers</source>
             <translation>Серверы с ограниченным доступом</translation>
+        </message>
+
+        <message>
+            <source>Missing required fields in configuration. Generate and apply a new token.</source>
+            <translation>Конфиг не содержит необходимых полей. Пожалуйста, сгенерируйте и используйте новый токен.</translation>
+        </message>
+
+        <message>
+            <source>Failed to connect to the server!</source>
+            <translation>Не удалось подключиться к серверу!</translation>
         </message>
     </context>
 </TS>

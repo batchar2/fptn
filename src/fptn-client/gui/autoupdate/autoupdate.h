@@ -12,7 +12,10 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <utility>
 #include <vector>
 
-#include <fmt/format.h>  // NOLINT(build/include_order)
+#define CPPHTTPLIB_OPENSSL_SUPPORT
+
+#include <fmt/format.h>       // NOLINT(build/include_order)
+#include <httplib/httplib.h>  // NOLINT(build/include_order)
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
@@ -45,6 +48,36 @@ inline int compare(const std::string& version1, const std::string& version2) {
 }
 }  // namespace version
 
+#ifdef CPPHTTPLIB_OPENSSL_SUPPORT
+inline std::pair<bool, std::string> Check() {
+  const auto url = fmt::format("/repos/{}/{}/releases/latest",
+      FPTN_GITHUB_USERNAME, FPTN_GITHUB_REPOSITORY);
+  httplib::SSLClient cli("api.github.com", 443);
+  {
+    cli.enable_server_certificate_verification(false);  // NEED TO FIX
+    cli.set_connection_timeout(5, 0);                   // 5 seconds
+    cli.set_read_timeout(5, 0);                         // 5 seconds
+    cli.set_write_timeout(5, 0);                        // 5 seconds
+  }
+  if (auto resp = cli.Get(url)) {
+    try {
+      const auto msg = nlohmann::json::parse(resp->body);
+      if (msg.contains("draft") && msg.contains("name")) {
+        const bool draft = msg["draft"];
+        const std::string version_name = msg["name"];
+        if (!draft && version::compare(FPTN_VERSION, version_name) == -1) {
+          return {true, version_name};
+        }
+        return {false, version_name};
+      }
+    } catch (const nlohmann::json::parse_error& e) {
+      SPDLOG_ERROR("autoupdate:check Error parsing JSON response: {}  {}",
+          e.what(), resp->body);
+    }
+  }
+  return {false, {}};
+}
+#else
 inline std::pair<bool, std::string> Check() {
   fptn::protocol::https::HttpsClient cli("api.github.com", 443);
 
@@ -64,11 +97,14 @@ inline std::pair<bool, std::string> Check() {
         return {false, version_name};
       }
     } catch (const nlohmann::json::parse_error& e) {
-      SPDLOG_ERROR("autoupdate:check Error parsing JSON response: {}  {}",
+      SPDLOG_ERROR("autoupdate:check Error parsing JSON response: {} Body: {}",
           e.what(), resp.body);
     }
+  } else {
+    SPDLOG_WARN("autoupdate:check error: {}", resp.errmsg);
   }
   return {false, {}};
 }
+#endif
 
 }  // namespace fptn::gui::autoupdate
