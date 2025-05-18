@@ -541,7 +541,7 @@ void TrayApp::handleConnecting() {
   while (!vpn_client_->IsStarted()) {
     if (std::chrono::steady_clock::now() - start > kTimeout) {
       showError(QObject::tr("Connection error"),
-          QObject::tr("Не удалось подключиться к серверу!"));
+          QObject::tr("Failed to connect to the server!"));
       connection_state_ = ConnectionState::None;
       vpn_client_->Stop();
       UpdateTrayMenu();
