@@ -7,6 +7,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "gui/tray/tray.h"
 
 #include <memory>
+#include <numeric>
 #include <string>
 #include <utility>
 
@@ -166,10 +167,11 @@ void TrayApp::UpdateTrayMenu() {
       const auto& services = settings_->Services();
 
       // calculate services
-      std::size_t servers_number = 0;
-      for (const auto& service : services) {
-        servers_number += service.servers.size();
-      }
+      const std::size_t servers_number =
+          std::accumulate(services.begin(), services.end(), std::size_t{0},
+              [](std::size_t sum, const auto& service) {
+                return sum + service.servers.size();
+              });
 
       if (0 != servers_number) {
         smart_connect_action_ =
