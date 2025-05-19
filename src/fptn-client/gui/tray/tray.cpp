@@ -101,7 +101,7 @@ TrayApp::TrayApp(const SettingsModelPtr& settings, QObject* parent)
   connect(settings_.get(), &SettingsModel::dataChanged, this,
       &TrayApp::UpdateTrayMenu);
   connect(
-      update_timer_, &QTimer::timeout, this, &TrayApp::handleUpdateSpeedWidget);
+      update_timer_, &QTimer::timeout, this, &TrayApp::handleTimer);
   update_timer_->start(1000);
 
   // Settings
@@ -393,6 +393,8 @@ void TrayApp::handleDefaultState() {
 
 void TrayApp::handleConnecting() {
   SPDLOG_DEBUG("Handling connecting state");
+  const std::unique_lock<std::mutex> lock(mutex_);
+
   UpdateTrayMenu();
 
   tray_icon_->setIcon(QIcon(inactive_icon_path_));
@@ -410,7 +412,7 @@ void TrayApp::handleConnecting() {
               : pcpp::IPv4Address(settings_->GatewayIp().toStdString()));
 
   if (gateway_ip == pcpp::IPv4Address()) {
-    showError(QObject::tr("Connection Error"),
+    showError(QObject::tr("FPTN Сonnection Error"),
         QObject::tr("Unable to find the default gateway IP address. "
                     "Please check your connection and make sure no other VPN "
                     "is active. "
@@ -464,7 +466,7 @@ void TrayApp::handleConnecting() {
     const std::uint64_t time = config.GetDownloadTimeMs(
         selected_server_, sni, 5, selected_server_.md5_fingerprint);
     if (time == UINT64_MAX) {
-      showError(QObject::tr("Connection Error"),
+      showError(QObject::tr("FPTN Сonnection Error"),
           QString(QObject::tr(
                       "The server is unavailable. Please select another server "
                       "or use Auto-connect to find the best available server."))
@@ -477,7 +479,7 @@ void TrayApp::handleConnecting() {
 
   const auto server_ip = fptn::routing::ResolveDomain(selected_server_.host);
   if (server_ip == pcpp::IPv4Address("0.0.0.0")) {
-    showError(QObject::tr("DNS resolution error"),
+    showError(QObject::tr("FPTN Сonnection Error"),
         QString(QObject::tr("DNS resolution error") + ": %1")
             .arg(QString::fromStdString(selected_server_.host)));
     connection_state_ = ConnectionState::None;
@@ -493,7 +495,7 @@ void TrayApp::handleConnecting() {
       http_client->Login(selected_server_.username, selected_server_.password);
   if (!login_status) {
     const std::string error = http_client->LatestError();
-    showError(QObject::tr("Connection Error"),
+    showError(QObject::tr("FPTN Сonnection Error"),
         QObject::tr("Unable to connect to the server. Please use the Telegram "
                     "bot to generate a new TOKEN with your personal settings, "
                     "then try again.") +
@@ -509,7 +511,7 @@ void TrayApp::handleConnecting() {
   if (dns_server_ipv4 == pcpp::IPv4Address() ||
       dns_server_ipv6 == pcpp::IPv6Address()) {
     const std::string error = http_client->LatestError();
-    showError(QObject::tr("Connection error"),
+    showError(QObject::tr("FPTN Сonnection Error"),
         QObject::tr("DNS server error! Check your connection!") + "\n\n" +
             QObject::tr("Error message: ") + QString::fromStdString(error));
     connection_state_ = ConnectionState::None;
@@ -540,7 +542,7 @@ void TrayApp::handleConnecting() {
   const auto start = std::chrono::steady_clock::now();
   while (!vpn_client_->IsStarted()) {
     if (std::chrono::steady_clock::now() - start > kTimeout) {
-      showError(QObject::tr("Connection error"),
+      showError(QObject::tr("FPTN Сonnection Error"),
           QObject::tr("Failed to connect to the server!"));
       connection_state_ = ConnectionState::None;
       vpn_client_->Stop();
@@ -577,13 +579,21 @@ void TrayApp::handleDisconnecting() {
   emit defaultState();
 }
 
-void TrayApp::handleUpdateSpeedWidget() {
+void TrayApp::handleTimer() {
   if (vpn_client_ && speed_widget_ &&
       connection_state_ == ConnectionState::Connected) {
-    speed_widget_->UpdateSpeed(
-        vpn_client_->GetReceiveRate(), vpn_client_->GetSendRate());
+    if (!vpn_client_->IsStarted()) {
+      // client was disconnected
+      handleDisconnecting();
+      showError(QObject::tr("FPTN Сonnection Error"),
+          QObject::tr("The VPN connection was unexpectedly closed."));
+    } else {
+      speed_widget_->UpdateSpeed(
+          vpn_client_->GetReceiveRate(), vpn_client_->GetSendRate());
+    }
   }
 
+  // show update message
   if (update_version_future_.valid()) {
     const auto update_result = update_version_future_.get();
     const bool is_new_version = update_result.first;

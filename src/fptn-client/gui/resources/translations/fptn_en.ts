@@ -220,9 +220,9 @@
         <message>
             <source>FPTN_WEBSITE_DESCRIPTION</source>
             <translation>
-                <![CDATA[
-                    Our website <a href="https://fptn.org">fptn.org</a></translation>
-                ]]>
+            <![CDATA[
+                Our website <a href="https://fptn.org">fptn.org</a></translation>
+            ]]>
             </translation>
         </message>
 
@@ -248,6 +248,16 @@
         <message>
             <source>Failed to connect to the server!</source>
             <translation>Failed to connect to the server!</translation>
+        </message>
+
+        <message>
+            <source>The VPN connection was unexpectedly closed.</source>
+            <translation>The VPN connection was unexpectedly closed.</translation>
+        </message>
+
+        <message>
+            <source>FPTN Сonnection Error</source>
+            <translation>FPTN Сonnection Error</translation>
         </message>
     </context>
 </TS>

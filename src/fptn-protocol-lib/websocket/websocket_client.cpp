@@ -231,14 +231,8 @@ void WebsocketClient::onRead(
 }
 
 void WebsocketClient::Fail(boost::beast::error_code ec, char const* what) {
-  if (ec == boost::asio::error::operation_aborted) {
-    if (running_) {
-      SPDLOG_ERROR("fail: {} {}", what, ec.what());
-    }
-    Stop();
-  } else if (running_) {
-    SPDLOG_ERROR("error: {} {}", what, ec.what());
-  }
+  SPDLOG_ERROR("Fail {}: {}", what, ec.what());
+  Stop();
 }
 
 void WebsocketClient::DoRead() {
