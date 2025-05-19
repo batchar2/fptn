@@ -121,20 +121,64 @@ bool Client::Send(fptn::common::network::IPPacketPtr packet) {
 }
 
 void Client::Run() {
-  while (running_) {
+  // Maximum allowed reconnection attempts
+  constexpr int kMaxAttempts = 3;
+  // Time window for counting attempts (1 minute)
+  constexpr auto kReconnectionWindow = std::chrono::seconds(60);
+  // Delay between reconnection attempts
+  constexpr auto kReconnectionDelay = std::chrono::milliseconds(300);
+
+  // Current count of reconnection attempts
+  int reconnection_attempts = kMaxAttempts;
+  auto window_start_time = std::chrono::steady_clock::now();
+
+  while (running_ && reconnection_attempts) {
     {
       const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
       ws_ = std::make_shared<fptn::protocol::websocket::WebsocketClient>(
           server_ip_, server_port_, tun_interface_address_ipv4_,
           tun_interface_address_ipv6_, new_ip_pkt_callback_, sni_,
           access_token_, md5_fingerprint_);
     }
-    ws_->Run();
-
-    if (running_) {
-      std::this_thread::sleep_for(std::chrono::seconds(3));
-      SPDLOG_ERROR("Connection closed");
+    ws_->Run();  // Start the WebSocket client
+    if (!running_) {
+      break;
     }
+
+    // Calculate time since last window start
+    auto current_time = std::chrono::steady_clock::now();
+    auto elapsed = current_time - window_start_time;
+    // Reconnection attempt counting logic
+    if (elapsed >= kReconnectionWindow) {
+      // Reset counter if we're past the time window
+      reconnection_attempts = kMaxAttempts;
+      window_start_time = current_time;
+    } else {
+      // Increment counter if within time window
+      reconnection_attempts -= 1;
+    }
+
+    // Check if we've exceeded maximum attempts
+    if (reconnection_attempts > kMaxAttempts) {
+      SPDLOG_ERROR(
+          "Connection failed: Exceeded maximum of {} reconnection attempts in "
+          "{} seconds",
+          kMaxAttempts, kReconnectionWindow.count());
+      break;
+    }
+
+    // Log connection failure and wait before retrying
+    SPDLOG_ERROR(
+        "Connection closed (attempt {}/{} in current window). Reconnecting in "
+        "{}ms...",
+        kMaxAttempts - reconnection_attempts, kMaxAttempts,
+        kReconnectionDelay.count());
+    std::this_thread::sleep_for(kReconnectionDelay);
+  }
+
+  if (running_ && !reconnection_attempts) {
+    SPDLOG_ERROR("Connection failure: Could not establish connection");
   }
 }
 

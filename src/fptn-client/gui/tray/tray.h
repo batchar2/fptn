@@ -63,13 +63,15 @@ class TrayApp : public QWidget {
   void handleConnecting();
   void handleConnected();
   void handleDisconnecting();
-  void handleUpdateSpeedWidget();
+  void handleTimer();
 
  protected:
   void UpdateTrayMenu();
   void OpenWebBrowser(const std::string& url);
 
  private:
+  mutable std::mutex mutex_;
+
   bool smart_connect_ = false;
   fptn::protocol::server::ServerInfo selected_server_;
 

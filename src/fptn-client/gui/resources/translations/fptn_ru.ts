@@ -229,9 +229,9 @@
         <message>
             <source>FPTN_TELEGRAM_DESCRIPTION</source>
             <translation>
-                <![CDATA[
-                    Наша группа в Telegram <a href="https://t.me/fptn_project">@fptn_project</a>
-                ]]>
+            <![CDATA[
+                Наша группа в Telegram <a href="https://t.me/fptn_project">@fptn_project</a>
+            ]]>
             </translation>
         </message>
 
@@ -249,5 +249,16 @@
             <source>Failed to connect to the server!</source>
             <translation>Не удалось подключиться к серверу!</translation>
         </message>
+
+        <message>
+            <source>The VPN connection was unexpectedly closed.</source>
+            <translation>VPN-соединение было неожиданно разорвано.</translation>
+        </message>
+
+        <message>
+            <source>FPTN Сonnection Error</source>
+            <translation>FPTN Ошибка подключения</translation>
+        </message>
+
     </context>
 </TS>

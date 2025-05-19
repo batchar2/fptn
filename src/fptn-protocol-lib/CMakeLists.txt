@@ -106,9 +106,4 @@ foreach(target "${PROJECT_NAME}_static" "${PROJECT_NAME}_shared")
     spdlog::spdlog
     fmt::fmt
     PcapPlusPlus::PcapPlusPlus)
-  #  set_target_properties(
-  #    ${target}
-  #    PROPERTIES VERSION ${FPTN_VERSION}
-  #               SOVERSION 1
-  #               OUTPUT_NAME "${PROJECT_NAME}")
 endforeach()
