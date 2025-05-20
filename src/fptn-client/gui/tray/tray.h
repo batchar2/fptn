@@ -9,6 +9,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <future>
 #include <mutex>
 #include <string>
+#include <tuple>
 
 #include <QAction>          // NOLINT(build/include_order)
 #include <QApplication>     // NOLINT(build/include_order)
@@ -52,6 +53,7 @@ class TrayApp : public QWidget {
   void connecting();
   void connected();
   void disconnecting();
+  void vpnStarted(bool success, const QString& err_msg);
 
  protected slots:
   void onConnectToServer();
@@ -64,10 +66,15 @@ class TrayApp : public QWidget {
   void handleConnected();
   void handleDisconnecting();
   void handleTimer();
+  void handleVpnStarted(bool success, const QString& err_msg);
 
  protected:
   void UpdateTrayMenu();
   void OpenWebBrowser(const std::string& url);
+
+ protected:
+  bool startVpn(QString& err_msg);
+  bool stopVpn();
 
  private:
   mutable std::mutex mutex_;
@@ -84,13 +91,15 @@ class TrayApp : public QWidget {
   QMenu* limited_zone_connect_menu_ = nullptr;
   QAction* empty_configuration_action_ = nullptr;
   QAction* disconnect_action_ = nullptr;
+  //  QAction* connecting_action_ = nullptr;
   QAction* settings_action_ = nullptr;
 
   QAction* auto_update_action_ = nullptr;
   QString auto_available_version_;
 
   QAction* quit_action_ = nullptr;
-  QAction* connecting_action_ = nullptr;
+  QAction* connecting_label_action_ = nullptr;
+  QAction* disconnecting_label_action_ = nullptr;
   QWidgetAction* speed_widget_action_ = nullptr;
   SpeedWidget* speed_widget_ = nullptr;
   QTimer* update_timer_ = nullptr;
@@ -104,5 +113,8 @@ class TrayApp : public QWidget {
   fptn::routing::IPTablesPtr ip_tables_;
 
   std::future<std::pair<bool, std::string>> update_version_future_;
+  // connecting
+  std::atomic<bool> connecting_in_progress_{false};
+  // std::future<bool> connecting_;
 };
 }  // namespace fptn::gui
