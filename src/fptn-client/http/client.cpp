@@ -34,7 +34,8 @@ Client::Client(pcpp::IPv4Address server_ip,
       tun_interface_address_ipv6_(std::move(tun_interface_address_ipv6)),
       sni_(std::move(sni)),
       md5_fingerprint_(std::move(md5_fingerprint)),
-      new_ip_pkt_callback_(std::move(new_ip_pkt_callback)) {}
+      new_ip_pkt_callback_(std::move(new_ip_pkt_callback)),
+      reconnection_attempts_(kMaxReconnectionAttempts_) {}
 
 bool Client::Login(const std::string& username, const std::string& password) {
   const std::string request = fmt::format(
@@ -122,17 +123,17 @@ bool Client::Send(fptn::common::network::IPPacketPtr packet) {
 
 void Client::Run() {
   // Maximum allowed reconnection attempts
-  constexpr int kMaxAttempts = 3;
+  // constexpr int kMaxAttempts = 3;
   // Time window for counting attempts (1 minute)
   constexpr auto kReconnectionWindow = std::chrono::seconds(60);
   // Delay between reconnection attempts
   constexpr auto kReconnectionDelay = std::chrono::milliseconds(300);
 
   // Current count of reconnection attempts
-  int reconnection_attempts = kMaxAttempts;
+  reconnection_attempts_ = kMaxReconnectionAttempts_;
   auto window_start_time = std::chrono::steady_clock::now();
 
-  while (running_ && reconnection_attempts) {
+  while (running_ && reconnection_attempts_) {
     {
       const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
@@ -152,32 +153,21 @@ void Client::Run() {
     // Reconnection attempt counting logic
     if (elapsed >= kReconnectionWindow) {
       // Reset counter if we're past the time window
-      reconnection_attempts = kMaxAttempts;
+      reconnection_attempts_ = kMaxReconnectionAttempts_;
       window_start_time = current_time;
     } else {
-      // Increment counter if within time window
-      reconnection_attempts -= 1;
+      // Decrement counter if within time window
+      reconnection_attempts_--;
     }
-
-    // Check if we've exceeded maximum attempts
-    if (reconnection_attempts > kMaxAttempts) {
-      SPDLOG_ERROR(
-          "Connection failed: Exceeded maximum of {} reconnection attempts in "
-          "{} seconds",
-          kMaxAttempts, kReconnectionWindow.count());
-      break;
-    }
-
     // Log connection failure and wait before retrying
     SPDLOG_ERROR(
         "Connection closed (attempt {}/{} in current window). Reconnecting in "
         "{}ms...",
-        kMaxAttempts - reconnection_attempts, kMaxAttempts,
-        kReconnectionDelay.count());
+        kMaxReconnectionAttempts_ - reconnection_attempts_,
+        kMaxReconnectionAttempts_, kReconnectionDelay.count());
     std::this_thread::sleep_for(kReconnectionDelay);
   }
-
-  if (running_ && !reconnection_attempts) {
+  if (running_ && !reconnection_attempts_) {
     SPDLOG_ERROR("Connection failure: Could not establish connection");
   }
 }
@@ -189,14 +179,19 @@ bool Client::Start() {
 }
 
 bool Client::Stop() {
-  if (running_ && th_.joinable()) {
+  if (running_) {
     running_ = false;
     {
       const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
-      ws_->Stop();
+      if (ws_) {
+        ws_->Stop();
+        ws_.reset();
+      }
     }
-    th_.join();
+    if (th_.joinable()) {
+      th_.join();
+    }
     return true;
   }
   return false;
@@ -205,7 +200,7 @@ bool Client::Stop() {
 bool Client::IsStarted() {
   const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
-  return ws_ && ws_->IsStarted();
+  return ws_ && running_ && reconnection_attempts_ > 0;  // ws_->IsStarted()
 }
 
 const std::string& Client::LatestError() const { return latest_error_; }

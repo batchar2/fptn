@@ -6,6 +6,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include "fptn-protocol-lib/websocket/websocket_client.h"
 
+#include <memory>
 #include <string>
 #include <utility>
 
@@ -209,6 +210,12 @@ void WebsocketClient::onHandshake(boost::beast::error_code ec) {
   }
   running_ = true;
   SPDLOG_INFO("WebSocket connection started successfully");
+
+  // set timeout
+  ws_.set_option(boost::beast::websocket::stream_base::timeout{
+      .handshake_timeout = std::chrono::seconds(10),
+      .idle_timeout = std::chrono::seconds(5),
+      .keep_alive_pings = true});
   DoRead();
 }
 

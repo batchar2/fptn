@@ -74,7 +74,9 @@ class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
  protected:
   void DoRead();
   void DoWrite();
+  void DoPing();
   void Fail(boost::beast::error_code ec, char const* what);
+  void SetupPingTimer();
 
  private:
   const std::string kUrlWebSocket_ = "/fptn";
