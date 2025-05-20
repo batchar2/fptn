@@ -212,10 +212,12 @@ void WebsocketClient::onHandshake(boost::beast::error_code ec) {
   SPDLOG_INFO("WebSocket connection started successfully");
 
   // set timeout
+  // NOLINTNEXTLINE(modernize-use-designated-initializers)
   ws_.set_option(boost::beast::websocket::stream_base::timeout{
-      .handshake_timeout = std::chrono::seconds(10),
-      .idle_timeout = std::chrono::seconds(5),
-      .keep_alive_pings = true});
+      std::chrono::seconds(10),  // handshake_timeout
+      std::chrono::seconds(5),   // idle_timeout
+      true                       // keep_alive_pings
+  });
   DoRead();
 }
 
