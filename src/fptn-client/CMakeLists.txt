@@ -64,7 +64,7 @@ WarningsAsErrors: ''
 
   find_package(
     Qt6 REQUIRED
-    COMPONENTS Core Gui Widgets Network LinguistTools Concurrent CONFIG
+    COMPONENTS Core Gui Widgets Network LinguistTools CONFIG
     REQUIRED)
   set(CMAKE_AUTOMOC ON)
   set(CMAKE_AUTORCC ON)
@@ -132,7 +132,6 @@ WarningsAsErrors: ''
             Qt6::Gui
             Qt6::Widgets
             Qt6::Network
-            Qt6::Concurrent
             fptn-protocol-lib_static
             httplib::httplib
             ${TUNTAP_LIB})

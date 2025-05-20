@@ -6,7 +6,6 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include "fptn-protocol-lib/websocket/websocket_client.h"
 
-#include <memory>
 #include <string>
 #include <utility>
 
@@ -94,9 +93,6 @@ bool WebsocketClient::Stop() {
   const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
   if (running_) {
-    if (ping_timer_) {
-      ping_timer_->cancel();
-    }
     running_ = false;
     // close connection
     try {
@@ -213,8 +209,6 @@ void WebsocketClient::onHandshake(boost::beast::error_code ec) {
   }
   running_ = true;
   SPDLOG_INFO("WebSocket connection started successfully");
-
-  SetupPingTimer();
   DoRead();
 }
 
@@ -301,34 +295,3 @@ void WebsocketClient::onWrite(boost::beast::error_code ec, std::size_t) {
 }
 
 bool WebsocketClient::IsStarted() { return running_; }
-
-void WebsocketClient::DoPing() {
-  if (!running_) {
-    return;
-  }
-
-  ping_timer_->expires_after(std::chrono::seconds(10));  // ping every seconds
-  auto self = shared_from_this();
-  ping_timer_->async_wait([self](boost::beast::error_code ec) {
-    if (ec) {
-      if (ec != boost::asio::error::operation_aborted) {
-        SPDLOG_ERROR("Ping timer error: {}", ec.message());
-      }
-      return;
-    }
-    if (self->running_ && self->ws_.is_open()) {
-      self->ws_.async_ping({}, [self](boost::beast::error_code ec) {
-        if (ec) {
-          SPDLOG_ERROR("Ping failed: {}", ec.message());
-          self->Fail(ec, "ping");
-        } else {
-          self->DoPing();  // schedule next ping
-        }
-      });
-    }
-  });
-}
-void WebsocketClient::SetupPingTimer() {
-  ping_timer_ = std::make_unique<boost::asio::steady_timer>(ioc_);
-  DoPing();
-}

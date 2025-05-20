@@ -256,8 +256,9 @@
         </message>
 
         <message>
-            <source>FPTN Connection Error</source>
+            <source>FPTN Сonnection Error</source>
             <translation>FPTN Ошибка подключения</translation>
         </message>
+
     </context>
 </TS>

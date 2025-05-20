@@ -74,9 +74,7 @@ class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
  protected:
   void DoRead();
   void DoWrite();
-  void DoPing();
   void Fail(boost::beast::error_code ec, char const* what);
-  void SetupPingTimer();
 
  private:
   const std::string kUrlWebSocket_ = "/fptn";
@@ -108,8 +106,6 @@ class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
   const std::string expected_md5_fingerprint_;
 
   SSL* ssl_{nullptr};
-
-  std::unique_ptr<boost::asio::steady_timer> ping_timer_;
 };
 
 using WebsocketClientSPtr = std::shared_ptr<WebsocketClient>;
