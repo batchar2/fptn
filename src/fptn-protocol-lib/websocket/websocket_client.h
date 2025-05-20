@@ -108,8 +108,6 @@ class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
   const std::string expected_md5_fingerprint_;
 
   SSL* ssl_{nullptr};
-
-  std::unique_ptr<boost::asio::steady_timer> ping_timer_;
 };
 
 using WebsocketClientSPtr = std::shared_ptr<WebsocketClient>;

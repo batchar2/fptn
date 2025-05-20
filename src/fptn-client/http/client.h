@@ -47,6 +47,8 @@ class Client final {
   void Run();
 
  private:
+  const int kMaxReconnectionAttempts_ = 3;
+
   std::thread th_;
   mutable std::mutex mutex_;
   std::atomic<bool> running_;
@@ -65,6 +67,8 @@ class Client final {
   fptn::protocol::websocket::WebsocketClientSPtr ws_;
 
   std::string latest_error_;
+
+  std::atomic<int>reconnection_attempts_;
 };
 
 using ClientPtr = std::unique_ptr<Client>;

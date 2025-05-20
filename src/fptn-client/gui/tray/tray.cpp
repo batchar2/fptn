@@ -465,6 +465,7 @@ void TrayApp::handleTimer() {
     if (!vpn_client_->IsStarted()) {
       // client was disconnected
       emit disconnecting();
+      // show error
       showError(QObject::tr("FPTN Connection Error"),
           QObject::tr("The VPN connection was unexpectedly closed."));
     } else if (speed_widget_) {
@@ -699,7 +700,7 @@ bool TrayApp::startVpn(QString& err_msg) {
       err_msg = QObject::tr("Failed to connect to the server!");
       return false;
     }
-    std::this_thread::sleep_for(std::chrono::microseconds(200));
+    std::this_thread::sleep_for(std::chrono::microseconds(300));
   }
   ip_tables_->Apply();
 
