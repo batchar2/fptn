@@ -252,6 +252,7 @@ class WindowsTunInterface : public BaseNetInterface {
     wintun_ = InitializeWintun();
     UuidCreate(&guid_);
   }
+
   ~WindowsTunInterface() override {}
 
   bool Start() noexcept override {
@@ -289,6 +290,7 @@ class WindowsTunInterface : public BaseNetInterface {
     thread_ = std::thread(&WindowsTunInterface::run, this);
     return thread_.joinable();
   }
+
   bool Stop() noexcept override {
     if (thread_.joinable() && running_) {
       running_ = false;
@@ -303,6 +305,7 @@ class WindowsTunInterface : public BaseNetInterface {
     }
     return false;
   }
+
   bool Send(IPPacketPtr packet) noexcept override {
     if (running_ && session_ && packet && packet->Size()) {
       send_rate_calculator_.Update(packet->Size());
