@@ -168,14 +168,14 @@ class IPPacket {
   pcpp::Packet& Pkt() noexcept { return parsed_packet_; }
 
   std::vector<std::uint8_t> Serialize() noexcept {
-    const auto raw = parsed_packet_.getRawPacket();
+    const auto* raw = parsed_packet_.getRawPacket();
     return {raw->getRawData(), raw->getRawData() + raw->getRawDataLen()};
   }
 
   std::size_t Size() const noexcept { return packet_data_.size(); }
 
   std::string ToString() noexcept {
-    const auto raw = parsed_packet_.getRawPacket();
+    const auto* raw = parsed_packet_.getRawPacket();
     return {reinterpret_cast<const char*>(raw->getRawData()),
         static_cast<std::size_t>(raw->getRawDataLen())};
   }

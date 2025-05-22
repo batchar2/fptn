@@ -22,7 +22,7 @@ class LeakyBucket final {
  private:
   mutable std::mutex mutex_;
   std::size_t current_amount_;
-  std::size_t max_bytes_per_second;
+  std::size_t max_bytes_per_second_;
   std::chrono::steady_clock::time_point last_leak_time_;
 
   std::size_t full_data_amount_;
