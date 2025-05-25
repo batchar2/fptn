@@ -222,7 +222,7 @@ void WebsocketClient::onHandshake(boost::beast::error_code ec) {
   });
 
   if (nullptr != on_connected_callback_) {
-      on_connected_callback_();
+    on_connected_callback_();
   }
   DoRead();
 }
