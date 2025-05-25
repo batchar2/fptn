@@ -39,9 +39,9 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 namespace fptn::protocol::websocket {
 class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
- public:
   using NewIPPacketCallback =
       std::function<void(fptn::common::network::IPPacketPtr packet)>;
+  using OnConnectedCallback = std::function<void()>;
 
  public:
   explicit WebsocketClient(pcpp::IPv4Address server_ip,
@@ -51,7 +51,9 @@ class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
       NewIPPacketCallback new_ip_pkt_callback,
       std::string sni,
       std::string access_token,
-      std::string expected_md5_fingerprint);
+      std::string expected_md5_fingerprint,
+      OnConnectedCallback on_connected_callback = nullptr
+      );
 
   virtual ~WebsocketClient();
 
@@ -106,6 +108,8 @@ class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
   const std::string sni_;
   const std::string access_token_;
   const std::string expected_md5_fingerprint_;
+
+  OnConnectedCallback on_connected_callback_;
 
   SSL* ssl_{nullptr};
 };
