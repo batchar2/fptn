@@ -22,8 +22,8 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 namespace fptn::common::user {
 class CommonUserManager final {
  public:
-  explicit CommonUserManager(std::string filePath)
-      : file_path_(std::move(filePath)) {
+  explicit CommonUserManager(std::string file_path)
+      : file_path_(std::move(file_path)) {
     CreateFileIfNotExists(file_path_);
     LoadUsers();
   }
@@ -148,6 +148,7 @@ class CommonUserManager final {
     }
   }
 
+  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
   std::string HashPassword(const std::string& password) const {
     unsigned int length = 0;
     unsigned char hash[EVP_MAX_MD_SIZE] = {0};
@@ -186,26 +187,28 @@ class CommonUserManager final {
     return oss.str();
   }
 
+  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
   bool ValidateUsername(const std::string& username) const {
     return !username.empty() &&
            std::all_of(username.begin(), username.end(), ::isalnum);
   }
 
-  void CreateFileIfNotExists(const std::string& filePath) {
-    std::filesystem::path path(filePath);
-    std::filesystem::path directoryPath = path.parent_path();
-    if (!directoryPath.empty() && !std::filesystem::exists(directoryPath)) {
+  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+  void CreateFileIfNotExists(const std::string& file_path) {
+    const std::filesystem::path path(file_path);
+    const std::filesystem::path directory_path = path.parent_path();
+    if (!directory_path.empty() && !std::filesystem::exists(directory_path)) {
       std::error_code ec;
-      if (!std::filesystem::create_directories(directoryPath, ec)) {
+      if (!std::filesystem::create_directories(directory_path, ec)) {
         std::cerr << "Failed to create directories: " << ec.message()
                   << std::endl;
         return;
       }
     }
-    if (!std::filesystem::exists(filePath)) {
-      std::ofstream file(filePath);
+    if (!std::filesystem::exists(file_path)) {
+      std::ofstream file(file_path);
       if (!file.is_open()) {
-        std::cerr << "Failed to create file: " << filePath << std::endl;
+        std::cerr << "Failed to create file: " << file_path << std::endl;
       }
     }
   }
