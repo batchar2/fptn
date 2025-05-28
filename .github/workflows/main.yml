@@ -183,6 +183,63 @@ jobs:
           path: |
             *.pkg
           if-no-files-found: warn
+  build_macos_intel:
+    runs-on: MacOS_Intel
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+      - name: Set env
+        if: github.event_name == 'release'
+        run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+      - name: Print Release Version
+        if: github.event_name == 'release'
+        run: |
+          echo "Release Version: $RELEASE_VERSION"
+      - name: Update FPTN_VERSION in conanfile.py
+        if: github.event_name == 'release'
+        run: |
+          sed -i '' "s/^FPTN_VERSION = \".*\"/FPTN_VERSION = \"$RELEASE_VERSION\"/" conanfile.py
+      - name: Install dependencies
+        run: |
+          CXXFLAGS="-Wno-vla-cxx-extension -Wno-error=vla-cxx-extension" conan export .conan/recipes/boringssl/ --name=openssl --version=boringssl --user=local --channel=local
+          CXXFLAGS="-Wno-vla-cxx-extension -Wno-error=vla-cxx-extension" conan install . --output-folder=build --build=missing -o with_gui_client=True --settings build_type=Release -s compiler.cppstd=17
+      - name: Run cpplint
+        run: |
+          python3 cpplint.py --recursive --filter=-build/c++17 --counting=total ./src/ ./tests/
+      - name: Run cppcheck
+        run: |
+          cppcheck --error-exitcode=1 --enable=all --check-level=exhaustive --language=c++ --suppress=unusedFunction --inline-suppr --suppress=missingIncludeSystem --suppress=unknownMacro -I ./src/fptn-client/ -I ./src/fptn-server/ -I ./src/fptn-passwd/ -I ./src/fptn-client-protocol-lib -I ./src/  ./src/ ./tests/
+      - name: Run cmake-format
+        run: |
+          cmake-format -i CMakeLists.txt src/fptn-client/CMakeLists.txt src/fptn-passwd/CMakeLists.txt src/fptn-server/CMakeLists.txt src/fptn-protocol-lib/CMakeLists.txt depends/cmake/FetchBase64.cmake depends/cmake/FetchLibTunTap.cmake depends/cmake/FetchWintun.cmake
+      - name: Build
+        run: |
+          cd build
+          cmake .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release
+          cmake --build .
+      - name: Test
+        run: |
+          cd build
+          ctest -C Release
+      - name: Build MacOS pkg
+        run: |
+          cd build
+          cmake --build . --target build-pkg
+      - name: Upload macOS pkg
+        if: github.event_name == 'release'
+        uses: AButler/upload-release-assets@v3.0
+        with:
+          files: "*.pkg"
+          repo-token: ${{ secrets.CI_TOKEN }}
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: MacOsArtifacts
+          path: |
+            *.pkg
+          if-no-files-found: warn
   build_windows_AMD64:
     runs-on: Windows11_AMD64
     steps:

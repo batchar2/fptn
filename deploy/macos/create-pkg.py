@@ -5,6 +5,7 @@ import sys
 import shutil
 import pathlib
 import argparse
+import platform
 import plistlib
 import tempfile
 import subprocess
@@ -169,8 +170,9 @@ def create_app(
 def create_pkg(app_path: pathlib.Path, version: str) -> bool:
     try:
         post_install = SCRIPT_FOLDER / "scripts" / "post_install.sh"
+        machine = "apple-silicon" if platform.machine() == "arm64" else "intel"
         pkg_obj = Packages(
-            pkg_output=f"fptn-client-{version}-apple-silicon.pkg",
+            pkg_output=f"fptn-client-{version}-{machine}.pkg",
             pkg_bundle_id="com.fptn-vpn.installer",
             pkg_as_distribution=True,
             pkg_title="FPTN-VPN",
