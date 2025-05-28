@@ -86,9 +86,10 @@ set(FPTN_CLIENT_PROTOCOL_SOURCES
     websocket/websocket_client.cpp)
 
 add_library("${PROJECT_NAME}_static" STATIC ${FPTN_CLIENT_PROTOCOL_SOURCES})
-add_library("${PROJECT_NAME}_shared" SHARED ${FPTN_CLIENT_PROTOCOL_SOURCES})
+# add_library("${PROJECT_NAME}_shared" SHARED ${FPTN_CLIENT_PROTOCOL_SOURCES})
+#foreach(target "${PROJECT_NAME}_static" "${PROJECT_NAME}_shared")
 
-foreach(target "${PROJECT_NAME}_static" "${PROJECT_NAME}_shared")
+foreach(target "${PROJECT_NAME}_static")
   if(MSVC)
     target_compile_options(${target} PRIVATE /wd4100 /wd4702) # disable warning C4100
   endif()
