@@ -22,22 +22,21 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 namespace fptn::logger {
 
 inline bool init(const std::string& app_name) {
-#if defined(__linux__) || defined(__APPLE__)
-  const std::filesystem::path log_dir = "/var/log/fptn/";
-#elif _WIN32
-  const std::filesystem::path log_dir = "./logs/";
-#else
-#error "Unsupported system!"
-#endif
   try {
 #ifdef __ANDROID__
     auto logger = spdlog::android_logger_mt("android", app_name);
 #else
+
+#if defined(__linux__) || defined(__APPLE__)
+    const std::filesystem::path log_dir = "/var/log/fptn/";
+#elif _WIN32
+    const std::filesystem::path log_dir = "./logs/";
+#endif
     // Set locale
     std::locale::global(std::locale::classic());
     std::setlocale(LC_ALL, "C");
 
-    const std::filesystem::path log_file = log_dir / (appName + ".log");
+    const std::filesystem::path log_file = log_dir / (app_name + ".log");
     if (!std::filesystem::exists(log_dir)) {
       try {
         std::filesystem::create_directories(log_dir);
@@ -47,11 +46,11 @@ inline bool init(const std::string& app_name) {
         return false;
       }
     }
-    auto consoleSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-    auto fileSink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(
-        logFile.string(), 12 * 1024 * 1024, 3, true);
+    auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+    auto file_sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(
+        log_file.string(), 12 * 1024 * 1024, 3, true);
     auto logger = std::make_shared<spdlog::logger>(
-        appName, spdlog::sinks_init_list{consoleSink, fileSink});
+        app_name, spdlog::sinks_init_list{console_sink, file_sink});
     logger->flush_on(spdlog::level::debug);
     spdlog::flush_every(std::chrono::seconds(3));
 #endif
