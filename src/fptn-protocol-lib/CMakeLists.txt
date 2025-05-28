@@ -6,7 +6,9 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
-if(APPLE)
+if (__ANDROID__)
+  add_compile_definitions(FPTN_USER_OS=\"Android\")
+elseif(APPLE)
   add_compile_definitions(FPTN_USER_OS=\"MacOS\")
 elseif(WIN32)
   add_compile_definitions(FPTN_USER_OS=\"Windows\")

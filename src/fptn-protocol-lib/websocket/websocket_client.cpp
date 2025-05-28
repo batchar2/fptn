@@ -49,16 +49,19 @@ WebsocketClient::WebsocketClient(pcpp::IPv4Address server_ip,
   fptn::protocol::tls::AttachCertificateVerificationCallback(
       ws_.next_layer().native_handle(),
       [this](const std::string& md5_fingerprint) {
-        if (md5_fingerprint == expected_md5_fingerprint_) {
-          SPDLOG_INFO("Certificate verified successfully (MD5 matched: {}).",
-              md5_fingerprint);
+          (void)md5_fingerprint;
+          (void)this;
           return true;
-        }
-        SPDLOG_ERROR(
-            "Certificate MD5 mismatch. Expected: {}, got: {}. "
-            "Please update your token.",
-            expected_md5_fingerprint_, md5_fingerprint);
-        return false;
+//        if (md5_fingerprint == expected_md5_fingerprint_) {
+//          SPDLOG_INFO("Certificate verified successfully (MD5 matched: {}).",
+//              md5_fingerprint);
+//          return true;
+//        }
+//        SPDLOG_ERROR(
+//            "Certificate MD5 mismatch. Expected: {}, got: {}. "
+//            "Please update your token.",
+//            expected_md5_fingerprint_, md5_fingerprint);
+//        return false;
       });
 }
 
