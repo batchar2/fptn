@@ -560,13 +560,27 @@
 
                 </div>
                 <div class="download macos">
-                    <p>
-                        <span class="language-en">Download MacOS client (Apple Silicon architecture)</span>
-                        <span class="language-ru">Скачать клиент для MacOS (архитектура Apple Silicon)</span>
-                    </p>
-                    <div class="dropdown">
-                        <a class="dropdown-button download_2 language-ru" onclick="downloadUrl('macos')">Скачать .dmg</a>
-                        <a class="dropdown-button download_2 language-en" onclick="downloadUrl('macos')">Download .dmg</a>
+                    <div class="wrapper">
+                        <div class="item">
+                            <p>
+                                <span class="language-en">MacOS client (Apple Silicon)</span>
+                                <span class="language-ru">Клиент для MacOS (Apple Silicon)</span>
+                            </p>
+                            <div class="dropdown">
+                                <a class="dropdown-button download_2 language-ru" onclick="downloadUrl('macos_m')">Скачать</a>
+                                <a class="dropdown-button download_2 language-en" onclick="downloadUrl('macos_m')">Download</a>
+                            </div>
+                        </div>
+                        <div class="item">
+                            <p>
+                                <span class="language-en">MacOS client (Intel)</span>
+                                <span class="language-ru">Клиент для MacOS (Intel)</span>
+                            </p>
+                            <div class="dropdown">
+                                <a class="dropdown-button download_2 language-ru" onclick="downloadUrl('macos_intel')">Скачать</a>
+                                <a class="dropdown-button download_2 language-en" onclick="downloadUrl('macos_intel')">Download</a>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="toolbox-ad language-ru">
@@ -994,8 +1008,11 @@
     function downloadUrl(name) {
         let url = ''
         switch (name) {
-            case 'macos':
+            case 'macos_m':
                 url = `https://github.com/${owner}/${repo}/releases/latest/download/fptn-client-${tag_name}-apple-silicon.pkg`
+                break;
+              case 'macos_intel':
+                url = `https://github.com/${owner}/${repo}/releases/latest/download/fptn-client-${tag_name}-intel.pkg`
                 break;
             case 'linux_l_server':
                 url = `https://github.com/${owner}/${repo}/releases/latest/download/fptn-server-${tag_name}-ubuntu22.04-amd64.deb`
