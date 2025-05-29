@@ -13,7 +13,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <vector>
 
 #ifdef __ANDROID__
-#include "spdlog/sinks/android_sink.h"  // NOLINT(build/include_order)
+#include <spdlog/sinks/android_sink.h>  // NOLINT(build/include_order)
 #endif
 #include <spdlog/sinks/rotating_file_sink.h>  // NOLINT(build/include_order)
 #include <spdlog/sinks/stdout_color_sinks.h>  // NOLINT(build/include_order)
