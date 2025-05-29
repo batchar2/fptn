@@ -10,7 +10,7 @@ using fptn::traffic_shaper::LeakyBucket;
 
 LeakyBucket::LeakyBucket(std::size_t max_bites_per_second)
     : current_amount_(0),
-      max_bytes_per_second(max_bites_per_second / 8),
+      max_bytes_per_second_(max_bites_per_second / 8),
       last_leak_time_(std::chrono::steady_clock::now()),
       full_data_amount_(0) {}
 
@@ -26,7 +26,7 @@ bool LeakyBucket::CheckSpeedLimit(std::size_t packet_size) noexcept {
       now - last_leak_time_)
                      .count();
   if (elapsed < 1000) {
-    if (current_amount_ + packet_size < max_bytes_per_second) {
+    if (current_amount_ + packet_size < max_bytes_per_second_) {
       current_amount_ += packet_size;
       full_data_amount_ += packet_size;
       return true;

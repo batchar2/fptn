@@ -14,16 +14,19 @@ using fptn::filter::BitTorrent;
 
 static const std::uint8_t kClassicSignature[] = {0x13, 'B', 'i', 't', 'T', 'o',
     'r', 'r', 'e', 'n', 't', ' ', 'p', 'r', 'o', 't', 'o', 'c', 'o', 'l'};
+
 static const std::uint8_t kExtensionProtocolSignature[] = {
     0x14, 'e', 'x', 't', 'e', 'n', 's', 'i', 'o', 'n'};
+
 static const std::uint8_t kDhtSignature[] = {
     'd', '1', ':', 'a', 'd', '2', ':', 'i', 'd', '2'};
 
 namespace {
-bool DetectBitTorrent(const std::uint8_t* payload, std::size_t payloadSize) {
+
+bool DetectBitTorrent(const std::uint8_t* payload, std::size_t payload_size) {
   // Classic Protocol
   constexpr std::size_t kClassicSignatureSize = sizeof(kClassicSignature);
-  if (payloadSize >= kClassicSignatureSize) {
+  if (payload_size >= kClassicSignatureSize) {
     if (std::memcmp(payload, kClassicSignature, kClassicSignatureSize) == 0) {
       return true;
     }
@@ -31,7 +34,7 @@ bool DetectBitTorrent(const std::uint8_t* payload, std::size_t payloadSize) {
   // Extension Protocol
   constexpr std::size_t kExtensionProtocolSignatureSize =
       sizeof(kExtensionProtocolSignature);
-  if (payloadSize >= kExtensionProtocolSignatureSize) {
+  if (payload_size >= kExtensionProtocolSignatureSize) {
     if (std::memcmp(payload, kExtensionProtocolSignature,
             kExtensionProtocolSignatureSize) == 0) {
       return true;
@@ -39,7 +42,7 @@ bool DetectBitTorrent(const std::uint8_t* payload, std::size_t payloadSize) {
   }
   // BT-DHT
   constexpr std::size_t kDhtSignatureSize = sizeof(kDhtSignature);
-  if (payloadSize >= kDhtSignatureSize) {
+  if (payload_size >= kDhtSignatureSize) {
     if (std::memcmp(payload, kDhtSignature, kDhtSignatureSize) == 0) {
       return true;
     }
