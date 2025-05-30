@@ -30,7 +30,7 @@ namespace {
 
 void WaitForSignal() {
   boost::asio::io_context io_context;
-  boost::asio::signal_set signals(io_context, SIGINT, SIGTERM /*, SIGQUIT*/);
+  boost::asio::signal_set signals(io_context, SIGINT, SIGTERM /*,SIGQUIT*/);
   signals.async_wait([&](auto, auto) { io_context.stop(); });
   io_context.run();
 }
