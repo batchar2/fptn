@@ -65,25 +65,25 @@ set_source_files_properties($<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/protoc
 set(DISABLE_TIDY_DIR "${CMAKE_BINARY_DIR}/src/fptn-protocol-lib/protobuf/")
 file(MAKE_DIRECTORY "${DISABLE_TIDY_DIR}")
 file(
-  WRITE "${DISABLE_TIDY_DIR}/.clang-tidy"
-  "Checks: '-*,readability-inconsistent-declaration-parameter-name'
+        WRITE "${DISABLE_TIDY_DIR}/.clang-tidy"
+        "Checks: '-*,readability-inconsistent-declaration-parameter-name'
 WarningsAsErrors: ''
     ")
 
 set(FPTN_CLIENT_PROTOCOL_SOURCES
-    ${PROTO_SRCS}
-    ${PROTO_HDRS}
-    tls/tls.h
-    tls/tls.cpp
-    https/https_client.h
-    https/https_client.cpp
-    protobuf/protocol.h
-    protobuf/protocol.cpp
-    server/server_info.h
-    server/speed_estimator.h
-    server/speed_estimator.cpp
-    websocket/websocket_client.h
-    websocket/websocket_client.cpp)
+        ${PROTO_SRCS}
+        ${PROTO_HDRS}
+        tls/tls.h
+        tls/tls.cpp
+        https/https_client.h
+        https/https_client.cpp
+        protobuf/protocol.h
+        protobuf/protocol.cpp
+        server/server_info.h
+        server/speed_estimator.h
+        server/speed_estimator.cpp
+        websocket/websocket_client.h
+        websocket/websocket_client.cpp)
 
 add_library("${PROJECT_NAME}_static" STATIC ${FPTN_CLIENT_PROTOCOL_SOURCES})
 # add_library("${PROJECT_NAME}_shared" SHARED ${FPTN_CLIENT_PROTOCOL_SOURCES})
@@ -95,18 +95,18 @@ foreach(target "${PROJECT_NAME}_static")
   endif()
   target_include_directories(${target} INTERFACE ${CMAKE_CURRENT_BINARY_DIR} protobuf::protobuf)
   target_link_libraries(
-    ${target}
-    ${Protobuf_LIBRARIES}
-    ${protobuf_LIBRARIES}
-    protobuf::protobuf
-    ZLIB::ZLIB
-    Boost::boost
-    Boost::random
-    Boost::filesystem
-    OpenSSL::SSL
-    OpenSSL::Crypto
-    nlohmann_json::nlohmann_json
-    spdlog::spdlog
-    fmt::fmt
-    PcapPlusPlus::PcapPlusPlus)
+          ${target}
+          ${Protobuf_LIBRARIES}
+          ${protobuf_LIBRARIES}
+          protobuf::protobuf
+          ZLIB::ZLIB
+          Boost::boost
+          Boost::random
+          Boost::filesystem
+          OpenSSL::SSL
+          OpenSSL::Crypto
+          nlohmann_json::nlohmann_json
+          spdlog::spdlog
+          fmt::fmt
+          PcapPlusPlus::PcapPlusPlus)
 endforeach()
