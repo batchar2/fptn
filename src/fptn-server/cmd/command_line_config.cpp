@@ -15,12 +15,13 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 using fptn::cmd::CommandLineConfig;
 
 namespace {
-bool ParseBoolean(const std::string& value) noexcept {
+bool ParseBoolean(std::string value) noexcept {
   try {
-    std::string lowercased_value = value;
-    std::ranges::transform(lowercased_value, lowercased_value.begin(),
+    // С++17
+    // NOLINTNEXTLINE(modernize-use-ranges)
+    std::transform(value.begin(), value.end(), value.begin(),
         [](unsigned char c) { return std::tolower(c); });
-    return lowercased_value == "true";
+    return value == "true";
   } catch (...) {
     return false;
   }
