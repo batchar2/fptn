@@ -6,7 +6,9 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
-if(APPLE)
+if (__ANDROID__)
+  add_compile_definitions(FPTN_USER_OS=\"Android\")
+elseif(APPLE)
   add_compile_definitions(FPTN_USER_OS=\"MacOS\")
 elseif(WIN32)
   add_compile_definitions(FPTN_USER_OS=\"Windows\")
@@ -84,9 +86,10 @@ set(FPTN_CLIENT_PROTOCOL_SOURCES
     websocket/websocket_client.cpp)
 
 add_library("${PROJECT_NAME}_static" STATIC ${FPTN_CLIENT_PROTOCOL_SOURCES})
-add_library("${PROJECT_NAME}_shared" SHARED ${FPTN_CLIENT_PROTOCOL_SOURCES})
+# add_library("${PROJECT_NAME}_shared" SHARED ${FPTN_CLIENT_PROTOCOL_SOURCES})
+#foreach(target "${PROJECT_NAME}_static" "${PROJECT_NAME}_shared")
 
-foreach(target "${PROJECT_NAME}_static" "${PROJECT_NAME}_shared")
+foreach(target "${PROJECT_NAME}_static")
   if(MSVC)
     target_compile_options(${target} PRIVATE /wd4100 /wd4702) # disable warning C4100
   endif()
