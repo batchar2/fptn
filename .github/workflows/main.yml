@@ -176,7 +176,7 @@ jobs:
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: MacOsArtifacts
+          name: MacOsAppleSiliconArtifacts
           path: |
             *.pkg
           if-no-files-found: warn
@@ -232,7 +232,7 @@ jobs:
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: MacOsArtifacts
+          name: MacOsIntelArtifacts
           path: |
             *.pkg
           if-no-files-found: warn
