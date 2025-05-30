@@ -68,7 +68,7 @@ class Client final {
 
   std::string latest_error_;
 
-  std::atomic<int>reconnection_attempts_;
+  std::atomic<int> reconnection_attempts_;
 };
 
 using ClientPtr = std::unique_ptr<Client>;
