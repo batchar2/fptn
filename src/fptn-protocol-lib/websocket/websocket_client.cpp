@@ -249,7 +249,9 @@ void WebsocketClient::onRead(
 }
 
 void WebsocketClient::Fail(boost::beast::error_code ec, char const* what) {
-  SPDLOG_ERROR("Fail {}: {}", what, ec.what());
+  if (running_) {
+    SPDLOG_ERROR("Fail {}: {}", what, ec.what());
+  }
   Stop();
 }
 
