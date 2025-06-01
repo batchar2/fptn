@@ -192,21 +192,19 @@ Response HttpsClient::Get(const std::string& handle, int timeout) {
 
     // Configure HTTPS protocol
     fptn::protocol::tls::SetHandshakeSessionID(stream.native_handle());
-//    FOR DEBUG ONLY
-//  fptn::protocol::tls::SetHandshakeSni(stream.native_handle(), sni_);
+    // Configure SNI
+    fptn::protocol::tls::SetHandshakeSni(stream.native_handle(), sni_);
     // Validate the server certificate
-//    FOR DEBUG ONLY
-//    if (!expected_md5_fingerprint_.empty()) {
-//      ssl_ = stream.native_handle();
-//      fptn::protocol::tls::AttachCertificateVerificationCallback(
-//          stream.native_handle(),
-//          [this, &error](const std::string& md5_fingerprint) {
-//            return onVerifyCertificate(md5_fingerprint, error);
-//          });
-//    } else {
-      // disable validation
+    if (!expected_md5_fingerprint_.empty()) {
+      ssl_ = stream.native_handle();
+      fptn::protocol::tls::AttachCertificateVerificationCallback(
+          stream.native_handle(),
+          [this, &error](const std::string& md5_fingerprint) {
+            return onVerifyCertificate(md5_fingerprint, error);
+          });
+    } else {
       ctx.set_verify_mode(boost::asio::ssl::verify_none);
-//    }
+    }
 
     // handshake
     stream.handshake(boost::asio::ssl::stream_base::client);
@@ -270,21 +268,19 @@ Response HttpsClient::Post(const std::string& handle,
 
     // Configure HTTPS protocol
     fptn::protocol::tls::SetHandshakeSessionID(stream.native_handle());
-//    FOR DEBUG ONLY
-//    fptn::protocol::tls::SetHandshakeSni(stream.native_handle(), sni_);
+    // Configure SNI
+    fptn::protocol::tls::SetHandshakeSni(stream.native_handle(), sni_);
     // Validate the server certificate
-//    FOR DEBUG ONLY
-//    if (!expected_md5_fingerprint_.empty()) {
-//      ssl_ = stream.native_handle();
-//      fptn::protocol::tls::AttachCertificateVerificationCallback(
-//          stream.native_handle(),
-//          [this, &error](const std::string& md5_fingerprint) {
-//            return onVerifyCertificate(md5_fingerprint, error);
-//          });
-//    } else {
-      // disable validation
+    if (!expected_md5_fingerprint_.empty()) {
+      ssl_ = stream.native_handle();
+      fptn::protocol::tls::AttachCertificateVerificationCallback(
+          stream.native_handle(),
+          [this, &error](const std::string& md5_fingerprint) {
+            return onVerifyCertificate(md5_fingerprint, error);
+          });
+    } else {
       ctx.set_verify_mode(boost::asio::ssl::verify_none);
-//    }
+    }
 
     // handshake
     stream.handshake(boost::asio::ssl::stream_base::client);

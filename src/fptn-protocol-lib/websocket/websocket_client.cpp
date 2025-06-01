@@ -47,21 +47,18 @@ WebsocketClient::WebsocketClient(pcpp::IPv4Address server_ip,
   // Validate the server certificate
   ssl_ = ws_.next_layer().native_handle();
   fptn::protocol::tls::AttachCertificateVerificationCallback(
-      ws_.next_layer().native_handle(),
+          ssl_,
       [this](const std::string& md5_fingerprint) {
-          (void)md5_fingerprint;
-          (void)this;
+        if (md5_fingerprint == expected_md5_fingerprint_) {
+          SPDLOG_INFO("Certificate verified successfully (MD5 matched: {}).",
+              md5_fingerprint);
           return true;
-//        if (md5_fingerprint == expected_md5_fingerprint_) {
-//          SPDLOG_INFO("Certificate verified successfully (MD5 matched: {}).",
-//              md5_fingerprint);
-//          return true;
-//        }
-//        SPDLOG_ERROR(
-//            "Certificate MD5 mismatch. Expected: {}, got: {}. "
-//            "Please update your token.",
-//            expected_md5_fingerprint_, md5_fingerprint);
-//        return false;
+        }
+        SPDLOG_ERROR(
+            "Certificate MD5 mismatch. Expected: {}, got: {}. "
+            "Please update your token.",
+            expected_md5_fingerprint_, md5_fingerprint);
+        return false;
       });
 }
 
