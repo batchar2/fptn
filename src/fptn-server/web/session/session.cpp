@@ -24,8 +24,8 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <pcapplusplus/SSLLayer.h>      // NOLINT(build/include_order)
 #include <spdlog/spdlog.h>              // NOLINT(build/include_order)
 
-#include "fptn-protocol-lib/tls/tls.h"
 #include "fptn-protocol-lib/protobuf/protocol.h"
+#include "fptn-protocol-lib/tls/tls.h"
 
 namespace {
 std::atomic<fptn::ClientID> client_id = 0;
@@ -71,10 +71,12 @@ Session::Session(std::uint16_t port,
     // Set a timeout to force reconnection every 2 hours
     boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::hours(2));
     init_completed_ = true;
-  } catch (boost::system::system_error& err) {
-    SPDLOG_ERROR("Session::init error: {}", err.what());
+  } catch (const boost::system::system_error& err) {
+    SPDLOG_ERROR("Session::init failed (client_id={}): {} [{}]", client_id_,
+        err.what(), err.code().message());
   } catch (const std::exception& e) {
-    SPDLOG_ERROR("Session::init prepare: {}", e.what());
+    SPDLOG_ERROR(
+        "Session::init exception (client_id={}): {}", client_id_, e.what());
   }
 }
 
@@ -83,25 +85,38 @@ Session::~Session() { Close(); }
 boost::asio::awaitable<void> Session::Run() {
   boost::system::error_code ec;
 
+  running_ = true;
   // check init status
   if (!init_completed_) {
-    SPDLOG_ERROR("Session is not initialized. Closing session.");
+    SPDLOG_ERROR("Session not initialized. Closing connection (client_id={})",
+        client_id_);
     Close();
     co_return;
   }
 
   // Detect probing
   if (enable_detect_probing_) {
+    SPDLOG_DEBUG("Probing detection enabled (client_id={})", client_id_);
     const auto probing_result = co_await DetectProbing();
     // Close connection
     if (probing_result.should_close) {
+      SPDLOG_WARN(
+          "Connection rejected during probing (client_id={})", client_id_);
       Close();
       co_return;
     }
     // Run proxy
     if (probing_result.is_probing) {
+      SPDLOG_INFO(
+          "Probing detected. Redirecting to proxy "
+          "(client_id={}, SNI={}, port={})",
+          client_id_, probing_result.sni, port_);
       co_await HandleProxy(probing_result.sni, port_);
       co_return;
+    } else {
+      SPDLOG_ERROR(
+          "SESSION ID correct. Continue setup connection  (client_id={}))",
+          client_id_);
     }
   }
 
@@ -110,14 +125,16 @@ boost::asio::awaitable<void> Session::Run() {
       boost::asio::ssl::stream_base::server,
       boost::asio::redirect_error(boost::asio::use_awaitable, ec));
   if (ec) {
-    SPDLOG_ERROR("Session handshake failed: {} ({})", ec.what(), ec.value());
+    SPDLOG_DEBUG(
+        "Probing check passed — continuing session setup (client_id={})",
+        client_id_);
     Close();
     co_return;
   }
 
   // Run API or WebSocket
-  running_ = co_await ProcessRequest();
-  if (running_) {
+  const bool status = co_await ProcessRequest();
+  if (status) {
     auto self = shared_from_this();
     boost::asio::co_spawn(
         strand_,
@@ -131,6 +148,8 @@ boost::asio::awaitable<void> Session::Run() {
           return self->RunSender();
         },
         boost::asio::detached);
+  } else {
+    running_ = false;
   }
   co_return;
 }
@@ -145,13 +164,14 @@ boost::asio::awaitable<Session::ProbingResult> Session::DetectProbing() {
       co_await socket.async_receive(boost::asio::buffer(buffer),
           boost::asio::socket_base::message_peek, boost::asio::use_awaitable);
   if (!bytes_read) {
-    SPDLOG_ERROR("Peeked zero bytes from socket");
+    SPDLOG_ERROR("Peeked zero bytes from socket (client_id={})", client_id_);
     co_return ProbingResult{
         .is_probing = true, .sni = FPTN_DEFAULT_SNI, .should_close = true};
   }
   // Check ssl
   if (!pcpp::SSLLayer::IsSSLMessage(0, 0, buffer.data(), buffer.size(), true)) {
-    SPDLOG_ERROR("Not an SSL message, closing connection");
+    SPDLOG_ERROR(
+        "Not an SSL message, closing connection (client_id={})", client_id_);
     co_return ProbingResult{
         .is_probing = true, .sni = FPTN_DEFAULT_SNI, .should_close = true};
   }
@@ -159,7 +179,9 @@ boost::asio::awaitable<Session::ProbingResult> Session::DetectProbing() {
   pcpp::SSLLayer* ssl_layer = pcpp::SSLLayer::createSSLMessage(
       buffer.data(), buffer.size(), nullptr, nullptr);
   if (!ssl_layer) {
-    SPDLOG_ERROR("Failed to create SSL layer from handshake data");
+    SPDLOG_ERROR(
+        "Failed to create SSL layer from handshake data (client_id={})",
+        client_id_);
     co_return ProbingResult{
         .is_probing = true, .sni = FPTN_DEFAULT_SNI, .should_close = true};
   }
@@ -178,7 +200,9 @@ boost::asio::awaitable<Session::ProbingResult> Session::DetectProbing() {
       // cppcheck-suppress nullPointerRedundantCheck
       handshake->getHandshakeMessageOfType<pcpp::SSLClientHelloMessage>();
   if (!hello) {
-    SPDLOG_ERROR("Failed to extract SSLClientHelloMessage from handshake");
+    SPDLOG_ERROR(
+        "Failed to extract SSLClientHelloMessage from handshake (client_id={})",
+        client_id_);
     co_return ProbingResult{
         .is_probing = true, .sni = FPTN_DEFAULT_SNI, .should_close = true};
   }
@@ -197,8 +221,9 @@ boost::asio::awaitable<Session::ProbingResult> Session::DetectProbing() {
   std::size_t session_len = std::min(
       static_cast<std::uint8_t>(kSessionLen), hello->getSessionIDLength());
   if (session_len != kSessionLen) {
-    SPDLOG_ERROR("Invalid session ID length: expected {}, got {}", kSessionLen,
-        session_len);
+    SPDLOG_ERROR(
+        "Invalid session ID length: expected {}, got {} (client_id={})",
+        kSessionLen, session_len, client_id_);
     co_return ProbingResult{
         .is_probing = true, .sni = sni, .should_close = false};
   }
@@ -207,7 +232,8 @@ boost::asio::awaitable<Session::ProbingResult> Session::DetectProbing() {
 
   // Check Session ID
   if (!fptn::protocol::tls::IsFptnClientSessionID(session_id, session_len)) {
-    SPDLOG_ERROR("Session ID does not match FPTN client format");
+    SPDLOG_ERROR("Session ID does not match FPTN client format (client_id={})",
+        client_id_);
     co_return ProbingResult{
         .is_probing = true, .sni = sni, .should_close = false};
   }
@@ -233,29 +259,32 @@ boost::asio::awaitable<bool> Session::HandleProxy(
         target_socket, endpoints, boost::asio::use_awaitable);
 
     auto ep = target_socket.local_endpoint();
-    SPDLOG_INFO("Proxying {}:{} <-> {}:{}", ep.address().to_string(), ep.port(),
-        sni, port_str);
+    SPDLOG_INFO("Proxying {}:{} <-> {}:{} (client_id={})",
+        ep.address().to_string(), ep.port(), sni, port_str, client_id_);
 
-    auto forward = [](auto& from, auto& to) -> boost::asio::awaitable<void> {
+    auto self = shared_from_this();
+    auto forward = [self](
+                       auto& from, auto& to) -> boost::asio::awaitable<void> {
       try {
         boost::system::error_code ec;
         std::array<char, 8192> buf{};
-        while (true) {
+        while (self->running_) {
           const auto n = co_await from.async_read_some(boost::asio::buffer(buf),
               boost::asio::redirect_error(boost::asio::use_awaitable, ec));
-
-          if (ec || n == 0) break;
-
+          if (ec || n == 0) {
+            break;
+          }
           co_await boost::asio::async_write(to,
               boost::asio::buffer(buf.data(), n),
               boost::asio::redirect_error(boost::asio::use_awaitable, ec));
-
-          if (ec) break;
+          if (ec) {
+            break;
+          }
         }
         from.close();
       } catch (const boost::system::system_error& e) {
-        SPDLOG_ERROR(
-            "Corutine1 system error: {} [{}]", e.what(), e.code().message());
+        SPDLOG_ERROR("Coroutine system error: {} [{}] (client_id={})", e.what(),
+            e.code().message(), self->client_id_);
       }
       co_return;
     };
@@ -278,9 +307,10 @@ boost::asio::awaitable<bool> Session::HandleProxy(
 
     co_return true;
   } catch (const boost::system::system_error& e) {
-    SPDLOG_ERROR("Proxy system error: {} [{}]", e.what(), e.code().message());
+    SPDLOG_ERROR("Proxy system error: {} [{}] (client_id={})", e.what(),
+        e.code().message(), client_id_);
   } catch (const std::exception& e) {
-    SPDLOG_ERROR("Proxy error: {}", e.what());
+    SPDLOG_ERROR("Proxy error (client_id={}): {} ", e.what(), client_id_);
   }
   co_return false;
 }
@@ -299,29 +329,37 @@ boost::asio::awaitable<void> Session::RunReader() {
       }
       // parse
       if (buffer.size() != 0) {
-        std::string rawdata = boost::beast::buffers_to_string(buffer.data());
-        std::string rawip =
-            fptn::protocol::protobuf::GetProtoPayload(std::move(rawdata));
+        std::string raw_data = boost::beast::buffers_to_string(buffer.data());
+        std::string raw_ip =
+            fptn::protocol::protobuf::GetProtoPayload(std::move(raw_data));
         auto packet = fptn::common::network::IPPacket::Parse(
-            std::move(rawip), client_id_);
+            std::move(raw_ip), client_id_);
         if (packet != nullptr && ws_new_ippacket_callback_) {
           ws_new_ippacket_callback_(std::move(packet));
         }
         buffer.consume(buffer.size());  // flush
       }
     } catch (const fptn::protocol::protobuf::ProcessingError& err) {
-      SPDLOG_ERROR("Session::runReader Processing error: {}", err.what());
+      SPDLOG_ERROR(
+          "Session::runReader failed to process message (client_id={}): {}",
+          client_id_, err.what());
     } catch (const fptn::protocol::protobuf::MessageError& err) {
-      SPDLOG_ERROR("Session::runReader Message error: {}", err.what());
+      SPDLOG_ERROR(
+          "Session::runReader received invalid message (client_id={}): {}",
+          client_id_, err.what());
     } catch (const fptn::protocol::protobuf::UnsupportedProtocolVersion& err) {
       SPDLOG_ERROR(
-          "Session::runReader Unsupported protocol version: {}", err.what());
-    } catch (boost::system::system_error& err) {
-      SPDLOG_ERROR("Session::runReader error: {}", err.what());
+          "Session::runReader unsupported protocol version (client_id={}): {}",
+          client_id_, err.what());
+    } catch (const boost::system::system_error& err) {
+      SPDLOG_ERROR("Session::runReader system error (client_id={}): {} [{}]",
+          client_id_, err.what(), err.code().message());
     } catch (const std::exception& e) {
-      SPDLOG_ERROR("Exception in runReader: {}", e.what());
+      SPDLOG_ERROR("Session::runReader unexpected exception (client_id={}): {}",
+          client_id_, e.what());
     } catch (...) {
-      SPDLOG_ERROR("Session::runReader Unexpected error");
+      SPDLOG_ERROR(
+          "Session::runReader unknown fatal error (client_id={})", client_id_);
       break;
     }
   }
@@ -351,7 +389,9 @@ boost::asio::awaitable<void> Session::RunSender() {
         co_await ws_.async_write(
             boost::asio::buffer(msg.data(), msg.size()), token);
         if (ec) {
-          SPDLOG_ERROR("Session::runSender async_write error: {}", ec.what());
+          SPDLOG_ERROR(
+              "Session::runSender async_write failed (client_id={}): {} [{}]",
+              client_id_, ec.message(), ec.value());
           break;
         }
         msg.clear();
@@ -383,8 +423,9 @@ boost::asio::awaitable<bool> Session::ProcessRequest() {
     } else {
       status = co_await HandleHttp(request);
     }
-  } catch (boost::system::system_error& err) {
-    SPDLOG_ERROR("Session::handshake error: {}", err.what());
+  } catch (const boost::system::system_error& err) {
+    SPDLOG_ERROR("Session::handshake failed (client_id={}): {} [{}]",
+        client_id_, err.what(), err.code().message());
   }
   co_return status;
 }
@@ -396,10 +437,13 @@ boost::asio::awaitable<bool> Session::HandleHttp(
   const std::string method = request.method_string();
 
   if (method.empty() && url.empty()) {
+    SPDLOG_WARN(
+        "HTTP request has empty method or URL (client_id={}): method='{}', "
+        "url='{}'",
+        client_id_, method, url);
     co_return false;
   }
-
-  SPDLOG_INFO("HTTP {} {}", method, url);
+  SPDLOG_INFO("HTTP request (client_id={}): {} {}", client_id_, method, url);
 
   // default content types
   boost::beast::http::response<boost::beast::http::string_body> resp;
@@ -430,7 +474,8 @@ boost::asio::awaitable<bool> Session::HandleHttp(
     co_await boost::beast::http::async_write(
         ws_.next_layer(), *res_ptr, boost::asio::use_awaitable);
   } catch (const boost::beast::system_error& e) {
-    SPDLOG_ERROR("Error writing HTTP response: {}", e.what());
+    SPDLOG_ERROR("Failed to write HTTP response (client_id={}): {}", client_id_,
+        e.what());
   }
   co_return false;
 }
@@ -472,7 +517,7 @@ boost::asio::awaitable<bool> Session::HandleWebSocket(
               client_vpn_ipv6, shared_from_this(), request.target(), token);
       co_return status;
     } catch (const std::exception& ex) {
-      SPDLOG_ERROR("Session error: {}", ex.what());
+      SPDLOG_ERROR("Session error (client_id={}): {}", client_id_, ex.what());
     }
   }
   co_return false;
@@ -507,10 +552,11 @@ void Session::Close() {
     if (client_id_ != MAX_CLIENT_ID && ws_close_callback_) {
       ws_close_callback_(client_id_);
     }
-  } catch (boost::system::system_error& err) {
-    SPDLOG_ERROR("Session::close error: {}", err.what());
+  } catch (const boost::system::system_error& err) {
+    SPDLOG_ERROR("Session::close failed (client_id={}): {} [{}]", client_id_,
+        err.what(), err.code().message());
   } catch (...) {
-    SPDLOG_ERROR("Session::close undefined error");
+    SPDLOG_ERROR("Session::close unknown error (client_id={})", client_id_);
   }
 }
 
@@ -525,11 +571,12 @@ boost::asio::awaitable<bool> Session::Send(
       } else if (!full_queue_) {
         // Log a warning only once when the queue first becomes full
         full_queue_ = true;
-        spdlog::warn("Session::send the queue is full");
+        SPDLOG_WARN("Session::send queue is full (client_id={})", client_id_);
       }
     }
   } catch (boost::system::system_error& err) {
-    SPDLOG_ERROR("Session::send error: {}", err.what());
+    SPDLOG_ERROR(
+        "Session::send failed (client_id={}): {}", client_id_, err.what());
     co_return false;
   }
   co_return true;
