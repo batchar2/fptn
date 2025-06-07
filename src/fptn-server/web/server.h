@@ -52,7 +52,6 @@ class Server final {
 
  protected:
   // http
-  int HandleApiHome(const http::request& req, http::response& resp);
   int HandleApiDns(const http::request& req, http::response& resp);
   int HandleApiLogin(const http::request& req, http::response& resp);
   int HandleApiMetrics(const http::request& req, http::response& resp);
@@ -68,10 +67,9 @@ class Server final {
       const std::string& url,
       const std::string& access_token);
   void HandleWsNewIPPacket(fptn::common::network::IPPacketPtr packet) noexcept;
-  void HandleWsCloseConnection(fptn::ClientID clientId) noexcept;
+  void HandleWsCloseConnection(fptn::ClientID client_id) noexcept;
 
  private:
-  const std::string kUrlHome_ = "/";
   const std::string kUrlDns_ = "/api/v1/dns";
   const std::string kUrlLogin_ = "/api/v1/login";
   const std::string kUrlMetrics_ = "/api/v1/metrics";
