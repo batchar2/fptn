@@ -94,7 +94,7 @@ class Session : public std::enable_shared_from_this<Session> {
 
   std::atomic<bool> running_;
   bool init_completed_;
-  bool was_vpn_session_opened_;
+  bool was_ws_session_opened_;
   std::atomic<bool> full_queue_;
 
   boost::asio::cancellation_signal cancel_signal_;
