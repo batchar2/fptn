@@ -102,7 +102,7 @@ boost::asio::awaitable<void> Session::Run() {
     if (probing_result.should_close) {
       SPDLOG_WARN(
           "Connection rejected during probing (client_id={})", client_id_);
-      Close();
+      Close();  // close connection
       co_return;
     }
     // Run proxy
@@ -112,10 +112,11 @@ boost::asio::awaitable<void> Session::Run() {
           "(client_id={}, SNI={}, port={})",
           client_id_, probing_result.sni, port_);
       co_await HandleProxy(probing_result.sni, port_);
+      Close();  // close connection
       co_return;
     } else {
       SPDLOG_ERROR(
-          "SESSION ID correct. Continue setup connection  (client_id={}))",
+          "SESSION ID correct. Continue setup connection (client_id={}))",
           client_id_);
     }
   }
@@ -149,7 +150,7 @@ boost::asio::awaitable<void> Session::Run() {
         },
         boost::asio::detached);
   } else {
-    running_ = false;
+    Close();  // Close connection: probing failed, unexpected or HTTP request
   }
   co_return;
 }
@@ -549,14 +550,20 @@ void Session::Close() {
       tcp.socket().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
       tcp.socket().close(ec);
     }
-    if (client_id_ != MAX_CLIENT_ID && ws_close_callback_) {
-      ws_close_callback_(client_id_);
-    }
   } catch (const boost::system::system_error& err) {
     SPDLOG_ERROR("Session::close failed (client_id={}): {} [{}]", client_id_,
         err.what(), err.code().message());
   } catch (...) {
     SPDLOG_ERROR("Session::close unknown error (client_id={})", client_id_);
+  }
+  if (client_id_ != MAX_CLIENT_ID && ws_close_callback_) {
+    try {
+      ws_close_callback_(client_id_);
+    } catch (...) {
+      SPDLOG_ERROR(
+          "WebSocket close callback threw unknown exception (client_id={})",
+          client_id_);
+    }
   }
 }
 
