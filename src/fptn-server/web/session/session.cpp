@@ -52,8 +52,15 @@ Session::Session(std::uint16_t port,
       ws_close_callback_(std::move(ws_close_callback)),
       running_(false),
       init_completed_(false),
+      was_vpn_session_opened_(false),
       full_queue_(false) {
   try {
+    {
+      const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+      client_id_ = client_id++;  // Increment the clientId after using it
+    }
+
     boost::beast::get_lowest_layer(ws_).socket().set_option(
         boost::asio::ip::tcp::no_delay(true));  // turn off the Nagle algorithm.
 
@@ -486,11 +493,6 @@ boost::asio::awaitable<bool> Session::HandleWebSocket(
         request) {
   if (request.find("Authorization") != request.end() &&
       request.find("ClientIP") != request.end()) {
-    {
-      const std::unique_lock<std::mutex> lock(mutex_);  // mutex
-
-      client_id_ = client_id++;  // Increment the clientId after using it
-    }
     std::string token = request["Authorization"];
     boost::replace_first(token, "Bearer ", "");  // clean token string
 
@@ -516,6 +518,7 @@ boost::asio::awaitable<bool> Session::HandleWebSocket(
       const bool status =
           ws_open_callback_(client_id_, client_ip, client_vpn_ipv4,
               client_vpn_ipv6, shared_from_this(), request.target(), token);
+      was_vpn_session_opened_ = true;
       co_return status;
     } catch (const std::exception& ex) {
       SPDLOG_ERROR("Session error (client_id={}): {}", client_id_, ex.what());
@@ -556,7 +559,8 @@ void Session::Close() {
   } catch (...) {
     SPDLOG_ERROR("Session::close unknown error (client_id={})", client_id_);
   }
-  if (client_id_ != MAX_CLIENT_ID && ws_close_callback_) {
+  if (client_id_ != MAX_CLIENT_ID && ws_close_callback_ &&
+      was_vpn_session_opened_) {
     try {
       ws_close_callback_(client_id_);
     } catch (...) {
