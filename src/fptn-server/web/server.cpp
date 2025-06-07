@@ -16,80 +16,6 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include "common/utils/utils.h"
 
-static const char kHtmlHomePage[] = R"HTML(<!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>FPTN: Current Time</title>
-        <style>
-            body {
-                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                background-color: #f0f0f0;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                height: 100vh;
-                margin: 0;
-            }
-            .container {
-                text-align: center;
-                padding: 20px;
-                background-color: #fff;
-                border-radius: 10px;
-                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-                width: 80%;
-                max-width: 600px;
-                margin: auto;
-            }
-            #time {
-                font-size: 4em;
-                margin-bottom: 20px;
-            }
-            button {
-                padding: 10px 20px;
-                font-size: 1em;
-                background-color: #4CAF50;
-                color: white;
-                border: none;
-                border-radius: 5px;
-                cursor: pointer;
-                transition: background-color 0.3s ease;
-            }
-            button:hover {
-                background-color: #45a049;
-            }
-            html, body {
-                height: 100%;
-            }
-            body {
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                background-color: #ccc;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div id="time">00:00:00</div>
-            <button onclick="updateTime()">Update</button>
-        </div>
-        <script>
-            function updateTime() {
-                const now = new Date();
-                const hours = String(now.getHours()).padStart(2, '0');
-                const minutes = String(now.getMinutes()).padStart(2, '0');
-                const seconds = String(now.getSeconds()).padStart(2, '0');
-                const timeString = `${hours}:${minutes}:${seconds}`;
-                document.getElementById('time').textContent = timeString;
-            }
-            setInterval(updateTime, 1000);
-        </script>
-    </body>
-</html>
-)HTML";
-
 using fptn::web::Server;
 
 Server::Server(std::uint16_t port,
@@ -133,9 +59,6 @@ Server::Server(std::uint16_t port,
       std::bind(&Server::HandleWsNewIPPacket, this, _1),
       // NOLINTNEXTLINE(modernize-avoid-bind)
       std::bind(&Server::HandleWsCloseConnection, this, _1));
-  listener_->AddApiHandle(
-      // NOLINTNEXTLINE(modernize-avoid-bind)
-      kUrlHome_, "GET", std::bind(&Server::HandleApiHome, this, _1, _2));
   listener_->AddApiHandle(
       // NOLINTNEXTLINE(modernize-avoid-bind)
       kUrlDns_, "GET", std::bind(&Server::HandleApiDns, this, _1, _2));
@@ -244,15 +167,6 @@ void Server::Send(fptn::common::network::IPPacketPtr packet) {
 fptn::common::network::IPPacketPtr Server::WaitForPacket(
     const std::chrono::milliseconds& duration) {
   return from_client_->WaitForPacket(duration);
-}
-
-// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
-int Server::HandleApiHome(const http::request& req, http::response& resp) {
-  (void)req;
-
-  resp.body() = kHtmlHomePage;
-  resp.set(boost::beast::http::field::content_type, "text/html; charset=utf-8");
-  return 200;
 }
 
 // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
@@ -379,21 +293,24 @@ void Server::HandleWsNewIPPacket(
   from_client_->Push(std::move(packet));
 }
 
-void Server::HandleWsCloseConnection(fptn::ClientID clientId) noexcept {
+void Server::HandleWsCloseConnection(fptn::ClientID client_id) noexcept {
   SessionSPtr session;
 
   if (running_) {
-    const std::unique_lock<std::mutex> lock(mutex_);  // mutex
-
-    auto it = sessions_.find(clientId);
+    const std::unique_lock<std::mutex> lock(mutex_);
+    auto it = sessions_.find(client_id);
     if (it != sessions_.end()) {
       session = std::move(it->second);
       sessions_.erase(it);
     }
   }
+
   if (session != nullptr) {
     session->Close();
-    SPDLOG_INFO("DEL SESSION! clientId={}", clientId);
+    SPDLOG_INFO("Session closed and removed (client_id={})", client_id);
+  } else {
+    SPDLOG_WARN(
+        "Attempted to close non-existent session (client_id={})", client_id);
   }
-  nat_table_->DelClientSession(clientId);
+  nat_table_->DelClientSession(client_id);
 }
