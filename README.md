@@ -260,8 +260,6 @@ You can also test DNS resolution to confirm that the server is working:
 dig @127.0.0.1 google.com
 ```
 
-openssl x509 -noout -fingerprint -md5 -in /etc/fptn/server.crt | cut -d'=' -f2 | tr -d ':' | tr 'A-F' 'a-f'
-
 ##### Step 9: Running
 
 To connect the client to your server, create an FPTN configuration file and save it as `MyFptnServer.fptn`

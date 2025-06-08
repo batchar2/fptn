@@ -25,6 +25,8 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 namespace fptn::protocol::tls {
 
+constexpr std::size_t kFptnKeyLength = 4;
+
 std::string GetSHA1Hash(std::uint32_t number) {
   EVP_MD_CTX* mdctx = EVP_MD_CTX_new();
   if (!mdctx) {
@@ -59,8 +61,8 @@ std::string GetSHA1Hash(std::uint32_t number) {
 
 std::string GenerateFptnKey(std::uint32_t timestamp) {
   std::string result = GetSHA1Hash(htonl(timestamp));
-  if (result.size() > 4) {  //  key len
-    return result.substr(0, 4);
+  if (result.size() > kFptnKeyLength) {  //  key len
+    return result.substr(0, kFptnKeyLength);
   }
   throw boost::beast::system_error(
       boost::beast::error_code(static_cast<int>(::ERR_get_error()),
@@ -76,11 +78,8 @@ bool SetHandshakeSessionID(SSL* ssl) {
     return false;
   }
   // copy timestamp
-  const auto seconds = std::chrono::duration_cast<std::chrono::seconds>(
-      std::chrono::system_clock::now().time_since_epoch());
-  const auto timestamp = static_cast<std::uint32_t>(seconds.count());
+  const auto timestamp = static_cast<std::uint32_t>(std::time(nullptr));
   const std::string key = GenerateFptnKey(timestamp);
-
   std::memcpy(&session_id[kSessionLen - key.size()], key.c_str(), key.size());
 
   return 0 != ::SSL_set_tls_hello_custom_session_id(
@@ -89,17 +88,13 @@ bool SetHandshakeSessionID(SSL* ssl) {
 
 bool IsFptnClientSessionID(
     const std::uint8_t* session, std::size_t session_len) {
-  char data[4] = {0};
+  char data[kFptnKeyLength] = {0};
   std::memcpy(&data, &session[session_len - sizeof(data)], sizeof(data));
-
   const std::string recv_key(data, sizeof(data));
-  const auto now = std::chrono::system_clock::now();
-  const auto now_seconds =
-      std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch())
-          .count();
-  const auto now_timestamp = static_cast<std::uint32_t>(now_seconds);
 
-  constexpr std::uint32_t kTimeShiftSeconds = 8;
+  const auto now_timestamp = static_cast<std::uint32_t>(std::time(nullptr));
+
+  constexpr std::uint32_t kTimeShiftSeconds = 120; // two minutes
   for (std::uint32_t shift = 0; shift <= kTimeShiftSeconds; shift++) {
     const std::string key = GenerateFptnKey(now_timestamp - shift);
     if (recv_key == key) {
