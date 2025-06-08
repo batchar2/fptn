@@ -245,7 +245,7 @@ boost::asio::awaitable<Session::ProbingResult> Session::DetectProbing() {
     co_return ProbingResult{
         .is_probing = true, .sni = sni, .should_close = false};
   }
-  // Is is a valid FPTN client
+  // It is a valid FPTN client
   co_return ProbingResult{
       .is_probing = false, .sni = sni, .should_close = false};
 }
@@ -256,6 +256,10 @@ boost::asio::awaitable<bool> Session::HandleProxy(
   boost::asio::ip::tcp::socket target_socket(
       co_await boost::asio::this_coro::executor);
 
+  // SET TTL
+  boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::seconds(30));
+
+  bool status = false;
   try {
     boost::asio::ip::tcp::resolver resolver(
         co_await boost::asio::this_coro::executor);
@@ -310,17 +314,28 @@ boost::asio::awaitable<bool> Session::HandleProxy(
     (void)client_to_server_result;
     (void)server_to_client_result;
     (void)completion_status;
-    socket.close();
-    target_socket.close();
-
-    co_return true;
+    status = true;
   } catch (const boost::system::system_error& e) {
     SPDLOG_ERROR("Proxy system error: {} [{}] (client_id={})", e.what(),
         e.code().message(), client_id_);
   } catch (const std::exception& e) {
     SPDLOG_ERROR("Proxy error (client_id={}): {} ", e.what(), client_id_);
   }
-  co_return false;
+
+  // close socket
+  try {
+    socket.close();
+  } catch (const boost::system::system_error& e) {
+    SPDLOG_ERROR(
+        "Failed to close the socket after proxy completion (client_id={}): {} "
+        "[{}]",
+        client_id_, e.what(), e.code().message());
+  }
+  // close target socket
+  boost::system::error_code ec;
+  target_socket.close(ec);
+
+  co_return status;
 }
 
 boost::asio::awaitable<void> Session::RunReader() {
@@ -444,6 +459,9 @@ boost::asio::awaitable<bool> Session::HandleHttp(
   const std::string url = request.target();
   const std::string method = request.method_string();
 
+  // control TTL socket
+  boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::seconds(10));
+
   if (method.empty() && url.empty()) {
     SPDLOG_WARN(
         "HTTP request has empty method or URL (client_id={}): method='{}', "
@@ -528,43 +546,62 @@ boost::asio::awaitable<bool> Session::HandleWebSocket(
 }
 
 void Session::Close() {
-  if (!running_) {
+  std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+  if (!running_) {  // Double-check after acquiring lock
     return;
   }
-  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
-  // close coroutines
   running_ = false;
-  // send signal to sender
+  boost::system::error_code ec;
+
+  // Cancel ongoing operations
   cancel_signal_.emit(boost::asio::cancellation_type::all);
   write_channel_.close();
-  try {
-    boost::system::error_code ec;
-    if (ws_.is_open()) {
-      ws_.close(boost::beast::websocket::close_code::normal, ec);
-    }
-    auto& ssl = ws_.next_layer();
-    if (ssl.native_handle()) {
-      SSL_shutdown(ssl.native_handle());
-    }
 
-    auto& tcp = ssl.next_layer();
-    if (tcp.socket().is_open()) {
-      tcp.socket().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
-      tcp.socket().close(ec);
+  // Close WebSocket
+  if (ws_.is_open()) {
+    try {
+      boost::beast::get_lowest_layer(ws_).expires_after(
+          std::chrono::microseconds(1));
+    } catch (const std::exception& err) {
+      SPDLOG_ERROR("Session::close error (client_id={}) expires_after: {}",
+          client_id_, err.what());
     }
-  } catch (const boost::system::system_error& err) {
-    SPDLOG_ERROR("Session::close failed (client_id={}): {} [{}]", client_id_,
-        err.what(), err.code().message());
-  } catch (...) {
-    SPDLOG_ERROR("Session::close unknown error (client_id={})", client_id_);
   }
+  try {
+    if (ws_.is_open()) {
+      ws_.async_close(boost::beast::websocket::close_code::normal,
+          [](const boost::system::error_code&) {});
+    }
+  } catch (const std::exception& err) {
+    SPDLOG_ERROR("Session::close error (client_id={}) async_close: {}",
+        client_id_, err.what());
+  }
+
+  // Close SSL
+  auto& ssl = ws_.next_layer();
+  if (ssl.native_handle()) {
+    // More robust SSL shutdown
+    ::SSL_set_quiet_shutdown(ssl.native_handle(), 1);
+    ::SSL_shutdown(ssl.native_handle());
+    ssl.shutdown(ec);
+    ssl.lowest_layer().close(ec);
+  }
+
+  // Close TCP
+  auto& tcp = ssl.next_layer();
+  if (tcp.socket().is_open()) {
+    tcp.socket().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
+    tcp.socket().close(ec);
+  }
+
+  // Call close callback
   if (ws_close_callback_ && ws_session_was_opened_) {
     try {
       ws_close_callback_(client_id_);
     } catch (...) {
-      SPDLOG_ERROR(
-          "WebSocket close callback threw unknown exception (client_id={})",
+      SPDLOG_ERROR("WebSocket close callback threw exception (client_id={})",
           client_id_);
     }
   }
