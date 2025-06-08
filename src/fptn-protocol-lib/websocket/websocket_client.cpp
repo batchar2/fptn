@@ -47,8 +47,7 @@ WebsocketClient::WebsocketClient(pcpp::IPv4Address server_ip,
   // Validate the server certificate
   ssl_ = ws_.next_layer().native_handle();
   fptn::protocol::tls::AttachCertificateVerificationCallback(
-          ssl_,
-      [this](const std::string& md5_fingerprint) {
+      ssl_, [this](const std::string& md5_fingerprint) {
         if (md5_fingerprint == expected_md5_fingerprint_) {
           SPDLOG_INFO("Certificate verified successfully (MD5 matched: {}).",
               md5_fingerprint);
@@ -89,37 +88,32 @@ void WebsocketClient::Run() {
   } catch (...) {
     SPDLOG_ERROR("Undefined ws error");
   }
-  running_ = false;
 }
 
 bool WebsocketClient::Stop() {
-  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+  const std::unique_lock<std::mutex> lock(mutex_);
 
-  if (running_) {
-    running_ = false;
-    // close connection
-    try {
-      boost::beast::get_lowest_layer(ws_).cancel();
-    } catch (const boost::system::system_error& err) {
-      SPDLOG_WARN("Error close get_lowest_layer: {}", err.what());
-    }
-
-    // close websocket
-    try {
-      if (ws_.is_open()) {
-        boost::beast::error_code ec;
-        ws_.close(boost::beast::websocket::close_code::normal, ec);
-      }
-    } catch (const boost::system::system_error& err) {
-      SPDLOG_WARN("Error close ws_: {}", err.what());
-    }
+  if (!running_) {
+    return false;
   }
-
-  // close ioc
+  running_ = false;
   try {
-    if (!ioc_.stopped()) {
-      ioc_.stop();
+    boost::beast::get_lowest_layer(ws_).expires_after(
+        std::chrono::milliseconds(5));
+
+    boost::beast::error_code ec;
+    ws_.close(boost::beast::websocket::close_code::normal, ec);
+    if (ec) {
+      SPDLOG_WARN("ws_.close error: {}", ec.message());
     }
+    boost::beast::get_lowest_layer(ws_).socket().shutdown(
+        boost::asio::ip::tcp::socket::shutdown_both, ec);
+    boost::beast::get_lowest_layer(ws_).socket().close(ec);
+  } catch (const std::exception& e) {
+    SPDLOG_ERROR("Exception while closing socket: {}", e.what());
+  }
+  try {
+    ioc_.stop();
   } catch (const boost::system::system_error& err) {
     SPDLOG_WARN("Error close ioc_: {}", err.what());
   }
