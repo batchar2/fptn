@@ -94,7 +94,7 @@ bool IsFptnClientSessionID(
 
   const auto now_timestamp = static_cast<std::uint32_t>(std::time(nullptr));
 
-  constexpr std::uint32_t kTimeShiftSeconds = 120; // two minutes
+  constexpr std::uint32_t kTimeShiftSeconds = 120;  // two minutes
   for (std::uint32_t shift = 0; shift <= kTimeShiftSeconds; shift++) {
     const std::string key = GenerateFptnKey(now_timestamp - shift);
     if (recv_key == key) {
