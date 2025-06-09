@@ -72,11 +72,11 @@ Session::Session(std::uint16_t port,
         boost::beast::role_type::server));
     ws_.set_option(boost::beast::websocket::stream_base::timeout{
         .handshake_timeout = std::chrono::seconds(60),  // Handshake timeout
-        .idle_timeout = std::chrono::hours(24),         // Idle timeout
+        .idle_timeout = std::chrono::seconds(120),      // Idle timeout
         .keep_alive_pings = true                        // Enable ping timeout
     });
-    // Set a timeout to force reconnection every 2 hours
-    boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::hours(2));
+    // Set a timeout to force reconnection every 30 seconds
+    boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::seconds(30));
     init_completed_ = true;
   } catch (const boost::system::system_error& err) {
     SPDLOG_ERROR("Session::init failed (client_id={}): {} [{}]", client_id_,
@@ -257,7 +257,9 @@ boost::asio::awaitable<bool> Session::HandleProxy(
       co_await boost::asio::this_coro::executor);
 
   // SET TTL
-  boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::seconds(30));
+  boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::seconds(20));
+  boost::beast::get_lowest_layer(socket).expires_after(
+      std::chrono::seconds(20));
 
   bool status = false;
   try {
@@ -310,7 +312,6 @@ boost::asio::awaitable<bool> Session::HandleProxy(
                 forward(target_socket, socket), boost::asio::deferred))
             .async_wait(boost::asio::experimental::wait_for_all(),
                 boost::asio::use_awaitable);
-
     (void)client_to_server_result;
     (void)server_to_client_result;
     (void)completion_status;
@@ -334,6 +335,8 @@ boost::asio::awaitable<bool> Session::HandleProxy(
   // close target socket
   boost::system::error_code ec;
   target_socket.close(ec);
+
+  SPDLOG_INFO("Close proxy (client_id={})", client_id_);
 
   co_return status;
 }
@@ -460,7 +463,7 @@ boost::asio::awaitable<bool> Session::HandleHttp(
   const std::string method = request.method_string();
 
   // control TTL socket
-  boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::seconds(10));
+  boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::seconds(30));
 
   if (method.empty() && url.empty()) {
     SPDLOG_WARN(
@@ -509,6 +512,9 @@ boost::asio::awaitable<bool> Session::HandleHttp(
 boost::asio::awaitable<bool> Session::HandleWebSocket(
     const boost::beast::http::request<boost::beast::http::string_body>&
         request) {
+  // Set a timeout to force reconnection every 30 minutes
+  boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::minutes(30));
+
   if (request.find("Authorization") != request.end() &&
       request.find("ClientIP") != request.end()) {
     std::string token = request["Authorization"];
@@ -521,7 +527,6 @@ boost::asio::awaitable<bool> Session::HandleWebSocket(
                                           .remote_endpoint()
                                           .address()
                                           .to_string();
-
     // Create IPv4Address objects
     try {
       const pcpp::IPv4Address client_ip(client_ip_str);
@@ -546,8 +551,13 @@ boost::asio::awaitable<bool> Session::HandleWebSocket(
 }
 
 void Session::Close() {
+  if (!running_) {
+    return;
+  }
+
   std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
+  // cppcheck-suppress identicalConditionAfterEarlyExit
   if (!running_) {  // Double-check after acquiring lock
     return;
   }
@@ -569,6 +579,7 @@ void Session::Close() {
           client_id_, err.what());
     }
   }
+
   try {
     if (ws_.is_open()) {
       ws_.async_close(boost::beast::websocket::close_code::normal,
