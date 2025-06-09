@@ -295,16 +295,15 @@ void Server::HandleWsNewIPPacket(
 
 void Server::HandleWsCloseConnection(fptn::ClientID client_id) noexcept {
   SessionSPtr session;
-
   if (running_) {
-    const std::unique_lock<std::mutex> lock(mutex_);
+    const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
     auto it = sessions_.find(client_id);
     if (it != sessions_.end()) {
       session = std::move(it->second);
       sessions_.erase(it);
     }
   }
-
   if (session != nullptr) {
     session->Close();
     SPDLOG_INFO("Session closed and removed (client_id={})", client_id);

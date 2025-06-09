@@ -90,6 +90,11 @@ boost::asio::awaitable<void> Listener::Run() {
             boost::asio::detached);
       } else {
         SPDLOG_ERROR("Error onAccept: {}", ec.message());
+
+        // Add delay after exception
+        boost::asio::steady_timer timer(ioc_);
+        timer.expires_after(std::chrono::milliseconds(300));
+        co_await timer.async_wait(boost::asio::use_awaitable);
       }
     } catch (boost::system::system_error& err) {
       SPDLOG_ERROR("Listener::run error: {}", err.what());

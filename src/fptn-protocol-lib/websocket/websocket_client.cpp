@@ -91,31 +91,53 @@ void WebsocketClient::Run() {
 }
 
 bool WebsocketClient::Stop() {
-  const std::unique_lock<std::mutex> lock(mutex_);
-
   if (!running_) {
     return false;
   }
+
+  std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+  // cppcheck-suppress identicalConditionAfterEarlyExit
+  if (!running_) {  // Double-check after acquiring lock
+    return false;
+  }
+
   running_ = false;
+  boost::system::error_code ec;
+
+  // Close websocket
   try {
     boost::beast::get_lowest_layer(ws_).expires_after(
-        std::chrono::milliseconds(5));
-
-    boost::beast::error_code ec;
-    ws_.close(boost::beast::websocket::close_code::normal, ec);
-    if (ec) {
-      SPDLOG_WARN("ws_.close error: {}", ec.message());
-    }
-    boost::beast::get_lowest_layer(ws_).socket().shutdown(
-        boost::asio::ip::tcp::socket::shutdown_both, ec);
-    boost::beast::get_lowest_layer(ws_).socket().close(ec);
-  } catch (const std::exception& e) {
-    SPDLOG_ERROR("Exception while closing socket: {}", e.what());
+        std::chrono::microseconds(1));
+  } catch (const std::exception& err) {
+    SPDLOG_ERROR("Error expires_after: {}", err.what());
   }
+  try {
+    if (ws_.is_open()) {
+      ws_.close(boost::beast::websocket::close_code::normal, ec);
+    }
+  } catch (const std::exception& err) {
+    SPDLOG_WARN("Error async_close: {}", err.what());
+  }
+
+  // Close SSL
+  auto& ssl = ws_.next_layer();
+  if (ssl.native_handle()) {
+    // More robust SSL shutdown
+    ::SSL_set_quiet_shutdown(ssl.native_handle(), 1);
+    ::SSL_shutdown(ssl.native_handle());
+  }
+  ssl.shutdown(ec);
+
+  // Close TCP
+  auto& tcp = ssl.next_layer();
+  tcp.socket().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
+  tcp.socket().close(ec);
+
   try {
     ioc_.stop();
   } catch (const boost::system::system_error& err) {
-    SPDLOG_WARN("Error close ioc_: {}", err.what());
+    SPDLOG_WARN("Error stopping ioc_: {}", err.what());
   }
   return true;
 }
