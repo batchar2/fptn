@@ -5,7 +5,7 @@ scrape_configs:
     scrape_interval: 30s
     metrics_path: '/api/v1/metrics/PROMETHEUS_SECRET_ACCESS_KEY'
     static_configs:
-      - targets: ['fptn-nginx-prometheus-proxy:80']
+      - targets: ['fptn-proxy-server:80']
   - job_name: 'node'
     scrape_interval: 30s
     static_configs:
