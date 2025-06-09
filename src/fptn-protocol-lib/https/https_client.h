@@ -33,6 +33,7 @@ Headers RealBrowserHeaders(const std::string& host);
 class HttpsClient final {
  public:
   explicit HttpsClient(const std::string& host, int port);
+  explicit HttpsClient(std::string host, int port, std::string sni);
   explicit HttpsClient(
       std::string host, int port, std::string sni, std::string md5_fingerprint);
   ~HttpsClient();

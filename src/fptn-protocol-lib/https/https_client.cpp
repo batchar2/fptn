@@ -156,6 +156,9 @@ Headers RealBrowserHeaders(const std::string& host) {
 HttpsClient::HttpsClient(const std::string& host, int port)
     : host_(host), port_(port), sni_(host) {}
 
+HttpsClient::HttpsClient(std::string host, int port, std::string sni)
+    : host_(std::move(host)), port_(port), sni_(std::move(sni)) {}
+
 HttpsClient::HttpsClient(
     std::string host, int port, std::string sni, std::string md5_fingerprint)
     : host_(std::move(host)),
