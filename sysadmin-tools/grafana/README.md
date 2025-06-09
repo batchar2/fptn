@@ -28,6 +28,7 @@ cd sysadmin-tools/grafana
       ```
 
     - Open the `.env` file in a text editor and fill in all required fields.
+    - Set your piblic ip for `FPTN_HOST` and your fptn port for `FPTN_PORT`
     - Pay special attention to the `PROMETHEUS_SECRET_ACCESS_KEY` parameter:
         - This value **must match** the access key defined in your `fptn-server` config at `/etc/fptn/server.conf`.
         - Use a **secure, random string** of **at least 30 characters** for this value.
@@ -48,3 +49,24 @@ cd sysadmin-tools/grafana
 
 Ensure that all parameters in the .env file are correctly configured before starting the services.
 The `PROMETHEUS_SECRET_ACCESS_KEY` parameter must be consistent with the key used in fptn-server to allow proper access to metrics.
+
+
+#### 🐳 Building and Running the Docker Image (Optional)
+
+To build the image:
+
+```bash
+docker compose build -f docker-compose.build.yml
+```
+
+To run the services:
+
+```bash
+docker compose build -f docker-compose.build.yml up -d
+```
+
+To stop the services:
+
+```bash
+docker compose build -f docker-compose.build.yml down
+```

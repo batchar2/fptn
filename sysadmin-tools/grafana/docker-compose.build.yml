@@ -36,7 +36,9 @@ services:
       - /:/host:ro,rslave
 
   fptn-proxy-server:
-    image: fptnvpn/fptn-proxy-server
+    build:
+      proxy-server
+    container_name: fptn-proxy-server
     restart: unless-stopped
     environment:
       - FPTN_HOST=${FPTN_HOST}
