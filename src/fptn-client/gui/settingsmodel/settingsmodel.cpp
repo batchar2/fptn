@@ -81,7 +81,7 @@ void SettingsModel::Load(bool dont_load_server) {
   QString file_path = GetFilePath();
   QFile file(file_path);
   if (!file.open(QIODevice::ReadOnly)) {
-    spdlog::warn(
+    SPDLOG_WARN(
         "Failed to open file for reading: {}", file_path.toStdString());
     return;
   }

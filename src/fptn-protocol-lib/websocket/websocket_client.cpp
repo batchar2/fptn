@@ -166,6 +166,9 @@ void WebsocketClient::onConnect(boost::beast::error_code ec,
   try {
     // Set a timeout on the operation
     boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::seconds(30));
+    ws_.set_option(boost::beast::websocket::stream_base::timeout{
+        boost::beast::websocket::stream_base::timeout::suggested(
+            boost::beast::role_type::client)});
 
     ws_.text(false);
     ws_.binary(true);                  // Only binary

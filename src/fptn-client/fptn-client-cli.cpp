@@ -52,7 +52,7 @@ int main(int argc, char* argv[]) {
         .default_value("")
         .help("Network out interface");
     args.add_argument("--gateway-ip")
-        .default_value("0.0.0.0")
+        .default_value("")
         .help("Your default gateway ip");
     args.add_argument("--tun-interface-name")
         .default_value("tun0")
@@ -91,8 +91,11 @@ int main(int argc, char* argv[]) {
     /* parse cmd args */
     const auto out_network_interface_name =
         args.get<std::string>("--out-network-interface");
-    const auto gateway_ip =
-        pcpp::IPv4Address(args.get<std::string>("--gateway-ip"));
+
+    const auto param_gateway_ip = args.get<std::string>("--gateway-ip");
+    const auto gateway_ip = param_gateway_ip.empty()
+                                ? pcpp::IPv4Address()
+                                : pcpp::IPv4Address(param_gateway_ip);
     const auto tun_interface_name =
         args.get<std::string>("--tun-interface-name");
     const auto tun_interface_address_ipv4 =
