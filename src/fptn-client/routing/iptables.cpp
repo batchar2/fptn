@@ -394,7 +394,7 @@ std::string fptn::routing::GetDefaultNetworkInterfaceName() {
     std::vector<std::string> cmd_stdout;
     fptn::common::system::command::run(command, cmd_stdout);
     if (cmd_stdout.empty()) {
-      spdlog::warn("Warning: Default gateway IP address not found.");
+      SPDLOG_WARN("Warning: Default gateway IP address not found.");
       return {};
     }
     for (const auto& line : cmd_stdout) {

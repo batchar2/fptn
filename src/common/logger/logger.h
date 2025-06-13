@@ -6,6 +6,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #pragma once
 
+#include <clocale>
 #include <filesystem>
 #include <iostream>
 #include <memory>
@@ -34,7 +35,7 @@ inline bool init(const std::string& app_name) {
 #endif
     // Set locale
     std::locale::global(std::locale::classic());
-    setlocale(LC_ALL, "C");
+    setlocale(LC_ALL, "en_US.UTF-8");
 
     const std::filesystem::path log_file = log_dir / (app_name + ".log");
     if (!std::filesystem::exists(log_dir)) {
