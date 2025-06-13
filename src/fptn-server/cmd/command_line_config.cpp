@@ -99,7 +99,10 @@ CommandLineConfig::CommandLineConfig(int argc, char* argv[])
           "to 0 to use the default port.")
       .default_value(443)
       .scan<'i', int>();
-  // experimental
+  args_.add_argument("--max-active-sessions-per-user")
+      .help("Maximum number of active sessions allowed per VPN user")
+      .default_value(3)
+      .scan<'i', int>();
   args_.add_argument("--enable-detect-probing")
       .help(
           "Enable detection of non-FPTN clients or probing attempts during SSL "
@@ -196,4 +199,8 @@ int CommandLineConfig::RemoteServerAuthPort() const {
 
 bool CommandLineConfig::EnableDetectProbing() const {
   return ParseBoolean(args_.get<std::string>("--enable-detect-probing"));
+}
+
+std::size_t CommandLineConfig::MaxActiveSessionsPerUser() const {
+  return args_.get<std::size_t>("--max-active-sessions-per-user");
 }

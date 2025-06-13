@@ -45,6 +45,8 @@ class CommandLineConfig {
 
   [[nodiscard]] bool EnableDetectProbing() const;
 
+  [[nodiscard]] std::size_t MaxActiveSessionsPerUser() const;
+
  private:
   int argc_;
   char** argv_;
