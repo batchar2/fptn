@@ -11,7 +11,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <argparse/argparse.hpp>     // NOLINT(build/include_order)
 #include <pcapplusplus/IpAddress.h>  // NOLINT(build/include_order)
 
-namespace fptn::cmd {
+namespace fptn::config {
 class CommandLineConfig {
  public:
   explicit CommandLineConfig(int argc, char* argv[]);
@@ -45,10 +45,12 @@ class CommandLineConfig {
 
   [[nodiscard]] bool EnableDetectProbing() const;
 
+  [[nodiscard]] std::size_t MaxActiveSessionsPerUser() const;
+
  private:
   int argc_;
   char** argv_;
   argparse::ArgumentParser args_;
 };
 
-}  // namespace fptn::cmd
+}  // namespace fptn::config

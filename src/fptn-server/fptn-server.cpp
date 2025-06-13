@@ -14,7 +14,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "common/jwt_token/token_manager.h"
 #include "common/logger/logger.h"
 
-#include "cmd/command_line_config.h"
+#include "config/command_line_config.h"
 #include "filter/filters/antiscan/antiscan.h"
 #include "filter/filters/bittorrent/bittorrent.h"
 #include "filter/manager.h"
@@ -45,7 +45,7 @@ int main(int argc, char* argv[]) {
 #endif
   try {
     /* Check options */
-    fptn::cmd::CommandLineConfig config(argc, argv);
+    fptn::config::CommandLineConfig config(argc, argv);
     if (!config.Parse()) {
       return EXIT_FAILURE;
     }
@@ -101,7 +101,8 @@ int main(int argc, char* argv[]) {
     auto web_server = std::make_unique<fptn::web::Server>(config.ServerPort(),
         nat_table, user_manager, token_manager, prometheus,
         config.PrometheusAccessKey(), config.TunInterfaceIPv4(),
-        config.TunInterfaceIPv6(), config.EnableDetectProbing());
+        config.TunInterfaceIPv6(), config.EnableDetectProbing(),
+        config.MaxActiveSessionsPerUser());
 
     /* init packet filter */
     auto filter_manager = std::make_shared<fptn::filter::Manager>();
@@ -123,15 +124,20 @@ int main(int argc, char* argv[]) {
         "NETWORK INTERFACE: {}\n"
         "VPN NETWORK IPv4:  {}\n"
         "VPN NETWORK IPv6:  {}\n"
-        "VPN SERVER PORT:   {}\n",
-        "DETECT_PROBING:    {}\n" FPTN_VERSION, config.OutNetworkInterface(),
+        "VPN SERVER PORT:   {}\n"
+        "DETECT_PROBING:    {}\n"
+        "MAX_ACTIVE_SESSIONS_PER_USER: {}\n",
+        FPTN_VERSION, config.OutNetworkInterface(),
         config.TunInterfaceNetworkIPv4Address().toString(),
         config.TunInterfaceNetworkIPv6Address().toString(), config.ServerPort(),
-        config.EnableDetectProbing() ? "YES" : "NO");
+        config.EnableDetectProbing() ? "YES" : "NO",
+        config.MaxActiveSessionsPerUser());
 
     // Init vpn manager
     fptn::vpn::Manager manager(std::move(web_server),
-        std::move(virtual_network_interface), nat_table, filter_manager,
+        std::move(virtual_network_interface),
+        nat_table,
+        filter_manager,
         prometheus);
 
     /* start/wait/stop */

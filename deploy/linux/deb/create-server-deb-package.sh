@@ -67,6 +67,9 @@ REMOTE_SERVER_AUTH_PORT=443
 # This key must be alphanumeric (letters and numbers only) and must not include spaces or special characters.
 PROMETHEUS_SECRET_ACCESS_KEY=
 
+# Maximum number of active sessions allowed per VPN user
+MAX_ACTIVE_SESSIONS_PER_USER=3
+
 LOG_FILE=/var/log/fptn-server.log
 EOL
 
@@ -90,7 +93,8 @@ ExecStart=/usr/bin/$(basename "$SERVER_BIN") \
   --prometheus-access-key=\${PROMETHEUS_SECRET_ACCESS_KEY} \
   --use-remote-server-auth=\${USE_REMOTE_SERVER_AUTH} \
   --remote-server-auth-host=\${REMOTE_SERVER_AUTH_HOST} \
-  --remote-server-auth-port=\${REMOTE_SERVER_AUTH_PORT}
+  --remote-server-auth-port=\${REMOTE_SERVER_AUTH_PORT} \
+  --max-active-sessions-per-user=\${MAX_ACTIVE_SESSIONS_PER_USER}
 Restart=always
 WorkingDirectory=/etc/fptn
 RestartSec=5

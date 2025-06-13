@@ -59,8 +59,8 @@ add_executable(
   vpn/manager.cpp
   statistic/metrics.h
   statistic/metrics.cpp
-  cmd/command_line_config.cpp
-  cmd/command_line_config.h
+  config/command_line_config.cpp
+  config/command_line_config.h
   user/user_manager.cpp
   user/user_manager.h)
 
