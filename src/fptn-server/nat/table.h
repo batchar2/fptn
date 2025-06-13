@@ -51,6 +51,8 @@ class Table final {
       const pcpp::IPv6Address& ip) noexcept;
   fptn::client::SessionSPtr GetSessionByClientId(ClientID clientId) noexcept;
 
+  std::size_t GetNumberActiveSessionByUsername(const std::string& username);
+
  protected:
   pcpp::IPv4Address GetUniqueIPv4Address();
   pcpp::IPv6Address GetUniqueIPv6Address();

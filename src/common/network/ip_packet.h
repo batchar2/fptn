@@ -115,21 +115,21 @@ class IPPacket {
   virtual ~IPPacket() = default;
 
   void ComputeCalculateFields() noexcept {
-    auto tcpLayer = parsed_packet_.getLayerOfType<pcpp::TcpLayer>();
-    if (tcpLayer) {
-      tcpLayer->computeCalculateFields();
+    auto* tcp_layer = parsed_packet_.getLayerOfType<pcpp::TcpLayer>();
+    if (tcp_layer) {
+      tcp_layer->computeCalculateFields();
     } else {
-      auto udpLayer = parsed_packet_.getLayerOfType<pcpp::UdpLayer>();
-      if (udpLayer) {
-        udpLayer->computeCalculateFields();
+      auto* udp_layer = parsed_packet_.getLayerOfType<pcpp::UdpLayer>();
+      if (udp_layer) {
+        udp_layer->computeCalculateFields();
       }
     }
     if (ipv4_layer_) {
       ipv4_layer_->computeCalculateFields();
     } else if (ipv6_layer_) {
-      auto icmpLayer = parsed_packet_.getLayerOfType<pcpp::IcmpV6Layer>();
-      if (icmpLayer) {
-        icmpLayer->computeCalculateFields();
+      auto* icmp_layer = parsed_packet_.getLayerOfType<pcpp::IcmpV6Layer>();
+      if (icmp_layer) {
+        icmp_layer->computeCalculateFields();
       }
       ipv6_layer_->computeCalculateFields();
     }

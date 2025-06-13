@@ -27,6 +27,7 @@ Server::Server(std::uint16_t port,
     const pcpp::IPv4Address& dns_server_ipv4,
     const pcpp::IPv6Address& dns_server_ipv6,
     bool enable_detect_probing,
+    std::size_t max_active_sessions_per_user,
     int thread_number)
     : running_(false),
       port_(port),
@@ -38,6 +39,7 @@ Server::Server(std::uint16_t port,
       dns_server_ipv4_(dns_server_ipv4),
       dns_server_ipv6_(dns_server_ipv6),
       enable_detect_probing_(enable_detect_probing),
+      max_active_sessions_per_user_(max_active_sessions_per_user),
       thread_number_(std::max<std::size_t>(1, thread_number)),
       ioc_(thread_number),
       from_client_(std::make_unique<fptn::common::data::Channel>()),
@@ -254,6 +256,16 @@ bool Server::HandleWsOpenConnection(fptn::ClientID client_id,
     if (token_manager_->Validate(
             access_token, username, bandwidth_bites_seconds)) {
       const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+      const auto active_sessions =
+          nat_table_->GetNumberActiveSessionByUsername(username);
+
+      if (active_sessions > max_active_sessions_per_user_) {
+        SPDLOG_WARN(
+            "Session limit exceeded for user '{}': {} active (limit: {})",
+            username, active_sessions, max_active_sessions_per_user_);
+        return false;
+      }
 
       if (sessions_.contains(client_id)) {
         SPDLOG_WARN("Client with same ID already exists!");

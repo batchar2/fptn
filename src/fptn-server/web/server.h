@@ -38,6 +38,7 @@ class Server final {
       const pcpp::IPv4Address& dns_server_ipv4,
       const pcpp::IPv6Address& dns_server_ipv6,
       bool enable_detect_probing,
+      std::size_t max_active_sessions_per_user,
       int thread_number = 4);
   ~Server();
   bool Start();
@@ -88,6 +89,7 @@ class Server final {
   const pcpp::IPv4Address dns_server_ipv4_;
   const pcpp::IPv6Address dns_server_ipv6_;
   const bool enable_detect_probing_;
+  const std::size_t max_active_sessions_per_user_;
   const std::size_t thread_number_;
 
   boost::asio::io_context ioc_;
