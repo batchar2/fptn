@@ -4,7 +4,7 @@ Copyright (c) 2024-2025 Stas Skokov
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
 
-#include "cmd/command_line_config.h"
+#include "config/command_line_config.h"
 
 #include <algorithm>
 #include <memory>
@@ -12,7 +12,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
-using fptn::cmd::CommandLineConfig;
+using fptn::config::CommandLineConfig;
 
 namespace {
 bool ParseBoolean(std::string value) noexcept {
@@ -99,7 +99,10 @@ CommandLineConfig::CommandLineConfig(int argc, char* argv[])
           "to 0 to use the default port.")
       .default_value(443)
       .scan<'i', int>();
-  // experimental
+  args_.add_argument("--max-active-sessions-per-user")
+      .help("Maximum number of active sessions allowed per VPN user")
+      .default_value(3)
+      .scan<'i', int>();
   args_.add_argument("--enable-detect-probing")
       .help(
           "Enable detection of non-FPTN clients or probing attempts during SSL "
@@ -196,4 +199,9 @@ int CommandLineConfig::RemoteServerAuthPort() const {
 
 bool CommandLineConfig::EnableDetectProbing() const {
   return ParseBoolean(args_.get<std::string>("--enable-detect-probing"));
+}
+
+std::size_t CommandLineConfig::MaxActiveSessionsPerUser() const {
+  return static_cast<std::size_t>(
+      args_.get<int>("--max-active-sessions-per-user"));
 }

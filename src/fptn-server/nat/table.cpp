@@ -111,7 +111,7 @@ fptn::client::SessionSPtr Table::GetSessionByFakeIPv4(
 
 fptn::client::SessionSPtr Table::GetSessionByFakeIPv6(
     const pcpp::IPv6Address& ip) noexcept {
-  const std::unique_lock<std::mutex> lock(mutex_);
+  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
   auto it = ipv6_to_sessions_.find(ip.toString());
   if (it != ipv6_to_sessions_.end()) {
@@ -122,13 +122,23 @@ fptn::client::SessionSPtr Table::GetSessionByFakeIPv6(
 
 fptn::client::SessionSPtr Table::GetSessionByClientId(
     ClientID clientId) noexcept {
-  const std::unique_lock<std::mutex> lock(mutex_);
+  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
   auto it = client_id_to_sessions_.find(clientId);
   if (it != client_id_to_sessions_.end()) {
     return it->second;
   }
   return nullptr;
+}
+
+std::size_t Table::GetNumberActiveSessionByUsername(
+    const std::string& username) {
+  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+  return std::count_if(ipv4_to_sessions_.begin(), ipv4_to_sessions_.end(),
+      [&username](const auto& pair) {
+        return pair.second->UserName() == username;
+      });
 }
 
 pcpp::IPv4Address Table::GetUniqueIPv4Address() {
