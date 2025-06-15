@@ -72,7 +72,7 @@ Session::Session(std::uint16_t port,
         boost::beast::role_type::server));
     ws_.set_option(boost::beast::websocket::stream_base::timeout{
         .handshake_timeout = std::chrono::seconds(60),  // Handshake timeout
-        .idle_timeout = std::chrono::seconds(120),      // Idle timeout
+        .idle_timeout = std::chrono::seconds(35),       // Idle timeout
         .keep_alive_pings = true                        // Enable ping timeout
     });
     // Set a timeout to force reconnection every 30 seconds
