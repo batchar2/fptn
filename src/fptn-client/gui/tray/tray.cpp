@@ -623,8 +623,8 @@ bool TrayApp::startVpn(QString& err_msg) {
     }
     try {
       selected_server_ = config.FindFastestServer();
-    } catch (std::runtime_error&) {
-      err_msg = QObject::tr("Config error");
+    } catch (std::runtime_error& err) {
+      err_msg = QObject::tr("Config error: ") + err.what();
       return false;
     }
   } else {

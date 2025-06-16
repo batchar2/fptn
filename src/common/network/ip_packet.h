@@ -67,7 +67,7 @@ class IPPacket {
  public:
   static std::unique_ptr<IPPacket> Parse(std::string buffer,
       std::uint64_t client_id = PACKET_UNDEFINED_CLIENT_ID) {
-    if (buffer.empty()) {
+    if (buffer.empty() || buffer.size() < 20) {  // Minimum IPv4 header size
       return nullptr;
     }
     if (CheckIPv4(buffer)) {
@@ -95,21 +95,25 @@ class IPPacket {
 
  public:
   IPPacket(
-      std::string data, std::uint64_t client_id, pcpp::LinkLayerType ipType)
-      : packet_data_(std::move(data)),
-        client_id_(client_id),
-        raw_packet_(reinterpret_cast<const std::uint8_t*>(packet_data_.c_str()),
-            static_cast<int>(packet_data_.size()),
-            timeval{0, 0},
-            false,
-            ipType),  // pcpp::LINKTYPE_IPV4 or pcpp::LINKTYPE_IPV6
-        parsed_packet_(&raw_packet_, false) {
-    ipv4_layer_ = (pcpp::LINKTYPE_IPV4 == ipType)
-                      ? parsed_packet_.getLayerOfType<pcpp::IPv4Layer>()
-                      : nullptr;
-    ipv6_layer_ = (pcpp::LINKTYPE_IPV6 == ipType)
-                      ? parsed_packet_.getLayerOfType<pcpp::IPv6Layer>()
-                      : nullptr;
+      std::string data, std::uint64_t client_id, pcpp::LinkLayerType ip_type)
+      : packet_data_(std::move(data)), client_id_(client_id) {
+    try {
+      raw_packet_ = pcpp::RawPacket(
+          reinterpret_cast<const uint8_t*>(packet_data_.data()),
+          static_cast<int>(packet_data_.size()), timeval{0, 0}, false, ip_type);
+
+      parsed_packet_ = pcpp::Packet(&raw_packet_, false);
+      if (pcpp::LINKTYPE_IPV4 == ip_type) {
+        ipv4_layer_ = parsed_packet_.getLayerOfType<pcpp::IPv4Layer>();
+      } else if (pcpp::LINKTYPE_IPV6 == ip_type) {
+        ipv6_layer_ = parsed_packet_.getLayerOfType<pcpp::IPv6Layer>();
+      }
+    } catch (const std::exception& e) {
+      SPDLOG_WARN(
+          "IP Packet parsing exception (client {}): {}", client_id_, e.what());
+    } catch (...) {
+      SPDLOG_WARN("Unknown error while parsing IP Packet");
+    }
   }
 
   virtual ~IPPacket() = default;
