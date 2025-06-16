@@ -17,7 +17,8 @@ VpnClient::VpnClient(fptn::http::ClientPtr http_client,
     fptn::common::network::BaseNetInterfacePtr virtual_net_interface,
     const pcpp::IPv4Address& dns_server_ipv4,
     const pcpp::IPv6Address& dns_server_ipv6)
-    : http_client_(std::move(http_client)),
+    : running_(false),
+      http_client_(std::move(http_client)),
       virtual_net_interface_(std::move(virtual_net_interface)),
       dns_server_ipv4_(dns_server_ipv4),
       dns_server_ipv6_(dns_server_ipv6) {}
@@ -25,10 +26,26 @@ VpnClient::VpnClient(fptn::http::ClientPtr http_client,
 VpnClient::~VpnClient() { Stop(); }
 
 bool VpnClient::IsStarted() {
-  return http_client_ && http_client_->IsStarted();
+  if (!running_) {
+    return false;
+  }
+
+  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+  return running_ && http_client_ && http_client_->IsStarted();
 }
 
-void VpnClient::Start() {
+bool VpnClient::Start() {
+  if (running_) {
+    return false;
+  }
+  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+  // cppcheck-suppress identicalConditionAfterEarlyExit
+  if (running_) {
+    return false;
+  }
+
   // NOLINTNEXTLINE(modernize-avoid-bind)
   http_client_->SetNewIPPacketCallback(std::bind(
       &VpnClient::HandlePacketFromWebSocket, this, std::placeholders::_1));
@@ -40,9 +57,23 @@ void VpnClient::Start() {
 
   http_client_->Start();
   virtual_net_interface_->Start();
+  running_ = true;
+  return true;
 }
 
-void VpnClient::Stop() {
+bool VpnClient::Stop() {
+  if (!running_) {
+    return false;
+  }
+  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+  // cppcheck-suppress identicalConditionAfterEarlyExit
+  if (!running_) {
+    return false;
+  }
+
+  running_ = false;
+
   if (http_client_) {
     http_client_->Stop();
     http_client_.reset();
@@ -51,22 +82,57 @@ void VpnClient::Stop() {
     virtual_net_interface_->Stop();
     virtual_net_interface_.reset();
   }
+  return true;
 }
 
 std::size_t VpnClient::GetSendRate() {
-  return virtual_net_interface_->GetSendRate();
+  if (!running_) {
+    return 0;
+  }
+
+  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+  if (running_ && virtual_net_interface_) {
+    return virtual_net_interface_->GetSendRate();
+  }
+  return 0;
 }
 
 std::size_t VpnClient::GetReceiveRate() {
-  return virtual_net_interface_->GetReceiveRate();
+  if (!running_) {
+    return 0;
+  }
+
+  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+  if (running_ && virtual_net_interface_) {
+    return virtual_net_interface_->GetReceiveRate();
+  }
+  return 0;
 }
 
 void VpnClient::HandlePacketFromVirtualNetworkInterface(
     fptn::common::network::IPPacketPtr packet) {
-  http_client_->Send(std::move(packet));
+  if (!running_) {
+    return;
+  }
+
+  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+  if (running_ && http_client_) {
+    http_client_->Send(std::move(packet));
+  }
 }
 
 void VpnClient::HandlePacketFromWebSocket(
     fptn::common::network::IPPacketPtr packet) {
-  virtual_net_interface_->Send(std::move(packet));
+  if (!running_) {
+    return;
+  }
+
+  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+  if (running_ && virtual_net_interface_) {
+    virtual_net_interface_->Send(std::move(packet));
+  }
 }

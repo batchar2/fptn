@@ -103,6 +103,7 @@ bool WebsocketClient::Stop() {
   }
 
   running_ = false;
+
   boost::system::error_code ec;
 
   // Close WebSocket by triggering a timeout
@@ -296,7 +297,7 @@ void WebsocketClient::onRead(
     const auto data = boost::beast::buffers_to_string(buffer_.data());
     std::string raw = fptn::protocol::protobuf::GetProtoPayload(data);
     auto packet = fptn::common::network::IPPacket::Parse(std::move(raw));
-    if (packet) {
+    if (running_ && packet) {
       new_ip_pkt_callback_(std::move(packet));
     }
     buffer_.consume(transferred);
@@ -322,7 +323,16 @@ bool WebsocketClient::Send(fptn::common::network::IPPacketPtr packet) {
   if (out_queue_.size() < out_queue_max_size_ && running_) {
     boost::asio::post(strand_,
         [self = shared_from_this(), msg = std::move(packet)]() mutable {
+          if (!self->running_) {
+            return;
+          }
+
           const std::unique_lock<std::mutex> lock(self->mutex_);  // mutex
+
+          // cppcheck-suppress identicalConditionAfterEarlyExit
+          if (!self->running_) {  // Double-check after acquiring lock
+            return;
+          }
 
           const bool was_empty = self->out_queue_.empty();
           self->out_queue_.push(std::move(msg));
@@ -363,9 +373,12 @@ void WebsocketClient::onWrite(boost::beast::error_code ec, std::size_t) {
   if (running_) {
     const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
-    out_queue_.pop();  // remove written item
-    if (!out_queue_.empty() && running_) {
-      DoWrite();  // send next message
+    // cppcheck-suppress identicalInnerCondition
+    if (running_) {      // Double-check after acquiring lock
+      out_queue_.pop();  // remove written item
+      if (!out_queue_.empty() && running_) {
+        DoWrite();  // send next message
+      }
     }
   }
 }

@@ -72,7 +72,7 @@ Session::Session(std::uint16_t port,
         boost::beast::role_type::server));
     ws_.set_option(boost::beast::websocket::stream_base::timeout{
         .handshake_timeout = std::chrono::seconds(60),  // Handshake timeout
-        .idle_timeout = std::chrono::seconds(35),       // Idle timeout
+        .idle_timeout = std::chrono::seconds(60),       // Idle timeout
         .keep_alive_pings = true                        // Enable ping timeout
     });
     // Set a timeout to force reconnection every 30 seconds
@@ -512,9 +512,6 @@ boost::asio::awaitable<bool> Session::HandleHttp(
 boost::asio::awaitable<bool> Session::HandleWebSocket(
     const boost::beast::http::request<boost::beast::http::string_body>&
         request) {
-  // Set a timeout to force reconnection every 30 minutes
-  boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::minutes(30));
-
   if (request.find("Authorization") != request.end() &&
       request.find("ClientIP") != request.end()) {
     std::string token = request["Authorization"];

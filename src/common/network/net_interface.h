@@ -86,18 +86,18 @@ class BaseNetInterface {
   [[nodiscard]] virtual std::size_t GetReceiveRate() const noexcept = 0;
 
  public:
-  explicit BaseNetInterface(const std::string& name,
+  explicit BaseNetInterface(std::string  name,
       const pcpp::IPv4Address& ipv4_addr,
       const int ipv4_netmask,
       const pcpp::IPv6Address& ipv6_addr,
       const int ipv6_netmask,
-      const NewIPPacketCallback& callback = nullptr)
-      : name_(name),
+      NewIPPacketCallback callback = nullptr)
+      : name_(std::move(name)),
         ipv4_addr_(ipv4_addr),
         ipv4_netmask_(ipv4_netmask),
         ipv6_addr_(ipv6_addr),
         ipv6_netmask_(ipv6_netmask),
-        new_ippacket_callback(callback) {}
+        new_ippacket_callback(std::move(callback)) {}
 
   virtual ~BaseNetInterface() = default;
 
@@ -149,7 +149,7 @@ class PosixTunInterface final : public BaseNetInterface {
         mtu_(FPTN_MTU_SIZE),
         running_(false) {}
 
-  ~PosixTunInterface() override {}
+  ~PosixTunInterface() override = default;
 
   bool Start() noexcept override {
     try {
@@ -210,7 +210,7 @@ class PosixTunInterface final : public BaseNetInterface {
       const int size = tun_->read(static_cast<void*>(buffer), mtu_);
       if (size > 0 && running_) {
         auto packet = IPPacket::Parse(buffer, size);
-        if (packet != nullptr && new_ippacket_callback) {
+        if (packet != nullptr && new_ippacket_callback && running_) {
           receive_rate_calculator_.Update(packet->Size());  // calculate rate
           new_ippacket_callback(std::move(packet));
         }
@@ -253,7 +253,7 @@ class WindowsTunInterface : public BaseNetInterface {
     UuidCreate(&guid_);
   }
 
-  ~WindowsTunInterface() override {}
+  ~WindowsTunInterface() override = default;
 
   bool Start() noexcept override {
     if (!wintun_) {
