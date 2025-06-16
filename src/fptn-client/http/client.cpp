@@ -139,12 +139,18 @@ void Client::Run() {
     {
       const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
-      ws_ = std::make_shared<fptn::protocol::websocket::WebsocketClient>(
-          server_ip_, server_port_, tun_interface_address_ipv4_,
-          tun_interface_address_ipv6_, new_ip_pkt_callback_, sni_,
-          access_token_, md5_fingerprint_);
+      // cppcheck-suppress identicalInnerCondition
+      if (running_) {  // Double-check after acquiring lock
+        ws_ = std::make_shared<fptn::protocol::websocket::WebsocketClient>(
+            server_ip_, server_port_, tun_interface_address_ipv4_,
+            tun_interface_address_ipv6_, new_ip_pkt_callback_, sni_,
+            access_token_, md5_fingerprint_);
+      }
     }
-    ws_->Run();  // Start the WebSocket client
+
+    if (running_ && ws_) {
+      ws_->Run();  // Start the WebSocket client
+    }
     if (!running_) {
       break;
     }
@@ -181,28 +187,36 @@ bool Client::Start() {
 }
 
 bool Client::Stop() {
-  if (running_) {
-    running_ = false;
-    {
-      const std::unique_lock<std::mutex> lock(mutex_);  // mutex
-
-      if (ws_) {
-        ws_->Stop();
-        ws_.reset();
-      }
-    }
-    if (th_.joinable()) {
-      th_.join();
-    }
-    return true;
+  if (!running_) {
+    return false;
   }
-  return false;
+
+  std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+  // cppcheck-suppress identicalConditionAfterEarlyExit
+  if (!running_) {  // Double-check after acquiring lock
+    return false;
+  }
+
+  running_ = false;
+  if (ws_) {
+    ws_->Stop();
+    ws_.reset();
+  }
+  if (th_.joinable()) {
+    th_.join();
+  }
+  return true;
 }
 
 bool Client::IsStarted() {
+  if (!running_) {
+    return false;
+  }
+
   const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
-  return ws_ && running_ && reconnection_attempts_ > 0;  // ws_->IsStarted()
+  return running_ && ws_ && reconnection_attempts_ > 0;
 }
 
 const std::string& Client::LatestError() const { return latest_error_; }

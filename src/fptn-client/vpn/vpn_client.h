@@ -7,6 +7,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #pragma once
 
 #include <memory>
+#include <mutex>
 
 #include <openssl/base.h>  // NOLINT(build/include_order)
 
@@ -23,8 +24,8 @@ class VpnClient final {
       const pcpp::IPv4Address& dns_server_ipv4,
       const pcpp::IPv6Address& dns_server_ipv6);
   ~VpnClient();
-  void Start();
-  void Stop();
+  bool Start();
+  bool Stop();
   std::size_t GetSendRate();
   std::size_t GetReceiveRate();
   bool IsStarted();
@@ -32,10 +33,12 @@ class VpnClient final {
  protected:
   void HandlePacketFromVirtualNetworkInterface(
       fptn::common::network::IPPacketPtr packet);
-  void HandlePacketFromWebSocket(
-      fptn::common::network::IPPacketPtr packet);
+  void HandlePacketFromWebSocket(fptn::common::network::IPPacketPtr packet);
 
  private:
+  mutable std::mutex mutex_;
+  std::atomic<bool> running_;
+
   fptn::http::ClientPtr http_client_;
   fptn::common::network::BaseNetInterfacePtr virtual_net_interface_;
   const pcpp::IPv4Address dns_server_ipv4_;
