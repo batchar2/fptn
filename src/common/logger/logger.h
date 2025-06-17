@@ -62,8 +62,8 @@ inline bool init(const std::string& app_name) {
     spdlog::info("Logger inited");
 #else
     spdlog::info("Logging to file: {}", log_file.string());
-#endif
     spdlog::info("FPTN version: {}", FPTN_VERSION);
+#endif
     return true;
   } catch (const spdlog::spdlog_ex& ex) {
 #ifdef __ANDROID__
