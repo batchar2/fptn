@@ -378,12 +378,22 @@ void TrayApp::UpdateTrayMenu() {
 }
 
 void TrayApp::onConnectToServer() {
-  connection_state_ = ConnectionState::Connecting;
-  UpdateTrayMenu();
+  SPDLOG_INFO("Signal: connecting to server");
+  {
+    const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+    connection_state_ = ConnectionState::Connecting;
+    UpdateTrayMenu();
+  }
   emit connecting();
 }
 
 void TrayApp::onDisconnectFromServer() {
+  SPDLOG_INFO("Signal: disconnected from server");
+  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+  connection_state_ = ConnectionState::None;
+
   if (vpn_client_) {
     vpn_client_->Stop();
     vpn_client_.reset();
@@ -392,7 +402,6 @@ void TrayApp::onDisconnectFromServer() {
     ip_tables_->Clean();
     ip_tables_.reset();
   }
-  connection_state_ = ConnectionState::None;
   UpdateTrayMenu();
 }
 
@@ -403,19 +412,25 @@ void TrayApp::onShowSettings() {
 }
 
 void TrayApp::handleDefaultState() {
-  connection_state_ = ConnectionState::None;
-  if (vpn_client_) {
-    vpn_client_->Stop();
-    vpn_client_.reset();
-  }
-  if (ip_tables_) {
-    ip_tables_->Clean();
-    ip_tables_.reset();
+  SPDLOG_INFO("Signal: entering default state");
+  {
+    const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+    connection_state_ = ConnectionState::None;
+    if (vpn_client_) {
+      vpn_client_->Stop();
+      vpn_client_.reset();
+    }
+    if (ip_tables_) {
+      ip_tables_->Clean();
+      ip_tables_.reset();
+    }
   }
   UpdateTrayMenu();
 }
 
 void TrayApp::handleConnecting() {
+  SPDLOG_INFO("Signal: connecting to server");
   const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
   connection_state_ = ConnectionState::Connecting;
@@ -447,32 +462,51 @@ void TrayApp::handleConnecting() {
 }
 
 void TrayApp::handleConnected() {
-  connection_state_ = ConnectionState::Connected;
+  SPDLOG_INFO("Signal: connected to server");
+  {
+    const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+    connection_state_ = ConnectionState::Connected;
+  }
   UpdateTrayMenu();
 }
 
 void TrayApp::handleDisconnecting() {
-  connection_state_ = ConnectionState::None;
-  UpdateTrayMenu();
+  {
+    const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
-  stopVpn();
+    connection_state_ = ConnectionState::None;
+    UpdateTrayMenu();
+
+    stopVpn();
+  }
   emit defaultState();
 }
 
 void TrayApp::handleTimer() {
   // check connection state
-  if (vpn_client_ && connection_state_ == ConnectionState::Connected) {
-    if (!vpn_client_->IsStarted()) {
-      // client was disconnected
-      emit disconnecting();
-      // show error
-      showError(QObject::tr("FPTN Connection Error"),
-          QObject::tr("The VPN connection was unexpectedly closed."));
-    } else if (speed_widget_) {
-      speed_widget_->UpdateSpeed(
-          vpn_client_->GetReceiveRate(), vpn_client_->GetSendRate());
+  bool is_disconnected = false;
+  if (connection_state_ == ConnectionState::Connected) {
+    const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+    if (connection_state_ == ConnectionState::Connected && vpn_client_) {
+      if (!vpn_client_->IsStarted()) {
+        // client was disconnected
+        is_disconnected = true;
+      } else if (speed_widget_) {
+        speed_widget_->UpdateSpeed(
+            vpn_client_->GetReceiveRate(), vpn_client_->GetSendRate());
+      }
     }
   }
+
+  if (is_disconnected) {
+    // show error
+    showError(QObject::tr("FPTN Connection Error"),
+        QObject::tr("The VPN connection was unexpectedly closed."));
+    emit disconnecting();
+  }
+
   // show update message
   if (update_version_future_.valid()) {
     const auto update_result = update_version_future_.get();
@@ -568,6 +602,8 @@ void TrayApp::OpenWebBrowser(const std::string& url) {
 
 bool TrayApp::startVpn(QString& err_msg) {
   SPDLOG_DEBUG("Handling connecting state");
+
+  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
   const pcpp::IPv4Address tun_interface_address_ipv4(
       FPTN_CLIENT_DEFAULT_ADDRESS_IP4);
