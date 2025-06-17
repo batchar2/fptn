@@ -512,6 +512,9 @@ boost::asio::awaitable<bool> Session::HandleHttp(
 boost::asio::awaitable<bool> Session::HandleWebSocket(
     const boost::beast::http::request<boost::beast::http::string_body>&
         request) {
+  // Set a long expiration timeout (7 days) to avoid disconnects
+  boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::hours(24 * 7));
+
   if (request.find("Authorization") != request.end() &&
       request.find("ClientIP") != request.end()) {
     std::string token = request["Authorization"];
