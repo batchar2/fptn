@@ -73,14 +73,19 @@ bool VpnClient::Stop() {
   }
 
   running_ = false;
+  SPDLOG_INFO("Stopping VPN client...");
 
   if (http_client_) {
+    SPDLOG_INFO("Stopping HTTP client");
     http_client_->Stop();
     http_client_.reset();
+    SPDLOG_DEBUG("HTTP client stopped successfully");
   }
   if (virtual_net_interface_) {
+    SPDLOG_INFO("Stopping virtual network interface");
     virtual_net_interface_->Stop();
     virtual_net_interface_.reset();
+    SPDLOG_DEBUG("Virtual network interface stopped successfully");
   }
   return true;
 }

@@ -166,18 +166,12 @@ HttpsClient::HttpsClient(
       sni_(std::move(sni)),
       expected_md5_fingerprint_(std::move(md5_fingerprint)) {}
 
-HttpsClient::~HttpsClient() {
-  if (ssl_) {
-    // free memory
-    fptn::protocol::tls::AttachCertificateVerificationCallbackDelete(ssl_);
-    ssl_ = nullptr;
-  }
-}
-
 Response HttpsClient::Get(const std::string& handle, int timeout) {
   std::string body;
   std::string error;
   int respcode = 400;
+
+  SSL* ssl = nullptr;
   try {
     boost::asio::io_context ioc;
 
@@ -199,9 +193,9 @@ Response HttpsClient::Get(const std::string& handle, int timeout) {
     fptn::protocol::tls::SetHandshakeSni(stream.native_handle(), sni_);
     // Validate the server certificate
     if (!expected_md5_fingerprint_.empty()) {
-      ssl_ = stream.native_handle();
+      ssl = stream.native_handle();
       fptn::protocol::tls::AttachCertificateVerificationCallback(
-          stream.native_handle(),
+          ssl,
           [this, &error](const std::string& md5_fingerprint) {
             return onVerifyCertificate(md5_fingerprint, error);
           });
@@ -234,14 +228,27 @@ Response HttpsClient::Get(const std::string& handle, int timeout) {
 
     boost::beast::error_code ec;
     stream.shutdown(ec);
-    if (ec == boost::beast::net::error::eof) {
+    if (ec == boost::asio::ssl::error::stream_truncated ||
+        ec == boost::beast::net::error::eof) {
       ec = {};
-    }
-    if (ec) {
+    } else if (ec) {
       throw boost::beast::system_error{ec};
     }
-  } catch (std::exception const& e) {
+  } catch (const boost::system::system_error& err) {
+    error = err.what();
+    respcode = 600;
+    SPDLOG_ERROR("Exception during HttpsClient::Get: {}", err.what());
+  } catch (const std::exception& e) {
     error = e.what();
+    respcode = 601;
+    SPDLOG_ERROR("Exception during HttpsClient::Get: {}", e.what());
+  } catch (...) {
+    respcode = 602;
+    SPDLOG_ERROR("Unknown exception occurred during HttpsClient::Get");
+  }
+  // free memory
+  if (ssl) {
+    fptn::protocol::tls::AttachCertificateVerificationCallbackDelete(ssl);
   }
   return {body, respcode, error};
 }
@@ -253,6 +260,8 @@ Response HttpsClient::Post(const std::string& handle,
   std::string body;
   std::string error;
   int respcode = 400;
+
+  SSL* ssl = nullptr;
   try {
     boost::asio::io_context ioc;
     SSL_CTX* ssl_ctx = fptn::protocol::tls::CreateNewSslCtx();
@@ -275,9 +284,9 @@ Response HttpsClient::Post(const std::string& handle,
     fptn::protocol::tls::SetHandshakeSni(stream.native_handle(), sni_);
     // Validate the server certificate
     if (!expected_md5_fingerprint_.empty()) {
-      ssl_ = stream.native_handle();
+      ssl = stream.native_handle();
       fptn::protocol::tls::AttachCertificateVerificationCallback(
-          stream.native_handle(),
+          ssl,
           [this, &error](const std::string& md5_fingerprint) {
             return onVerifyCertificate(md5_fingerprint, error);
           });
@@ -315,14 +324,27 @@ Response HttpsClient::Post(const std::string& handle,
 
     boost::beast::error_code ec;
     stream.shutdown(ec);
-    if (ec == boost::beast::net::error::eof) {
+    if (ec == boost::asio::ssl::error::stream_truncated ||
+        ec == boost::beast::net::error::eof) {
       ec = {};
-    }
-    if (ec) {
+    } else if (ec) {
       throw boost::beast::system_error{ec};
     }
-  } catch (std::exception const& e) {
+  } catch (const boost::system::system_error& err) {
+    error = err.what();
+    respcode = 600;
+    SPDLOG_ERROR("Exception during HttpsClient::Post: {}", err.what());
+  } catch (const std::exception& e) {
     error = e.what();
+    respcode = 601;
+    SPDLOG_ERROR("Exception during HttpsClient::Post: {}", e.what());
+  } catch (...) {
+    respcode = 602;
+    SPDLOG_ERROR("Unknown exception occurred during HttpsClient::Post");
+  }
+  // free memory
+  if (ssl) {
+    fptn::protocol::tls::AttachCertificateVerificationCallbackDelete(ssl);
   }
   return {body, respcode, error};
 }

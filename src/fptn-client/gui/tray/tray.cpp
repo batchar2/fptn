@@ -393,7 +393,6 @@ void TrayApp::onDisconnectFromServer() {
   const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
   connection_state_ = ConnectionState::None;
-
   if (vpn_client_) {
     vpn_client_->Stop();
     vpn_client_.reset();
