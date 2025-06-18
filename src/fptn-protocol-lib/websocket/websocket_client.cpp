@@ -32,6 +32,7 @@ WebsocketClient::WebsocketClient(pcpp::IPv4Address server_ip,
       ws_(boost::asio::make_strand(ioc_), ctx_),
       strand_(ioc_.get_executor()),
       running_(false),
+      was_connected_(false),
       server_ip_(std::move(server_ip)),
       server_port_str_(std::to_string(server_port)),
       tun_interface_address_ipv4_(std::move(tun_interface_address_ipv4)),
@@ -62,6 +63,7 @@ WebsocketClient::WebsocketClient(pcpp::IPv4Address server_ip,
 }
 
 WebsocketClient::~WebsocketClient() {
+  Stop();
   if (ssl_) {
     fptn::protocol::tls::AttachCertificateVerificationCallbackDelete(ssl_);
     ssl_ = nullptr;
@@ -70,6 +72,7 @@ WebsocketClient::~WebsocketClient() {
 
 void WebsocketClient::Run() {
   try {
+    running_ = true;
     SPDLOG_INFO("Connection: {}:{}", server_ip_.toString(), server_port_str_);
 
     auto self = shared_from_this();
@@ -101,8 +104,10 @@ bool WebsocketClient::Stop() {
   if (!running_) {  // Double-check after acquiring lock
     return false;
   }
+  SPDLOG_INFO("Marked client as stopped and disconnected");
 
   running_ = false;
+  was_connected_ = false;
 
   boost::system::error_code ec;
 
@@ -110,34 +115,15 @@ bool WebsocketClient::Stop() {
   try {
     boost::beast::get_lowest_layer(ws_).expires_after(
         std::chrono::microseconds(1));
-    SPDLOG_DEBUG("WebSocket expiration timer set to 1 microsecond");
   } catch (const std::exception& err) {
     SPDLOG_ERROR("Failed to set WebSocket expiration timer: {}", err.what());
   } catch (...) {
     SPDLOG_ERROR("Unknown error while setting WebSocket expiration timer");
   }
 
-  // Close websocket
-  try {
-    if (ws_.is_open()) {
-      ws_.close(boost::beast::websocket::close_code::normal, ec);
-      if (ec) {
-        SPDLOG_WARN("WebSocket close returned error: {}", ec.message());
-      } else {
-        SPDLOG_INFO("WebSocket closed successfully");
-      }
-    }
-  } catch (const boost::system::system_error& err) {
-    SPDLOG_ERROR("Exception during WebSocket close (boost::system_error): {}",
-        err.what());
-  } catch (const std::exception& err) {
-    SPDLOG_ERROR("Exception during WebSocket close: {}", err.what());
-  } catch (...) {
-    SPDLOG_ERROR("Unknown exception occurred during WebSocket close");
-  }
-
   // Close SSL
   try {
+    SPDLOG_DEBUG("Shutting down SSL layer...");
     auto& ssl = ws_.next_layer();
     if (ssl.native_handle()) {
       // More robust SSL shutdown
@@ -155,6 +141,7 @@ bool WebsocketClient::Stop() {
 
   // Close TCP connection
   try {
+    SPDLOG_DEBUG("Shutting down TCP socket...");
     auto& tcp = ws_.next_layer().next_layer();
     tcp.socket().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
     if (ec) {
@@ -162,6 +149,7 @@ bool WebsocketClient::Stop() {
     } else {
       SPDLOG_DEBUG("TCP socket shutdown successfully");
     }
+
     tcp.socket().close(ec);
     if (ec) {
       SPDLOG_WARN("TCP socket close error: {}", ec.message());
@@ -176,6 +164,7 @@ bool WebsocketClient::Stop() {
 
   // Stop io_context
   try {
+    SPDLOG_DEBUG("Stopping io_context...");
     ioc_.stop();
     SPDLOG_DEBUG("io_context stopped");
   } catch (const boost::system::system_error& err) {
@@ -183,6 +172,8 @@ bool WebsocketClient::Stop() {
   } catch (...) {
     SPDLOG_ERROR("Unknown exception while stopping io_context");
   }
+
+  SPDLOG_INFO("WebSocket client stopped successfully");
   return true;
 }
 
@@ -224,7 +215,13 @@ void WebsocketClient::onConnect(boost::beast::error_code ec,
         boost::beast::bind_front_handler(
             &WebsocketClient::onSslHandshake, shared_from_this()));
   } catch (boost::system::system_error& err) {
-    SPDLOG_ERROR("onConnect error: {}", err.what());
+    SPDLOG_ERROR("Exception during onConnect: {}", err.what());
+    Stop();
+  } catch (const std::exception& e) {
+    SPDLOG_ERROR("Unexpected exception during onConnect: {}", e.what());
+    Stop();
+  } catch (...) {
+    SPDLOG_ERROR("Unknown exception occurred during onConnect");
     Stop();
   }
 }
@@ -233,58 +230,91 @@ void WebsocketClient::onSslHandshake(boost::beast::error_code ec) {
   if (ec) {
     return Fail(ec, "onSslHandshake");
   }
-  // Turn off the timeout on the tcp_stream, because
-  // the websocket stream has its own timeout system.
-  boost::beast::get_lowest_layer(ws_).expires_never();
+  try {
+    // Turn off the timeout on the tcp_stream, because
+    // the websocket stream has its own timeout system.
+    boost::beast::get_lowest_layer(ws_).expires_never();
 
-  // Set suggested timeout settings for the websocket
-  ws_.set_option(boost::beast::websocket::stream_base::timeout::suggested(
-      boost::beast::role_type::client));
+    // Set suggested timeout settings for the websocket
+    ws_.set_option(boost::beast::websocket::stream_base::timeout::suggested(
+        boost::beast::role_type::client));
 
-  // Set https headers
-  auto self = shared_from_this();
-  ws_.set_option(boost::beast::websocket::stream_base::decorator(
-      [self](boost::beast::websocket::request_type& req) mutable {
-        // set browser headers
-        using fptn::protocol::https::HttpsClient;
-        const auto headers =
-            fptn::protocol::https::RealBrowserHeaders(self->sni_);
-        for (const auto& [key, value] : headers) {
-          req.set(key, value);
-        }
-        // set custom headers
-        req.set("Authorization", "Bearer " + self->access_token_);
-        req.set("ClientIP", self->tun_interface_address_ipv4_.toString());
-        req.set("ClientIPv6", self->tun_interface_address_ipv6_.toString());
-        req.set("Client-Agent",
-            fmt::format("FptnClient({}/{})", FPTN_USER_OS, FPTN_VERSION));
-      }));
+    // Set https headers
+    auto self = shared_from_this();
+    ws_.set_option(boost::beast::websocket::stream_base::decorator(
+        [self](boost::beast::websocket::request_type& req) mutable {
+          try {
+            using fptn::protocol::https::HttpsClient;
+            if (self->running_) {
+              // set browser headers
+              const auto headers =
+                  fptn::protocol::https::RealBrowserHeaders(self->sni_);
+              for (const auto& [key, value] : headers) {
+                req.set(key, value);
+              }
+              // set custom headers
+              req.set("Authorization", "Bearer " + self->access_token_);
+              req.set("ClientIP", self->tun_interface_address_ipv4_.toString());
+              req.set(
+                  "ClientIPv6", self->tun_interface_address_ipv6_.toString());
+              req.set("Client-Agent",
+                  fmt::format("FptnClient({}/{})", FPTN_USER_OS, FPTN_VERSION));
+            }
+          } catch (const boost::system::system_error& err) {
+            SPDLOG_ERROR("Exception during decorator: {}", err.what());
+          } catch (const std::exception& e) {
+            SPDLOG_ERROR("Unexpected exception during decorator: {}", e.what());
+          } catch (...) {
+            SPDLOG_ERROR("Unknown exception occurred during decorator");
+          }
+        }));
 
-  // Perform the websocket handshake
-  ws_.async_handshake(server_ip_.toString(), kUrlWebSocket_,
-      boost::beast::bind_front_handler(
-          &WebsocketClient::onHandshake, shared_from_this()));
+    // Perform the websocket handshake
+    ws_.async_handshake(server_ip_.toString(), kUrlWebSocket_,
+        boost::beast::bind_front_handler(
+            &WebsocketClient::onHandshake, shared_from_this()));
+  } catch (const boost::system::system_error& err) {
+    SPDLOG_ERROR("Exception during onSslHandshake: {}", err.what());
+    Stop();
+  } catch (const std::exception& e) {
+    SPDLOG_ERROR("Unexpected exception during onSslHandshake: {}", e.what());
+    Stop();
+  } catch (...) {
+    SPDLOG_ERROR("Unknown exception occurred during onSslHandshake");
+    Stop();
+  }
 }
 
 void WebsocketClient::onHandshake(boost::beast::error_code ec) {
   if (ec) {
     return Fail(ec, "onHandshake");
   }
-  running_ = true;
+  was_connected_ = true;
   SPDLOG_INFO("WebSocket connection started successfully");
 
-  // set timeout
-  // NOLINTNEXTLINE(modernize-use-designated-initializers)
-  ws_.set_option(boost::beast::websocket::stream_base::timeout{
-      std::chrono::seconds(10),  // handshake_timeout
-      std::chrono::seconds(5),   // idle_timeout
-      true                       // keep_alive_pings
-  });
+  try {
+    // set timeout
+    // NOLINTNEXTLINE(modernize-use-designated-initializers)
+    ws_.set_option(boost::beast::websocket::stream_base::timeout{
+        std::chrono::seconds(10),  // handshake_timeout
+        std::chrono::seconds(5),   // idle_timeout
+        true                       // keep_alive_pings
+    });
 
-  if (nullptr != on_connected_callback_) {
-    on_connected_callback_();
+    if (nullptr != on_connected_callback_) {
+      on_connected_callback_();
+    }
+    DoRead();
+  } catch (const boost::system::system_error& err) {
+    SPDLOG_ERROR("Exception during onHandshake: {}", err.what());
+    Stop();
+  } catch (const std::exception& e) {
+    SPDLOG_ERROR("Unexpected exception during onHandshake: {}", e.what());
+    Stop();
+  } catch (...) {
+    SPDLOG_ERROR("Unknown exception occurred during onHandshake");
+    Stop();
   }
-  DoRead();
 }
 
 void WebsocketClient::onRead(
@@ -292,16 +322,28 @@ void WebsocketClient::onRead(
   if (ec) {
     return Fail(ec, "read");
   }
+
   if (running_) {
-    // FIXME REDUNDANT COPY
-    const auto data = boost::beast::buffers_to_string(buffer_.data());
-    std::string raw = fptn::protocol::protobuf::GetProtoPayload(data);
-    auto packet = fptn::common::network::IPPacket::Parse(std::move(raw));
-    if (running_ && packet) {
-      new_ip_pkt_callback_(std::move(packet));
+    try {
+      // FIXME REDUNDANT COPY
+      const auto data = boost::beast::buffers_to_string(buffer_.data());
+      std::string raw = fptn::protocol::protobuf::GetProtoPayload(data);
+      auto packet = fptn::common::network::IPPacket::Parse(std::move(raw));
+      if (running_ && packet) {
+        new_ip_pkt_callback_(std::move(packet));
+      }
+      buffer_.consume(transferred);
+      DoRead();
+    } catch (const boost::system::system_error& err) {
+      SPDLOG_ERROR("Exception during onRead: {}", err.what());
+      Stop();
+    } catch (const std::exception& e) {
+      SPDLOG_ERROR("Unexpected exception during onRead: {}", e.what());
+      Stop();
+    } catch (...) {
+      SPDLOG_ERROR("Unknown exception occurred during onRead");
+      Stop();
     }
-    buffer_.consume(transferred);
-    DoRead();
   }
 }
 
@@ -313,30 +355,42 @@ void WebsocketClient::Fail(boost::beast::error_code ec, char const* what) {
 }
 
 void WebsocketClient::DoRead() {
-  if (running_) {
-    ws_.async_read(buffer_, boost::beast::bind_front_handler(
-                                &WebsocketClient::onRead, shared_from_this()));
+  if (running_ && was_connected_) {
+    try {
+      ws_.async_read(
+          buffer_, boost::beast::bind_front_handler(
+                       &WebsocketClient::onRead, shared_from_this()));
+    } catch (const boost::system::system_error& err) {
+      SPDLOG_ERROR("Exception during DoRead: {}", err.what());
+      Stop();
+    } catch (const std::exception& e) {
+      SPDLOG_ERROR("Unexpected exception during DoRead: {}", e.what());
+      Stop();
+    } catch (...) {
+      SPDLOG_ERROR("Unknown exception occurred during DoRead");
+      Stop();
+    }
   }
 }
 
 bool WebsocketClient::Send(fptn::common::network::IPPacketPtr packet) {
-  if (out_queue_.size() < out_queue_max_size_ && running_) {
+  if (out_queue_.size() < kMaxSizeOutQueue_ && running_) {
     boost::asio::post(strand_,
         [self = shared_from_this(), msg = std::move(packet)]() mutable {
-          if (!self->running_) {
+          if (!self->running_ || !self->was_connected_) {
             return;
           }
 
           const std::unique_lock<std::mutex> lock(self->mutex_);  // mutex
 
-          // cppcheck-suppress identicalConditionAfterEarlyExit
-          if (!self->running_) {  // Double-check after acquiring lock
+          if (!self->running_ || !self->was_connected_) {
+            // Double-check after acquiring lock
             return;
           }
 
           const bool was_empty = self->out_queue_.empty();
           self->out_queue_.push(std::move(msg));
-          if (was_empty) {
+          if (was_empty && self->running_ && self->was_connected_) {
             self->DoWrite();
           }
         });
@@ -347,21 +401,28 @@ bool WebsocketClient::Send(fptn::common::network::IPPacketPtr packet) {
 
 void WebsocketClient::DoWrite() {
   try {
-    if (!out_queue_.empty() && running_) {
+    if (!out_queue_.empty() && running_ && was_connected_) {
       // PACK DATA
       fptn::common::network::IPPacketPtr packet = std::move(out_queue_.front());
       const std::string msg =
           fptn::protocol::protobuf::CreateProtoPayload(std::move(packet));
       const boost::asio::const_buffer buffer(msg.data(), msg.size());
 
-      ws_.async_write(
-          buffer, boost::beast::bind_front_handler(
-                      &WebsocketClient::onWrite, shared_from_this()));
+      if (running_ && was_connected_) {
+        ws_.async_write(
+            buffer, boost::beast::bind_front_handler(
+                        &WebsocketClient::onWrite, shared_from_this()));
+      }
     }
   } catch (boost::system::system_error& err) {
     SPDLOG_ERROR("doWrite system_error: {}", err.what());
+    Stop();
   } catch (const std::exception& e) {
     SPDLOG_ERROR("doWrite error: {}", e.what());
+    Stop();
+  } catch (...) {
+    SPDLOG_ERROR("Unknown exception occurred during doWrite");
+    Stop();
   }
 }
 
@@ -370,7 +431,7 @@ void WebsocketClient::onWrite(boost::beast::error_code ec, std::size_t) {
     return Fail(ec, "onWrite");
   }
 
-  if (running_) {
+  if (running_ && was_connected_) {
     const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
     // cppcheck-suppress identicalInnerCondition
@@ -383,4 +444,4 @@ void WebsocketClient::onWrite(boost::beast::error_code ec, std::size_t) {
   }
 }
 
-bool WebsocketClient::IsStarted() { return running_; }
+bool WebsocketClient::IsStarted() { return running_ && was_connected_; }

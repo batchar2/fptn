@@ -60,8 +60,8 @@ class DataRateCalculator {
   std::size_t GetRateForSecond() const noexcept {
     const std::lock_guard<std::mutex> lock(mutex_);
 
-    const auto intervalCount = interval_.count();
-    if (intervalCount) {
+    const auto interval_count = interval_.count();
+    if (interval_count) {
       return static_cast<std::size_t>(rate_ / (1000 / interval_.count()));
     }
     return 0;
@@ -86,7 +86,7 @@ class BaseNetInterface {
   [[nodiscard]] virtual std::size_t GetReceiveRate() const noexcept = 0;
 
  public:
-  explicit BaseNetInterface(std::string  name,
+  explicit BaseNetInterface(std::string name,
       const pcpp::IPv4Address& ipv4_addr,
       const int ipv4_netmask,
       const pcpp::IPv6Address& ipv6_addr,
@@ -97,7 +97,7 @@ class BaseNetInterface {
         ipv4_netmask_(ipv4_netmask),
         ipv6_addr_(ipv6_addr),
         ipv6_netmask_(ipv6_netmask),
-        new_ippacket_callback(std::move(callback)) {}
+        new_ippacket_callback_(std::move(callback)) {}
 
   virtual ~BaseNetInterface() = default;
 
@@ -116,7 +116,12 @@ class BaseNetInterface {
   int IPv6Netmask() const noexcept { return ipv6_netmask_; }
 
   void SetNewIPPacketCallback(const NewIPPacketCallback& callback) noexcept {
-    new_ippacket_callback = callback;
+    new_ippacket_callback_ = callback;
+  }
+
+ protected:
+  NewIPPacketCallback GetNewIPPacketCallback() const {
+    return new_ippacket_callback_;
   }
 
  private:
@@ -129,7 +134,7 @@ class BaseNetInterface {
   const int ipv6_netmask_;
 
  protected:
-  NewIPPacketCallback new_ippacket_callback;
+  NewIPPacketCallback new_ippacket_callback_;
 };
 
 using BaseNetInterfacePtr = std::unique_ptr<BaseNetInterface>;
@@ -174,8 +179,8 @@ class PosixTunInterface final : public BaseNetInterface {
   }
 
   bool Stop() noexcept override {
-    if (thread_.joinable() && running_ && tun_) {
-      running_ = false;
+    running_ = false;
+    if (thread_.joinable() && tun_) {
       thread_.join();
       tun_.reset();
       return true;
@@ -206,13 +211,15 @@ class PosixTunInterface final : public BaseNetInterface {
     std::unique_ptr<std::uint8_t[]> data =
         std::make_unique<std::uint8_t[]>(mtu_);
     std::uint8_t* buffer = data.get();
+
+    const auto callback = GetNewIPPacketCallback();
     while (running_) {
       const int size = tun_->read(static_cast<void*>(buffer), mtu_);
       if (size > 0 && running_) {
         auto packet = IPPacket::Parse(buffer, size);
-        if (packet != nullptr && new_ippacket_callback && running_) {
+        if (packet != nullptr && callback && running_) {
           receive_rate_calculator_.Update(packet->Size());  // calculate rate
-          new_ippacket_callback(std::move(packet));
+          callback(std::move(packet));
         }
       } else {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -381,12 +388,13 @@ class WindowsTunInterface : public BaseNetInterface {
   void run() noexcept {
     std::uint8_t buffer[65536] = {0};
     DWORD size = sizeof(buffer);
+    const auto callback = GetNewIPPacketCallback();
     while (running_) {
       if (ERROR_SUCCESS == ReadPacketNonblock(session_, buffer, &size)) {
         auto packet = IPPacket::Parse(buffer, size);
-        if (packet != nullptr && new_ippacket_callback) {
+        if (packet != nullptr && callback) {
           receive_rate_calculator_.Update(packet->Size());  // calculate rate
-          new_ippacket_callback(std::move(packet));
+          callback(std::move(packet));
         }
       }
     }

@@ -24,7 +24,7 @@ std::string GetWindowsInterfaceNumber(const std::string& interface_name) {
     fptn::common::system::command::run(command, cmd_stdout);
 
     if (cmd_stdout.empty()) {
-      spdlog::warn("Warning: Interface index not found.");
+      SPDLOG_WARN("Warning: Interface index not found.");
       return {};
     }
     for (const auto& line : cmd_stdout) {

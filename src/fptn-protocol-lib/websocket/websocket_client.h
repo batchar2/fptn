@@ -75,12 +75,16 @@ class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
  protected:
   void DoRead();
   void DoWrite();
-  void DoPing();
   void Fail(boost::beast::error_code ec, char const* what);
-  void SetupPingTimer();
 
  private:
   const std::string kUrlWebSocket_ = "/fptn";
+  const std::size_t kMaxSizeOutQueue_ = 128;
+
+  std::thread th_;
+  mutable std::mutex mutex_;
+
+  mutable std::queue<fptn::common::network::IPPacketPtr> out_queue_;
 
   boost::asio::io_context ioc_;
   boost::asio::ssl::context ctx_;
@@ -91,12 +95,8 @@ class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
   boost::asio::strand<boost::asio::io_context::executor_type> strand_;
   boost::beast::flat_buffer buffer_;
 
-  const std::size_t out_queue_max_size_ = 128;
-  mutable std::queue<fptn::common::network::IPPacketPtr> out_queue_;
-
-  std::thread th_;
-  mutable std::mutex mutex_;
   mutable std::atomic<bool> running_;
+  mutable std::atomic<bool> was_connected_;
 
   const pcpp::IPv4Address server_ip_;
   const std::string server_port_str_;
