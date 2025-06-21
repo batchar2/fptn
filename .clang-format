@@ -29,6 +29,8 @@ IncludeCategories:
     Priority:        2
   - Regex:          '^<tuntap++.*>'
     Priority:        2
+  - Regex:           '^<ntp_client.hpp>'
+    Priority:        2
   - Regex:          '^<zlib.*>'
     Priority:        2
   - Regex:           '^<argparse/.*>'

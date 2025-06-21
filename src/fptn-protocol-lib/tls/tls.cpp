@@ -23,6 +23,8 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <openssl/ssl.h>    // NOLINT(build/include_order)
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
+#include "fptn-protocol-lib/time/time_provider.h"
+
 namespace fptn::protocol::tls {
 
 constexpr std::size_t kFptnKeyLength = 4;
@@ -78,7 +80,7 @@ bool SetHandshakeSessionID(SSL* ssl) {
     return false;
   }
   // copy timestamp
-  const auto timestamp = static_cast<std::uint32_t>(std::time(nullptr));
+  const auto timestamp = fptn::time::TimeProvider::Instance()->NowTimestamp();
   const std::string key = GenerateFptnKey(timestamp);
   std::memcpy(&session_id[kSessionLen - key.size()], key.c_str(), key.size());
 
@@ -92,11 +94,15 @@ bool IsFptnClientSessionID(
   std::memcpy(&data, &session[session_len - sizeof(data)], sizeof(data));
   const std::string recv_key(data, sizeof(data));
 
-  const auto now_timestamp = static_cast<std::uint32_t>(std::time(nullptr));
+  const auto now_timestamp =
+      fptn::time::TimeProvider::Instance()->NowTimestamp();
 
-  constexpr std::uint32_t kTimeShiftSeconds = 300;  // five minutes
+  constexpr std::uint32_t kTimeShiftSeconds = 10;  // ten seconds
+
+  const std::uint32_t timestamp = now_timestamp + (kTimeShiftSeconds / 2);
+
   for (std::uint32_t shift = 0; shift <= kTimeShiftSeconds; shift++) {
-    const std::string key = GenerateFptnKey(now_timestamp - shift);
+    const std::string key = GenerateFptnKey(timestamp - shift);
     if (recv_key == key) {
       return true;
     }

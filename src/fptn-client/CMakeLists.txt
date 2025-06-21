@@ -64,7 +64,13 @@ WarningsAsErrors: ''
 
   find_package(
     Qt6 REQUIRED
-    COMPONENTS Core Gui Widgets Network LinguistTools Concurrent CONFIG
+    COMPONENTS Core
+               Gui
+               Widgets
+               Network
+               LinguistTools
+               Concurrent
+               CONFIG
     REQUIRED)
   set(CMAKE_AUTOMOC ON)
   set(CMAKE_AUTORCC ON)
