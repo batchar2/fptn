@@ -29,7 +29,7 @@ class TimeProvider final {
 
  protected:
   explicit TimeProvider(
-      const std::string& ntp_host = "pool.ntp.org", int ntp_port = 123);
+      const std::string& ntp_host = "pool.ntp.org", uint16_t ntp_port = 123);
 
   std::uint64_t SyncWithNtp();
 

@@ -12,7 +12,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 namespace fptn::time {
 
-TimeProvider::TimeProvider(const std::string& ntp_host, int ntp_port)
+TimeProvider::TimeProvider(const std::string& ntp_host, uint16_t ntp_port)
     : ntp_client_(ntp_host, ntp_port), offset_seconds_(0) {
   for (int i = 0; i < 5; i++) {  // make some attempts
     if (SyncWithNtp()) {
