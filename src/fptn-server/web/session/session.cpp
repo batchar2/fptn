@@ -9,7 +9,9 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <atomic>
 #include <memory>
 #include <string>
+#include <unordered_set>
 #include <utility>
+#include <vector>
 
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/asio.hpp>
@@ -24,12 +26,27 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <pcapplusplus/SSLLayer.h>      // NOLINT(build/include_order)
 #include <spdlog/spdlog.h>              // NOLINT(build/include_order)
 
+#include "common/network/utils.h"
+
 #include "fptn-protocol-lib/protobuf/protocol.h"
 #include "fptn-protocol-lib/tls/tls.h"
 
 namespace {
 std::atomic<fptn::ClientID> client_id_counter = 0;
+
+std::vector<std::string> GetServerIpAddresses() {
+  static std::mutex ip_mutex;
+  static std::vector<std::string> server_ips;
+
+  std::lock_guard<std::mutex> lock(ip_mutex);  // mutex
+
+  if (server_ips.empty()) {
+    server_ips = fptn::common::network::GetServerIpAddresses();
+  }
+  return server_ips;
 }
+
+}  // namespace
 
 using fptn::web::Session;
 
@@ -103,7 +120,6 @@ boost::asio::awaitable<void> Session::Run() {
 
   // Detect probing
   if (enable_detect_probing_) {
-    SPDLOG_DEBUG("Probing detection enabled (client_id={})", client_id_);
     const auto probing_result = co_await DetectProbing();
     // Close connection
     if (probing_result.should_close) {
@@ -114,7 +130,7 @@ boost::asio::awaitable<void> Session::Run() {
     }
     // Run proxy
     if (probing_result.is_probing) {
-      SPDLOG_INFO(
+      SPDLOG_WARN(
           "Probing detected. Redirecting to proxy "
           "(client_id={}, SNI={}, port={})",
           client_id_, probing_result.sni, port_);
@@ -122,7 +138,7 @@ boost::asio::awaitable<void> Session::Run() {
       Close();  // close connection
       co_return;
     } else {
-      SPDLOG_ERROR(
+      SPDLOG_INFO(
           "SESSION ID correct. Continue setup connection (client_id={}))",
           client_id_);
     }
@@ -164,90 +180,160 @@ boost::asio::awaitable<void> Session::Run() {
 
 // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
 boost::asio::awaitable<Session::ProbingResult> Session::DetectProbing() {
-  auto& socket = ws_.next_layer().next_layer().socket();
-  // Peek data without consuming it from the socket buffer!!!
-  // This allows inspection without affecting subsequent reads!!!
-  std::array<std::uint8_t, 4096> buffer{};
-  const std::size_t bytes_read =
-      co_await socket.async_receive(boost::asio::buffer(buffer),
-          boost::asio::socket_base::message_peek, boost::asio::use_awaitable);
-  if (!bytes_read) {
-    SPDLOG_ERROR("Peeked zero bytes from socket (client_id={})", client_id_);
+  try {
+    auto& socket = ws_.next_layer().next_layer().socket();
+    // Peek data without consuming it from the socket buffer!!!
+    // This allows inspection without affecting subsequent reads!!!
+    std::array<std::uint8_t, 4096> buffer{};
+    const std::size_t bytes_read =
+        co_await socket.async_receive(boost::asio::buffer(buffer),
+            boost::asio::socket_base::message_peek, boost::asio::use_awaitable);
+    if (!bytes_read) {
+      SPDLOG_ERROR("Peeked zero bytes from socket (client_id={})", client_id_);
+      co_return ProbingResult{
+          .is_probing = true, .sni = FPTN_DEFAULT_SNI, .should_close = true};
+    }
+    // Check ssl
+    if (!pcpp::SSLLayer::IsSSLMessage(
+            0, 0, buffer.data(), buffer.size(), true)) {
+      SPDLOG_ERROR(
+          "Not an SSL message, closing connection (client_id={})", client_id_);
+      co_return ProbingResult{
+          .is_probing = true, .sni = FPTN_DEFAULT_SNI, .should_close = true};
+    }
+    // Create SslLayer
+    pcpp::SSLLayer* ssl_layer = pcpp::SSLLayer::createSSLMessage(
+        buffer.data(), buffer.size(), nullptr, nullptr);
+    if (!ssl_layer) {
+      SPDLOG_ERROR(
+          "Failed to create SSL layer from handshake data (client_id={})",
+          client_id_);
+      co_return ProbingResult{
+          .is_probing = true, .sni = FPTN_DEFAULT_SNI, .should_close = true};
+    }
+
+    // Check handshake
+    // https://github.com/wiresock/ndisapi/blob/master/examples/cpp/pcapplusplus/pcapplusplus.cpp#L40
+    const auto* handshake = dynamic_cast<pcpp::SSLHandshakeLayer*>(ssl_layer);
+    if (!handshake) {
+      SPDLOG_ERROR("Failed to cast to SSLHandshakeLayer");
+      co_return ProbingResult{
+          .is_probing = true, .sni = FPTN_DEFAULT_SNI, .should_close = true};
+    }
+
+    // Get TTL-HELLO
+    auto* hello =
+        // cppcheck-suppress nullPointerRedundantCheck
+        handshake->getHandshakeMessageOfType<pcpp::SSLClientHelloMessage>();
+    if (!hello) {
+      SPDLOG_ERROR(
+          "Failed to extract SSLClientHelloMessage from handshake "
+          "(client_id={})",
+          client_id_);
+      co_return ProbingResult{
+          .is_probing = true, .sni = FPTN_DEFAULT_SNI, .should_close = true};
+    }
+
+    // Set  SNI
+    std::string sni = FPTN_DEFAULT_SNI;
+    auto* sni_ext =
+        // cppcheck-suppress nullPointerRedundantCheck
+        hello->getExtensionOfType<pcpp::SSLServerNameIndicationExtension>();
+    if (sni_ext) {
+      std::string tls_sni = sni_ext->getHostName();
+      if (!tls_sni.empty()) {
+        sni = std::move(tls_sni);
+      }
+    }
+
+    // Detect and prevent recursive proxying to the local server
+    if (sni != FPTN_DEFAULT_SNI) {
+      const bool is_recursive_attempt = co_await IsSniSelfProxyAttempt(sni);
+      if (is_recursive_attempt) {
+        SPDLOG_WARN(
+            "Detected recursive proxy attempt! "
+            "Client: {}, SNI: {}, Redirecting to default SNI: {}",
+            client_id_, sni, FPTN_DEFAULT_SNI);
+        sni = FPTN_DEFAULT_SNI;
+      }
+    }
+
+    // Get Session ID
+    constexpr std::size_t kSessionLen = 32;
+    std::size_t session_len = std::min(
+        static_cast<std::uint8_t>(kSessionLen), hello->getSessionIDLength());
+    if (session_len != kSessionLen) {
+      SPDLOG_ERROR(
+          "Invalid session ID length: expected {}, got {} (client_id={})",
+          kSessionLen, session_len, client_id_);
+      co_return ProbingResult{
+          .is_probing = true, .sni = sni, .should_close = false};
+    }
+    std::uint8_t session_id[kSessionLen] = {0};
+    std::memcpy(session_id, hello->getSessionID(), session_len);
+
+    // Check Session ID
+    if (!fptn::protocol::tls::IsFptnClientSessionID(session_id, session_len)) {
+      SPDLOG_ERROR(
+          "Session ID does not match FPTN client format (client_id={})",
+          client_id_);
+      co_return ProbingResult{
+          .is_probing = true, .sni = sni, .should_close = false};
+    }
+    // Valid FPTN client
     co_return ProbingResult{
-        .is_probing = true, .sni = FPTN_DEFAULT_SNI, .should_close = true};
-  }
-  // Check ssl
-  if (!pcpp::SSLLayer::IsSSLMessage(0, 0, buffer.data(), buffer.size(), true)) {
+        .is_probing = false, .sni = sni, .should_close = false};
+  } catch (const boost::system::system_error& e) {
     SPDLOG_ERROR(
-        "Not an SSL message, closing connection (client_id={})", client_id_);
-    co_return ProbingResult{
-        .is_probing = true, .sni = FPTN_DEFAULT_SNI, .should_close = true};
-  }
-  // Create SslLayer
-  pcpp::SSLLayer* ssl_layer = pcpp::SSLLayer::createSSLMessage(
-      buffer.data(), buffer.size(), nullptr, nullptr);
-  if (!ssl_layer) {
+        "System error during probing: {} (client_id={})", e.what(), client_id_);
+  } catch (const std::exception& e) {
     SPDLOG_ERROR(
-        "Failed to create SSL layer from handshake data (client_id={})",
-        client_id_);
-    co_return ProbingResult{
-        .is_probing = true, .sni = FPTN_DEFAULT_SNI, .should_close = true};
+        "Exception during probing: {} (client_id={})", e.what(), client_id_);
+  } catch (...) {
+    SPDLOG_ERROR("Unknown exception during probing (client_id={})", client_id_);
   }
-
-  // Check handshake
-  // https://github.com/wiresock/ndisapi/blob/master/examples/cpp/pcapplusplus/pcapplusplus.cpp#L40
-  const auto* handshake = dynamic_cast<pcpp::SSLHandshakeLayer*>(ssl_layer);
-  if (!handshake) {
-    SPDLOG_ERROR("Failed to cast to SSLHandshakeLayer");
-    co_return ProbingResult{
-        .is_probing = true, .sni = FPTN_DEFAULT_SNI, .should_close = true};
-  }
-
-  // Get TTL-HELLO
-  auto* hello =
-      // cppcheck-suppress nullPointerRedundantCheck
-      handshake->getHandshakeMessageOfType<pcpp::SSLClientHelloMessage>();
-  if (!hello) {
-    SPDLOG_ERROR(
-        "Failed to extract SSLClientHelloMessage from handshake (client_id={})",
-        client_id_);
-    co_return ProbingResult{
-        .is_probing = true, .sni = FPTN_DEFAULT_SNI, .should_close = true};
-  }
-
-  // Check SNI
-  auto* sni_ext =
-      // cppcheck-suppress nullPointerRedundantCheck
-      hello->getExtensionOfType<pcpp::SSLServerNameIndicationExtension>();
-  std::string sni = FPTN_DEFAULT_SNI;
-  if (sni_ext) {
-    sni = sni_ext->getHostName();
-  }
-
-  // Get Session ID
-  constexpr std::size_t kSessionLen = 32;
-  std::size_t session_len = std::min(
-      static_cast<std::uint8_t>(kSessionLen), hello->getSessionIDLength());
-  if (session_len != kSessionLen) {
-    SPDLOG_ERROR(
-        "Invalid session ID length: expected {}, got {} (client_id={})",
-        kSessionLen, session_len, client_id_);
-    co_return ProbingResult{
-        .is_probing = true, .sni = sni, .should_close = false};
-  }
-  std::uint8_t session_id[kSessionLen] = {0};
-  std::memcpy(session_id, hello->getSessionID(), session_len);
-
-  // Check Session ID
-  if (!fptn::protocol::tls::IsFptnClientSessionID(session_id, session_len)) {
-    SPDLOG_ERROR("Session ID does not match FPTN client format (client_id={})",
-        client_id_);
-    co_return ProbingResult{
-        .is_probing = true, .sni = sni, .should_close = false};
-  }
-  // It is a valid FPTN client
   co_return ProbingResult{
-      .is_probing = false, .sni = sni, .should_close = false};
+      .is_probing = true, .sni = FPTN_DEFAULT_SNI, .should_close = true};
+}
+
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+boost::asio::awaitable<bool> Session::IsSniSelfProxyAttempt(
+    const std::string& sni) const {
+  // First check if SNI is already an IP address
+  boost::system::error_code ec;
+  boost::asio::ip::make_address(sni, ec);
+  if (!ec) {
+    // SNI is a valid IP address - check directly
+    const auto server_ips = GetServerIpAddresses();
+    // NOLINTNEXTLINE(modernize-use-ranges)
+    const auto exists = std::find(server_ips.begin(), server_ips.end(), sni);
+    co_return exists != server_ips.end();
+  }
+
+  // Not an IP address - proceed with DNS resolution
+  boost::asio::ip::tcp::resolver resolver(
+      co_await boost::asio::this_coro::executor);
+  try {
+    const auto server_ips = GetServerIpAddresses();
+
+    const auto endpoints =
+        co_await resolver.async_resolve(sni, "", boost::asio::use_awaitable);
+    for (const auto& endpoint : endpoints) {
+      const auto ip = endpoint.endpoint().address().to_string();
+      // NOLINTNEXTLINE(modernize-use-ranges)
+      const auto exists = std::find(server_ips.begin(), server_ips.end(), ip);
+      if (exists != server_ips.end()) {
+        co_return true;
+      }
+    }
+  } catch (const boost::system::system_error& e) {
+    SPDLOG_WARN("DNS resolution failed for {}: {}", sni, e.what());
+    co_return true;
+  } catch (...) {
+    SPDLOG_WARN("Unknown error during DNS resolution for {}", sni);
+    co_return true;
+  }
+  co_return false;
 }
 
 boost::asio::awaitable<bool> Session::HandleProxy(
@@ -328,7 +414,8 @@ boost::asio::awaitable<bool> Session::HandleProxy(
     socket.close();
   } catch (const boost::system::system_error& e) {
     SPDLOG_ERROR(
-        "Failed to close the socket after proxy completion (client_id={}): {} "
+        "Failed to close the socket after proxy completion (client_id={}): "
+        "{} "
         "[{}]",
         client_id_, e.what(), e.code().message());
   }

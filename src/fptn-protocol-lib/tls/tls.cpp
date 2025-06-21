@@ -81,6 +81,8 @@ bool SetHandshakeSessionID(SSL* ssl) {
   }
   // copy timestamp
   const auto timestamp = fptn::time::TimeProvider::Instance()->NowTimestamp();
+  SPDLOG_DEBUG("Server timestamp: {}", timestamp);
+
   const std::string key = GenerateFptnKey(timestamp);
   std::memcpy(&session_id[kSessionLen - key.size()], key.c_str(), key.size());
 
@@ -96,6 +98,8 @@ bool IsFptnClientSessionID(
 
   const auto now_timestamp =
       fptn::time::TimeProvider::Instance()->NowTimestamp();
+
+  SPDLOG_DEBUG("Server timestamp: {}", now_timestamp);
 
   constexpr std::uint32_t kTimeShiftSeconds = 10;  // ten seconds
 

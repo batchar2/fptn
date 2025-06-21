@@ -60,6 +60,8 @@ class Session : public std::enable_shared_from_this<Session> {
   };
 
   boost::asio::awaitable<ProbingResult> DetectProbing();
+  boost::asio::awaitable<bool> IsSniSelfProxyAttempt(
+      const std::string& sni) const;
   boost::asio::awaitable<bool> HandleProxy(const std::string& sni, int port);
 
  protected:
