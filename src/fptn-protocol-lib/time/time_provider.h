@@ -10,6 +10,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <chrono>
 #include <cstdint>
 #include <ctime>
+#include <mutex>
 #include <string>
 #include <utility>
 #include <vector>
