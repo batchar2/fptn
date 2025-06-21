@@ -41,6 +41,7 @@ set(FPTN_SERVER_PATH "${CMAKE_CURRENT_SOURCE_DIR}/src/fptn-server")
 
 # --- depends ---
 include(depends/cmake/FetchBase64.cmake)
+include(depends/cmake/NtpClient.cmake)
 if(NOT FPTN_BUILD_ONLY_FPTN_LIB)
   if(APPLE OR UNIX)
     include(depends/cmake/FetchLibTunTap.cmake)
