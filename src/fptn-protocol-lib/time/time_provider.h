@@ -37,16 +37,16 @@ class TimeProvider final {
           {"cn.pool.ntp.org", 123}, {"south-america.pool.ntp.org", 123},
           {"oceania.pool.ntp.org", 123}, {"africa.pool.ntp.org", 123},
           {"pool.ntp.org", 123}});
+  bool Refresh();
 
  private:
   const std::chrono::minutes kSyncInterval_{5};
 
-  mutable std::mutex sync_mutex_;
+  mutable std::mutex mutex_;
   const NtpServers servers_;
 
   std::atomic<std::int32_t> offset_seconds_;
-  std::atomic<bool> was_synchronized_;
-  std::chrono::steady_clock::time_point last_sync_time_;
+  std::atomic<std::chrono::steady_clock::time_point> last_sync_time_;
 };
 
 }  // namespace fptn::time
