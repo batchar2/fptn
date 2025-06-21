@@ -9,13 +9,13 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <chrono>
 #include <cstdint>
 #include <ctime>
-#include <memory>
-#include <mutex>
 #include <string>
-
-#include <ntp_client.hpp>
+#include <utility>
+#include <vector>
 
 namespace fptn::time {
+
+using NtpServers = std::vector<std::pair<std::string, std::uint16_t>>;
 
 class TimeProvider final {
  public:
@@ -25,17 +25,26 @@ class TimeProvider final {
   }
 
   std::int32_t OffsetSeconds() const;
-  std::uint32_t NowTimestamp() const;
+  std::uint32_t NowTimestamp();
+  bool SyncWithNtp();
 
  protected:
   explicit TimeProvider(
-      const std::string& ntp_host = "pool.ntp.org", uint16_t ntp_port = 123);
-
-  std::uint64_t SyncWithNtp();
+      NtpServers servers = {{"ru.pool.ntp.org", 123}, {"ntp.ix.ru", 123},
+          {"europe.pool.ntp.org", 123}, {"north-america.pool.ntp.org", 123},
+          {"cn.pool.ntp.org", 123}, {"south-america.pool.ntp.org", 123},
+          {"oceania.pool.ntp.org", 123}, {"africa.pool.ntp.org", 123},
+          {"pool.ntp.org", 123}});
 
  private:
-  NTPClient ntp_client_;
-  std::int32_t offset_seconds_;
+  const std::chrono::minutes kSyncInterval_{5};
+
+  mutable std::mutex sync_mutex_;
+  const NtpServers servers_;
+
+  std::atomic<std::int32_t> offset_seconds_;
+  std::atomic<bool> was_synchronized_;
+  std::chrono::steady_clock::time_point last_sync_time_;
 };
 
 }  // namespace fptn::time

@@ -25,6 +25,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include "common/system/command.h"
 
+#include "fptn-protocol-lib/time/time_provider.h"
 #include "gui/autoupdate/autoupdate.h"
 #include "gui/style/style.h"
 #include "gui/translations/translations.h"
@@ -603,6 +604,9 @@ bool TrayApp::startVpn(QString& err_msg) {
   SPDLOG_DEBUG("Handling connecting state");
 
   const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+  // Synchronize VPN client time with NTP servers
+  fptn::time::TimeProvider::Instance()->SyncWithNtp();
 
   const pcpp::IPv4Address tun_interface_address_ipv4(
       FPTN_CLIENT_DEFAULT_ADDRESS_IP4);

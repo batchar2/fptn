@@ -7,48 +7,77 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "fptn-protocol-lib/time/time_provider.h"
 
 #include <string>
+#include <utility>
 
+#include <ntp_client.hpp>
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
 namespace fptn::time {
 
-TimeProvider::TimeProvider(const std::string& ntp_host, uint16_t ntp_port)
-    : ntp_client_(ntp_host, ntp_port), offset_seconds_(0) {
-  for (int i = 0; i < 5; i++) {  // make some attempts
-    if (SyncWithNtp()) {
-      break;
+TimeProvider::TimeProvider(NtpServers servers)
+    : servers_(std::move(servers)),
+      offset_seconds_(0),
+      was_synchronized_(false) {
+  SyncWithNtp();
+}
+
+std::int32_t TimeProvider::OffsetSeconds() const {
+  return offset_seconds_.load();
+}
+
+std::uint32_t TimeProvider::NowTimestamp() {
+  {
+    // First check with lock
+    std::unique_lock<std::mutex> lock(sync_mutex_);
+
+    const auto now = std::chrono::steady_clock::now();
+    if (!was_synchronized_ || now - last_sync_time_ > kSyncInterval_) {
+      // Mark that sync is needed (prevent other threads from trying)
+      was_synchronized_ = false;
+      lock.unlock();
+      // Do the actual sync
+      // cppcheck-suppress unmatchedSuppression
+      if (!was_synchronized_) {  // check again
+        SyncWithNtp();
+      }
     }
   }
+  const std::lock_guard<std::mutex> lock(sync_mutex_);
+  return static_cast<std::uint32_t>(std::time(nullptr) + offset_seconds_);
 }
 
-std::int32_t TimeProvider::OffsetSeconds() const { return offset_seconds_; }
+bool TimeProvider::SyncWithNtp() {
+  const std::lock_guard<std::mutex> lock(sync_mutex_);  // mutex
 
-std::uint32_t TimeProvider::NowTimestamp() const {
-  const auto timestamp = static_cast<std::int64_t>(std::time(nullptr));
-  return static_cast<std::uint32_t>(timestamp + offset_seconds_);
-}
-
-std::uint64_t TimeProvider::SyncWithNtp() {
-  const auto epoch_server_ms = ntp_client_.request_time();
-
-  if (epoch_server_ms) {
-    const auto server_timestamp =
-        static_cast<std::uint64_t>(epoch_server_ms / 1000);
-    const auto client_timestamp = static_cast<std::int64_t>(std::time(nullptr));
-    offset_seconds_ =
-        static_cast<std::int32_t>(server_timestamp - client_timestamp);
-    SPDLOG_INFO(
-        "Successfully synchronized with NTP server. "
-        "Server timestamp: {}, "
-        "local timestamp: {}, "
-        "calculated offset: {} seconds",
-        server_timestamp, client_timestamp, offset_seconds_);
-  } else {
-    SPDLOG_ERROR(
-        "Failed to get time from NTP server. "
-        "Using local system time without synchronization");
+  for (const auto& [server, port] : servers_) {
+    try {
+      NTPClient ntp_client(server, port);
+      const auto epoch_server_ms = ntp_client.request_time();
+      if (epoch_server_ms) {
+        const auto server_timestamp =
+            static_cast<std::uint64_t>(epoch_server_ms / 1000);
+        const auto client_timestamp =
+            static_cast<std::int64_t>(std::time(nullptr));
+        offset_seconds_ =
+            static_cast<std::int32_t>(server_timestamp - client_timestamp);
+        last_sync_time_ = std::chrono::steady_clock::now();
+        was_synchronized_ = true;
+        SPDLOG_INFO(
+            "Successfully synchronized with NTP server '{}'. "
+            "Server timestamp: {}, "
+            "local timestamp: {}, "
+            "calculated offset: {} seconds",
+            server, server_timestamp, client_timestamp, offset_seconds_.load());
+        return true;
+      }
+    } catch (...) {
+      SPDLOG_WARN("Unknown error during NTP request to {}:{}", server, port);
+    }
   }
-  return epoch_server_ms;
+  SPDLOG_ERROR(
+      "Failed to get time from NTP server. "
+      "Using local system time without synchronization");
+  return false;
 }
 
 }  // namespace fptn::time

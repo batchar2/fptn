@@ -22,6 +22,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "common/network/net_interface.h"
 
 #include "config/config_file.h"
+#include "fptn-protocol-lib/time/time_provider.h"
 #include "http/client.h"
 #include "routing/iptables.h"
 #include "vpn/vpn_client.h"
@@ -87,6 +88,9 @@ int main(int argc, char* argv[]) {
                 << std::endl;
       return EXIT_FAILURE;
     }
+
+    // Synchronize VPN client time with NTP servers
+    fptn::time::TimeProvider::Instance()->SyncWithNtp();
 
     /* parse cmd args */
     const auto out_network_interface_name =
