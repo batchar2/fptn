@@ -29,6 +29,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "common/network/utils.h"
 
 #include "fptn-protocol-lib/protobuf/protocol.h"
+#include "fptn-protocol-lib/time/time_provider.h"
 #include "fptn-protocol-lib/tls/tls.h"
 
 namespace {
@@ -567,18 +568,27 @@ boost::asio::awaitable<bool> Session::HandleHttp(
         client_id_, method, url);
     co_return false;
   }
-  SPDLOG_INFO("HTTP request (client_id={}): {} {}", client_id_, method, url);
 
-  // default content types
+  if (url.find("metrics") == std::string::npos) {  // NOLINT
+    SPDLOG_INFO("HTTP request (client_id={}): {} {}", client_id_, method, url);
+  } else {
+    SPDLOG_INFO("HTTP request (client_id={}): {} {}", client_id_, method,
+        "/api/v1/metrics/<hidden>");
+  }
+
+  const auto server_info = fmt::format("fptn/{}", FPTN_VERSION);
+  const auto http_date = fptn::time::TimeProvider::Instance()->Rfc7231Date();
+
+  // set content types
   boost::beast::http::response<boost::beast::http::string_body> resp;
-  resp.set(boost::beast::http::field::pragma, "no-cache");
-  resp.set(boost::beast::http::field::server, "nginx/1.24.0");
-  resp.set(boost::beast::http::field::connection, "keep-alive");
-  resp.set(boost::beast::http::field::content_type, "text/html; charset=utf-8");
+  resp.set(boost::beast::http::field::server, server_info);
+  resp.set(boost::beast::http::field::content_type,
+      "application/json; charset=utf-8");
   resp.set(boost::beast::http::field::cache_control,
-      "no-cache, no-store, must-revalidate");
-  resp.set(boost::beast::http::field::expires, "Fri, 07 Jun 1974 04:00:00 GMT");
-  resp.set("x_bitrix_composite", "Cache (200)");
+      "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0");
+  resp.set(boost::beast::http::field::pragma, "no-cache");
+  resp.set(boost::beast::http::field::expires, "0");
+  resp.set(boost::beast::http::field::date, http_date);
 
   const ApiHandle handler = GetApiHandle(api_handles_, url, method);
   if (handler) {
