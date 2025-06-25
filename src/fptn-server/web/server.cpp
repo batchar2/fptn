@@ -277,7 +277,7 @@ bool Server::HandleWsOpenConnection(fptn::ClientID client_id,
             username, client_vpn_ipv4, client_vpn_ipv6, shaper_to_client,
             shaper_from_client);
         SPDLOG_INFO(
-            "NEW SESSION! Username={} ClientId={} Bandwidth={} ClientIP={} "
+            "NEW SESSION! Username={} client_id={} Bandwidth={} ClientIP={} "
             "VirtualIPv4={} VirtualIPv6={}",
             username, client_id, bandwidth_bites_seconds, client_ip.toString(),
             nat_session->FakeClientIPv4().toString(),
