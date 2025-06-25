@@ -775,9 +775,7 @@ boost::asio::awaitable<bool> Session::Send(
     if (running_ && write_channel_.is_open()) {
       const bool status = write_channel_.try_send(
           boost::system::error_code(), std::move(packet));
-      if (status) {
-        full_queue_ = false;
-      } else if (!full_queue_) {
+      if (!status && !full_queue_) {
         // Log a warning only once when the queue first becomes full
         full_queue_ = true;
         SPDLOG_WARN("Session::send queue is full (client_id={})", client_id_);
