@@ -19,6 +19,28 @@ TimeProvider::TimeProvider(NtpServers servers)
   SyncWithNtp();
 }
 
+std::string TimeProvider::Rfc7231Date() {
+  const std::uint32_t timestamp = NowTimestamp();
+  const auto now = static_cast<std::time_t>(timestamp);
+  char buf[128] = {0};
+#ifdef _WIN32
+  std::tm tm{};
+  if (gmtime_s(&tm, &now) == 0) {
+    if (std::strftime(buf, sizeof(buf), "%a, %d %b %Y %H:%M:%S GMT", &tm)) {
+      return std::string(buf);
+    }
+  }
+#else
+  std::tm tm{};
+  if (gmtime_r(&now, &tm)) {
+    if (std::strftime(buf, sizeof(buf), "%a, %d %b %Y %H:%M:%S GMT", &tm)) {
+      return std::string(buf);
+    }
+  }
+#endif
+  return {};
+}
+
 std::int32_t TimeProvider::OffsetSeconds() const {
   return offset_seconds_.load();
 }

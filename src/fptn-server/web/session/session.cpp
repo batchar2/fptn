@@ -29,6 +29,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "common/network/utils.h"
 
 #include "fptn-protocol-lib/protobuf/protocol.h"
+#include "fptn-protocol-lib/time/time_provider.h"
 #include "fptn-protocol-lib/tls/tls.h"
 
 namespace {
@@ -38,7 +39,7 @@ std::vector<std::string> GetServerIpAddresses() {
   static std::mutex ip_mutex;
   static std::vector<std::string> server_ips;
 
-  std::lock_guard<std::mutex> lock(ip_mutex);  // mutex
+  const std::lock_guard<std::mutex> lock(ip_mutex);  // mutex
 
   if (server_ips.empty()) {
     server_ips = fptn::common::network::GetServerIpAddresses();
@@ -72,11 +73,7 @@ Session::Session(std::uint16_t port,
       ws_session_was_opened_(false),
       full_queue_(false) {
   try {
-    {
-      const std::unique_lock<std::mutex> lock(mutex_);  // mutex
-
-      client_id_ = ++client_id_counter;
-    }
+    client_id_ = ++client_id_counter;  // atomic operation
 
     boost::beast::get_lowest_layer(ws_).socket().set_option(
         boost::asio::ip::tcp::no_delay(true));  // turn off the Nagle algorithm.
@@ -99,8 +96,11 @@ Session::Session(std::uint16_t port,
     SPDLOG_ERROR("Session::init failed (client_id={}): {} [{}]", client_id_,
         err.what(), err.code().message());
   } catch (const std::exception& e) {
+    SPDLOG_ERROR("Session::init unexpected exception (client_id={}): {}",
+        client_id_, e.what());
+  } catch (...) {
     SPDLOG_ERROR(
-        "Session::init exception (client_id={}): {}", client_id_, e.what());
+        "Session::init unknown fatal error (client_id={})", client_id_);
   }
 }
 
@@ -433,8 +433,8 @@ boost::asio::awaitable<void> Session::RunReader() {
   boost::beast::flat_buffer buffer;
 
   auto token = boost::asio::redirect_error(boost::asio::use_awaitable, ec);
-  while (running_) {
-    try {
+  try {
+    while (running_) {
       // read
       co_await ws_.async_read(buffer, token);
       if (ec) {
@@ -445,36 +445,35 @@ boost::asio::awaitable<void> Session::RunReader() {
         std::string raw_data = boost::beast::buffers_to_string(buffer.data());
         std::string raw_ip =
             fptn::protocol::protobuf::GetProtoPayload(std::move(raw_data));
-        auto packet = fptn::common::network::IPPacket::Parse(
-            std::move(raw_ip), client_id_);
-        if (packet != nullptr && ws_new_ippacket_callback_) {
-          ws_new_ippacket_callback_(std::move(packet));
+        if (!raw_ip.empty()) {
+          auto packet = fptn::common::network::IPPacket::Parse(
+              std::move(raw_ip), client_id_);
+          if (packet != nullptr && ws_new_ippacket_callback_) {
+            ws_new_ippacket_callback_(std::move(packet));
+          }
         }
         buffer.consume(buffer.size());  // flush
       }
-    } catch (const fptn::protocol::protobuf::ProcessingError& err) {
-      SPDLOG_ERROR(
-          "Session::runReader failed to process message (client_id={}): {}",
-          client_id_, err.what());
-    } catch (const fptn::protocol::protobuf::MessageError& err) {
-      SPDLOG_ERROR(
-          "Session::runReader received invalid message (client_id={}): {}",
-          client_id_, err.what());
-    } catch (const fptn::protocol::protobuf::UnsupportedProtocolVersion& err) {
-      SPDLOG_ERROR(
-          "Session::runReader unsupported protocol version (client_id={}): {}",
-          client_id_, err.what());
-    } catch (const boost::system::system_error& err) {
-      SPDLOG_ERROR("Session::runReader system error (client_id={}): {} [{}]",
-          client_id_, err.what(), err.code().message());
-    } catch (const std::exception& e) {
-      SPDLOG_ERROR("Session::runReader unexpected exception (client_id={}): {}",
-          client_id_, e.what());
-    } catch (...) {
-      SPDLOG_ERROR(
-          "Session::runReader unknown fatal error (client_id={})", client_id_);
-      break;
     }
+  } catch (const fptn::protocol::protobuf::ProcessingError& err) {
+    SPDLOG_ERROR(
+        "RunReader: failed to process protobuf payload (client_id={}): {}",
+        client_id_, err.what());
+  } catch (const fptn::protocol::protobuf::MessageError& err) {
+    SPDLOG_ERROR(
+        "RunReader: received invalid protobuf message (client_id={}): {}",
+        client_id_, err.what());
+  } catch (const fptn::protocol::protobuf::UnsupportedProtocolVersion& err) {
+    SPDLOG_ERROR("RunReader: unsupported protocol version (client_id={}): {}",
+        client_id_, err.what());
+  } catch (const boost::system::system_error& err) {
+    SPDLOG_ERROR("RunReader: Boost system error (client_id={}): {} [code={}]",
+        client_id_, err.what(), err.code().value());
+  } catch (const std::exception& e) {
+    SPDLOG_ERROR("RunReader: unexpected exception (client_id={}): {}",
+        client_id_, e.what());
+  } catch (...) {
+    SPDLOG_ERROR("RunReader: unknown fatal error (client_id={})", client_id_);
   }
   Close();
   co_return;
@@ -489,27 +488,37 @@ boost::asio::awaitable<void> Session::RunSender() {
   std::string msg;
   msg.reserve(4096);
 
-  while (running_ && ws_.is_open()) {
-    // read
-    auto packet = co_await write_channel_.async_receive(token);
-    if (!running_ || !write_channel_.is_open() || ec) {
-      break;
-    }
-    if (packet != nullptr) {
-      // send
-      msg = fptn::protocol::protobuf::CreateProtoPayload(std::move(packet));
-      if (!msg.empty()) {
-        co_await ws_.async_write(
-            boost::asio::buffer(msg.data(), msg.size()), token);
-        if (ec) {
-          SPDLOG_ERROR(
-              "Session::runSender async_write failed (client_id={}): {} [{}]",
-              client_id_, ec.message(), ec.value());
-          break;
+  try {
+    while (running_ && ws_.is_open()) {
+      // read
+      auto packet = co_await write_channel_.async_receive(token);
+      if (!running_ || !write_channel_.is_open() || ec) {
+        break;
+      }
+      if (packet != nullptr) {
+        // send
+        msg = fptn::protocol::protobuf::CreateProtoPayload(std::move(packet));
+        if (!msg.empty()) {
+          co_await ws_.async_write(
+              boost::asio::buffer(msg.data(), msg.size()), token);
+          if (ec) {
+            SPDLOG_ERROR(
+                "RunSender: failed to send packet (client_id={}): {} [code={}]",
+                client_id_, ec.message(), ec.value());
+            break;
+          }
+          msg.clear();
         }
-        msg.clear();
       }
     }
+  } catch (const boost::system::system_error& err) {
+    SPDLOG_ERROR("RunSender: Boost system error (client_id={}): {} [code={}]",
+        client_id_, err.what(), err.code().value());
+  } catch (const std::exception& e) {
+    SPDLOG_ERROR("RunSender: unhandled exception (client_id={}): {}",
+        client_id_, e.what());
+  } catch (...) {
+    SPDLOG_ERROR("RunSender: unknown fatal error (client_id={})", client_id_);
   }
   Close();
   co_return;
@@ -559,18 +568,27 @@ boost::asio::awaitable<bool> Session::HandleHttp(
         client_id_, method, url);
     co_return false;
   }
-  SPDLOG_INFO("HTTP request (client_id={}): {} {}", client_id_, method, url);
 
-  // default content types
+  if (url.find("metrics") == std::string::npos) {  // NOLINT
+    SPDLOG_INFO("HTTP request (client_id={}): {} {}", client_id_, method, url);
+  } else {
+    SPDLOG_INFO("HTTP request (client_id={}): {} {}", client_id_, method,
+        "/api/v1/metrics/<hidden>");
+  }
+
+  const auto server_info = fmt::format("fptn/{}", FPTN_VERSION);
+  const auto http_date = fptn::time::TimeProvider::Instance()->Rfc7231Date();
+
+  // set content types
   boost::beast::http::response<boost::beast::http::string_body> resp;
-  resp.set(boost::beast::http::field::pragma, "no-cache");
-  resp.set(boost::beast::http::field::server, "nginx/1.24.0");
-  resp.set(boost::beast::http::field::connection, "keep-alive");
-  resp.set(boost::beast::http::field::content_type, "text/html; charset=utf-8");
+  resp.set(boost::beast::http::field::server, server_info);
+  resp.set(boost::beast::http::field::content_type,
+      "application/json; charset=utf-8");
   resp.set(boost::beast::http::field::cache_control,
-      "no-cache, no-store, must-revalidate");
-  resp.set(boost::beast::http::field::expires, "Fri, 07 Jun 1974 04:00:00 GMT");
-  resp.set("x_bitrix_composite", "Cache (200)");
+      "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0");
+  resp.set(boost::beast::http::field::pragma, "no-cache");
+  resp.set(boost::beast::http::field::expires, "0");
+  resp.set(boost::beast::http::field::date, http_date);
 
   const ApiHandle handler = GetApiHandle(api_handles_, url, method);
   if (handler) {
@@ -590,8 +608,11 @@ boost::asio::awaitable<bool> Session::HandleHttp(
     co_await boost::beast::http::async_write(
         ws_.next_layer(), *res_ptr, boost::asio::use_awaitable);
   } catch (const boost::beast::system_error& e) {
-    SPDLOG_ERROR("Failed to write HTTP response (client_id={}): {}", client_id_,
-        e.what());
+    SPDLOG_ERROR("Session::HandleHttp write error (client_id={}): {}",
+        client_id_, e.what());
+  } catch (...) {
+    SPDLOG_ERROR(
+        "Session::HandleHttp write unknown error (client_id={})", client_id_);
   }
   co_return false;
 }
@@ -631,7 +652,15 @@ boost::asio::awaitable<bool> Session::HandleWebSocket(
       ws_session_was_opened_ = true;
       co_return status;
     } catch (const std::exception& ex) {
-      SPDLOG_ERROR("Session error (client_id={}): {}", client_id_, ex.what());
+      SPDLOG_ERROR(
+          "Session::Open (client_id={}): Exception caught while creating IP "
+          "addresses or running callback: {}",
+          client_id_, ex.what());
+    } catch (...) {
+      SPDLOG_ERROR(
+          "Session::Open (client_id={}): Unknown fatal error caught while "
+          "creating IP addresses or running callback",
+          client_id_);
     }
   }
   co_return false;
@@ -642,7 +671,7 @@ void Session::Close() {
     return;
   }
 
-  std::unique_lock<std::mutex> lock(mutex_);  // mutex
+  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
   // cppcheck-suppress identicalConditionAfterEarlyExit
   if (!running_) {  // Double-check after acquiring lock
@@ -653,8 +682,16 @@ void Session::Close() {
   boost::system::error_code ec;
 
   // Cancel ongoing operations
-  cancel_signal_.emit(boost::asio::cancellation_type::all);
-  write_channel_.close();
+  try {
+    cancel_signal_.emit(boost::asio::cancellation_type::all);
+    write_channel_.close();
+  } catch (const std::exception& err) {
+    SPDLOG_ERROR(
+        "Failed to cancel session or close write_channel: {}", err.what());
+  } catch (...) {
+    SPDLOG_ERROR(
+        "Session::shutdown unknown fatal error (client_id={})", client_id_);
+  }
 
   // Close WebSocket
   if (ws_.is_open()) {
@@ -662,8 +699,15 @@ void Session::Close() {
       boost::beast::get_lowest_layer(ws_).expires_after(
           std::chrono::microseconds(1));
     } catch (const std::exception& err) {
-      SPDLOG_ERROR("Session::close error (client_id={}) expires_after: {}",
+      SPDLOG_ERROR(
+          "Session::Close (client_id={}): Failed to set socket timeout using "
+          "expires_after: {}",
           client_id_, err.what());
+    } catch (...) {
+      SPDLOG_ERROR(
+          "Session::Close (client_id={}): Unknown error occurred while setting "
+          "socket timeout with expires_after",
+          client_id_);
     }
   }
 
@@ -673,18 +717,33 @@ void Session::Close() {
           [](const boost::system::error_code&) {});
     }
   } catch (const std::exception& err) {
-    SPDLOG_ERROR("Session::close error (client_id={}) async_close: {}",
+    SPDLOG_ERROR(
+        "Session::Close (client_id={}): Exception during async_close: {}",
         client_id_, err.what());
+  } catch (...) {
+    SPDLOG_ERROR(
+        "Session::Close (client_id={}): Unknown error during async_close",
+        client_id_);
   }
 
   // Close SSL
   auto& ssl = ws_.next_layer();
   if (ssl.native_handle()) {
-    // More robust SSL shutdown
-    ::SSL_set_quiet_shutdown(ssl.native_handle(), 1);
-    ::SSL_shutdown(ssl.native_handle());
-    ssl.shutdown(ec);
-    ssl.lowest_layer().close(ec);
+    try {
+      // More robust SSL shutdown
+      ::SSL_set_quiet_shutdown(ssl.native_handle(), 1);
+      ::SSL_shutdown(ssl.native_handle());
+      ssl.shutdown(ec);
+      ssl.lowest_layer().close(ec);
+    } catch (const std::exception& err) {
+      SPDLOG_ERROR(
+          "Session::Close (client_id={}): Exception during SSL_shutdown: {}",
+          client_id_, err.what());
+    } catch (...) {
+      SPDLOG_ERROR(
+          "Session::Close (client_id={}): Unknown error during SSL_shutdown",
+          client_id_);
+    }
   }
 
   // Close TCP
@@ -698,8 +757,13 @@ void Session::Close() {
   if (ws_close_callback_ && ws_session_was_opened_) {
     try {
       ws_close_callback_(client_id_);
+    } catch (const std::exception& e) {
+      SPDLOG_ERROR(
+          "WebSocket close callback threw exception (client_id={}): {}",
+          client_id_, e.what());
     } catch (...) {
-      SPDLOG_ERROR("WebSocket close callback threw exception (client_id={})",
+      SPDLOG_ERROR(
+          "WebSocket close callback threw unknown exception (client_id={})",
           client_id_);
     }
   }
@@ -711,18 +775,22 @@ boost::asio::awaitable<bool> Session::Send(
     if (running_ && write_channel_.is_open()) {
       const bool status = write_channel_.try_send(
           boost::system::error_code(), std::move(packet));
-      if (status) {
-        full_queue_ = false;
-      } else if (!full_queue_) {
+      if (!status && !full_queue_) {
         // Log a warning only once when the queue first becomes full
         full_queue_ = true;
         SPDLOG_WARN("Session::send queue is full (client_id={})", client_id_);
       }
     }
-  } catch (boost::system::system_error& err) {
+    co_return true;
+  } catch (const boost::system::system_error& err) {
     SPDLOG_ERROR(
-        "Session::send failed (client_id={}): {}", client_id_, err.what());
-    co_return false;
+        "Session::Send failed (client_id={}): {}", client_id_, err.what());
+  } catch (const std::exception& ex) {
+    SPDLOG_ERROR("Session::Send unexpected exception (client_id={}): {}",
+        client_id_, ex.what());
+  } catch (...) {
+    SPDLOG_ERROR(
+        "Session::Send unknown fatal error (client_id={})", client_id_);
   }
-  co_return true;
+  co_return false;
 }

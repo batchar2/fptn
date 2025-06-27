@@ -26,6 +26,7 @@ class TimeProvider final {
     return &provider;
   }
 
+  std::string Rfc7231Date();
   std::int32_t OffsetSeconds() const;
   std::uint32_t NowTimestamp();
   bool SyncWithNtp();

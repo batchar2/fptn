@@ -91,12 +91,10 @@ bool Server::Start() {
         [this]() -> boost::asio::awaitable<void> { co_await listener_->Run(); },
         boost::asio::detached);
     // run senders
-    for (std::size_t i = 0; i < 1; i++) {
-      boost::asio::co_spawn(
-          ioc_,
-          [this]() -> boost::asio::awaitable<void> { co_await RunSender(); },
-          boost::asio::detached);
-    }
+    boost::asio::co_spawn(
+        ioc_,
+        [this]() -> boost::asio::awaitable<void> { co_await RunSender(); },
+        boost::asio::detached);
     // run threads
     ioc_threads_.reserve(thread_number_);
     for (std::size_t i = 0; i < thread_number_; ++i) {
@@ -126,7 +124,6 @@ boost::asio::awaitable<void> Server::RunSender() {
           session = it->second;
         }
       }
-
       if (session) {
         const bool status = co_await session->Send(std::move(*optpacket));
         if (!status) {
@@ -280,7 +277,7 @@ bool Server::HandleWsOpenConnection(fptn::ClientID client_id,
             username, client_vpn_ipv4, client_vpn_ipv6, shaper_to_client,
             shaper_from_client);
         SPDLOG_INFO(
-            "NEW SESSION! Username={} ClientId={} Bandwidth={} ClientIP={} "
+            "NEW SESSION! Username={} client_id={} Bandwidth={} ClientIP={} "
             "VirtualIPv4={} VirtualIPv6={}",
             username, client_id, bandwidth_bites_seconds, client_ip.toString(),
             nat_session->FakeClientIPv4().toString(),
