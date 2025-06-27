@@ -66,7 +66,7 @@ bool TimeProvider::SyncWithNtp() {
 bool TimeProvider::Refresh() {
   for (const auto& [server, port] : servers_) {
     try {
-      NTPClient ntp_client(server, port);
+      ntp::NTPClient ntp_client(server, port);
       const auto epoch_server_ms = ntp_client.request_time();
       if (epoch_server_ms) {
         const auto server_timestamp =
