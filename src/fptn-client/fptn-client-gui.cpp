@@ -8,6 +8,11 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <unistd.h>
 #endif
 
+#ifdef __APPLE__
+#include <Security/Authorization.h>      // NOLINT(build/include_order)
+#include <Security/AuthorizationTags.h>  // NOLINT(build/include_order)
+#endif
+
 #include <iostream>
 #include <memory>
 
@@ -32,11 +37,40 @@ BOOL WINAPI signalHandler(DWORD ctrlType) {
 #else
 #error "Unsupported platform"
 #endif
+
+#ifdef __APPLE__
+
+bool RequestAdminAccess() {
+  AuthorizationRef auth_ref;
+  OSStatus status = AuthorizationCreate(nullptr, kAuthorizationEmptyEnvironment,
+      kAuthorizationFlagDefaults, &auth_ref);
+  if (status != errAuthorizationSuccess) {
+    return false;
+  }
+
+  AuthorizationItem right = {kAuthorizationRightExecute, 0, nullptr, 0};
+  AuthorizationRights rights = {1, &right};
+  AuthorizationFlags flags =
+      kAuthorizationFlagDefaults | kAuthorizationFlagInteractionAllowed |
+      kAuthorizationFlagPreAuthorize | kAuthorizationFlagExtendRights;
+
+  status = AuthorizationCopyRights(auth_ref, &rights, nullptr, flags, nullptr);
+  AuthorizationFree(auth_ref, kAuthorizationFlagDefaults);
+
+  return status == errAuthorizationSuccess;
+}
+
+#endif
 }  // namespace
 
 int main(int argc, char* argv[]) {
-#if defined(__linux__) || defined(__APPLE__)
+#if defined(__linux__)
   if (geteuid() != 0) {
+    std::cerr << "You must be root to run this program." << std::endl;
+    return EXIT_FAILURE;
+  }
+#elif defined(__APPLE__)
+  if (!RequestAdminAccess()) {
     std::cerr << "You must be root to run this program." << std::endl;
     return EXIT_FAILURE;
   }

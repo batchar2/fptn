@@ -142,7 +142,8 @@ WarningsAsErrors: ''
             Qt6::Concurrent
             fptn-protocol-lib_static
             httplib::httplib
-            ${TUNTAP_LIB})
+            "${TUNTAP_LIB}"
+            "${PLATFORM_SPECIFIC_LIBS}")
 
   set_target_properties("${PROJECT_NAME}-gui" PROPERTIES AUTOMOC ON)
 endif()
