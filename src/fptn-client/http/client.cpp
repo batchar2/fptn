@@ -70,7 +70,8 @@ bool Client::Login(const std::string& username, const std::string& password) {
 }
 
 std::pair<pcpp::IPv4Address, pcpp::IPv6Address> Client::GetDns() {
-  SPDLOG_INFO("DNS. Connect to {}:{}", server_ip_.toString(), server_port_);
+  SPDLOG_INFO("Obtained DNS server address. Connecting to {}:{}",
+      server_ip_.toString(), server_port_);
 
   HttpsClient cli(server_ip_.toString(), server_port_, sni_, md5_fingerprint_);
   const auto resp = cli.Get("/api/v1/dns");
@@ -191,7 +192,7 @@ bool Client::Stop() {
     return false;
   }
 
-  std::unique_lock<std::mutex> lock(mutex_);  // mutex
+  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
   // cppcheck-suppress identicalConditionAfterEarlyExit
   if (!running_) {  // Double-check after acquiring lock

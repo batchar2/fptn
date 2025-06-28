@@ -42,13 +42,13 @@ WebsocketClient::WebsocketClient(pcpp::IPv4Address server_ip,
       access_token_(std::move(access_token)),
       expected_md5_fingerprint_(std::move(expected_md5_fingerprint)),
       on_connected_callback_(std::move(on_connected_callback)) {
-  fptn::protocol::tls::SetHandshakeSni(ws_.next_layer().native_handle(), sni_);
-  fptn::protocol::tls::SetHandshakeSessionID(ws_.next_layer().native_handle());
-
+  auto* ssl = ws_.next_layer().native_handle();
+  fptn::protocol::tls::SetHandshakeSni(ssl, sni_);
+  fptn::protocol::tls::SetHandshakeSessionID(ssl);
   // Validate the server certificate
   ssl_ = ws_.next_layer().native_handle();
   fptn::protocol::tls::AttachCertificateVerificationCallback(
-      ssl_, [this](const std::string& md5_fingerprint) {
+      ssl_, [this](const std::string& md5_fingerprint) mutable {
         if (md5_fingerprint == expected_md5_fingerprint_) {
           SPDLOG_INFO("Certificate verified successfully (MD5 matched: {}).",
               md5_fingerprint);
@@ -76,18 +76,67 @@ void WebsocketClient::Run() {
     SPDLOG_INFO("Connection: {}:{}", server_ip_.toString(), server_port_str_);
 
     auto self = shared_from_this();
+
+    const auto timeout = std::chrono::seconds(2);
+    auto resolve_timeout = std::make_shared<boost::asio::steady_timer>(ioc_);
+    resolve_timeout->expires_after(timeout);
+
+    resolve_timeout->async_wait(
+        [self, timeout](const boost::system::error_code& ec) mutable {
+          if (ec) {
+            // Timer was cancelled - this is normal operation when resolve
+            // completes
+            if (ec != boost::asio::error::operation_aborted) {
+              SPDLOG_WARN("Unexpected timer error: {}", ec.message());
+            } else {
+              SPDLOG_INFO("Resolution timer cancelled (normal operation)");
+            }
+          } else {
+            // Timeout triggered - resolution took too long
+            SPDLOG_ERROR("DNS resolution failed to complete within {} seconds",
+                timeout.count());
+            try {
+              self->resolver_.cancel();
+              SPDLOG_DEBUG("DNS resolution cancelled due to timeout");
+            } catch (const std::exception& e) {
+              SPDLOG_ERROR("Failed to cancel resolver: {}", e.what());
+            }
+            self->Stop();
+          }
+        });
+
+    // Resolve operations
     resolver_.async_resolve(server_ip_.toString(), server_port_str_,
-        [self](boost::beast::error_code ec,
+        [self, resolve_timeout](boost::beast::error_code ec,
             boost::asio::ip::tcp::resolver::results_type results) mutable {
+          try {
+            resolve_timeout->cancel();
+          } catch (const std::exception& e) {
+            SPDLOG_WARN("Failed to cancel resolver timer: {}", e.what());
+          } catch (...) {
+            SPDLOG_WARN("Unknown exception while cancelling resolve timer");
+          }
+
           if (ec) {
             SPDLOG_ERROR("Resolve error: {}", ec.message());
-          } else {
+            self->Stop();
+            return;
+          }
+
+          try {
+            SPDLOG_DEBUG("DNS resolution successful, proceeding to connection");
             self->onResolve(ec, std::move(results));
+          } catch (const std::exception& e) {
+            SPDLOG_ERROR("Exception in onResolve: {}", e.what());
+            self->Stop();
+          } catch (...) {
+            SPDLOG_ERROR("Unknown critical error in onResolve");
+            self->Stop();
           }
         });
     ioc_.run();
   } catch (const boost::system::system_error& err) {
-    SPDLOG_ERROR("Error run ws_: {}", err.what());
+    SPDLOG_ERROR("Error run ws: {}", err.what());
   } catch (...) {
     SPDLOG_ERROR("Undefined ws error");
   }
