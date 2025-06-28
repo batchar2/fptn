@@ -30,13 +30,34 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "gui/style/style.h"
 #include "gui/translations/translations.h"
 
+#ifdef _WIN32
+#include "gui/utils/windows/vpn_conflict.h"
+#endif
+
 using fptn::gui::TrayApp;
 
 namespace {
-void showError(const QString& title, const QString& msg) {
-  QWidget temp_widget;
-  QMessageBox::critical(&temp_widget, title, msg);
+
+void ShowError(const QString& title, const QString& msg) {
+  QMessageBox msgBox;
+  msgBox.setWindowIcon(QIcon(":/icons/app.ico"));
+  msgBox.setIcon(QMessageBox::Critical);
+  msgBox.setWindowTitle(title);
+  msgBox.setText(msg);
+  msgBox.exec();
 }
+
+#ifdef _WIN32
+void ShowWarning(const QString& title, const QString& msg) {
+  QMessageBox msgBox;
+  msgBox.setWindowIcon(QIcon(":/icons/app.ico"));
+  msgBox.setIcon(QMessageBox::Warning);
+  msgBox.setWindowTitle(title);
+  msgBox.setText(msg);
+  msgBox.exec();
+}
+#endif
+
 }  // namespace
 
 TrayApp::TrayApp(const SettingsModelPtr& settings, QObject* parent)
@@ -160,9 +181,24 @@ TrayApp::TrayApp(const SettingsModelPtr& settings, QObject* parent)
     settings_->Load(false);  // use this to show notification about change
                              // structure v1 and v2 config
   } catch (std::runtime_error& err) {
-    showError(QObject::tr("Settings"), err.what());
+    ShowError(QObject::tr("Settings"), err.what());
   }
   UpdateTrayMenu();
+
+#ifdef _WIN32
+  std::string found_adapters;
+  if (fptn::utils::windows::HasVpnConflicts(found_adapters)) {
+    SPDLOG_WARN(
+        "Detected conflicting VPN network adapters: {}", found_adapters);
+    const QString message = QObject::tr(
+        "A conflicting VPN connection is currently active on your system: %1\n"
+        "This may cause network connectivity issues or prevent proper "
+        "operation of FPTN.")
+                                .arg(QString::fromStdString(found_adapters));
+
+    ShowWarning(QObject::tr("VPN Conflict Detected"), message);
+  }
+#endif
 }
 
 void TrayApp::UpdateTrayMenu() {
@@ -502,7 +538,7 @@ void TrayApp::handleTimer() {
 
   if (is_disconnected) {
     // show error
-    showError(QObject::tr("FPTN Connection Error"),
+    ShowError(QObject::tr("FPTN Connection Error"),
         QObject::tr("The VPN connection was unexpectedly closed."));
     emit disconnecting();
   }
@@ -762,7 +798,7 @@ void TrayApp::handleVpnStarted(bool success, const QString& err_msg) {
   if (success) {
     emit connected();
   } else {
-    showError(QObject::tr("FPTN Connection Error"), err_msg);
+    ShowError(QObject::tr("FPTN Connection Error"), err_msg);
 
     emit disconnecting();
   }

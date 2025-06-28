@@ -259,5 +259,18 @@
             <source>FPTN Connection Error</source>
             <translation>FPTN Сonnection Error</translation>
         </message>
+
+
+        <message>
+            <source>VPN Conflict Detected</source>
+            <translation>VPN Conflict Detected</translation>
+        </message>
+
+        <message>
+            <source>A conflicting VPN connection is currently active on your system: %1
+This may cause network connectivity issues or prevent proper operation of FPTN.</source>
+            <translation> A conflicting VPN connection is currently active on your system: %1
+This may cause network connectivity issues or prevent proper operation of FPTN.</translation>
+        </message>
     </context>
 </TS>
