@@ -140,7 +140,7 @@ bool IPTables::Apply() {
       fmt::format(
           R"(bash -c "networksetup -listallnetworkservices | grep -v '^An asterisk' | xargs -I {{}} networksetup -setdnsservers '{{}}' empty")",
           dns_server_ipv4_.toString()),  // clean DNS
-      fmt::format("sudo sysctl -w net.inet.ip.forwarding=1"),
+      fmt::format("sysctl -w net.inet.ip.forwarding=1"),
       fmt::format(
           R"(sh -c "echo 'nat on {findOutInterfaceName} from {tunInterfaceName}:network to any -> ({findOutInterfaceName})
                 pass out on {findOutInterfaceName} proto tcp from any to {vpnServerIP}
@@ -151,27 +151,27 @@ bool IPTables::Apply() {
           fmt::arg("findOutInterfaceName", detected_out_interface_name_),
           fmt::arg("tunInterfaceName", tun_interface_name_),
           fmt::arg("vpnServerIP", vpn_server_ip_.toString())),
-      fmt::format("sudo pfctl -ef /tmp/pf.conf"),
+      fmt::format("pfctl -ef /tmp/pf.conf"),
       // default & DNS route
       fmt::format(
-          "sudo route add -net 0.0.0.0/1 -interface {}", tun_interface_name_),
+          "route add -net 0.0.0.0/1 -interface {}", tun_interface_name_),
       fmt::format(
-          "sudo route add -net 128.0.0.0/1 -interface {}", tun_interface_name_),
-      fmt::format("sudo route add -host {} -interface {}",
+          "route add -net 128.0.0.0/1 -interface {}", tun_interface_name_),
+      fmt::format("route add -host {} -interface {}",
           dns_server_ipv4_.toString(), tun_interface_name_),  // via TUN
       // exclude vpn server & networks
-      fmt::format("sudo route add -host {} {}", vpn_server_ip_.toString(),
+      fmt::format("route add -host {} {}", vpn_server_ip_.toString(),
           detected_gateway_ip_.toString()),
       fmt::format(
-          "sudo route add -net 10.0.0.0/8 {}", detected_gateway_ip_.toString()),
-      fmt::format("sudo route add -net 172.16.0.0/12 {}",
+          "route add -net 10.0.0.0/8 {}", detected_gateway_ip_.toString()),
+      fmt::format("route add -net 172.16.0.0/12 {}",
           detected_gateway_ip_.toString()),
-      fmt::format("sudo route add -net 192.168.0.0/16 {}",
+      fmt::format("route add -net 192.168.0.0/16 {}",
           detected_gateway_ip_.toString()),
       // DNS
-      fmt::format("sudo dscacheutil -flushcache"),
+      fmt::format("dscacheutil -flushcache"),
       fmt::format(
-          R"(bash -c "sudo networksetup -listallnetworkservices | grep -v '^\* ' | xargs -I {{}} networksetup -setdnsservers '{{}}' {}")",
+          R"(bash -c "networksetup -listallnetworkservices | grep -v '^\* ' | xargs -I {{}} networksetup -setdnsservers '{{}}' {}")",
           dns_server_ipv4_.toString())};
 #elif _WIN32
   const std::string win_interface_number =

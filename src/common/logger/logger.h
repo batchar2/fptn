@@ -15,7 +15,11 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #ifdef __ANDROID__
 #include <spdlog/sinks/android_sink.h>  // NOLINT(build/include_order)
+#elif __APPLE__
+#include <pwd.h>     // NOLINT(build/include_order)
+#include <unistd.h>  // NOLINT(build/include_order)
 #endif
+
 #include <spdlog/sinks/rotating_file_sink.h>  // NOLINT(build/include_order)
 #include <spdlog/sinks/stdout_color_sinks.h>  // NOLINT(build/include_order)
 #include <spdlog/spdlog.h>                    // NOLINT(build/include_order)
@@ -28,8 +32,22 @@ inline bool init(const std::string& app_name) {
     auto logger = spdlog::android_logger_mt("android", app_name);
 #else
 
-#if defined(__linux__) || defined(__APPLE__)
+#if defined(__linux__)
     const std::filesystem::path log_dir = "/var/log/fptn/";
+#elif defined(__APPLE__)
+    const std::filesystem::path log_dir = []() {
+      if (const char* home = getenv("HOME")) {
+        return std::filesystem::path(home) / "Library/Logs/fptn";
+      }
+      struct passwd pwd = {};
+      struct passwd* result = nullptr;
+      char buffer[1024] = {};
+      if (getpwuid_r(getuid(), &pwd, buffer, sizeof(buffer), &result) != 0 ||
+          !result) {
+        throw std::runtime_error("Failed to get user home directory");
+      }
+      return std::filesystem::path(pwd.pw_dir) / "Library/Logs/fptn";
+    }();
 #elif _WIN32
     const std::filesystem::path log_dir = "./logs/";
 #endif
@@ -42,8 +60,7 @@ inline bool init(const std::string& app_name) {
       try {
         std::filesystem::create_directories(log_dir);
       } catch (const std::filesystem::filesystem_error& e) {
-        std::cerr << "Failed to create log directory: " << e.what()
-                  << std::endl;
+        std::cerr << "Failed to create log directory: " << e.what() << "\n";
         return false;
       }
     }
@@ -59,10 +76,10 @@ inline bool init(const std::string& app_name) {
     spdlog::set_level(spdlog::level::info);
     spdlog::set_pattern("[%Y-%m-%d %H:%M:%S] [%^%l%$] [%s:%#] %v");
 #ifdef __ANDROID__
-    spdlog::info("Logger inited");
+    SPDLOG_INFO("Logger inited");
 #else
-    spdlog::info("Logging to file: {}", log_file.string());
-    spdlog::info("FPTN version: {}", FPTN_VERSION);
+    SPDLOG_INFO("Logging to file: {}", log_file.string());
+    SPDLOG_INFO("FPTN version: {}", FPTN_VERSION);
 #endif
     return true;
   } catch (const spdlog::spdlog_ex& ex) {
@@ -70,8 +87,10 @@ inline bool init(const std::string& app_name) {
     __android_log_print(ANDROID_LOG_ERROR, "FPTN",
         "Logger initialization failed: %s", ex.what());
 #else
-    std::cerr << "Logger initialization failed: " << ex.what() << std::endl;
+    std::cerr << "Logger initialization failed: " << ex.what() << "\n";
 #endif
+  } catch (...) {
+    std::cerr << "Unhandled exception caught in logger\n";
   }
   return false;
 }

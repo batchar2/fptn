@@ -16,21 +16,21 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <boost/asio.hpp>
 #include <boost/process.hpp>
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
+
 #if _WIN32
 #include <boost/process/v1/windows.hpp>
 #endif
 
 namespace fptn::common::system::command {
+
 inline bool run(const std::string& command) {
   try {
 #ifdef _WIN32
     boost::process::child child(command, boost::process::std_out > stdout,
         boost::process::std_err > stderr, ::boost::process::windows::hide);
-#elif defined(__APPLE__) || defined(__linux__)
+#elif defined(__linux__) || defined(__APPLE__)
     boost::process::child child(command, boost::process::std_out > stdout,
         boost::process::std_err > stderr);
-#else
-#error "Unsupported platform"
 #endif
     child.wait();
     return child.exit_code() == 0;
@@ -50,11 +50,9 @@ inline bool run(
 #ifdef _WIN32
     boost::process::child child(command, boost::process::std_out > pipe,
         ::boost::process::windows::hide);
-#elif defined(__APPLE__) || defined(__linux__)
+#elif defined(__linux__) || defined(__APPLE__)
     boost::process::child child(boost::process::search_path("bash"), "-c",
         command, boost::process::std_out > pipe);
-#else
-#error "Unsupported platform"
 #endif
     std::string line;
     while (std::getline(pipe, line)) {
@@ -68,4 +66,5 @@ inline bool run(
   }
   return false;
 }
+
 }  // namespace fptn::common::system::command

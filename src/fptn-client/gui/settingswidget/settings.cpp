@@ -251,25 +251,10 @@ void SettingsWidget::onExit() {
 }
 
 void SettingsWidget::onLoadNewConfig() {
-#if __APPLE__  // show modal window only for mac
-  const QString file_path =
-      QFileDialog::getOpenFileName(this, QObject::tr("Open FPTN Service File"),
-          QDir::homePath(), "FPTN Files (*.fptn);;All files (*)", nullptr,
-          QFileDialog::DontUseNativeDialog);
-  QString token;
-  if (!file_path.isEmpty()) {
-    QFile file(file_path);
-    if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-      QTextStream in(&file);
-      token = in.readAll();
-      file.close();
-    }
-  }
-#else
   TokenDialog dialog(this);
   dialog.exec();
   const QString token = dialog.Token();
-#endif
+
   // show on top
   show();
   activateWindow();
