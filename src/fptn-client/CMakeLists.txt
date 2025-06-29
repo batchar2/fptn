@@ -87,6 +87,11 @@ WarningsAsErrors: ''
     set(QT_ADDITIONAL_PARAMS WIN32)
   endif()
 
+  set(PLATFORM_SPECIFIC_LIBS "")
+  if(APPLE)
+    set(PLATFORM_SPECIFIC_LIBS "-framework Security")
+  endif()
+
   # translations
   file(GLOB TRANSLATIONS gui/resources/translations/*.ts)
   set_source_files_properties(${TRANSLATIONS} PROPERTIES OUTPUT_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/gui/resources/translations/")
@@ -120,7 +125,8 @@ WarningsAsErrors: ''
     gui/style/style.cpp
     gui/autostart/autostart.h
     gui/autoupdate/autoupdate.h
-    gui/utils/windows/vpn_conflict.h
+    utils/windows/vpn_conflict.h
+    utils/macos/admin.h
     ${PROJECT_RESOURCES}
     ${TRANSLATIONS_OUT})
   target_link_libraries(
@@ -144,6 +150,5 @@ WarningsAsErrors: ''
             httplib::httplib
             "${TUNTAP_LIB}"
             "${PLATFORM_SPECIFIC_LIBS}")
-
   set_target_properties("${PROJECT_NAME}-gui" PROPERTIES AUTOMOC ON)
 endif()

@@ -8,11 +8,6 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <unistd.h>
 #endif
 
-#ifdef __APPLE__
-#include <Security/Authorization.h>      // NOLINT(build/include_order)
-#include <Security/AuthorizationTags.h>  // NOLINT(build/include_order)
-#endif
-
 #include <iostream>
 #include <memory>
 
@@ -23,11 +18,15 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include "gui/tray/tray.h"
 
+#if defined(__APPLE__)
+#include "utils/macos/admin.h"
+#endif
+
 namespace {
 #if defined(__linux__) || defined(__APPLE__)
-void signalHandler(int) { QApplication::quit(); }
+void SignalHandler(int) { QApplication::quit(); }
 #elif defined(_WIN32)
-BOOL WINAPI signalHandler(DWORD ctrlType) {
+BOOL WINAPI SignalHandler(DWORD ctrlType) {
   if (ctrlType == CTRL_C_EVENT || ctrlType == CTRL_BREAK_EVENT) {
     qApp->quit();
     return TRUE;
@@ -38,44 +37,21 @@ BOOL WINAPI signalHandler(DWORD ctrlType) {
 #error "Unsupported platform"
 #endif
 
-#ifdef __APPLE__
-
-bool RequestAdminAccess() {
-  AuthorizationRef auth_ref;
-  OSStatus status = AuthorizationCreate(nullptr, kAuthorizationEmptyEnvironment,
-      kAuthorizationFlagDefaults, &auth_ref);
-  if (status != errAuthorizationSuccess) {
-    return false;
-  }
-
-  AuthorizationItem right = {kAuthorizationRightExecute, 0, nullptr, 0};
-  AuthorizationRights rights = {1, &right};
-  AuthorizationFlags flags =
-      kAuthorizationFlagDefaults | kAuthorizationFlagInteractionAllowed |
-      kAuthorizationFlagPreAuthorize | kAuthorizationFlagExtendRights;
-
-  status = AuthorizationCopyRights(auth_ref, &rights, nullptr, flags, nullptr);
-  AuthorizationFree(auth_ref, kAuthorizationFlagDefaults);
-
-  return status == errAuthorizationSuccess;
-}
-
-#endif
 }  // namespace
 
 int main(int argc, char* argv[]) {
-#if defined(__linux__)
-  if (geteuid() != 0) {
-    std::cerr << "You must be root to run this program." << std::endl;
-    return EXIT_FAILURE;
-  }
-#elif defined(__APPLE__)
-  if (!RequestAdminAccess()) {
-    std::cerr << "You must be root to run this program." << std::endl;
-    return EXIT_FAILURE;
-  }
-#endif
   try {
+#if defined(__linux__)
+    if (geteuid() != 0) {
+      std::cerr << "You must be root to run this program.\n";
+      return EXIT_FAILURE;
+    }
+#elif defined(__APPLE__)
+    if (!fptn::utils::macos::RestartApplicationWithAdminRights()) {
+      return EXIT_FAILURE;  // Failed to get admin rights
+    }
+#endif
+
     // Initialize logger
     if (fptn::logger::init("fptn-client-gui")) {
       SPDLOG_INFO("Application started successfully.");
@@ -87,31 +63,34 @@ int main(int argc, char* argv[]) {
 
     // Setup signal handler
 #if defined(__APPLE__) || defined(__linux__)
-    std::signal(SIGINT, signalHandler);
-    std::signal(SIGHUP, signalHandler);
-    std::signal(SIGTERM, signalHandler);
-    std::signal(SIGQUIT, signalHandler);
+    std::signal(SIGINT, SignalHandler);
+    std::signal(SIGHUP, SignalHandler);
+    std::signal(SIGTERM, SignalHandler);
+    std::signal(SIGQUIT, SignalHandler);
 #if __linux__
-    std::signal(SIGPWR, signalHandler);
+    std::signal(SIGPWR, SignalHandler);
 #endif
 #elif defined(_WIN32)
-    SetConsoleCtrlHandler(signalHandler, TRUE);
+    SetConsoleCtrlHandler(SignalHandler, TRUE);
 #endif
 
     // Initialize GUI app
     QApplication::setDesktopSettingsAware(true);
     QApplication::setQuitOnLastWindowClosed(false);
 #if __APPLE__
+    QCoreApplication::setSetuidAllowed(true);
     QApplication::setAttribute(Qt::AA_MacDontSwapCtrlAndMeta, false);
 #elif defined(_WIN32)
     QApplication::setStyle(QStyleFactory::create("windowsvista"));
 #endif
+
     QApplication app(argc, argv);
     const auto settings = std::make_shared<fptn::gui::SettingsModel>(
         QMap<QString, QString>{{"en", "English"}, {"ru", "Русский"}});
 
     // Start GUI app
     fptn::gui::TrayApp tray(settings);
+
     // NOLINTNEXTLINE(readability-static-accessed-through-instance)
     const int code = app.exec();
 
@@ -124,6 +103,5 @@ int main(int argc, char* argv[]) {
   } catch (...) {
     SPDLOG_ERROR("An unknown error occurred. Exiting...");
   }
-
   return EXIT_FAILURE;
 }

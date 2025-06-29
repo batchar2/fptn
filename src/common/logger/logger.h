@@ -39,8 +39,14 @@ inline bool init(const std::string& app_name) {
       if (const char* home = getenv("HOME")) {
         return std::filesystem::path(home) / "Library/Logs/fptn";
       }
-      return std::filesystem::path(getpwuid(getuid())->pw_dir) /
-             "Library/Logs/fptn";
+      struct passwd pwd = {};
+      struct passwd* result = nullptr;
+      char buffer[1024] = {};
+      if (getpwuid_r(getuid(), &pwd, buffer, sizeof(buffer), &result) != 0 ||
+          !result) {
+        throw std::runtime_error("Failed to get user home directory");
+      }
+      return std::filesystem::path(pwd.pw_dir) / "Library/Logs/fptn";
     }();
 #elif _WIN32
     const std::filesystem::path log_dir = "./logs/";

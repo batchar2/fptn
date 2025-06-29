@@ -31,7 +31,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "gui/translations/translations.h"
 
 #ifdef _WIN32
-#include "gui/utils/windows/vpn_conflict.h"
+#include "utils/windows/vpn_conflict.h"
 #endif
 
 using fptn::gui::TrayApp;
@@ -39,22 +39,22 @@ using fptn::gui::TrayApp;
 namespace {
 
 void ShowError(const QString& title, const QString& msg) {
-  QMessageBox msgBox;
-  msgBox.setWindowIcon(QIcon(":/icons/app.ico"));
-  msgBox.setIcon(QMessageBox::Critical);
-  msgBox.setWindowTitle(title);
-  msgBox.setText(msg);
-  msgBox.exec();
+  QMessageBox msg_box;
+  msg_box.setWindowIcon(QIcon(":/icons/app.ico"));
+  msg_box.setIcon(QMessageBox::Critical);
+  msg_box.setWindowTitle(title);
+  msg_box.setText(msg);
+  msg_box.exec();
 }
 
 #ifdef _WIN32
 void ShowWarning(const QString& title, const QString& msg) {
-  QMessageBox msgBox;
-  msgBox.setWindowIcon(QIcon(":/icons/app.ico"));
-  msgBox.setIcon(QMessageBox::Warning);
-  msgBox.setWindowTitle(title);
-  msgBox.setText(msg);
-  msgBox.exec();
+  QMessageBox msg_box;
+  msg_box.setWindowIcon(QIcon(":/icons/app.ico"));
+  msg_box.setIcon(QMessageBox::Warning);
+  msg_box.setWindowTitle(title);
+  msg_box.setText(msg);
+  msg_box.exec();
 }
 #endif
 

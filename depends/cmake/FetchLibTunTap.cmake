@@ -4,6 +4,8 @@ option(BUILD_TESTING "Build tests" OFF)
 
 include(FetchContent)
 FetchContent_Declare(Libtuntap URL https://github.com/LaKabane/libtuntap/archive/ec1213733eb2e66e033ff8864d9fd476f9e35ffe.zip)
+#FetchContent_Declare(Libtuntap URL https://github.com/LaKabane/libtuntap/archive/refs/heads/master.zip)
+
 FetchContent_GetProperties(Libtuntap)
 if(NOT Libtuntap_POPULATED)
   FetchContent_Populate(Libtuntap)

@@ -234,47 +234,6 @@ async def send_credentials_file(
             os.remove(temp_file_path)
 
 
-async def get_access_file(update: Update, context: CallbackContext) -> None:
-    MESSAGES = {
-        "en": {
-            "status_registered": "🎉✨ You have successfully registered! 🎉",
-            "status_reset": "🔑 Your  token has been reset! 🔑",
-            "info": "🌐 _ You can download the client from the official project website _ [https://batchar2.github.io/fptn/](https://batchar2.github.io/fptn/)",
-            "click_to_copy": "📋💾 Download **the token** and select it in the FPTN settings for authentication! ⬇️️",
-        },
-        "ru": {
-            "status_registered": "🎉✨ Вы успешно зарегистрированы! 🎉",
-            "status_reset": "🔑 Ваш токен был сброшен!🔑",
-            "info": "🌐 _ Клиент можно скачать с официального сайта проекта _ [https://batchar2.github.io/fptn/](https://batchar2.github.io/fptn/) ",
-            "click_to_copy": "📋💾 Скачайте **токен** и в выберите его в настройках  FPTN! ⬇️",
-        },
-    }
-    user_id = "mac" + str(update.message.from_user.id)
-    language_code = update.message.from_user.language_code or "en"
-    messages = MESSAGES.get(language_code, MESSAGES["en"])
-
-    if user_manager.is_registered(user_id):
-        username, password = user_manager.reset_password(user_id)
-        status_message = messages["status_reset"]
-    else:
-        username, password = user_manager.register_user(user_id)
-        status_message = messages["status_registered"]
-
-    token = generate_token(username, password)
-
-    click_to_copy = messages["click_to_copy"]
-    info = messages["info"]
-    try:
-        await update.message.reply_text(
-            f"{status_message}\n\n" f"{info}\n\n\n" f"{click_to_copy}\n\n",
-            parse_mode=ParseMode.MARKDOWN,
-            disable_web_page_preview=True,
-        )
-        await send_credentials_file(update, context, token)
-    except Exception as e:
-        logger.error(f"Error: {e}")
-
-
 def main() -> None:
     if not TELEGRAM_API_TOKEN:
         logger.error(
@@ -285,7 +244,8 @@ def main() -> None:
     application = Application.builder().token(TELEGRAM_API_TOKEN).build()
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("token", get_access_token))
-    application.add_handler(CommandHandler("token_mac", get_access_file))
+    # depricated old function
+    application.add_handler(CommandHandler("token_mac", get_access_token))
 
     # UPDATE KEYBOARD (OLD VERSION)
     application.add_handler(
