@@ -86,7 +86,15 @@ class PcapplusplusConan(ConanFile):
             replace_in_file(self, os.path.join(self.source_folder, "CMakeLists.txt"),
                             "set(CMAKE_POSITION_INDEPENDENT_CODE ON)",
                             "")
-
+        # fix cmake 4 build
+        memplumber_cmake = os.path.join(self.source_folder, "3rdParty", "MemPlumber", "MemPlumber", "CMakeLists.txt")
+        if os.path.exists(memplumber_cmake):
+            replace_in_file(
+                self,
+                memplumber_cmake,
+                "cmake_minimum_required(VERSION 3.0)",
+                ""
+            )
     def build(self):
         self._patch_sources()
         cmake = CMake(self)
