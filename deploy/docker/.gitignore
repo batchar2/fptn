@@ -1,0 +1,6 @@
+.env
+configs/server.conf
+configs/server.key
+configs/server.crt
+configs/server.pub
+configs/users.list
