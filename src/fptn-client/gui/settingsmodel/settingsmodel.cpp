@@ -31,7 +31,6 @@ using fptn::gui::ServiceConfig;
 using fptn::gui::SettingsModel;
 
 namespace {
-
 QVector<ServerConfig> ParseServers(const QJsonArray& servers_array) {
   QVector<ServerConfig> servers;
   for (const auto& server_value : servers_array) {
@@ -49,7 +48,6 @@ QVector<ServerConfig> ParseServers(const QJsonArray& servers_array) {
   }
   return servers;
 }
-
 };  // namespace
 
 SettingsModel::SettingsModel(const QMap<QString, QString>& languages,
@@ -65,8 +63,13 @@ SettingsModel::SettingsModel(const QMap<QString, QString>& languages,
 
 // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
 QString SettingsModel::GetFilePath() const {
-  QString directory =
-      QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+#ifdef __APPLE__
+  const QString directory =
+      QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation);
+#else
+  const QString directory =
+      QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
+#endif
   QDir dir(directory);
   if (!dir.exists()) {
     dir.mkpath(directory);
@@ -78,20 +81,18 @@ void SettingsModel::Load(bool dont_load_server) {
   // Load servers
   services_.clear();
 
-  QString file_path = GetFilePath();
+  const QString file_path = GetFilePath();
   QFile file(file_path);
   if (!file.open(QIODevice::ReadOnly)) {
-    SPDLOG_WARN(
-        "Failed to open file for reading: {}", file_path.toStdString());
+    SPDLOG_WARN("Failed to open file for reading: {}", file_path.toStdString());
     return;
   }
   SPDLOG_INFO("Settings: {}", file_path.toStdString());
 
-  QByteArray data = file.readAll();
+  const QByteArray data = file.readAll();
   file.close();
-
-  QJsonDocument document = QJsonDocument::fromJson(data);
-  QJsonObject service_obj = document.object();
+  const QJsonDocument document = QJsonDocument::fromJson(data);
+  const QJsonObject service_obj = document.object();
 
   if (service_obj.contains("services")) {
     QJsonArray services_array = service_obj["services"].toArray();

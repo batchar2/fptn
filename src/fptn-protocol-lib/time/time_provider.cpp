@@ -46,7 +46,7 @@ std::int32_t TimeProvider::OffsetSeconds() const {
 }
 
 std::uint32_t TimeProvider::NowTimestamp() {
-  const std::lock_guard<std::mutex> lock(mutex_);
+  const std::lock_guard<std::mutex> lock(mutex_);  // mutex
 
   const auto now = std::chrono::steady_clock::now();
   if (now - last_sync_time_.load() > kSyncInterval_) {
@@ -58,7 +58,7 @@ std::uint32_t TimeProvider::NowTimestamp() {
 }
 
 bool TimeProvider::SyncWithNtp() {
-  const std::lock_guard<std::mutex> lock(mutex_);
+  const std::lock_guard<std::mutex> lock(mutex_);  // mutex
 
   return Refresh();
 }
@@ -67,8 +67,7 @@ bool TimeProvider::Refresh() {
   for (const auto& [server, port] : servers_) {
     try {
       ntp::NTPClient ntp_client(server, port);
-      const auto epoch_server_ms = ntp_client.request_time();
-      if (epoch_server_ms) {
+      if (const auto epoch_server_ms = ntp_client.request_time()) {
         const auto server_timestamp =
             static_cast<std::uint64_t>(epoch_server_ms / 1000);
         const auto client_timestamp =
