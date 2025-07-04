@@ -103,7 +103,7 @@ std::pair<pcpp::IPv4Address, pcpp::IPv6Address> Client::GetDns() {
   return {pcpp::IPv4Address(), pcpp::IPv6Address()};
 }
 
-void Client::SetNewIPPacketCallback(
+void Client::SetRecvIPPacketCallback(
     const NewIPPacketCallback& callback) noexcept {
   new_ip_pkt_callback_ = callback;
 }

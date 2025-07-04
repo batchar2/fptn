@@ -38,7 +38,7 @@ class Client final {
   bool Start();
   bool Stop();
   bool Send(fptn::common::network::IPPacketPtr packet);
-  void SetNewIPPacketCallback(const NewIPPacketCallback& callback) noexcept;
+  void SetRecvIPPacketCallback(const NewIPPacketCallback& callback) noexcept;
   bool IsStarted();
 
   const std::string& LatestError() const;
