@@ -14,7 +14,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 using fptn::vpn::VpnClient;
 
 VpnClient::VpnClient(fptn::http::ClientPtr http_client,
-    fptn::common::network::BaseNetInterfacePtr virtual_net_interface,
+    fptn::common::network::TunInterfacePtr virtual_net_interface,
     const pcpp::IPv4Address& dns_server_ipv4,
     const pcpp::IPv6Address& dns_server_ipv6)
     : running_(false),
@@ -47,10 +47,10 @@ bool VpnClient::Start() {
   }
 
   // NOLINTNEXTLINE(modernize-avoid-bind)
-  http_client_->SetNewIPPacketCallback(std::bind(
+  http_client_->SetRecvIPPacketCallback(std::bind(
       &VpnClient::HandlePacketFromWebSocket, this, std::placeholders::_1));
 
-  virtual_net_interface_->SetNewIPPacketCallback(
+  virtual_net_interface_->SetRecvIPPacketCallback(
       // NOLINTNEXTLINE(modernize-avoid-bind)
       std::bind(&VpnClient::HandlePacketFromVirtualNetworkInterface, this,
           std::placeholders::_1));

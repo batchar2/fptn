@@ -405,10 +405,10 @@ journalctl -u fptn-client
 
 <details>
   <summary>How to build</summary>
-1. Install Conan (version 2.9.2):
+1. Install Conan (version 2.15.1):
 
 ```
-pip install conan==2.9.2
+pip install conan==2.15.1
 sudo apt install gcc g++ cmake pkg-config
 ```
 

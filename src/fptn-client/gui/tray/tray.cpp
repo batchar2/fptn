@@ -756,11 +756,13 @@ bool TrayApp::startVpn(QString& err_msg) {
 
   // setup tun interface
   auto virtual_network_interface =
-      std::make_unique<fptn::common::network::TunInterface>(tun_interface_name,
-          /* IPv4 */
-          tun_interface_address_ipv4, 30,
-          /* IPv6 */
-          tun_interface_address_ipv6, 126);
+      std::make_unique<fptn::common::network::TunInterface>(
+          fptn::common::network::TunInterface::Config{
+              tun_interface_name, tun_interface_address_ipv4,
+              30,  // IPv4 netmask
+              tun_interface_address_ipv6,
+              126  // IPv6 netmask
+          });
 
   // setup vpn client
   vpn_client_ = std::make_unique<fptn::vpn::VpnClient>(std::move(http_client),

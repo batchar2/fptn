@@ -38,7 +38,7 @@ class AntiScan : public BaseFilter {
       const int serverIPv6Mask);
   fptn::common::network::IPPacketPtr apply(
       fptn::common::network::IPPacketPtr packet) const noexcept override;
-  virtual ~AntiScan() = default;
+  ~AntiScan() override = default;
 
  private:
   /* IPv4 */

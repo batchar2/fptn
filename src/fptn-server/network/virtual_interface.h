@@ -21,11 +21,7 @@ namespace fptn::network {
 
 class VirtualInterface final {
  public:
-  VirtualInterface(const std::string& name,
-      const pcpp::IPv4Address& ipv4Address,
-      int ipv4Netmask,
-      const pcpp::IPv6Address& ipv6Address,
-      int ipv6Netmask,
+  VirtualInterface(fptn::common::network::TunInterface::Config config,
       fptn::routing::IPTablesPtr iptables);
   ~VirtualInterface();
 

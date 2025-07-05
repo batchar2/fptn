@@ -14,10 +14,9 @@ namespace fptn::filter {
 
 class BaseFilter {
  public:
-  BaseFilter() = default;
   virtual fptn::common::network::IPPacketPtr apply(
       fptn::common::network::IPPacketPtr packet) const noexcept = 0;
-  ~BaseFilter() = default;
+  virtual ~BaseFilter() = default;
 };
 
 using BaseFilterSPtr = std::shared_ptr<BaseFilter>;

@@ -20,7 +20,7 @@ namespace fptn::vpn {
 class VpnClient final {
  public:
   explicit VpnClient(fptn::http::ClientPtr http_client,
-      fptn::common::network::BaseNetInterfacePtr virtual_net_interface,
+      fptn::common::network::TunInterfacePtr virtual_net_interface,
       const pcpp::IPv4Address& dns_server_ipv4,
       const pcpp::IPv6Address& dns_server_ipv6);
   ~VpnClient();
@@ -40,7 +40,7 @@ class VpnClient final {
   std::atomic<bool> running_;
 
   fptn::http::ClientPtr http_client_;
-  fptn::common::network::BaseNetInterfacePtr virtual_net_interface_;
+  fptn::common::network::TunInterfacePtr virtual_net_interface_;
   const pcpp::IPv4Address dns_server_ipv4_;
   const pcpp::IPv6Address dns_server_ipv6_;
 };

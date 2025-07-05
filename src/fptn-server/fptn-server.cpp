@@ -69,14 +69,18 @@ int main(int argc, char* argv[]) {
     auto iptables = std::make_unique<fptn::routing::IPTables>(
         config.OutNetworkInterface(), config.TunInterfaceName());
     /* Init virtual network interface */
+
     auto virtual_network_interface =
         std::make_unique<fptn::network::VirtualInterface>(
-            config.TunInterfaceName(),
-            /* IPv+4 */
-            config.TunInterfaceIPv4(), config.TunInterfaceNetworkIPv4Mask(),
-            /* IPv6 */
-            config.TunInterfaceIPv6(), config.TunInterfaceNetworkIPv6Mask(),
-            /* iptables */
+            fptn::common::network::TunInterface::Config{
+                config.TunInterfaceName(),
+                /* IPv+4 */
+                config.TunInterfaceIPv4(),
+                config.TunInterfaceNetworkIPv4Mask(),
+                /* IPv6 */
+                config.TunInterfaceIPv6(),
+                config.TunInterfaceNetworkIPv6Mask(),
+            },
             std::move(iptables));
 
     /* Init web server */
@@ -135,9 +139,7 @@ int main(int argc, char* argv[]) {
 
     // Init vpn manager
     fptn::vpn::Manager manager(std::move(web_server),
-        std::move(virtual_network_interface),
-        nat_table,
-        filter_manager,
+        std::move(virtual_network_interface), nat_table, filter_manager,
         prometheus);
 
     /* start/wait/stop */

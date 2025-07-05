@@ -12,7 +12,7 @@ namespace fptn::filter {
 class BitTorrent : public BaseFilter {
  public:
   BitTorrent() = default;
-  virtual ~BitTorrent() = default;
+  ~BitTorrent() override = default;
   fptn::common::network::IPPacketPtr apply(
       fptn::common::network::IPPacketPtr packet) const noexcept override;
 };
