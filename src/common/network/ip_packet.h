@@ -48,12 +48,15 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <pcapplusplus/TcpLayer.h>  // NOLINT(build/include_order)
 #include <pcapplusplus/UdpLayer.h>  // NOLINT(build/include_order)
 
+#include "common/client_id.h"
+
 #if _WIN32
 #pragma warning(default : 4996)
 #endif
 
 namespace fptn::common::network {
-#define PACKET_UNDEFINED_CLIENT_ID (static_cast<std::uint64_t>(-1))
+
+#define FPTN_PACKET_UNDEFINED_CLIENT_ID MAX_CLIENT_ID
 
 inline bool CheckIPv4(const std::string& buffer) {
   return (static_cast<uint8_t>(buffer[0]) >> 4) == 4;
@@ -66,7 +69,7 @@ inline bool CheckIPv6(const std::string& buffer) {
 class IPPacket {
  public:
   static std::unique_ptr<IPPacket> Parse(std::string buffer,
-      std::uint64_t client_id = PACKET_UNDEFINED_CLIENT_ID) {
+      std::uint64_t client_id = FPTN_PACKET_UNDEFINED_CLIENT_ID) {
     if (buffer.empty() || buffer.size() < 20) {  // Minimum IPv4 header size
       return nullptr;
     }
@@ -88,14 +91,14 @@ class IPPacket {
 
   static std::unique_ptr<IPPacket> Parse(const std::uint8_t* data,
       std::size_t size,
-      std::uint64_t client_id = PACKET_UNDEFINED_CLIENT_ID) {
+      fptn::ClientID client_id = FPTN_PACKET_UNDEFINED_CLIENT_ID) {
     std::string buffer(reinterpret_cast<const char*>(data), size);
     return Parse(std::move(buffer), client_id);
   }
 
  public:
   IPPacket(
-      std::string data, std::uint64_t client_id, pcpp::LinkLayerType ip_type)
+      std::string data, fptn::ClientID client_id, pcpp::LinkLayerType ip_type)
       : packet_data_(std::move(data)), client_id_(client_id) {
     try {
       raw_packet_ = pcpp::RawPacket(
@@ -116,8 +119,7 @@ class IPPacket {
     }
   }
 
-  virtual ~IPPacket() = default;
-
+  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
   void ComputeCalculateFields() noexcept {
     auto* tcp_layer = parsed_packet_.getLayerOfType<pcpp::TcpLayer>();
     if (tcp_layer) {
@@ -139,7 +141,9 @@ class IPPacket {
     }
   }
 
-  void SetClientId(std::uint64_t client_id) noexcept { client_id_ = client_id; }
+  void SetClientId(fptn::ClientID client_id) noexcept {
+    client_id_ = client_id;
+  }
 
   void SetDstIPv4Address(const pcpp::IPv4Address& dst) noexcept {
     if (ipv4_layer_) {
@@ -167,39 +171,32 @@ class IPPacket {
     }
   }
 
-  std::uint64_t ClientId() const noexcept { return client_id_; }
+  fptn::ClientID ClientId() const noexcept { return client_id_; }
 
   pcpp::Packet& Pkt() noexcept { return parsed_packet_; }
 
   std::size_t Size() const noexcept { return packet_data_.size(); }
-
-  std::string ToString() noexcept {
-    const auto* raw = parsed_packet_.getRawPacket();
-    return {reinterpret_cast<const char*>(raw->getRawData()),
-        static_cast<std::size_t>(raw->getRawDataLen())};
-  }
 
   const pcpp::RawPacket* GetRawPacket() const noexcept {
     return parsed_packet_.getRawPacket();
   }
 
  public:
-  /* virtual functions for tests */
+  // TODO(stas): Remove virtual functions in the future for better performance.
+  // TODO(stas): Anti-scan tests are currently inadequate and need improvement.
+  virtual ~IPPacket() = default;
   virtual bool IsIPv4() const noexcept { return ipv4_layer_ != nullptr; }
-
   virtual bool IsIPv6() const noexcept { return ipv6_layer_ != nullptr; }
-
   virtual pcpp::IPv4Layer* IPv4Layer() noexcept { return ipv4_layer_; }
-
   virtual pcpp::IPv6Layer* IPv6Layer() noexcept { return ipv6_layer_; }
 
  protected:
-  IPPacket()  // for tests
-      : client_id_(PACKET_UNDEFINED_CLIENT_ID) {}
+  // for tests only
+  IPPacket() : client_id_(FPTN_PACKET_UNDEFINED_CLIENT_ID) {}
 
  private:
   std::string packet_data_;
-  std::uint64_t client_id_;
+  fptn::ClientID client_id_;
   pcpp::RawPacket raw_packet_;
   pcpp::Packet parsed_packet_;
 

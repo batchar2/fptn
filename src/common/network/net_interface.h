@@ -430,12 +430,12 @@ class WindowsTunInterface final : public BaseNetInterface<WindowsTunInterface> {
   }
 
   // cppcheck-suppress unusedFunction
-  inline std::wstring ToWString(const std::string& s) {
+  std::wstring ToWString(const std::string& s) {
     return std::wstring(s.begin(), s.end());
   }
 
   // cppcheck-suppress unusedFunction
-  inline std::string ParseWinTunVersion(DWORD version_number) {
+  std::string ParseWinTunVersion(DWORD version_number) {
     return std::to_string((version_number >> 16) & 0xff) + "." +
            std::to_string((version_number >> 0) & 0xff);
   }

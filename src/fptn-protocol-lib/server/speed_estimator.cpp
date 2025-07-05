@@ -40,7 +40,7 @@ std::uint64_t GetDownloadTimeMs(const ServerInfo& server,
 
 ServerInfo FindFastestServer(
     const std::string& sni, const std::vector<ServerInfo>& servers) {
-  constexpr int kTimeout = 5;
+  constexpr int kTimeout = 10;
   std::vector<std::future<std::uint64_t>> futures;
 
   futures.reserve(servers.size());
