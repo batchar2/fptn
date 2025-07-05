@@ -46,7 +46,7 @@ class DataRateCalculator {
         lastUpdateTime_(std::chrono::steady_clock::now()),
         rate_(0) {}
   void Update(std::size_t len) noexcept {
-    const std::lock_guard<std::mutex> lock(mutex_);
+    const std::lock_guard<std::mutex> lock(mutex_);  // mutex
 
     auto now = std::chrono::steady_clock::now();
     std::chrono::duration<double> elapsed = now - lastUpdateTime_;
@@ -58,7 +58,7 @@ class DataRateCalculator {
     }
   }
   std::size_t GetRateForSecond() const noexcept {
-    const std::lock_guard<std::mutex> lock(mutex_);
+    const std::lock_guard<std::mutex> lock(mutex_);  // mutex
 
     const auto interval_count = interval_.count();
     if (interval_count) {
@@ -175,6 +175,8 @@ class PosixTunInterface final : public BaseNetInterface<PosixTunInterface> {
 
  protected:
   bool StartImpl() noexcept {
+    const std::lock_guard<std::mutex> lock(mutex_);  // mutex
+
     try {
       tun_ = std::make_unique<tuntap::tun>();
       tun_->name(Name());
@@ -183,7 +185,7 @@ class PosixTunInterface final : public BaseNetInterface<PosixTunInterface> {
       /* set IPv4 */
       tun_->ip(IPv4Addr().toString(), IPv4Netmask());
       tun_->nonblocking(true);
-      tun_->mtu(mtu_);
+      tun_->mtu(FPTN_MTU_SIZE);
       tun_->up();
       running_ = true;
       thread_ = std::thread(&PosixTunInterface::run, this);
@@ -195,24 +197,43 @@ class PosixTunInterface final : public BaseNetInterface<PosixTunInterface> {
   }
 
   bool StopImpl() noexcept {
-    if (running_ && thread_.joinable() && tun_) {
+    if (!running_) {
+      return false;
+    }
+
+    const std::lock_guard<std::mutex> lock(mutex_);  // mutex
+
+    // cppcheck-suppress identicalConditionAfterEarlyExit
+    if (!running_) {  // Double-check after acquiring lock
+      return false;
+    }
+
+    if (thread_.joinable() && tun_) {
       running_ = false;
       thread_.join();
       tun_.reset();
-      return true;
     }
-    return false;
+    return true;
   }
 
   bool SendImpl(IPPacketPtr packet) noexcept {
-    if (running_ && packet && packet->Size()) {
+    if (!running_ || !packet || !packet->Size() || !tun_) {
+      return false;
+    }
+
+    const std::lock_guard<std::mutex> lock(mutex_);  // mutex
+
+    if (running_) {
       const auto* raw_packet = packet->GetRawPacket();
       const void* data = static_cast<const void*>(raw_packet->getRawData());
       const auto len = raw_packet->getRawDataLen();
+
       // send data
       const auto bytes_written = tun_->write(const_cast<void*>(data), len);
+
       // calculate rate
       send_rate_calculator_.Update(bytes_written);
+
       return bytes_written == len;
     }
     return false;
@@ -227,8 +248,7 @@ class PosixTunInterface final : public BaseNetInterface<PosixTunInterface> {
   }
 
   void run() {
-    std::unique_ptr<std::uint8_t[]> data =
-        std::make_unique<std::uint8_t[]>(mtu_);
+    auto data = std::make_unique<std::uint8_t[]>(mtu_);
     std::uint8_t* buffer = data.get();
 
     const auto callback = GetRecvIPPacketCallback();
@@ -236,7 +256,7 @@ class PosixTunInterface final : public BaseNetInterface<PosixTunInterface> {
       const int size = tun_->read(static_cast<void*>(buffer), mtu_);
       if (size > 0 && running_) {
         auto packet = IPPacket::Parse(buffer, size);
-        if (packet != nullptr && callback && running_) {
+        if (running_ && packet != nullptr && callback) {
           receive_rate_calculator_.Update(packet->Size());  // calculate rate
           callback(std::move(packet));
         }
@@ -247,7 +267,10 @@ class PosixTunInterface final : public BaseNetInterface<PosixTunInterface> {
   }
 
  private:
+  mutable std::mutex mutex_;
+
   const std::uint16_t mtu_;
+
   std::atomic<bool> running_;
   std::thread thread_;
   std::unique_ptr<tuntap::tun> tun_;
