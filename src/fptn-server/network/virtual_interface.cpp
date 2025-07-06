@@ -13,18 +13,16 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 using fptn::common::network::TunInterface;
 using fptn::network::VirtualInterface;
 
-VirtualInterface::VirtualInterface(const std::string& name,
-    const pcpp::IPv4Address& ipv4Address,
-    const int ipv4Netmask,
-    const pcpp::IPv6Address& ipv6Address,
-    const int ipv6Netmask,
+VirtualInterface::VirtualInterface(
+    fptn::common::network::TunInterface::Config config,
     fptn::routing::IPTablesPtr iptables)
     : running_(false), iptables_(std::move(iptables)) {
   // NOLINTNEXTLINE(modernize-avoid-bind)
   auto callback = std::bind(
       &VirtualInterface::IPPacketFromNetwork, this, std::placeholders::_1);
-  virtual_network_interface_ = std::make_unique<TunInterface>(
-      name, ipv4Address, ipv4Netmask, ipv6Address, ipv6Netmask, callback);
+  virtual_network_interface_ =
+      std::make_unique<TunInterface>(std::move(config));
+  virtual_network_interface_->SetRecvIPPacketCallback(callback);
 }
 
 VirtualInterface::~VirtualInterface() { Stop(); }

@@ -46,7 +46,7 @@ class DataRateCalculator {
         lastUpdateTime_(std::chrono::steady_clock::now()),
         rate_(0) {}
   void Update(std::size_t len) noexcept {
-    const std::lock_guard<std::mutex> lock(mutex_);
+    const std::lock_guard<std::mutex> lock(mutex_);  // mutex
 
     auto now = std::chrono::steady_clock::now();
     std::chrono::duration<double> elapsed = now - lastUpdateTime_;
@@ -58,7 +58,7 @@ class DataRateCalculator {
     }
   }
   std::size_t GetRateForSecond() const noexcept {
-    const std::lock_guard<std::mutex> lock(mutex_);
+    const std::lock_guard<std::mutex> lock(mutex_);  // mutex
 
     const auto interval_count = interval_.count();
     if (interval_count) {
@@ -77,86 +77,106 @@ class DataRateCalculator {
 
 using NewIPPacketCallback = std::function<void(IPPacketPtr packet)>;
 
+/**
+ * @brief Base network interface class using CRTP (Curiously Recurring Template
+ * Pattern)
+ *
+ * This template provides common interface functionality while delegating
+ * platform-specific operations to the derived implementation class.
+ *
+ * CRTP Benefits:
+ *  - Static polymorphism (no virtual function overhead)
+ *  - Clear separation of interface and implementation
+ *  - Compile-time enforcement of interface contracts
+ *
+ * Derived classes must implement:
+ *  - StartImpl()     - Initialize the interface
+ *  - StopImpl()      - Shutdown the interface
+ *  - SendImpl()      - Packet transmission
+ *  - GetSendRateImpl()    - Outbound rate monitoring
+ *  - GetReceiveRateImpl() - Inbound rate monitoring
+ */
+template <typename Implementation>
 class BaseNetInterface {
  public:
-  virtual bool Start() noexcept = 0;
-  virtual bool Stop() noexcept = 0;
-  virtual bool Send(IPPacketPtr packet) noexcept = 0;
-  [[nodiscard]] virtual std::size_t GetSendRate() const noexcept = 0;
-  [[nodiscard]] virtual std::size_t GetReceiveRate() const noexcept = 0;
+  friend Implementation;
+
+  // Network configuration
+  struct Config {
+    std::string name;
+    pcpp::IPv4Address ipv4_addr;
+    int ipv4_netmask;
+    pcpp::IPv6Address ipv6_addr;
+    int ipv6_netmask;
+  };
+
+  bool Start() { return impl()->StartImpl(); }
+
+  bool Stop() { return impl()->StopImpl(); }
+
+  bool Send(IPPacketPtr packet) { return impl()->SendImpl(std::move(packet)); }
+
+  std::size_t GetSendRate() { return impl()->GetSendRateImpl(); }
+
+  std::size_t GetReceiveRate() { return impl()->GetReceiveRateImpl(); }
+
+ private:
+  explicit BaseNetInterface(Config config)
+      : config_(std::move(config)), recv_ip_packet_callback_(nullptr) {}
+
+  Implementation* impl() { return static_cast<Implementation*>(this); }
 
  public:
-  explicit BaseNetInterface(std::string name,
-      const pcpp::IPv4Address& ipv4_addr,
-      const int ipv4_netmask,
-      const pcpp::IPv6Address& ipv6_addr,
-      const int ipv6_netmask,
-      NewIPPacketCallback callback = nullptr)
-      : name_(std::move(name)),
-        ipv4_addr_(ipv4_addr),
-        ipv4_netmask_(ipv4_netmask),
-        ipv6_addr_(ipv6_addr),
-        ipv6_netmask_(ipv6_netmask),
-        new_ippacket_callback_(std::move(callback)) {}
-
-  virtual ~BaseNetInterface() = default;
-
-  [[nodiscard]] const std::string& Name() const noexcept { return name_; }
+  [[nodiscard]] const std::string& Name() const noexcept {
+    return config_.name;
+  }
 
   [[nodiscard]] const pcpp::IPv4Address& IPv4Addr() const noexcept {
-    return ipv4_addr_;
+    return config_.ipv4_addr;
   }
 
-  [[nodiscard]] int IPv4Netmask() const noexcept { return ipv4_netmask_; }
+  [[nodiscard]] int IPv4Netmask() const noexcept {
+    return config_.ipv4_netmask;
+  }
 
   [[nodiscard]] const pcpp::IPv6Address& IPv6Addr() const noexcept {
-    return ipv6_addr_;
+    return config_.ipv6_addr;
   }
 
-  int IPv6Netmask() const noexcept { return ipv6_netmask_; }
+  int IPv6Netmask() const noexcept { return config_.ipv6_netmask; }
 
-  void SetNewIPPacketCallback(const NewIPPacketCallback& callback) noexcept {
-    new_ippacket_callback_ = callback;
+  void SetRecvIPPacketCallback(const NewIPPacketCallback& callback) noexcept {
+    recv_ip_packet_callback_ = callback;
   }
 
- protected:
-  NewIPPacketCallback GetNewIPPacketCallback() const {
-    return new_ippacket_callback_;
+  [[nodiscard]] NewIPPacketCallback GetRecvIPPacketCallback() const {
+    return recv_ip_packet_callback_;
   }
 
  private:
-  const std::string name_;
-  /* IPv4 */
-  const pcpp::IPv4Address ipv4_addr_;
-  const int ipv4_netmask_;
-  /* IPv6 */
-  const pcpp::IPv6Address ipv6_addr_;
-  const int ipv6_netmask_;
-
- protected:
-  NewIPPacketCallback new_ippacket_callback_;
+  Config config_;
+  NewIPPacketCallback recv_ip_packet_callback_;
 };
-
-using BaseNetInterfacePtr = std::unique_ptr<BaseNetInterface>;
 
 #if defined(__APPLE__) || defined(__linux__)
 
-class PosixTunInterface final : public BaseNetInterface {
+class PosixTunInterface final : public BaseNetInterface<PosixTunInterface> {
  public:
-  explicit PosixTunInterface(const std::string& name,
-      const pcpp::IPv4Address& ipv4Addr,
-      const int ipv4Netmask,
-      const pcpp::IPv6Address& ipv6Addr,
-      const int ipv6Netmask,
-      const NewIPPacketCallback& callback = nullptr)
-      : BaseNetInterface(
-            name, ipv4Addr, ipv4Netmask, ipv6Addr, ipv6Netmask, callback),
+  friend BaseNetInterface;
+
+  using Config = BaseNetInterface::Config;
+
+  explicit PosixTunInterface(Config config)
+      : BaseNetInterface(std::move(config)),
         mtu_(FPTN_MTU_SIZE),
         running_(false) {}
 
-  ~PosixTunInterface() override = default;
+  ~PosixTunInterface() { StopImpl(); }
 
-  bool Start() noexcept override {
+ protected:
+  bool StartImpl() noexcept {
+    const std::lock_guard<std::mutex> lock(mutex_);  // mutex
+
     try {
       tun_ = std::make_unique<tuntap::tun>();
       tun_->name(Name());
@@ -164,11 +184,9 @@ class PosixTunInterface final : public BaseNetInterface {
       tun_->ip(IPv6Addr().toString(), IPv6Netmask());
       /* set IPv4 */
       tun_->ip(IPv4Addr().toString(), IPv4Netmask());
-
       tun_->nonblocking(true);
-      tun_->mtu(mtu_);
+      tun_->mtu(FPTN_MTU_SIZE);
       tun_->up();
-
       running_ = true;
       thread_ = std::thread(&PosixTunInterface::run, this);
       return thread_.joinable();
@@ -178,46 +196,67 @@ class PosixTunInterface final : public BaseNetInterface {
     return false;
   }
 
-  bool Stop() noexcept override {
-    running_ = false;
+  bool StopImpl() noexcept {
+    if (!running_) {
+      return false;
+    }
+
+    const std::lock_guard<std::mutex> lock(mutex_);  // mutex
+
+    // cppcheck-suppress identicalConditionAfterEarlyExit
+    if (!running_) {  // Double-check after acquiring lock
+      return false;
+    }
+
     if (thread_.joinable() && tun_) {
+      running_ = false;
       thread_.join();
       tun_.reset();
-      return true;
+    }
+    return true;
+  }
+
+  bool SendImpl(IPPacketPtr packet) noexcept {
+    if (!running_ || !packet || !packet->Size() || !tun_) {
+      return false;
+    }
+
+    const std::lock_guard<std::mutex> lock(mutex_);  // mutex
+
+    if (running_) {
+      const auto* raw_packet = packet->GetRawPacket();
+      const void* data = static_cast<const void*>(raw_packet->getRawData());
+      const auto len = raw_packet->getRawDataLen();
+
+      // send data
+      const auto bytes_written = tun_->write(const_cast<void*>(data), len);
+
+      // calculate rate
+      send_rate_calculator_.Update(bytes_written);
+
+      return bytes_written == len;
     }
     return false;
   }
 
-  bool Send(IPPacketPtr packet) noexcept override {
-    if (running_ && packet && packet->Size()) {
-      send_rate_calculator_.Update(packet->Size());  // calculate rate
-      std::vector<std::uint8_t> serialized = packet->Serialize();
-      return static_cast<std::size_t>(tun_->write(
-                 serialized.data(), serialized.size())) == serialized.size();
-    }
-    return false;
-  }
-
-  std::size_t GetSendRate() const noexcept override {
+  std::size_t GetSendRateImpl() const noexcept {
     return send_rate_calculator_.GetRateForSecond();
   }
 
-  std::size_t GetReceiveRate() const noexcept override {
+  std::size_t GetReceiveRateImpl() const noexcept {
     return receive_rate_calculator_.GetRateForSecond();
   }
 
- protected:
-  void run() noexcept {
-    std::unique_ptr<std::uint8_t[]> data =
-        std::make_unique<std::uint8_t[]>(mtu_);
+  void run() {
+    auto data = std::make_unique<std::uint8_t[]>(mtu_);
     std::uint8_t* buffer = data.get();
 
-    const auto callback = GetNewIPPacketCallback();
+    const auto callback = GetRecvIPPacketCallback();
     while (running_) {
       const int size = tun_->read(static_cast<void*>(buffer), mtu_);
       if (size > 0 && running_) {
         auto packet = IPPacket::Parse(buffer, size);
-        if (packet != nullptr && callback && running_) {
+        if (running_ && packet != nullptr && callback) {
           receive_rate_calculator_.Update(packet->Size());  // calculate rate
           callback(std::move(packet));
         }
@@ -228,7 +267,10 @@ class PosixTunInterface final : public BaseNetInterface {
   }
 
  private:
+  mutable std::mutex mutex_;
+
   const std::uint16_t mtu_;
+
   std::atomic<bool> running_;
   std::thread thread_;
   std::unique_ptr<tuntap::tun> tun_;
@@ -240,16 +282,13 @@ using TunInterface = PosixTunInterface;
 
 #elif _WIN32
 
-class WindowsTunInterface : public BaseNetInterface {
+class WindowsTunInterface final : public BaseNetInterface<WindowsTunInterface> {
  public:
-  WindowsTunInterface(const std::string& name,
-      const pcpp::IPv4Address& ipv4_addr,
-      const int ipv4_netmask,
-      const pcpp::IPv6Address& ipv6_addr,
-      const int ipv6_netmask,
-      const NewIPPacketCallback& callback = nullptr)
-      : BaseNetInterface(
-            name, ipv4_addr, ipv4_netmask, ipv6_addr, ipv6_netmask, callback),
+  friend BaseNetInterface;
+  using Config = BaseNetInterface::Config;
+
+  explicit WindowsTunInterface(Config config)
+      : BaseNetInterface(std::move(config)),
         running_(false),
         wintun_(nullptr),
         adapter_(0),
@@ -260,9 +299,12 @@ class WindowsTunInterface : public BaseNetInterface {
     UuidCreate(&guid_);
   }
 
-  ~WindowsTunInterface() override = default;
+  ~WindowsTunInterface() { StopImpl(); }
 
-  bool Start() noexcept override {
+ protected:
+  bool StartImpl() {
+    const std::lock_guard<std::mutex> lock(mutex_);  // mutex
+
     if (!wintun_) {
       return false;
     }
@@ -298,8 +340,19 @@ class WindowsTunInterface : public BaseNetInterface {
     return thread_.joinable();
   }
 
-  bool Stop() noexcept override {
-    if (thread_.joinable() && running_) {
+  bool StopImpl() {
+    if (!running_) {
+      return false;
+    }
+
+    const std::lock_guard<std::mutex> lock(mutex_);  // mutex
+
+    // cppcheck-suppress identicalConditionAfterEarlyExit
+    if (!running_) {  // Double-check after acquiring lock
+      return false;
+    }
+
+    if (thread_.joinable()) {
       running_ = false;
       thread_.join();
 
@@ -313,29 +366,48 @@ class WindowsTunInterface : public BaseNetInterface {
     return false;
   }
 
-  bool Send(IPPacketPtr packet) noexcept override {
-    if (running_ && session_ && packet && packet->Size()) {
-      send_rate_calculator_.Update(packet->Size());
-      BYTE* data = WintunAllocateSendPacket(
-          session_, static_cast<DWORD>(packet->Size()));
-      if (data) {
-        const std::vector<std::uint8_t> serialized = packet->Serialize();
-        std::memcpy(data, serialized.data(), serialized.size());
-        WintunSendPacket(session_, data);
-        return true;
-      }
+  bool SendImpl(IPPacketPtr packet) {
+    if (!running_ || !session_ || !packet || !packet->Size()) {
+      return false;
     }
-    return false;
+
+    const std::lock_guard<std::mutex> lock(mutex_);  // mutex
+
+    // cppcheck-suppress identicalConditionAfterEarlyExit
+    if (!running_) {  // Double-check after acquiring lock
+      return false;
+    }
+
+    const auto* raw_packet = packet->GetRawPacket();
+    if (!raw_packet) {
+      return false;
+    }
+
+    const auto len = raw_packet->getRawDataLen();
+    const BYTE* packet_data =
+        static_cast<const BYTE*>(raw_packet->getRawData());
+
+    BYTE* send_buffer =
+        WintunAllocateSendPacket(session_, static_cast<DWORD>(len));
+    if (!send_buffer || !packet_data || len == 0) {
+      return false;
+    }
+
+    std::memcpy(send_buffer, packet_data, len);
+    WintunSendPacket(session_, send_buffer);
+
+    send_rate_calculator_.Update(len);
+    return true;
   }
-  std::size_t GetSendRate() const noexcept override {
+
+  std::size_t GetSendRateImpl() const {
     return send_rate_calculator_.GetRateForSecond();
   }
 
-  std::size_t GetReceiveRate() const noexcept override {
+  std::size_t GetReceiveRateImpl() const {
     return receive_rate_calculator_.GetRateForSecond();
   }
 
- protected:
   // cppcheck-suppress unusedPrivateFunction
   bool SetIPv4AndNetmask(const pcpp::IPv4Address& addr, const int mask) {
     const std::string ipaddr = addr.toString();
@@ -385,14 +457,14 @@ class WindowsTunInterface : public BaseNetInterface {
     return true;
   }
 
-  void run() noexcept {
+  void run() {
     std::uint8_t buffer[65536] = {0};
     DWORD size = sizeof(buffer);
-    const auto callback = GetNewIPPacketCallback();
+    const auto callback = GetRecvIPPacketCallback();
     while (running_) {
       if (ERROR_SUCCESS == ReadPacketNonblock(session_, buffer, &size)) {
         auto packet = IPPacket::Parse(buffer, size);
-        if (packet != nullptr && callback) {
+        if (running_ && packet != nullptr && callback) {
           receive_rate_calculator_.Update(packet->Size());  // calculate rate
           callback(std::move(packet));
         }
@@ -401,12 +473,12 @@ class WindowsTunInterface : public BaseNetInterface {
   }
 
   // cppcheck-suppress unusedFunction
-  inline std::wstring ToWString(const std::string& s) {
+  std::wstring ToWString(const std::string& s) {
     return std::wstring(s.begin(), s.end());
   }
 
   // cppcheck-suppress unusedFunction
-  inline std::string ParseWinTunVersion(DWORD version_number) {
+  std::string ParseWinTunVersion(DWORD version_number) {
     return std::to_string((version_number >> 16) & 0xff) + "." +
            std::to_string((version_number >> 0) & 0xff);
   }
@@ -483,6 +555,8 @@ class WindowsTunInterface : public BaseNetInterface {
   WINTUN_SEND_PACKET_FUNC* WintunSendPacket = nullptr;
 
  private:
+  mutable std::mutex mutex_;
+
   std::atomic<bool> running_;
   std::thread thread_;
 

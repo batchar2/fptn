@@ -103,7 +103,7 @@ std::pair<pcpp::IPv4Address, pcpp::IPv6Address> Client::GetDns() {
   return {pcpp::IPv4Address(), pcpp::IPv6Address()};
 }
 
-void Client::SetNewIPPacketCallback(
+void Client::SetRecvIPPacketCallback(
     const NewIPPacketCallback& callback) noexcept {
   new_ip_pkt_callback_ = callback;
 }
@@ -125,10 +125,8 @@ bool Client::Send(fptn::common::network::IPPacketPtr packet) {
 }
 
 void Client::Run() {
-  // Maximum allowed reconnection attempts
-  // constexpr int kMaxAttempts = 3;
   // Time window for counting attempts (1 minute)
-  constexpr auto kReconnectionWindow = std::chrono::seconds(60);
+  constexpr auto kReconnectionWindow = std::chrono::seconds(120);
   // Delay between reconnection attempts
   constexpr auto kReconnectionDelay = std::chrono::milliseconds(300);
 
@@ -159,21 +157,23 @@ void Client::Run() {
     // Calculate time since last window start
     auto current_time = std::chrono::steady_clock::now();
     auto elapsed = current_time - window_start_time;
+
     // Reconnection attempt counting logic
     if (elapsed >= kReconnectionWindow) {
       // Reset counter if we're past the time window
       reconnection_attempts_ = kMaxReconnectionAttempts_;
       window_start_time = current_time;
     } else {
-      // Decrement counter if within time window
-      reconnection_attempts_--;
+      --reconnection_attempts_;  // Decrement counter if within time window
     }
+
     // Log connection failure and wait before retrying
     SPDLOG_ERROR(
         "Connection closed (attempt {}/{} in current window). Reconnecting in "
         "{}ms...",
         kMaxReconnectionAttempts_ - reconnection_attempts_,
         kMaxReconnectionAttempts_, kReconnectionDelay.count());
+
     std::this_thread::sleep_for(kReconnectionDelay);
   }
   if (running_ && !reconnection_attempts_) {

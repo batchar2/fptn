@@ -178,11 +178,12 @@ int main(int argc, char* argv[]) {
     /* tun interface */
     auto virtual_network_interface =
         std::make_unique<fptn::common::network::TunInterface>(
-            tun_interface_name,
-            /* IPv4 */
-            tun_interface_address_ipv4, 30,
-            /* IPv6 */
-            tun_interface_address_ipv6, 126);
+            fptn::common::network::TunInterface::Config{
+                tun_interface_name, tun_interface_address_ipv4,
+                30,  // IPv4 netmask
+                tun_interface_address_ipv6,
+                126  // IPv6 netmask
+            });
 
     /* iptables */
     auto iptables = std::make_unique<fptn::routing::IPTables>(

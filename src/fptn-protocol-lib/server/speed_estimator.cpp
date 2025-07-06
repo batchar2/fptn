@@ -9,6 +9,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <algorithm>
 #include <future>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -40,23 +41,23 @@ std::uint64_t GetDownloadTimeMs(const ServerInfo& server,
 
 ServerInfo FindFastestServer(
     const std::string& sni, const std::vector<ServerInfo>& servers) {
-  constexpr int kTimeout = 5;
+  constexpr int kTimeoutSeconds = 30;
   std::vector<std::future<std::uint64_t>> futures;
 
   futures.reserve(servers.size());
   // NOLINTNEXTLINE(modernize-use-ranges)
   std::transform(servers.begin(), servers.end(), std::back_inserter(futures),
       // NOLINTNEXTLINE(bugprone-exception-escape)
-      [kTimeout, sni](const auto& server) {
-        (void)kTimeout;  // fix Windows build
+      [kTimeoutSeconds, sni](const auto& server) {
+        (void)kTimeoutSeconds;  // fix Windows build
         try {
           // NOLINTNEXTLINE(modernize-use-ranges)
           return std::async(std::launch::async,
               // NOLINTNEXTLINE(bugprone-exception-escape)
-              [server, sni, kTimeout]() {
-                (void)kTimeout;  // fix Windows build
+              [server, sni, kTimeoutSeconds]() {
+                (void)kTimeoutSeconds;  // fix Windows build
                 return GetDownloadTimeMs(
-                    server, sni, kTimeout, server.md5_fingerprint);
+                    server, sni, kTimeoutSeconds, server.md5_fingerprint);
               });
         } catch (const std::exception& ex) {
           (void)ex;
@@ -68,16 +69,33 @@ ServerInfo FindFastestServer(
         }
       });
 
-  std::vector<std::uint64_t> times(servers.size());
-  for (std::size_t i = 0; i < futures.size(); ++i) {
-    auto& future = futures[i];
-    auto const status = future.wait_for(std::chrono::seconds(kTimeout));
-    if (status == std::future_status::ready) {
-      times[i] = future.get();
-    } else {
-      times[i] = kMaxTimeout;
+  std::vector<std::uint64_t> times(servers.size(), kMaxTimeout);
+  const auto time_begin = std::chrono::high_resolution_clock::now();
+  const auto timeout_time = time_begin + std::chrono::seconds(kTimeoutSeconds);
+
+  bool any_ready = false;
+  do {
+    // Check all server connections for responses
+    for (std::size_t i = 0; i < futures.size(); ++i) {
+      auto& future = futures[i];
+      auto const status = future.wait_for(std::chrono::milliseconds(1));
+      if (status == std::future_status::ready) {
+        times[i] = future.get();
+        any_ready = true;
+      }
     }
-  }
+
+    // Exit loop if we've exceeded maximum allowed time
+    if (std::chrono::high_resolution_clock::now() > timeout_time) {
+      break;
+    }
+
+    // Only sleep if no servers responded this iteration
+    if (!any_ready) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    }
+  } while (!any_ready);
+
   // NOLINTNEXTLINE(modernize-use-ranges)
   auto const min_time_it = std::min_element(times.begin(), times.end());
   if (min_time_it == times.end() || *min_time_it == kMaxTimeout) {
