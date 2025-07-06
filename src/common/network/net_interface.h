@@ -303,6 +303,8 @@ class WindowsTunInterface final : public BaseNetInterface<WindowsTunInterface> {
 
  protected:
   bool StartImpl() {
+    const std::lock_guard<std::mutex> lock(mutex_);  // mutex
+
     if (!wintun_) {
       return false;
     }
@@ -339,7 +341,18 @@ class WindowsTunInterface final : public BaseNetInterface<WindowsTunInterface> {
   }
 
   bool StopImpl() {
-    if (running_ && thread_.joinable()) {
+    if (!running_) {
+      return false;
+    }
+
+    const std::lock_guard<std::mutex> lock(mutex_);  // mutex
+
+    // cppcheck-suppress identicalConditionAfterEarlyExit
+    if (!running_) {  // Double-check after acquiring lock
+      return false;
+    }
+
+    if (thread_.joinable()) {
       running_ = false;
       thread_.join();
 
@@ -355,6 +368,13 @@ class WindowsTunInterface final : public BaseNetInterface<WindowsTunInterface> {
 
   bool SendImpl(IPPacketPtr packet) {
     if (!running_ || !session_ || !packet || !packet->Size()) {
+      return false;
+    }
+
+    const std::lock_guard<std::mutex> lock(mutex_);  // mutex
+
+    // cppcheck-suppress identicalConditionAfterEarlyExit
+    if (!running_) {  // Double-check after acquiring lock
       return false;
     }
 
@@ -444,7 +464,7 @@ class WindowsTunInterface final : public BaseNetInterface<WindowsTunInterface> {
     while (running_) {
       if (ERROR_SUCCESS == ReadPacketNonblock(session_, buffer, &size)) {
         auto packet = IPPacket::Parse(buffer, size);
-        if (packet != nullptr && callback) {
+        if (running_ && packet != nullptr && callback) {
           receive_rate_calculator_.Update(packet->Size());  // calculate rate
           callback(std::move(packet));
         }
@@ -535,6 +555,8 @@ class WindowsTunInterface final : public BaseNetInterface<WindowsTunInterface> {
   WINTUN_SEND_PACKET_FUNC* WintunSendPacket = nullptr;
 
  private:
+  mutable std::mutex mutex_;
+
   std::atomic<bool> running_;
   std::thread thread_;
 
