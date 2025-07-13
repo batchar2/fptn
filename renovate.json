@@ -1,8 +1,8 @@
 {
-  "managerFilePatterns": [
-    "/(^|/)conanfile\\.(txt|py)$/"
-  ],
-  "datasource": "conan",
-  "versioning": "conan",
-  "enabled": false
+  "extends": ["config:recommended", ":dependencyDashboard"],
+  "enabledManagers": ["conan"],
+  "conan": {
+    "enabled": true,
+    "fileMatch": ["conanfile.txt", "conanfile.py"]
+  }
 }
