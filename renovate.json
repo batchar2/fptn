@@ -1,0 +1,8 @@
+{
+  "managerFilePatterns": [
+    "/(^|/)conanfile\\.(txt|py)$/"
+  ],
+  "datasource": "conan",
+  "versioning": "conan",
+  "enabled": false
+}
