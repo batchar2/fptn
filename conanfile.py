@@ -19,7 +19,7 @@ class FPTN(ConanFile):
         "jwt-cpp/0.7.1",
         "nlohmann_json/3.12.0",
         "prometheus-cpp/1.3.0",
-        "protobuf/5.27.0",
+        "protobuf/6.30.1",
         "spdlog/1.15.1",
         "zlib/1.3.1",
     )

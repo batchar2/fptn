@@ -15,7 +15,7 @@ class ProxyServer(ConanFile):
         "argparse/3.2",
         "cpp-httplib/0.20.1",
         "spdlog/1.15.1",
-        "protobuf/5.27.0",
+        "protobuf/6.30.1",
         "nlohmann_json/3.12.0",
     )
     settings = (
