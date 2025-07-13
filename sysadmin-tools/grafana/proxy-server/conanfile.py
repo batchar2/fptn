@@ -89,7 +89,7 @@ class ProxyServer(ConanFile):
         self.build_requires("cmake/3.22.0", override=True)
         self.test_requires("gtest/1.14.0")
         if self.settings.os != "Windows":
-            self.build_requires("meson/1.4.1", override=True)
+            self.build_requires("meson/1.7.2", override=True)
 
     def generate(self):
         tc = CMakeToolchain(self)
