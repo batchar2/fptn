@@ -58,6 +58,8 @@ namespace fptn::common::network {
 
 #define FPTN_PACKET_UNDEFINED_CLIENT_ID MAX_CLIENT_ID
 
+#ifndef __ANDROID__
+
 inline bool CheckIPv4(const std::string& buffer) {
   return (static_cast<uint8_t>(buffer[0]) >> 4) == 4;
 }
@@ -69,7 +71,7 @@ inline bool CheckIPv6(const std::string& buffer) {
 class IPPacket {
  public:
   static std::unique_ptr<IPPacket> Parse(std::string buffer,
-      std::uint64_t client_id = FPTN_PACKET_UNDEFINED_CLIENT_ID) {
+      fptn::ClientID client_id = FPTN_PACKET_UNDEFINED_CLIENT_ID) {
     if (buffer.empty() || buffer.size() < 20) {  // Minimum IPv4 header size
       return nullptr;
     }
@@ -90,7 +92,7 @@ class IPPacket {
   }
 
   static std::unique_ptr<IPPacket> Parse(const std::uint8_t* data,
-      std::size_t size,
+      const std::size_t size,
       fptn::ClientID client_id = FPTN_PACKET_UNDEFINED_CLIENT_ID) {
     std::string buffer(reinterpret_cast<const char*>(data), size);
     return Parse(std::move(buffer), client_id);
@@ -205,4 +207,49 @@ class IPPacket {
 };
 
 using IPPacketPtr = std::unique_ptr<IPPacket>;
+
+#else
+
+/**
+ * Android-specific lightweight container for IPv4 packets.
+ * Wraps raw IP packet data with basic access methods.
+ */
+class LightIPv4Packet {
+ public:
+  static std::unique_ptr<LightIPv4Packet> Parse(std::string buffer,
+      std::uint64_t client_id = FPTN_PACKET_UNDEFINED_CLIENT_ID) {
+    if (buffer.empty() || buffer.size() < 20) {  // Minimum IPv4 header size
+      return nullptr;
+    }
+    return std::make_unique<LightIPv4Packet>(std::move(buffer), client_id);
+  }
+
+  static std::unique_ptr<LightIPv4Packet> Parse(const std::uint8_t* data,
+      const std::size_t size,
+      const fptn::ClientID client_id = FPTN_PACKET_UNDEFINED_CLIENT_ID) {
+    std::string buffer(reinterpret_cast<const char*>(data), size);
+    return Parse(std::move(buffer), client_id);
+  }
+
+  LightIPv4Packet(std::string buffer, const fptn::ClientID client_id)
+      : ip_packet_(std::move(buffer)) {
+    (void)client_id;
+  }
+
+  std::size_t Size() const { return ip_packet_.size(); }
+
+  // specific methods to have general interface with IPPacket
+  const LightIPv4Packet* GetRawPacket() const { return this; }
+  std::size_t getRawDataLen() const { return ip_packet_.size(); }
+  const void* getRawData() const { return ip_packet_.data(); }
+
+ private:
+  const std::string ip_packet_;
+};
+
+using IPPacket = LightIPv4Packet;
+using IPPacketPtr = std::unique_ptr<LightIPv4Packet>;
+
+#endif
+
 }  // namespace fptn::common::network

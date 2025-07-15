@@ -51,7 +51,8 @@ std::string CreateProtoPayload(fptn::common::network::IPPacketPtr packet) {
   message.set_msg_type(fptn::protocol::MSG_IP_PACKET);
 
   const auto* raw_packet = packet->GetRawPacket();
-  const void* data = static_cast<const void*>(raw_packet->getRawData());
+  const void* data =
+      static_cast<const void*>(raw_packet->getRawData());  // NOLINT
   const auto len = raw_packet->getRawDataLen();
 
   fptn::protocol::IPPacket* ip_packet_payload = message.mutable_packet();
@@ -61,12 +62,12 @@ std::string CreateProtoPayload(fptn::common::network::IPPacketPtr packet) {
   /**
    * Fill with random data to prevent issues related to TLS-inside-TLS.
    */
-  static const std::string kRandomdata =
+  static const std::string kRandomData =
       fptn::common::utils::GenerateRandomString(FPTN_IP_PACKET_MAX_SIZE);
   const std::size_t current_payload_size = ip_packet_payload->payload().size();
 
   if (current_payload_size < FPTN_IP_PACKET_MAX_SIZE) {
-    static std::mt19937 gen{ std::random_device {} () };
+    static std::mt19937 gen{std::random_device {}()};
     std::uniform_int_distribution<std::size_t> dist(
         current_payload_size, FPTN_IP_PACKET_MAX_SIZE);
 
@@ -74,7 +75,7 @@ std::string CreateProtoPayload(fptn::common::network::IPPacketPtr packet) {
     const std::size_t padding_size = random_length - current_payload_size;
 
     ip_packet_payload->set_padding_data(
-        kRandomdata.substr(current_payload_size, padding_size));
+        kRandomData.substr(current_payload_size, padding_size));
   }
 #endif
   std::string serialized_data;
