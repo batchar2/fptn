@@ -147,7 +147,7 @@ bool WebsocketClient::Stop() {
     return false;
   }
 
-  std::unique_lock<std::mutex> lock(mutex_);  // mutex
+  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
   // cppcheck-suppress identicalConditionAfterEarlyExit
   if (!running_) {  // Double-check after acquiring lock
