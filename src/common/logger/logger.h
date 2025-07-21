@@ -18,6 +18,8 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #elif __APPLE__
 #include <pwd.h>     // NOLINT(build/include_order)
 #include <unistd.h>  // NOLINT(build/include_order)
+#elif _WIN32
+#include <windows.h>
 #endif
 
 #include <spdlog/sinks/rotating_file_sink.h>  // NOLINT(build/include_order)
@@ -27,6 +29,15 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 namespace fptn::logger {
 
 inline bool init(const std::string& app_name) {
+  // Set locale
+#ifdef _WIN32
+  SetConsoleOutputCP(CP_UTF8);
+  SetConsoleCP(CP_UTF8);
+  std::ios::sync_with_stdio(false);
+  std::wcout.imbue(std::locale(".UTF-8"));
+#endif
+  std::locale::global(std::locale::classic());
+  setlocale(LC_ALL, "en_US.UTF-8");
   try {
 #ifdef __ANDROID__
     auto logger = spdlog::android_logger_mt("android", app_name);
@@ -51,10 +62,6 @@ inline bool init(const std::string& app_name) {
 #elif _WIN32
     const std::filesystem::path log_dir = "./logs/";
 #endif
-    // Set locale
-    std::locale::global(std::locale::classic());
-    setlocale(LC_ALL, "en_US.UTF-8");
-
     const std::filesystem::path log_file = log_dir / (app_name + ".log");
     if (!std::filesystem::exists(log_dir)) {
       try {
