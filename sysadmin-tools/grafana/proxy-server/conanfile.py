@@ -10,7 +10,7 @@ class ProxyServer(ConanFile):
     requires = (
         "zlib/1.3.1",
         "fmt/11.1.3",
-        "boost/1.83.0",
+        "boost/1.88.0",
         "abseil/20250127.0",
         "argparse/3.2",
         "cpp-httplib/0.20.1",
