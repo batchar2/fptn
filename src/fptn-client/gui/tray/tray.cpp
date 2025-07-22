@@ -43,7 +43,11 @@ void ShowError(const QString& title, const QString& msg) {
   msg_box.setWindowIcon(QIcon(":/icons/app.ico"));
   msg_box.setIcon(QMessageBox::Critical);
   msg_box.setWindowTitle(title);
+#ifdef _WIN32
+  msg_box.setText(msg.toUtf8());
+#else
   msg_box.setText(msg);
+#endif
   msg_box.exec();
 }
 

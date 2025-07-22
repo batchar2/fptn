@@ -34,6 +34,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <boost/beast/http.hpp>
 #include <boost/beast/ssl.hpp>
 #include <boost/beast/version.hpp>
+#include <boost/nowide/convert.hpp>
 
 #include "fptn-protocol-lib/tls/tls.h"
 
@@ -184,69 +185,75 @@ Response HttpsClient::Get(const std::string& handle, int timeout) {
     const std::string port = std::to_string(port_);
     auto const results = resolver.resolve(host_, port);
     boost::beast::get_lowest_layer(stream).expires_after(
-        std::chrono::seconds(timeout));  // Set timeout for the operation
+        std::chrono::seconds(timeout));
     boost::beast::get_lowest_layer(stream).connect(results);
 
-    // Configure HTTPS protocol
     fptn::protocol::tls::SetHandshakeSessionID(stream.native_handle());
-    // Configure SNI
     fptn::protocol::tls::SetHandshakeSni(stream.native_handle(), sni_);
-    // Validate the server certificate
+
     if (!expected_md5_fingerprint_.empty()) {
       ssl = stream.native_handle();
       fptn::protocol::tls::AttachCertificateVerificationCallback(
-          ssl,
-          [this, &error](const std::string& md5_fingerprint) {
+          ssl, [this, &error](const std::string& md5_fingerprint) {
             return onVerifyCertificate(md5_fingerprint, error);
           });
     } else {
       ctx.set_verify_mode(boost::asio::ssl::verify_none);
     }
 
-    // handshake
     stream.handshake(boost::asio::ssl::stream_base::client);
 
-    // request params
     boost::beast::http::request<boost::beast::http::string_body> req{
         boost::beast::http::verb::get, handle, 11};
-    // set http headers
     const auto headers = RealBrowserHeaders(sni_);
     for (const auto& [key, value] : headers) {
       req.set(key, value);
     }
-    // send request
+
     boost::beast::get_lowest_layer(stream).expires_after(
-        std::chrono::seconds(timeout));  // write timeout
+        std::chrono::seconds(timeout));
     boost::beast::http::write(stream, req);
-    // read answer
+
     boost::beast::flat_buffer buffer;
     boost::beast::http::response<boost::beast::http::dynamic_body> res;
+    boost::beast::get_lowest_layer(stream).expires_after(
+        std::chrono::seconds(timeout));
     boost::beast::http::read(stream, buffer, res);
 
     respcode = static_cast<int>(res.result_int());
     body = GetHttpBody(res);
 
-    boost::beast::error_code ec;
+    boost::beast::get_lowest_layer(stream).expires_after(
+        std::chrono::seconds(timeout));
+
+    boost::system::error_code ec;
     stream.shutdown(ec);
-    if (ec == boost::asio::ssl::error::stream_truncated ||
-        ec == boost::beast::net::error::eof) {
-      ec = {};
-    } else if (ec) {
-      throw boost::beast::system_error{ec};
+    try {
+      boost::beast::get_lowest_layer(stream).close();
+    } catch (boost::system::system_error const& e) {
+      SPDLOG_ERROR("Exception during HttpsClient::Get: {}", e.what());
     }
   } catch (const boost::system::system_error& err) {
+#ifdef _WIN32
+    error = boost::nowide::narrow(boost::nowide::widen(err.what()));
+#else
     error = err.what();
+#endif
     respcode = 600;
-    SPDLOG_ERROR("Exception during HttpsClient::Get: {}", err.what());
+    SPDLOG_ERROR("Exception during HttpsClient::Get: {}", error);
   } catch (const std::exception& e) {
+#ifdef _WIN32
+    error = boost::nowide::narrow(boost::nowide::widen(e.what()));
+#else
     error = e.what();
+#endif
     respcode = 601;
-    SPDLOG_ERROR("Exception during HttpsClient::Get: {}", e.what());
+    SPDLOG_ERROR("Exception during HttpsClient::Get: {}", error);
   } catch (...) {
+    error = "Unknown exception";
     respcode = 602;
     SPDLOG_ERROR("Unknown exception occurred during HttpsClient::Get");
   }
-  // free memory
   if (ssl) {
     fptn::protocol::tls::AttachCertificateVerificationCallbackDelete(ssl);
   }
@@ -267,34 +274,29 @@ Response HttpsClient::Post(const std::string& handle,
     SSL_CTX* ssl_ctx = fptn::protocol::tls::CreateNewSslCtx();
     boost::asio::ssl::context ctx(ssl_ctx);
 
-    ctx.set_verify_mode(boost::asio::ssl::verify_none);
-
     boost::beast::net::ip::tcp::resolver resolver(ioc);
     boost::beast::ssl_stream<boost::beast::tcp_stream> stream(ioc, ctx);
 
     const std::string port = std::to_string(port_);
     auto const results = resolver.resolve(host_, port);
+
     boost::beast::get_lowest_layer(stream).expires_after(
-        std::chrono::seconds(timeout));  // Set timeout for the operation
+        std::chrono::seconds(timeout));
     boost::beast::get_lowest_layer(stream).connect(results);
 
-    // Configure HTTPS protocol
     fptn::protocol::tls::SetHandshakeSessionID(stream.native_handle());
-    // Configure SNI
     fptn::protocol::tls::SetHandshakeSni(stream.native_handle(), sni_);
-    // Validate the server certificate
+
     if (!expected_md5_fingerprint_.empty()) {
       ssl = stream.native_handle();
       fptn::protocol::tls::AttachCertificateVerificationCallback(
-          ssl,
-          [this, &error](const std::string& md5_fingerprint) {
+          ssl, [this, &error](const std::string& md5_fingerprint) {
             return onVerifyCertificate(md5_fingerprint, error);
           });
     } else {
       ctx.set_verify_mode(boost::asio::ssl::verify_none);
     }
 
-    // handshake
     stream.handshake(boost::asio::ssl::stream_base::client);
 
     boost::beast::http::request<boost::beast::http::string_body> req{
@@ -310,39 +312,49 @@ Response HttpsClient::Post(const std::string& handle,
     req.body() = request;
     req.prepare_payload();
 
-    // send request
     boost::beast::get_lowest_layer(stream).expires_after(
-        std::chrono::seconds(timeout));  // write timeout
+        std::chrono::seconds(timeout));
     boost::beast::http::write(stream, req);
 
     boost::beast::flat_buffer buffer;
     boost::beast::http::response<boost::beast::http::dynamic_body> res;
+    boost::beast::get_lowest_layer(stream).expires_after(
+        std::chrono::seconds(timeout));
     boost::beast::http::read(stream, buffer, res);
 
     respcode = static_cast<int>(res.result_int());
     body = GetHttpBody(res);
 
-    boost::beast::error_code ec;
+    boost::beast::get_lowest_layer(stream).expires_after(
+        std::chrono::seconds(timeout));
+    boost::system::error_code ec;
     stream.shutdown(ec);
-    if (ec == boost::asio::ssl::error::stream_truncated ||
-        ec == boost::beast::net::error::eof) {
-      ec = {};
-    } else if (ec) {
-      throw boost::beast::system_error{ec};
+    try {
+      boost::beast::get_lowest_layer(stream).close();
+    } catch (boost::system::system_error const& e) {
+      SPDLOG_ERROR("Exception during HttpsClient::Get: {}", e.what());
     }
   } catch (const boost::system::system_error& err) {
+#ifdef _WIN32
+    error = boost::nowide::narrow(boost::nowide::widen(err.what()));
+#else
     error = err.what();
+#endif
     respcode = 600;
-    SPDLOG_ERROR("Exception during HttpsClient::Post: {}", err.what());
+    SPDLOG_ERROR("Exception during HttpsClient::Post: {}", error);
   } catch (const std::exception& e) {
+#ifdef _WIN32
+    error = boost::nowide::narrow(boost::nowide::widen(e.what()));
+#else
     error = e.what();
+#endif
     respcode = 601;
-    SPDLOG_ERROR("Exception during HttpsClient::Post: {}", e.what());
+    SPDLOG_ERROR("Exception during HttpsClient::Post: {}", error);
   } catch (...) {
+    error = "Unknown exception";
     respcode = 602;
     SPDLOG_ERROR("Unknown exception occurred during HttpsClient::Post");
   }
-  // free memory
   if (ssl) {
     fptn::protocol::tls::AttachCertificateVerificationCallbackDelete(ssl);
   }
