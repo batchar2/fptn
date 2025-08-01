@@ -42,7 +42,7 @@ class PcapplusplusConan(ConanFile):
         if self.settings.os == "Windows":
             self.requires("npcap/1.70")
         else:
-            self.requires("libpcap/1.10.1")
+            self.requires("libpcap/1.10.5")
     
     def configure(self):
         if self.options.shared:
