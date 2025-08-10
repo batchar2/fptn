@@ -28,6 +28,7 @@ add_compile_definitions(FPTN_GITHUB_USERNAME=\"batchar2\")
 add_compile_definitions(FPTN_GITHUB_REPOSITORY=\"fptn\")
 add_compile_definitions(FPTN_GITHUB_PAGE_LINK=\"https://batchar2.github.io/fptn/\")
 # Boost
+add_compile_definitions(BOOST_MPL_CFG_NO_PREPROCESSED_HEADERS)
 add_compile_definitions(BOOST_IOSTREAMS_USE_BZIP2)
 add_compile_definitions(BOOST_IOSTREAMS_USE_ZLIB)
 # Fix boringssl build for windows
