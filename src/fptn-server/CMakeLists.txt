@@ -14,8 +14,7 @@ else()
   set(CMAKE_CXX_STANDARD_REQUIRED ON)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fcoroutines")
 endif()
-
-find_package(Boost 1.83 REQUIRED COMPONENTS asio coroutines future)
+find_package(Boost REQUIRED COMPONENTS asio coroutines future process)
 find_package(ZLIB REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_package(argparse REQUIRED)
@@ -68,6 +67,9 @@ target_link_libraries(
   "${PROJECT_NAME}"
   PRIVATE ZLIB::ZLIB
           Boost::boost
+          Boost::random
+          Boost::filesystem
+          Boost::process
           OpenSSL::SSL
           OpenSSL::Crypto
           argparse::argparse

@@ -13,7 +13,7 @@ find_package(argparse REQUIRED)
 find_package(spdlog REQUIRED)
 find_package(fmt REQUIRED)
 find_package(PcapPlusPlus REQUIRED)
-find_package(Boost REQUIRED COMPONENTS random filesystem)
+find_package(Boost REQUIRED COMPONENTS random filesystem process)
 find_package(ZLIB REQUIRED)
 find_package(httplib REQUIRED)
 
@@ -40,6 +40,7 @@ target_link_libraries(
           Boost::boost
           Boost::random
           Boost::filesystem
+          Boost::process
           OpenSSL::SSL
           OpenSSL::Crypto
           argparse::argparse
@@ -135,6 +136,7 @@ WarningsAsErrors: ''
             Boost::boost
             Boost::random
             Boost::filesystem
+            Boost::process
             OpenSSL::SSL
             OpenSSL::Crypto
             argparse::argparse

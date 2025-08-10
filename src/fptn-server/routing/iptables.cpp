@@ -11,6 +11,9 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <vector>
 
 #include <boost/process.hpp>
+#include <boost/process/v1/child.hpp>
+#include <boost/process/v1/io.hpp>
+#include <boost/process/v1/search_path.hpp>
 #include <fmt/format.h>     // NOLINT(build/include_order)
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
@@ -19,8 +22,9 @@ using fptn::routing::IPTables;
 namespace {
 bool RunCommand(const std::string& command) noexcept {
   try {
-    boost::process::child child(command, boost::process::std_out > stdout,
-        boost::process::std_err > stderr);
+    boost::process::v1::child child(command,
+        boost::process::v1::std_out > stdout,
+        boost::process::v1::std_err > stderr);
     child.wait();
     if (child.exit_code() == 0) {
       return true;

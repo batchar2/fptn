@@ -13,8 +13,10 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <string>
 #include <vector>
 
-#include <boost/asio.hpp>
 #include <boost/process.hpp>
+#include <boost/process/v1/child.hpp>
+#include <boost/process/v1/io.hpp>
+#include <boost/process/v1/search_path.hpp>
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
 #if _WIN32
@@ -26,11 +28,14 @@ namespace fptn::common::system::command {
 inline bool run(const std::string& command) {
   try {
 #ifdef _WIN32
-    boost::process::child child(command, boost::process::std_out > stdout,
-        boost::process::std_err > stderr, ::boost::process::windows::hide);
+    boost::process::v1::child child(command,
+        boost::process::v1::std_out > stdout,
+        boost::process::v1::std_err > stderr,
+        ::boost::process::v1::windows::hide);
 #elif defined(__linux__) || defined(__APPLE__)
-    boost::process::child child(command, boost::process::std_out > stdout,
-        boost::process::std_err > stderr);
+    boost::process::v1::child child(command,
+        boost::process::v1::std_out > stdout,
+        boost::process::v1::std_err > stderr);
 #endif
     child.wait();
     return child.exit_code() == 0;
@@ -44,19 +49,19 @@ inline bool run(const std::string& command) {
 }
 
 inline bool run(
-    const std::string& command, std::vector<std::string>& stdoutput) {
+    const std::string& command, std::vector<std::string>& std_output) {
   try {
-    boost::process::ipstream pipe;
+    boost::process::v1::ipstream pipe;
 #ifdef _WIN32
-    boost::process::child child(command, boost::process::std_out > pipe,
-        ::boost::process::windows::hide);
+    boost::process::v1::child child(command, boost::process::v1::std_out > pipe,
+        ::boost::process::v1::windows::hide);
 #elif defined(__linux__) || defined(__APPLE__)
-    boost::process::child child(boost::process::search_path("bash"), "-c",
-        command, boost::process::std_out > pipe);
+    boost::process::v1::child child(boost::process::v1::search_path("bash"),
+        "-c", command, boost::process::v1::std_out > pipe);
 #endif
     std::string line;
     while (std::getline(pipe, line)) {
-      stdoutput.emplace_back(line);
+      std_output.emplace_back(line);
     }
     child.wait();
     return child.exit_code() == 0;
