@@ -1,3 +1,5 @@
+.cache/
+.vsconan/
 Testing/
 conan_provider.cmake
 .conan_provider.cmake
