@@ -15,12 +15,12 @@ class FPTN(ConanFile):
         "argparse/3.2",
         "cpp-httplib/0.20.1",
         "boost/1.88.0",
-        "fmt/11.1.3",
+        "fmt/11.2.0",
         "jwt-cpp/0.7.1",
         "nlohmann_json/3.12.0",
         "prometheus-cpp/1.3.0",
         "protobuf/5.27.0",
-        "spdlog/1.15.1",
+        "spdlog/1.15.3",
         "zlib/1.3.1",
     )
     settings = (
