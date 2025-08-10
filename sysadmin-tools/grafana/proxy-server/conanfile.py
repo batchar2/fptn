@@ -14,7 +14,7 @@ class ProxyServer(ConanFile):
         "abseil/20250127.0",
         "argparse/3.2",
         "cpp-httplib/0.20.1",
-        "spdlog/1.15.1",
+        "spdlog/1.15.3",
         "protobuf/5.27.0",
         "nlohmann_json/3.12.0",
     )

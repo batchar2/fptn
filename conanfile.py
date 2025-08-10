@@ -20,7 +20,7 @@ class FPTN(ConanFile):
         "nlohmann_json/3.12.0",
         "prometheus-cpp/1.3.0",
         "protobuf/5.27.0",
-        "spdlog/1.15.1",
+        "spdlog/1.15.3",
         "zlib/1.3.1",
     )
     settings = (
