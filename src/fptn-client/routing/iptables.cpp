@@ -10,6 +10,9 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <utility>
 #include <vector>
 
+#include <boost/asio/ip/address.hpp>
+#include <boost/asio/ip/tcp.hpp>
+
 #include "common/network/net_interface.h"
 #include "common/system/command.h"
 
@@ -164,10 +167,10 @@ bool IPTables::Apply() {
           detected_gateway_ip_.toString()),
       fmt::format(
           "route add -net 10.0.0.0/8 {}", detected_gateway_ip_.toString()),
-      fmt::format("route add -net 172.16.0.0/12 {}",
-          detected_gateway_ip_.toString()),
-      fmt::format("route add -net 192.168.0.0/16 {}",
-          detected_gateway_ip_.toString()),
+      fmt::format(
+          "route add -net 172.16.0.0/12 {}", detected_gateway_ip_.toString()),
+      fmt::format(
+          "route add -net 192.168.0.0/16 {}", detected_gateway_ip_.toString()),
       // DNS
       fmt::format("dscacheutil -flushcache"),
       fmt::format(
