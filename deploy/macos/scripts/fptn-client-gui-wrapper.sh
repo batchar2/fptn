@@ -6,6 +6,10 @@ show_error() {
     exit 1
 }
 
+is_client_running() {
+    pgrep -f "fptn-client-gui" > /dev/null
+}
+
 show_dialog() {
     local message="$1"
     local buttons="$2"
@@ -167,6 +171,13 @@ export QT_QPA_PLATFORM_PLUGIN_PATH=$QT_PLUGIN_PATH/platforms
 export LD_LIBRARY_PATH=/Applications/FptnClient.app/Contents/Frameworks
 
 clean_dns
-trap clean_dns EXIT
 
-exec /Applications/FptnClient.app/Contents/MacOS/fptn-client-gui "$@"
+# run in background
+/Applications/FptnClient.app/Contents/MacOS/fptn-client-gui "$@" &
+
+# wait for end of client
+while is_client_running; do
+    sleep 1
+done
+
+clean_dns
