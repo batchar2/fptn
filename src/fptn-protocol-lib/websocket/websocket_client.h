@@ -35,6 +35,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #pragma warning(pop)
 #endif
 
+#include "common/network/ip_address.h"
 #include "common/network/ip_packet.h"
 
 namespace fptn::protocol::websocket {
@@ -44,10 +45,10 @@ class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
   using OnConnectedCallback = std::function<void()>;
 
  public:
-  explicit WebsocketClient(pcpp::IPv4Address server_ip,
+  explicit WebsocketClient(fptn::common::network::IPv4Address server_ip,
       int server_port,
-      pcpp::IPv4Address tun_interface_address_ipv4,
-      pcpp::IPv6Address tun_interface_address_ipv6,
+      fptn::common::network::IPv4Address tun_interface_address_ipv4,
+      fptn::common::network::IPv6Address tun_interface_address_ipv6,
       NewIPPacketCallback new_ip_pkt_callback,
       std::string sni,
       std::string access_token,
@@ -98,11 +99,11 @@ class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
   mutable std::atomic<bool> running_;
   mutable std::atomic<bool> was_connected_;
 
-  const pcpp::IPv4Address server_ip_;
+  const fptn::common::network::IPv4Address server_ip_;
   const std::string server_port_str_;
 
-  const pcpp::IPv4Address tun_interface_address_ipv4_;
-  const pcpp::IPv6Address tun_interface_address_ipv6_;
+  const fptn::common::network::IPv4Address tun_interface_address_ipv4_;
+  const fptn::common::network::IPv6Address tun_interface_address_ipv6_;
   const NewIPPacketCallback new_ip_pkt_callback_;
   const std::string sni_;
   const std::string access_token_;
