@@ -24,10 +24,14 @@ find_package(OpenSSL REQUIRED)
 find_package(argparse REQUIRED)
 find_package(spdlog REQUIRED)
 find_package(fmt REQUIRED)
-find_package(PcapPlusPlus REQUIRED)
+
 find_package(Boost REQUIRED COMPONENTS random filesystem)
 find_package(ZLIB REQUIRED)
 find_package(nlohmann_json REQUIRED)
+
+if(NOT FPTN_IP_ADDRESS_WITHOUT_PCAP)
+  find_package(PcapPlusPlus REQUIRED)
+endif()
 
 include_directories(${nlohmann_json_INCLUDE_DIRS})
 
@@ -90,6 +94,11 @@ set(FPTN_CLIENT_PROTOCOL_SOURCES
 add_library("${PROJECT_NAME}_static" STATIC ${FPTN_CLIENT_PROTOCOL_SOURCES})
 
 foreach(target "${PROJECT_NAME}_static")
+  if(FPTN_IP_ADDRESS_WITHOUT_PCAP)
+    set(PCAP_LIB "")
+  else()
+    set(PCAP_LIB PcapPlusPlus::PcapPlusPlus)
+  endif()
   if(MSVC)
     target_compile_options(${target} PRIVATE /wd4100 /wd4702) # disable warning C4100
   endif()
@@ -108,6 +117,7 @@ foreach(target "${PROJECT_NAME}_static")
     nlohmann_json::nlohmann_json
     spdlog::spdlog
     fmt::fmt
-    PcapPlusPlus::PcapPlusPlus
-    ntp_client)
+    ntp_client
+    ${PCAP_LIB}
+  )
 endforeach()

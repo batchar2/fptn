@@ -106,7 +106,8 @@ class FPTN(ConanFile):
     def requirements(self):
         # WE USE BORINGSSL
         self._register_local_recipe("boringssl", "openssl", "boringssl", True, False)
-        self._register_local_recipe("pcapplusplus", "pcapplusplus", "24.09")
+        if not self.options.build_only_fptn_lib:
+            self._register_local_recipe("pcapplusplus", "pcapplusplus", "24.09")
         if self.options.with_gui_client:
             self.requires("qt/6.7.1")
         if self.settings.os != "Windows":
@@ -123,12 +124,8 @@ class FPTN(ConanFile):
 
         if self.options.with_gui_client:
             tc.variables["FPTN_BUILD_WITH_GUI_CLIENT"] = "True"
-
-        if self.settings.os in ("Android",):
+        if self.settings.os in ("Android",) or  self.options.build_only_fptn_lib:
             tc.variables["FPTN_BUILD_ONLY_FPTN_LIB"] = "True"
-        elif self.options.build_only_fptn_lib:
-            tc.variables["FPTN_BUILD_ONLY_FPTN_LIB"] = "True"
-
         tc.variables["FPTN_VERSION"] = FPTN_VERSION
 
         tc.generate()
