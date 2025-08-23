@@ -18,6 +18,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
 #include "common/data/channel.h"
+#include "common/network/ip_address.h"
 
 #if defined(__APPLE__) || defined(__linux__)
 #include <tuntap++.hh>  // NOLINT(build/include_order)
@@ -104,9 +105,9 @@ class BaseNetInterface {
   // Network configuration
   struct Config {
     std::string name;
-    pcpp::IPv4Address ipv4_addr;
+    fptn::common::network::IPv4Address ipv4_addr;
     int ipv4_netmask;
-    pcpp::IPv6Address ipv6_addr;
+    fptn::common::network::IPv6Address ipv6_addr;
     int ipv6_netmask;
   };
 
@@ -131,7 +132,8 @@ class BaseNetInterface {
     return config_.name;
   }
 
-  [[nodiscard]] const pcpp::IPv4Address& IPv4Addr() const noexcept {
+  [[nodiscard]] const fptn::common::network::IPv4Address& IPv4Addr()
+      const noexcept {
     return config_.ipv4_addr;
   }
 
@@ -139,7 +141,8 @@ class BaseNetInterface {
     return config_.ipv4_netmask;
   }
 
-  [[nodiscard]] const pcpp::IPv6Address& IPv6Addr() const noexcept {
+  [[nodiscard]] const fptn::common::network::IPv6Address& IPv6Addr()
+      const noexcept {
     return config_.ipv6_addr;
   }
 
@@ -181,9 +184,9 @@ class PosixTunInterface final : public BaseNetInterface<PosixTunInterface> {
       tun_ = std::make_unique<tuntap::tun>();
       tun_->name(Name());
       /* set IPv6 */
-      tun_->ip(IPv6Addr().toString(), IPv6Netmask());
+      tun_->ip(IPv6Addr().ToString(), IPv6Netmask());
       /* set IPv4 */
-      tun_->ip(IPv4Addr().toString(), IPv4Netmask());
+      tun_->ip(IPv4Addr().ToString(), IPv4Netmask());
       tun_->nonblocking(true);
       tun_->mtu(FPTN_MTU_SIZE);
       tun_->up();
@@ -409,8 +412,9 @@ class WindowsTunInterface final : public BaseNetInterface<WindowsTunInterface> {
   }
 
   // cppcheck-suppress unusedPrivateFunction
-  bool SetIPv4AndNetmask(const pcpp::IPv4Address& addr, const int mask) {
-    const std::string ipaddr = addr.toString();
+  bool SetIPv4AndNetmask(
+      const fptn::common::network::IPv4Address& addr, const int mask) {
+    const std::string ipaddr = addr.ToString();
     MIB_UNICASTIPADDRESS_ROW address_row;
 
     InitializeUnicastIpAddressEntry(&address_row);
@@ -433,8 +437,9 @@ class WindowsTunInterface final : public BaseNetInterface<WindowsTunInterface> {
     return true;
   }
   // cppcheck-suppress unusedPrivateFunction
-  bool SetIPv6AndNetmask(const pcpp::IPv6Address& addr, const int mask) {
-    const std::string ipaddr = addr.toString();
+  bool SetIPv6AndNetmask(
+      const fptn::common::network::IPv6Address& addr, const int mask) {
+    const std::string ipaddr = addr.ToString();
     MIB_UNICASTIPADDRESS_ROW address_row;
 
     InitializeUnicastIpAddressEntry(&address_row);

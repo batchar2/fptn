@@ -21,6 +21,8 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <pcapplusplus/IPv6Layer.h>  // NOLINT(build/include_order)
 #include <pcapplusplus/Packet.h>     // NOLINT(build/include_order)
 
+#include "common/network/ip_address.h"
+
 #if _WIN32
 #pragma warning(default : 4996)
 #endif
@@ -30,10 +32,10 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 namespace fptn::common::network {
 class IPv6AddressGenerator {
  public:
-  IPv6AddressGenerator(
-      const pcpp::IPv6Address& net_address, std::uint32_t subnet_mask) {
+  IPv6AddressGenerator(const fptn::common::network::IPv6Address& net_address,
+      std::uint32_t subnet_mask) {
     const auto net_address_boost =
-        boost::asio::ip::make_address_v6(net_address.toString());
+        boost::asio::ip::make_address_v6(net_address.ToString());
     net_addr_ = ipv6::toUInt128(net_address_boost);
     max_addr_ =
         net_addr_ |
@@ -41,7 +43,7 @@ class IPv6AddressGenerator {
     current_addr_ = net_addr_;
   }
 
-  pcpp::IPv6Address GetNextAddress() noexcept {
+  fptn::common::network::IPv6Address GetNextAddress() noexcept {
     const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
     const auto new_ip = current_addr_ + 1;
@@ -50,8 +52,9 @@ class IPv6AddressGenerator {
     } else {
       current_addr_ = net_addr_ + 1;
     }
-    return ipv6::toString(current_addr_);
+    return fptn::common::network::IPv6Address(ipv6::toString(current_addr_));
   }
+
   boost::multiprecision::uint128_t NumAvailableAddresses() const {
     return max_addr_ - net_addr_ - 1;
   }

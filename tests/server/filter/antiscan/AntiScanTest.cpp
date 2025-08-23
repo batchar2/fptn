@@ -9,10 +9,10 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include <pcapplusplus/IPv4Layer.h>  // NOLINT(build/include_order)
 #include <pcapplusplus/IPv6Layer.h>  // NOLINT(build/include_order)
-#include <pcapplusplus/IpAddress.h>  // NOLINT(build/include_order)
 
 #include <gtest/gtest.h>  // NOLINT(build/include_order)
 
+#include "common/network/ip_address.h"
 #include "common/network/ip_packet.h"
 
 #include "fptn-server/filter/filters/antiscan/antiscan.h"
@@ -52,13 +52,14 @@ class MockIPv6Packet : public fptn::common::network::IPPacket {
 /* IPv4 */
 TEST(AntiScanTest, BlockScan) {
   /* IPv4 */
-  const pcpp::IPv4Address server_ipv4("192.168.1.1");
-  const pcpp::IPv4Address net_ipv4("192.168.1.0");
+  const fptn::common::network::IPv4Address server_ipv4("192.168.1.1");
+  const fptn::common::network::IPv4Address net_ipv4("192.168.1.0");
   const int mask_ipv4 = 24;
   /* IPv6 */
-  const pcpp::IPv6Address server_ipv6(
+  const fptn::common::network::IPv6Address server_ipv6(
       "2001:0db8:85a3:0000:0000:8a2e:0370:0001");
-  const pcpp::IPv6Address net_ipv6("2001:0db8:85a3:0000:0000:8a2e:0370:0000");
+  const fptn::common::network::IPv6Address net_ipv6(
+      "2001:0db8:85a3:0000:0000:8a2e:0370:0000");
   const int mask_ipv6 = 126;
 
   fptn::filter::AntiScan anti_scan_filter(
@@ -67,7 +68,8 @@ TEST(AntiScanTest, BlockScan) {
       /* IPv6 */
       server_ipv6, net_ipv6, mask_ipv6);
 
-  EXPECT_EQ(anti_scan_filter.apply(std::make_unique<MockIPv4Packet>(net_ipv4)),
+  EXPECT_EQ(anti_scan_filter.apply(
+                std::make_unique<MockIPv4Packet>(net_ipv4.ToString())),
       nullptr)
       << "Packet in the network should be blocked";
 
@@ -88,13 +90,14 @@ TEST(AntiScanTest, BlockScan) {
 
 TEST(AntiScanTest, AllowNonScanPacket) {
   /* IPv4 */
-  const pcpp::IPv4Address server_ipv4("192.168.1.1");
-  const pcpp::IPv4Address net_ipv4("192.168.1.0");
+  const fptn::common::network::IPv4Address server_ipv4("192.168.1.1");
+  const fptn::common::network::IPv4Address net_ipv4("192.168.1.0");
   const int mask_ipv4 = 24;
   /* IPv6 */
-  const pcpp::IPv6Address server_ipv6(
+  const fptn::common::network::IPv6Address server_ipv6(
       "2001:0db8:85a3:0000:0000:8a2e:0370:0001");
-  const pcpp::IPv6Address net_ipv6("2001:0db8:85a3:0000:0000:8a2e:0370:0000");
+  const fptn::common::network::IPv6Address net_ipv6(
+      "2001:0db8:85a3:0000:0000:8a2e:0370:0000");
   const int mask_ipv6 = 126;
 
   fptn::filter::AntiScan anti_scan_filter(
@@ -103,8 +106,8 @@ TEST(AntiScanTest, AllowNonScanPacket) {
       /* IPv6 */
       server_ipv6, net_ipv6, mask_ipv6);
 
-  EXPECT_NE(
-      anti_scan_filter.apply(std::make_unique<MockIPv4Packet>(server_ipv4)),
+  EXPECT_NE(anti_scan_filter.apply(
+                std::make_unique<MockIPv4Packet>(server_ipv4.ToString())),
       nullptr);
 
   EXPECT_NE(anti_scan_filter.apply(std::make_unique<MockIPv4Packet>(
@@ -127,13 +130,14 @@ TEST(AntiScanTest, AllowNonScanPacket) {
 /* IPv6 */
 TEST(AntiScanTest, BlockScanIPv6) {
   /* IPv4 */
-  const pcpp::IPv4Address server_ipv4("192.168.1.1");
-  const pcpp::IPv4Address net_ipv4("192.168.1.0");
+  const fptn::common::network::IPv4Address server_ipv4("192.168.1.1");
+  const fptn::common::network::IPv4Address net_ipv4("192.168.1.0");
   const int mask_ipv4 = 24;
   /* IPv6 */
-  const pcpp::IPv6Address server_ipv6(
+  const fptn::common::network::IPv6Address server_ipv6(
       "2001:0db8:85a3:0000:0000:8a2e:0370:0001");
-  const pcpp::IPv6Address net_ipv6("2001:0db8:85a3:0000:0000:8a2e:0370:0000");
+  const fptn::common::network::IPv6Address net_ipv6(
+      "2001:0db8:85a3:0000:0000:8a2e:0370:0000");
   const int mask_ipv6 = 120;
 
   fptn::filter::AntiScan anti_scan_filter(
@@ -142,7 +146,8 @@ TEST(AntiScanTest, BlockScanIPv6) {
       /* IPv6 */
       server_ipv6, net_ipv6, mask_ipv6);
 
-  EXPECT_EQ(anti_scan_filter.apply(std::make_unique<MockIPv6Packet>(net_ipv6)),
+  EXPECT_EQ(anti_scan_filter.apply(
+                std::make_unique<MockIPv6Packet>(net_ipv6.ToString())),
       nullptr)
       << "IPv6 packet in the network should be blocked";
 
@@ -157,13 +162,14 @@ TEST(AntiScanTest, BlockScanIPv6) {
 
 TEST(AntiScanTest, AllowNonScanPacketIPv6) {
   /* IPv4 */
-  const pcpp::IPv4Address server_ipv4("192.168.1.1");
-  const pcpp::IPv4Address net_ipv4("192.168.1.0");
+  const fptn::common::network::IPv4Address server_ipv4("192.168.1.1");
+  const fptn::common::network::IPv4Address net_ipv4("192.168.1.0");
   const int mask_ipv4 = 24;
   /* IPv6 */
-  const pcpp::IPv6Address server_ipv6(
+  const fptn::common::network::IPv6Address server_ipv6(
       "2001:0db8:85a3:0000:0000:8a2e:0370:0001");
-  const pcpp::IPv6Address net_ipv6("2001:0db8:85a3:0000:0000:8a2e:0370:0000");
+  const fptn::common::network::IPv6Address net_ipv6(
+      "2001:0db8:85a3:0000:0000:8a2e:0370:0000");
   const int mask_ipv6 = 126;
 
   fptn::filter::AntiScan anti_scan_filter(
@@ -172,8 +178,8 @@ TEST(AntiScanTest, AllowNonScanPacketIPv6) {
       /* IPv6 */
       server_ipv6, net_ipv6, mask_ipv6);
 
-  EXPECT_NE(
-      anti_scan_filter.apply(std::make_unique<MockIPv6Packet>(server_ipv6)),
+  EXPECT_NE(anti_scan_filter.apply(
+                std::make_unique<MockIPv6Packet>(server_ipv6.ToString())),
       nullptr);
 
   EXPECT_NE(anti_scan_filter.apply(std::make_unique<MockIPv6Packet>(

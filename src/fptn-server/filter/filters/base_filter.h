@@ -15,7 +15,7 @@ namespace fptn::filter {
 class BaseFilter {
  public:
   virtual fptn::common::network::IPPacketPtr apply(
-      fptn::common::network::IPPacketPtr packet) const noexcept = 0;
+      fptn::common::network::IPPacketPtr packet) const = 0;
   virtual ~BaseFilter() = default;
 };
 

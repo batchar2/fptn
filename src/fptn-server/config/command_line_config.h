@@ -8,10 +8,15 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include <string>
 
-#include <argparse/argparse.hpp>     // NOLINT(build/include_order)
-#include <pcapplusplus/IpAddress.h>  // NOLINT(build/include_order)
+#include <argparse/argparse.hpp>  // NOLINT(build/include_order)
+
+#include "common/network/ip_address.h"
 
 namespace fptn::config {
+
+using fptn::common::network::IPv4Address;
+using fptn::common::network::IPv6Address;
+
 class CommandLineConfig {
  public:
   explicit CommandLineConfig(int argc, char* argv[]);
@@ -27,12 +32,12 @@ class CommandLineConfig {
 
   [[nodiscard]] std::string TunInterfaceName() const;
   /* IPv4 */
-  [[nodiscard]] pcpp::IPv4Address TunInterfaceIPv4() const;
-  [[nodiscard]] pcpp::IPv4Address TunInterfaceNetworkIPv4Address() const;
+  [[nodiscard]] IPv4Address TunInterfaceIPv4() const;
+  [[nodiscard]] IPv4Address TunInterfaceNetworkIPv4Address() const;
   [[nodiscard]] int TunInterfaceNetworkIPv4Mask() const;
   /* IPv6 */
-  [[nodiscard]] pcpp::IPv6Address TunInterfaceIPv6() const;
-  [[nodiscard]] pcpp::IPv6Address TunInterfaceNetworkIPv6Address() const;
+  [[nodiscard]] IPv6Address TunInterfaceIPv6() const;
+  [[nodiscard]] IPv6Address TunInterfaceNetworkIPv6Address() const;
   [[nodiscard]] int TunInterfaceNetworkIPv6Mask() const;
 
   [[nodiscard]] std::string UserFile() const;

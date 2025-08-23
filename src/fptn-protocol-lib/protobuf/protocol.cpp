@@ -10,7 +10,8 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <random>
 #include <string>
 
-#include <protocol.pb.h>  // NOLINT(build/include_order)
+#include <protocol.pb.h>    // NOLINT(build/include_order)
+#include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
 #include "common/network/ip_packet.h"
 #include "common/utils/utils.h"
@@ -67,7 +68,7 @@ std::string CreateProtoPayload(fptn::common::network::IPPacketPtr packet) {
   const std::size_t current_payload_size = ip_packet_payload->payload().size();
 
   if (current_payload_size < FPTN_IP_PACKET_MAX_SIZE) {
-    static std::mt19937 gen{std::random_device {}()};
+    static std::mt19937 gen{std::random_device{}()};
     std::uniform_int_distribution<std::size_t> dist(
         current_payload_size, FPTN_IP_PACKET_MAX_SIZE);
 

@@ -19,6 +19,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <boost/process.hpp>
 
 #include "common/logger/logger.h"
+#include "common/network/ip_address.h"
 #include "common/network/net_interface.h"
 
 #include "config/config_file.h"
@@ -97,23 +98,24 @@ int main(int argc, char* argv[]) {
         args.get<std::string>("--out-network-interface");
 
     const auto param_gateway_ip = args.get<std::string>("--gateway-ip");
-    const auto gateway_ip = param_gateway_ip.empty()
-                                ? pcpp::IPv4Address()
-                                : pcpp::IPv4Address(param_gateway_ip);
+    const auto gateway_ip =
+        fptn::common::network::IPv4Address::Create(param_gateway_ip);
     const auto tun_interface_name =
         args.get<std::string>("--tun-interface-name");
     const auto tun_interface_address_ipv4 =
-        pcpp::IPv4Address(args.get<std::string>("--tun-interface-ip"));
+        fptn::common::network::IPv4Address::Create(
+            args.get<std::string>("--tun-interface-ip"));
     const auto tun_interface_address_ipv6 =
-        pcpp::IPv6Address(args.get<std::string>("--tun-interface-ipv6"));
+        fptn::common::network::IPv6Address::Create(
+            args.get<std::string>("--tun-interface-ipv6"));
     const auto sni = args.get<std::string>("--sni");
 
     /* check gateway address */
     const auto using_gateway_ip =
-        (gateway_ip == pcpp::IPv4Address()
-                ? fptn::routing::GetDefaultGatewayIPAddress()
-                : pcpp::IPv4Address(gateway_ip));
-    if (using_gateway_ip == pcpp::IPv4Address()) {
+        gateway_ip.IsEmpty()
+            ? fptn::routing::GetDefaultGatewayIPAddress()
+            : fptn::common::network::IPv4Address::Create(gateway_ip);
+    if (using_gateway_ip.IsEmpty()) {
       SPDLOG_ERROR(
           "Unable to find the default gateway IP address. "
           "Please check your connection and make sure no other VPN is active. "
@@ -137,7 +139,7 @@ int main(int argc, char* argv[]) {
       return EXIT_FAILURE;
     }
     const auto server_ip = fptn::routing::ResolveDomain(selected_server.host);
-    if (server_ip == pcpp::IPv4Address()) {
+    if (server_ip.IsEmpty()) {
       SPDLOG_ERROR("DNS resolve error: {}", selected_server.host);
       return EXIT_FAILURE;
     }
@@ -153,10 +155,10 @@ int main(int argc, char* argv[]) {
         "VPN SERVER PORT:    {}\n"
         "TUN INTERFACE IPv4: {}\n"
         "TUN INTERFACE IPv6: {}\n",
-        FPTN_VERSION, sni, using_gateway_ip.toString(),
+        FPTN_VERSION, sni, using_gateway_ip.ToString(),
         out_network_interface_name, selected_server.name, selected_server.host,
-        selected_server.port, tun_interface_address_ipv4.toString(),
-        tun_interface_address_ipv6.toString());
+        selected_server.port, tun_interface_address_ipv4.ToString(),
+        tun_interface_address_ipv6.ToString());
 
     /* auth & dns */
     auto http_client = std::make_unique<fptn::http::Client>(server_ip,
@@ -169,8 +171,7 @@ int main(int argc, char* argv[]) {
       return EXIT_FAILURE;
     }
     const auto [dnsServerIPv4, dnsServerIPv6] = http_client->GetDns();
-    if (dnsServerIPv4 == pcpp::IPv4Address() ||
-        dnsServerIPv6 == pcpp::IPv6Address()) {
+    if (dnsServerIPv4.IsEmpty() || dnsServerIPv6.IsEmpty()) {
       SPDLOG_ERROR("DNS server error! Check your connection!");
       return EXIT_FAILURE;
     }
