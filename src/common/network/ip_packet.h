@@ -26,6 +26,10 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include <iostream>
 
+#ifdef FPTN_IP_ADDRESS_WITHOUT_PCAP
+#include "common/network/ip_address.h"
+#else
+
 #include <pcapplusplus/ArpLayer.h>     // NOLINT(build/include_order)
 #include <pcapplusplus/EthLayer.h>     // NOLINT(build/include_order)
 #include <pcapplusplus/IPv4Layer.h>    // NOLINT(build/include_order)
@@ -33,7 +37,6 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <pcapplusplus/IcmpV6Layer.h>  // NOLINT(build/include_order)
 #include <pcapplusplus/MacAddress.h>   // NOLINT(build/include_order)
 #include <pcapplusplus/Packet.h>       // NOLINT(build/include_order)
-#include <spdlog/spdlog.h>             // NOLINT(build/include_order)
 
 #ifdef TCPOPT_CC
 #undef TCPOPT_CC
@@ -48,17 +51,21 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <pcapplusplus/TcpLayer.h>  // NOLINT(build/include_order)
 #include <pcapplusplus/UdpLayer.h>  // NOLINT(build/include_order)
 
-#include "common/client_id.h"
-
 #if _WIN32
 #pragma warning(default : 4996)
 #endif
+
+#endif
+
+#include <spdlog/spdlog.h>  // NOLINT(build/include_order)
+
+#include "common/client_id.h"
 
 namespace fptn::common::network {
 
 #define FPTN_PACKET_UNDEFINED_CLIENT_ID MAX_CLIENT_ID
 
-#ifndef __ANDROID__
+#ifndef FPTN_IP_ADDRESS_WITHOUT_PCAP
 
 inline bool CheckIPv4(const std::string& buffer) {
   return (static_cast<uint8_t>(buffer[0]) >> 4) == 4;
@@ -211,7 +218,7 @@ using IPPacketPtr = std::unique_ptr<IPPacket>;
 #else
 
 /**
- * Android-specific lightweight container for IPv4 packets.
+ * Specific lightweight container for IPv4 packets.
  * Wraps raw IP packet data with basic access methods.
  */
 class LightIPv4Packet {

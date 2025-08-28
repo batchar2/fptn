@@ -67,11 +67,11 @@ void Manager::RunToClient() noexcept {
     // get session using "fake" client address
     fptn::client::SessionSPtr session = nullptr;
     if (packet->IsIPv4()) {
-      session =
-          nat_->GetSessionByFakeIPv4(packet->IPv4Layer()->getDstIPv4Address());
+      session = nat_->GetSessionByFakeIPv4(fptn::common::network::IPv4Address(
+          packet->IPv4Layer()->getDstIPv4Address()));
     } else if (packet->IsIPv6()) {
-      session =
-          nat_->GetSessionByFakeIPv6(packet->IPv6Layer()->getDstIPv6Address());
+      session = nat_->GetSessionByFakeIPv6(fptn::common::network::IPv6Address(
+          packet->IPv6Layer()->getDstIPv6Address()));
     }
     if (!session) {
       continue;
