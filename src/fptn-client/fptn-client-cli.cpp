@@ -90,6 +90,8 @@ int main(int argc, char* argv[]) {
       return EXIT_FAILURE;
     }
 
+    std::cerr << "+1" << std::endl;
+
     // Synchronize VPN client time with NTP servers
     fptn::time::TimeProvider::Instance()->SyncWithNtp();
 
@@ -102,6 +104,7 @@ int main(int argc, char* argv[]) {
         fptn::common::network::IPv4Address::Create(param_gateway_ip);
     const auto tun_interface_name =
         args.get<std::string>("--tun-interface-name");
+    std::cerr << "+2" << std::endl;
     const auto tun_interface_address_ipv4 =
         fptn::common::network::IPv4Address::Create(
             args.get<std::string>("--tun-interface-ip"));
@@ -109,6 +112,8 @@ int main(int argc, char* argv[]) {
         fptn::common::network::IPv6Address::Create(
             args.get<std::string>("--tun-interface-ipv6"));
     const auto sni = args.get<std::string>("--sni");
+
+    std::cerr << "+3" << std::endl;
 
     /* check gateway address */
     const auto using_gateway_ip =

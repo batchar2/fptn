@@ -145,11 +145,11 @@ class IPv4Address : public IPAddress<boost::asio::ip::address> {
   }
 
   // Additional IPv4-specific methods
-  bool IsValid() const {
+  virtual bool IsValid() const {
     return IPAddress<boost::asio::ip::address>::IsValid() && ip_impl_.is_v4();
   }
 
-  std::uint32_t ToInt() const {
+  virtual std::uint32_t ToInt() const {
     if (ip_impl_.is_v4()) {
       return ip_impl_.to_v4().to_uint();
     }
@@ -214,7 +214,7 @@ class IPv6Address : public IPAddress<boost::asio::ip::address> {
   }
 
   // Additional IPv6-specific methods
-  bool IsValid() const {
+  virtual bool IsValid() const {
     return IPAddress<boost::asio::ip::address>::IsValid() && ip_impl_.is_v6();
   }
 };
@@ -227,7 +227,13 @@ class IPAddress {
   // Default constructor
   IPAddress() = default;
 
-  explicit IPAddress(const std::string& ip) : ip_(ip), ip_impl_(ip) {}
+  explicit IPAddress(const std::string& ip) : ip_(ip) {
+    try {
+      ip_impl_ = T(ip);
+    } catch (...) {
+      ip_impl_ = T();
+    }
+  }
 
   T Get() const noexcept { return ip_impl_; }
 
