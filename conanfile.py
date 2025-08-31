@@ -10,6 +10,7 @@ FPTN_VERSION = "0.0.0"
 
 
 class FPTN(ConanFile):
+    name = "fptn"
     version = FPTN_VERSION
     requires = (
         "argparse/3.2",
@@ -48,6 +49,7 @@ class FPTN(ConanFile):
         "protobuf/*:upb": False,
         "protobuf/*:with_rtti": False,
         "protobuf/*:with_zlib": False,
+        "protobuf/*:upb": False,
         "protobuf/*:debug_suffix": False,
         # --- boost options ---
         "boost/*:without_atomic": False,
@@ -102,12 +104,21 @@ class FPTN(ConanFile):
         "prometheus-cpp/*:with_compression": False,
         "prometheus-cpp/*:with_push": False,
     }
+    exports_sources = (
+        "CMakeLists.txt",
+        "src/*",
+        "depends/*",
+        "tests/*",
+    )
 
     def requirements(self):
         # WE USE BORINGSSL
         self._register_local_recipe("boringssl", "openssl", "boringssl", True, False)
         if not self.options.build_only_fptn_lib:
-            self._register_local_recipe("pcapplusplus", "pcapplusplus", "24.09")
+            # pcap++ does not support iOS and Android.
+            # Since libfptn is built as a detached part of the whole project,
+            #   we don't use pcap++ in that case.
+            self.requires("pcapplusplus/25.05")
         if self.options.with_gui_client:
             self.requires("qt/6.7.1")
         if self.settings.os != "Windows":
@@ -115,18 +126,25 @@ class FPTN(ConanFile):
 
     def build_requirements(self):
         self.build_requires("cmake/3.22.0", override=True)
+        self.tool_requires("protobuf/5.29.3")
+
         self.test_requires("gtest/1.17.0")
+
         if self.settings.os != "Windows":
             self.build_requires("meson/1.9.1", override=True)
 
     def generate(self):
         tc = CMakeToolchain(self)
-
+        tc.variables["FPTN_VERSION"] = FPTN_VERSION
         if self.options.with_gui_client:
             tc.variables["FPTN_BUILD_WITH_GUI_CLIENT"] = "True"
-        if self.settings.os in ("Android",) or  self.options.build_only_fptn_lib:
+        if self.options.build_only_fptn_lib:
             tc.variables["FPTN_BUILD_ONLY_FPTN_LIB"] = "True"
-        tc.variables["FPTN_VERSION"] = FPTN_VERSION
+
+        # setup protobuf compiler
+        protobuf_build = self.dependencies.build["protobuf"]
+        protoc_path = os.path.join(protobuf_build.package_folder, "bin", "protoc")
+        tc.cache_variables["Protobuf_PROTOC_EXECUTABLE"] = protoc_path
 
         tc.generate()
 
@@ -135,6 +153,86 @@ class FPTN(ConanFile):
         cmake.configure()
         cmake.build()
 
+    def package(self):
+        if self.options.build_only_fptn_lib:
+            copy(
+                self,
+                "*.h",
+                src=os.path.join(self.source_folder, "src", "fptn-protocol-lib"),
+                dst=os.path.join(self.package_folder, "include", "fptn"),
+            )
+            copy(
+                self,
+                "*.h",
+                src=os.path.join(self.source_folder, "src", "common"),
+                dst=os.path.join(self.package_folder, "include", "fptn", "common"),
+            )
+            copy(
+                self,
+                "*.h",
+                src=os.path.join(self.build_folder, "src", "fptn-protocol-lib", "protobuf"),
+                dst=os.path.join(self.package_folder, "include", "fptn", "protobuf"),
+            )
+            # copy lib
+            copy(
+                self,
+                "*.a",
+                src=os.path.join(self.build_folder, "src", "fptn-protocol-lib"),
+                dst=os.path.join(self.package_folder, "lib"),
+            )
+            copy(
+                self,
+                "*.lib",
+                src=os.path.join(self.build_folder, "src", "fptn-protocol-lib"),
+                dst=os.path.join(self.package_folder, "lib"),
+            )
+            ntp_client_build_include = os.path.join(self.build_folder, "_deps", "ntp_client-src", "include")
+            # copy NTP depends
+            if os.path.exists(ntp_client_build_include):
+                copy(
+                    self,
+                    "*.h",
+                    src=ntp_client_build_include,
+                    dst=os.path.join(self.package_folder, "include", "ntp_client"),
+                )
+            ntp_client_lib_src = os.path.join(self.build_folder, "_deps", "ntp_client-build")
+            if os.path.exists(ntp_client_lib_src):
+                copy(
+                    self,
+                    "*.a",
+                    src=ntp_client_lib_src,
+                    dst=os.path.join(self.package_folder, "lib"),
+                )
+                copy(
+                    self,
+                    "*.lib",
+                    src=ntp_client_lib_src,
+                    dst=os.path.join(self.package_folder, "lib"),
+                )
+
+    def package_info(self):
+        if self.options.build_only_fptn_lib:
+            self.cpp_info.libs = [
+                "fptn-protocol-lib_static",
+                "ntp_client",
+            ]
+            self.cpp_info.includedirs = ["include"]
+            self.cpp_info.libdirs = ["lib"]
+
+            # Add depends
+            self.cpp_info.requires = [
+                "argparse::argparse",
+                "cpp-httplib::cpp-httplib",
+                "boost::boost",
+                "fmt::fmt",
+                "jwt-cpp::jwt-cpp",
+                "nlohmann_json::nlohmann_json",
+                "prometheus-cpp::prometheus-cpp",
+                "protobuf::protobuf",
+                "spdlog::spdlog",
+                "zlib::zlib",
+            ]
+
     def config_options(self):
         if self.settings.os == "Windows":
             self.options.rm_safe("fPIC")
@@ -142,9 +240,7 @@ class FPTN(ConanFile):
     def export(self):
         copy(self, f"*", src=self.recipe_folder, dst=self.export_folder)
 
-    def _register_local_recipe(
-            self, recipe, name, version, override=False, force=False
-    ):
+    def _register_local_recipe(self, recipe, name, version, override=False, force=False):
         script_dir = os.path.dirname(os.path.abspath(__file__))
         recipe_rel_path = os.path.join(script_dir, ".conan", "recipes", recipe)
         subprocess.run(

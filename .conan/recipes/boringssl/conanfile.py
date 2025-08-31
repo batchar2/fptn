@@ -40,9 +40,5 @@ class BoringSSLConan(ConanFile):
 
         # for CMake find_package(OpenSSL)
         self.cpp_info.set_property("cmake_file_name", "OpenSSL")
-        self.cpp_info.components["ssl"].set_property(
-            "cmake_target_name", "OpenSSL::SSL"
-        )
-        self.cpp_info.components["crypto"].set_property(
-            "cmake_target_name", "OpenSSL::Crypto"
-        )
+        self.cpp_info.components["ssl"].set_property("cmake_target_name", "OpenSSL::SSL")
+        self.cpp_info.components["crypto"].set_property("cmake_target_name", "OpenSSL::Crypto")

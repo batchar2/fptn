@@ -5,6 +5,7 @@ from conan import ConanFile
 from conan.tools.cmake import CMakeToolchain, CMake
 from conan.tools.files import copy
 
+
 class ProxyServer(ConanFile):
     version = "0.0.1"
     requires = (
@@ -105,9 +106,7 @@ class ProxyServer(ConanFile):
         if self.settings.os == "Windows":
             self.options.rm_safe("fPIC")
 
-    def _register_local_recipe(
-            self, recipe, name, version, override=False, force=False
-    ):
+    def _register_local_recipe(self, recipe, name, version, override=False, force=False):
         script_dir = os.path.dirname(os.path.abspath(__file__))
         recipe_rel_path = os.path.join(script_dir, ".conan", "recipes", recipe)
         subprocess.run(

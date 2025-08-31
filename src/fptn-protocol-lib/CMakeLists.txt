@@ -6,6 +6,8 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
+include(${CMAKE_SOURCE_DIR}/depends/cmake/NtpClient.cmake)
+
 if(__ANDROID__)
   add_compile_definitions(FPTN_USER_OS=\"Android\")
 elseif(APPLE)
@@ -28,6 +30,11 @@ find_package(fmt REQUIRED)
 find_package(Boost REQUIRED COMPONENTS random filesystem)
 find_package(ZLIB REQUIRED)
 find_package(nlohmann_json REQUIRED)
+
+if (FPTN_BUILD_ONLY_FPTN_LIB)
+  # build fptnlib without pcappp
+  set(FPTN_IP_ADDRESS_WITHOUT_PCAP ON)
+endif()
 
 if(NOT FPTN_IP_ADDRESS_WITHOUT_PCAP)
   find_package(PcapPlusPlus REQUIRED)
