@@ -87,7 +87,7 @@ class ProxyServer(ConanFile):
 
     def build_requirements(self):
         self.build_requires("cmake/3.22.0", override=True)
-        self.test_requires("gtest/1.16.0")
+        self.test_requires("gtest/1.17.0")
         if self.settings.os != "Windows":
             self.build_requires("meson/1.8.2", override=True)
 
