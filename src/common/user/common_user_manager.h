@@ -6,6 +6,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #pragma once
 
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
