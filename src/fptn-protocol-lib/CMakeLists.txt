@@ -6,7 +6,8 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
-include(${CMAKE_SOURCE_DIR}/depends/cmake/NtpClient.cmake)
+# include(${CMAKE_SOURCE_DIR}/depends/cmake/NtpClient.cmake)
+include(../../depends/cmake/NtpClient.cmake)
 
 if(__ANDROID__)
   add_compile_definitions(FPTN_USER_OS=\"Android\")
@@ -23,7 +24,7 @@ endif()
 find_package(absl REQUIRED)
 find_package(Protobuf REQUIRED)
 find_package(OpenSSL REQUIRED)
-find_package(argparse REQUIRED)
+# find_package(argparse REQUIRED)
 find_package(spdlog REQUIRED)
 find_package(fmt REQUIRED)
 

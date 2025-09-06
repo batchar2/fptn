@@ -14,12 +14,17 @@ class FPTN(ConanFile):
     version = FPTN_VERSION
     requires = (
         "argparse/3.2",
+<<<<<<< HEAD
         "cpp-httplib/0.27.0",
         "boost/1.89.0",
         "fmt/12.0.0",
+=======
+        "boost/1.88.0",
+        "cpp-httplib/0.20.1",
+        "fmt/11.2.0",
+>>>>>>> b89b6b4 (fix iOS)
         "jwt-cpp/0.7.1",
         "nlohmann_json/3.12.0",
-        "prometheus-cpp/1.3.0",
         "protobuf/5.29.3",
         "spdlog/1.16.0",
         "zlib/1.3.1",
@@ -100,9 +105,10 @@ class FPTN(ConanFile):
         "qt/*:with_gstreamer": False,
         "qt/*:with_pulseaudio": False,
         # --- prometheuscpp dependency ---
-        "civetweb/*:with_ssl": False,
         "prometheus-cpp/*:with_compression": False,
         "prometheus-cpp/*:with_push": False,
+        "civetweb/*:with_ssl": False,
+        "civetweb/*:disable_werror": True,
     }
     exports_sources = (
         "CMakeLists.txt",
@@ -119,6 +125,7 @@ class FPTN(ConanFile):
             # Since libfptn is built as a detached part of the whole project,
             #   we don't use pcap++ in that case.
             self.requires("pcapplusplus/25.05")
+            self.requires("prometheus-cpp/1.3.0")
         if self.options.with_gui_client:
             self.requires("qt/6.7.1")
         if self.settings.os != "Windows":
@@ -145,7 +152,6 @@ class FPTN(ConanFile):
         protobuf_build = self.dependencies.build["protobuf"]
         protoc_path = os.path.join(protobuf_build.package_folder, "bin", "protoc")
         tc.cache_variables["Protobuf_PROTOC_EXECUTABLE"] = protoc_path
-
         tc.generate()
 
     def build(self):
@@ -227,7 +233,6 @@ class FPTN(ConanFile):
                 "fmt::fmt",
                 "jwt-cpp::jwt-cpp",
                 "nlohmann_json::nlohmann_json",
-                "prometheus-cpp::prometheus-cpp",
                 "protobuf::protobuf",
                 "spdlog::spdlog",
                 "zlib::zlib",
@@ -236,6 +241,8 @@ class FPTN(ConanFile):
     def config_options(self):
         if self.settings.os == "Windows":
             self.options.rm_safe("fPIC")
+        if self.settings.os in ["iOS", "Android"]:
+            self.options["boost"].without_process = True
 
     def export(self):
         copy(self, f"*", src=self.recipe_folder, dst=self.export_folder)
