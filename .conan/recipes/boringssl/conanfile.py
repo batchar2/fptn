@@ -1,7 +1,6 @@
 from conan import ConanFile
-from conan.tools.files import get, copy
+from conan.tools.files import get
 from conan.tools.cmake import CMake, CMakeToolchain, cmake_layout
-from conan.tools.apple import is_apple_os
 
 
 class BoringSSLConan(ConanFile):
@@ -11,8 +10,6 @@ class BoringSSLConan(ConanFile):
     settings = "os", "arch", "compiler", "build_type"
     options = {"shared": [True, False], "fPIC": [True, False]}
     default_options = {"shared": False, "fPIC": True}
-
-    requires = ("zlib/1.3.1",)
 
     def config_options(self):
         if self.settings.os == "Windows":
@@ -29,19 +26,22 @@ class BoringSSLConan(ConanFile):
         tc = CMakeToolchain(self)
         tc.variables["BUILD_TESTING"] = False
         tc.variables["ENABLE_EXPRESSION_TESTS"] = False
+        
+        # Правильная настройка для iOS
         if self.settings.os == "iOS":
+            tc.variables["CMAKE_SYSTEM_NAME"] = "iOS"
+            tc.variables["CMAKE_OSX_DEPLOYMENT_TARGET"] = str(self.settings.os.version)
+            tc.variables["CMAKE_OSX_ARCHITECTURES"] = self.settings.arch
             tc.variables["CMAKE_MACOSX_BUNDLE"] = False
+            if "simulator" in str(self.settings.os.sdk).lower():
+                tc.variables["CMAKE_OSX_SYSROOT"] = "iphonesimulator"
+            else:
+                tc.variables["CMAKE_OSX_SYSROOT"] = "iphoneos"
             tc.variables["CMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED"] = "NO"
             tc.variables["CMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED"] = "NO"
-            if self.settings.os == "iOS":
-                tc.variables["CMAKE_OSX_DEPLOYMENT_TARGET"] = self.settings.os.version
-                tc.variables["CMAKE_OSX_ARCHITECTURES"] = self.settings.arch
-                tc.variables["CMAKE_XCODE_ATTRIBUTE_ONLY_ACTIVE_ARCH"] = "NO"
-                tc.variables["CMAKE_XCODE_ATTRIBUTE_ENABLE_BITCODE"] = "YES"
-            if hasattr(self, 'settings_build'):
-                tc.variables["CMAKE_SYSTEM_NAME"] = self.settings.os
-                if self.settings.os == "iOS":
-                    tc.variables["CMAKE_OSX_SYSROOT"] = "iphoneos"
+            tc.variables["CMAKE_XCODE_ATTRIBUTE_ENABLE_BITCODE"] = "YES"
+            tc.variables["CMAKE_XCODE_ATTRIBUTE_ONLY_ACTIVE_ARCH"] = "NO"
+        
         tc.generate()
 
     def build(self):
@@ -66,3 +66,7 @@ class BoringSSLConan(ConanFile):
         self.cpp_info.set_property("cmake_file_name", "OpenSSL")
         self.cpp_info.components["ssl"].set_property("cmake_target_name", "OpenSSL::SSL")
         self.cpp_info.components["crypto"].set_property("cmake_target_name", "OpenSSL::Crypto")
+
+        if self.settings.os == "iOS":
+            self.cpp_info.frameworks = ["Security", "Foundation", "CoreFoundation"]
+            self.cpp_info.system_libs = ["c++"]

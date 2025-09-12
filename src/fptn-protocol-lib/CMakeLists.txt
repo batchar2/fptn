@@ -8,8 +8,13 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 # include(${CMAKE_SOURCE_DIR}/depends/cmake/NtpClient.cmake)
 include(../../depends/cmake/NtpClient.cmake)
+if (IOS)
+  find_library(SECURITY Security)
+  find_library(CFNETWORK CFNetwork)
+  find_library(SYSTEMCONFIGURATION SystemConfiguration)
 
-if(__ANDROID__)
+  add_compile_definitions(FPTN_USER_OS=\"iOS\")
+elseif(__ANDROID__)
   add_compile_definitions(FPTN_USER_OS=\"Android\")
 elseif(APPLE)
   add_compile_definitions(FPTN_USER_OS=\"MacOS\")
@@ -107,9 +112,29 @@ foreach(target "${PROJECT_NAME}_static")
   else()
     set(PCAP_LIB PcapPlusPlus::PcapPlusPlus)
   endif()
+  
   if(MSVC)
     target_compile_options(${target} PRIVATE /wd4100 /wd4702) # disable warning C4100
   endif()
+
+  if(IOS)
+    set(IOS_LIBS "${SECURITY} ${CFNETWORK} ${SYSTEMCONFIGURATION} -framework Foundation z resolv")
+  else()
+    set(IOS_LIBS "")
+  endif()
+
+  if (IOS)
+    set_target_properties(${target}
+      PROPERTIES
+          CXX_STANDARD 17
+          CXX_STANDARD_REQUIRED ON
+          CXX_EXTENSIONS OFF
+          XCODE_ATTRIBUTE_ENABLE_BITCODE "NO"
+          XCODE_ATTRIBUTE_ONLY_ACTIVE_ARCH "NO"
+          XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY ""
+    )
+  endif()
+
   target_include_directories(${target} INTERFACE ${CMAKE_CURRENT_BINARY_DIR} protobuf::protobuf)
   target_link_libraries(
     ${target}
@@ -127,5 +152,6 @@ foreach(target "${PROJECT_NAME}_static")
     fmt::fmt
     ntp_client
     ${PCAP_LIB}
+    ${IOS_LIBS}
   )
 endforeach()
