@@ -127,8 +127,7 @@ class FPTN(ConanFile):
 
     def build_requirements(self):
         self.tool_requires("protobuf/5.29.3")
-
-        self.test_requires("gtest/1.16.0")
+        self.test_requires("gtest/1.17.0")
 
         if self.settings.os != "Windows":
             self.build_requires("meson/1.8.2", override=True)
