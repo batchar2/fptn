@@ -8,6 +8,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include <algorithm>
 #include <future>
+#include <random>
 #include <string>
 #include <thread>
 #include <utility>
@@ -42,11 +43,23 @@ std::uint64_t GetDownloadTimeMs(const ServerInfo& server,
 ServerInfo FindFastestServer(
     const std::string& sni, const std::vector<ServerInfo>& servers) {
   constexpr int kTimeoutSeconds = 30;
-  std::vector<std::future<std::uint64_t>> futures;
 
-  futures.reserve(servers.size());
+  // randomly select half of the servers
+  std::vector<ServerInfo> shuffled_servers = servers;
+  std::random_device rd;
+  std::mt19937 generator(rd());
+  std::shuffle(shuffled_servers.begin(), shuffled_servers.end(), generator);
+  const std::size_t half_size =
+      std::max<std::size_t>(1, shuffled_servers.size() / 2);
+  std::vector<ServerInfo> selected_servers(
+      shuffled_servers.begin(), shuffled_servers.begin() + half_size);
+
+  std::vector<std::future<std::uint64_t>> futures;
+  futures.reserve(selected_servers.size());
+
   // NOLINTNEXTLINE(modernize-use-ranges)
-  std::transform(servers.begin(), servers.end(), std::back_inserter(futures),
+  std::transform(selected_servers.begin(), selected_servers.end(),
+      std::back_inserter(futures),
       // NOLINTNEXTLINE(bugprone-exception-escape)
       [kTimeoutSeconds, sni](const auto& server) {
         (void)kTimeoutSeconds;  // fix Windows build
@@ -69,7 +82,7 @@ ServerInfo FindFastestServer(
         }
       });
 
-  std::vector<std::uint64_t> times(servers.size(), kMaxTimeout);
+  std::vector<std::uint64_t> times(selected_servers.size(), kMaxTimeout);
   const auto time_begin = std::chrono::high_resolution_clock::now();
   const auto timeout_time = time_begin + std::chrono::seconds(kTimeoutSeconds);
 
@@ -109,6 +122,6 @@ ServerInfo FindFastestServer(
     (void)futures;
   }).detach();
 
-  return servers[fastest_server_index];
+  return selected_servers[fastest_server_index];
 }
 }  // namespace fptn::protocol::server
