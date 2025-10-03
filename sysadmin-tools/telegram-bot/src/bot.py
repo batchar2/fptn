@@ -79,23 +79,17 @@ class UserManager:
         return users
 
     def save_users(self, users: dict):
-        self.users_file.parent.mkdir(
-            parents=True, exist_ok=True
-        )  # Ensure the directory exists
+        self.users_file.parent.mkdir(parents=True, exist_ok=True)  # Ensure the directory exists
         with self.users_file.open("w") as file:
             for username, hashed_password in users.items():
-                file.write(
-                    f"{username} {hashed_password} {MAX_USER_SPEED_LIMIT}\n"
-                )  # Default balance
+                file.write(f"{username} {hashed_password} {MAX_USER_SPEED_LIMIT}\n")  # Default balance
 
     def register_user(self, user_id: str) -> (str, str):
         username = f"user{user_id}"
         with self.user_data_lock:
             users = self.load_users()
             if username in users:
-                logger.info(
-                    f"User {user_id} attempted to register but is already registered."
-                )
+                logger.info(f"User {user_id} attempted to register but is already registered.")
                 return username, None
             else:
                 password = self._generate_password()
@@ -125,9 +119,7 @@ class UserManager:
                 logger.info(f"User {user_id} reset password.")
                 return username, new_password
             else:
-                logger.info(
-                    f"User {user_id} attempted to reset password but is not registered."
-                )
+                logger.info(f"User {user_id} attempted to reset password but is not registered.")
                 return username, None
 
 
@@ -213,9 +205,7 @@ async def get_access_token(update: Update, context: CallbackContext) -> None:
     )
 
 
-async def send_credentials_file(
-    update: Update, context: CallbackContext, token: str
-) -> None:
+async def send_credentials_file(update: Update, context: CallbackContext, token: str) -> None:
     # Create a unique temporary file
     with tempfile.NamedTemporaryFile(delete=False, suffix=".fptn") as temp_file:
         temp_file_path = temp_file.name
@@ -236,9 +226,7 @@ async def send_credentials_file(
 
 def main() -> None:
     if not TELEGRAM_API_TOKEN:
-        logger.error(
-            "API_TOKEN is not set. Please set the TELEGRAM_API_TOKEN environment variable."
-        )
+        logger.error("API_TOKEN is not set. Please set the TELEGRAM_API_TOKEN environment variable.")
         sys.exit(1)
 
     application = Application.builder().token(TELEGRAM_API_TOKEN).build()
@@ -248,9 +236,7 @@ def main() -> None:
     application.add_handler(CommandHandler("token_mac", get_access_token))
 
     # UPDATE KEYBOARD (OLD VERSION)
-    application.add_handler(
-        MessageHandler(filters.TEXT & filters.Regex("Get access file"), start)
-    )
+    application.add_handler(MessageHandler(filters.TEXT & filters.Regex("Get access file"), start))
     logger.info("Bot started and is polling for messages.")
     application.run_polling()
 

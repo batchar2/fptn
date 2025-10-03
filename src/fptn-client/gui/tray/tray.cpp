@@ -23,6 +23,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <QStyleHints>       // NOLINT(build/include_order)
 #include <QtConcurrent>      // NOLINT(build/include_order)
 
+#include "common/network/ip_packet.h"
 #include "common/system/command.h"
 
 #include "fptn-protocol-lib/time/time_provider.h"
@@ -648,19 +649,19 @@ bool TrayApp::startVpn(QString& err_msg) {
   // Synchronize VPN client time with NTP servers
   fptn::time::TimeProvider::Instance()->SyncWithNtp();
 
-  const pcpp::IPv4Address tun_interface_address_ipv4(
+  const fptn::common::network::IPv4Address tun_interface_address_ipv4(
       FPTN_CLIENT_DEFAULT_ADDRESS_IP4);
-  const pcpp::IPv6Address tun_interface_address_ipv6(
+  const fptn::common::network::IPv6Address tun_interface_address_ipv6(
       FPTN_CLIENT_DEFAULT_ADDRESS_IP6);
   const std::string tun_interface_name = "tun0";
 
   /* check gateway address */
-  const auto gateway_ip =
-      (settings_->GatewayIp() == "auto"
-              ? fptn::routing::GetDefaultGatewayIPAddress()
-              : pcpp::IPv4Address(settings_->GatewayIp().toStdString()));
+  const auto gateway_ip = (settings_->GatewayIp() == "auto"
+                               ? fptn::routing::GetDefaultGatewayIPAddress()
+                               : fptn::common::network::IPv4Address(
+                                     settings_->GatewayIp().toStdString()));
 
-  if (gateway_ip == pcpp::IPv4Address()) {
+  if (gateway_ip.IsEmpty()) {
     err_msg = QObject::tr(
         "Unable to find the default gateway IP address. "
         "Please check your connection and make sure no other VPN "
@@ -720,7 +721,7 @@ bool TrayApp::startVpn(QString& err_msg) {
   }
 
   const auto server_ip = fptn::routing::ResolveDomain(selected_server_.host);
-  if (server_ip == pcpp::IPv4Address()) {
+  if (server_ip == fptn::common::network::IPv4Address()) {
     err_msg = QString(QObject::tr("DNS resolution error") + ": %1")
                   .arg(QString::fromStdString(selected_server_.host));
     return false;
@@ -745,8 +746,7 @@ bool TrayApp::startVpn(QString& err_msg) {
 
   // get dns
   const auto [dns_server_ipv4, dns_server_ipv6] = http_client->GetDns();
-  if (dns_server_ipv4 == pcpp::IPv4Address() ||
-      dns_server_ipv6 == pcpp::IPv6Address()) {
+  if (dns_server_ipv4.IsEmpty() || dns_server_ipv6.IsEmpty()) {
     const std::string error = http_client->LatestError();
     err_msg = QObject::tr("DNS server error! Check your connection!") + "\n\n" +
               QObject::tr("Error message: ") + QString::fromStdString(error);

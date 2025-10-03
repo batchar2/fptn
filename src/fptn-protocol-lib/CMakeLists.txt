@@ -6,7 +6,15 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
-if(__ANDROID__)
+# include(${CMAKE_SOURCE_DIR}/depends/cmake/NtpClient.cmake)
+include(../../depends/cmake/NtpClient.cmake)
+if (IOS)
+  find_library(SECURITY Security)
+  find_library(CFNETWORK CFNetwork)
+  find_library(SYSTEMCONFIGURATION SystemConfiguration)
+
+  add_compile_definitions(FPTN_USER_OS=\"iOS\")
+elseif(__ANDROID__)
   add_compile_definitions(FPTN_USER_OS=\"Android\")
 elseif(APPLE)
   add_compile_definitions(FPTN_USER_OS=\"MacOS\")
@@ -21,13 +29,22 @@ endif()
 find_package(absl REQUIRED)
 find_package(Protobuf REQUIRED)
 find_package(OpenSSL REQUIRED)
-find_package(argparse REQUIRED)
+# find_package(argparse REQUIRED)
 find_package(spdlog REQUIRED)
 find_package(fmt REQUIRED)
-find_package(PcapPlusPlus REQUIRED)
+
 find_package(Boost REQUIRED COMPONENTS random filesystem)
 find_package(ZLIB REQUIRED)
 find_package(nlohmann_json REQUIRED)
+
+if (FPTN_BUILD_ONLY_FPTN_LIB)
+  # build fptnlib without pcappp
+  set(FPTN_IP_ADDRESS_WITHOUT_PCAP ON)
+endif()
+
+if(NOT FPTN_IP_ADDRESS_WITHOUT_PCAP)
+  find_package(PcapPlusPlus REQUIRED)
+endif()
 
 include_directories(${nlohmann_json_INCLUDE_DIRS})
 
@@ -90,9 +107,34 @@ set(FPTN_CLIENT_PROTOCOL_SOURCES
 add_library("${PROJECT_NAME}_static" STATIC ${FPTN_CLIENT_PROTOCOL_SOURCES})
 
 foreach(target "${PROJECT_NAME}_static")
+  if(FPTN_IP_ADDRESS_WITHOUT_PCAP)
+    set(PCAP_LIB "")
+  else()
+    set(PCAP_LIB PcapPlusPlus::PcapPlusPlus)
+  endif()
+  
   if(MSVC)
     target_compile_options(${target} PRIVATE /wd4100 /wd4702) # disable warning C4100
   endif()
+
+  if(IOS)
+    set(IOS_LIBS "${SECURITY} ${CFNETWORK} ${SYSTEMCONFIGURATION} -framework Foundation z resolv")
+  else()
+    set(IOS_LIBS "")
+  endif()
+
+  if (IOS)
+    set_target_properties(${target}
+      PROPERTIES
+          CXX_STANDARD 17
+          CXX_STANDARD_REQUIRED ON
+          CXX_EXTENSIONS OFF
+          XCODE_ATTRIBUTE_ENABLE_BITCODE "NO"
+          XCODE_ATTRIBUTE_ONLY_ACTIVE_ARCH "NO"
+          XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY ""
+    )
+  endif()
+
   target_include_directories(${target} INTERFACE ${CMAKE_CURRENT_BINARY_DIR} protobuf::protobuf)
   target_link_libraries(
     ${target}
@@ -108,6 +150,8 @@ foreach(target "${PROJECT_NAME}_static")
     nlohmann_json::nlohmann_json
     spdlog::spdlog
     fmt::fmt
-    PcapPlusPlus::PcapPlusPlus
-    ntp_client)
+    ntp_client
+    ${PCAP_LIB}
+    ${IOS_LIBS}
+  )
 endforeach()

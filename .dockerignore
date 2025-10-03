@@ -1,3 +1,6 @@
+.cache
+.vscode
+.vsconan
 build/
 .git/
 README.md

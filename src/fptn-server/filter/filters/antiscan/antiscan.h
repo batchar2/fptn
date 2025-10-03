@@ -10,6 +10,8 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include <boost/multiprecision/cpp_int.hpp>
 
+#include "common/network/ip_address.h"
+
 namespace fptn::filter {
 
 /**
@@ -29,15 +31,15 @@ class AntiScan : public BaseFilter {
  public:
   AntiScan(
       /* IPv4 */
-      const pcpp::IPv4Address& server_ipv4,
-      const pcpp::IPv4Address& server_ipv4_net,
+      const fptn::common::network::IPv4Address& server_ipv4,
+      const fptn::common::network::IPv4Address& server_ipv4_net,
       const int serverIPv4Mask,
       /* IPv6 */
-      const pcpp::IPv6Address& server_ipv6,
-      const pcpp::IPv6Address& server_ipv6_net,
+      const fptn::common::network::IPv6Address& server_ipv6,
+      const fptn::common::network::IPv6Address& server_ipv6_net,
       const int serverIPv6Mask);
   fptn::common::network::IPPacketPtr apply(
-      fptn::common::network::IPPacketPtr packet) const noexcept override;
+      fptn::common::network::IPPacketPtr packet) const override;
   ~AntiScan() override = default;
 
  private:

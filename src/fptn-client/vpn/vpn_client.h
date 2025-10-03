@@ -11,6 +11,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include <openssl/base.h>  // NOLINT(build/include_order)
 
+#include "common/network/ip_address.h"
 #include "common/network/ip_packet.h"
 #include "common/network/net_interface.h"
 
@@ -21,8 +22,8 @@ class VpnClient final {
  public:
   explicit VpnClient(fptn::http::ClientPtr http_client,
       fptn::common::network::TunInterfacePtr virtual_net_interface,
-      const pcpp::IPv4Address& dns_server_ipv4,
-      const pcpp::IPv6Address& dns_server_ipv6);
+      fptn::common::network::IPv4Address dns_server_ipv4,
+      fptn::common::network::IPv6Address dns_server_ipv6);
   ~VpnClient();
   bool Start();
   bool Stop();
@@ -41,8 +42,8 @@ class VpnClient final {
 
   fptn::http::ClientPtr http_client_;
   fptn::common::network::TunInterfacePtr virtual_net_interface_;
-  const pcpp::IPv4Address dns_server_ipv4_;
-  const pcpp::IPv6Address dns_server_ipv6_;
+  const fptn::common::network::IPv4Address dns_server_ipv4_;
+  const fptn::common::network::IPv6Address dns_server_ipv6_;
 };
 
 using VpnClientPtr = std::unique_ptr<fptn::vpn::VpnClient>;

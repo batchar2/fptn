@@ -24,8 +24,8 @@ Server::Server(std::uint16_t port,
     const fptn::common::jwt_token::TokenManagerSPtr& token_manager,
     const fptn::statistic::MetricsSPtr& prometheus,
     const std::string& prometheus_access_key,
-    const pcpp::IPv4Address& dns_server_ipv4,
-    const pcpp::IPv6Address& dns_server_ipv6,
+    fptn::common::network::IPv4Address dns_server_ipv4,
+    fptn::common::network::IPv6Address dns_server_ipv6,
     bool enable_detect_probing,
     std::size_t max_active_sessions_per_user,
     int thread_number)
@@ -36,8 +36,8 @@ Server::Server(std::uint16_t port,
       token_manager_(token_manager),
       prometheus_(prometheus),
       prometheus_access_key_(prometheus_access_key),
-      dns_server_ipv4_(dns_server_ipv4),
-      dns_server_ipv6_(dns_server_ipv6),
+      dns_server_ipv4_(std::move(dns_server_ipv4)),
+      dns_server_ipv6_(std::move(dns_server_ipv6)),
       enable_detect_probing_(enable_detect_probing),
       max_active_sessions_per_user_(max_active_sessions_per_user),
       thread_number_(std::max<std::size_t>(1, thread_number)),
@@ -173,7 +173,7 @@ int Server::HandleApiDns(const http::request& req, http::response& resp) {
   (void)req;
 
   resp.body() = fmt::format(R"({{"dns": "{}", "dns_ipv6": "{}" }})",
-      dns_server_ipv4_.toString(), dns_server_ipv6_.toString());
+      dns_server_ipv4_.ToString(), dns_server_ipv6_.ToString());
   resp.set(boost::beast::http::field::content_type,
       "application/json; charset=utf-8");
   return 200;
@@ -236,9 +236,9 @@ int Server::HandleApiTestFile(const http::request& req, http::response& resp) {
 }
 
 bool Server::HandleWsOpenConnection(fptn::ClientID client_id,
-    const pcpp::IPv4Address& client_ip,
-    const pcpp::IPv4Address& client_vpn_ipv4,
-    const pcpp::IPv6Address& client_vpn_ipv6,
+    const fptn::common::network::IPv4Address& client_ip,
+    const fptn::common::network::IPv4Address& client_vpn_ipv4,
+    const fptn::common::network::IPv6Address& client_vpn_ipv6,
     const SessionSPtr& session,
     const std::string& url,
     const std::string& access_token) {
@@ -246,8 +246,7 @@ bool Server::HandleWsOpenConnection(fptn::ClientID client_id,
     SPDLOG_ERROR("Wrong URL \"{}\"", url);
     return false;
   }
-  if (client_vpn_ipv4 != pcpp::IPv4Address() &&
-      client_vpn_ipv6 != pcpp::IPv6Address()) {
+  if (!client_vpn_ipv4.IsEmpty() && !client_vpn_ipv6.IsEmpty()) {
     std::string username;
     std::size_t bandwidth_bites_seconds = 0;
     if (token_manager_->Validate(
@@ -279,9 +278,9 @@ bool Server::HandleWsOpenConnection(fptn::ClientID client_id,
         SPDLOG_INFO(
             "NEW SESSION! Username={} client_id={} Bandwidth={} ClientIP={} "
             "VirtualIPv4={} VirtualIPv6={}",
-            username, client_id, bandwidth_bites_seconds, client_ip.toString(),
-            nat_session->FakeClientIPv4().toString(),
-            nat_session->FakeClientIPv6().toString());
+            username, client_id, bandwidth_bites_seconds, client_ip.ToString(),
+            nat_session->FakeClientIPv4().ToString(),
+            nat_session->FakeClientIPv6().ToString());
         if (running_) {
           sessions_.insert({client_id, session});
           return true;

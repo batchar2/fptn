@@ -18,12 +18,14 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "routing/iptables.h"
 
 using fptn::http::Client;
+using fptn::http::IPv4Address;
+using fptn::http::IPv6Address;
 using fptn::protocol::https::HttpsClient;
 
-Client::Client(pcpp::IPv4Address server_ip,
+Client::Client(IPv4Address server_ip,
     int server_port,
-    pcpp::IPv4Address tun_interface_address_ipv4,
-    pcpp::IPv6Address tun_interface_address_ipv6,
+    IPv4Address tun_interface_address_ipv4,
+    IPv6Address tun_interface_address_ipv6,
     std::string sni,
     std::string md5_fingerprint,
     NewIPPacketCallback new_ip_pkt_callback)
@@ -40,7 +42,7 @@ Client::Client(pcpp::IPv4Address server_ip,
 bool Client::Login(const std::string& username, const std::string& password) {
   const std::string request = fmt::format(
       R"({{ "username": "{}", "password": "{}" }})", username, password);
-  HttpsClient cli(server_ip_.toString(), server_port_, sni_, md5_fingerprint_);
+  HttpsClient cli(server_ip_.ToString(), server_port_, sni_, md5_fingerprint_);
   const auto resp = cli.Post("/api/v1/login", request, "application/json");
   if (resp.code == 200) {
     try {
@@ -69,11 +71,11 @@ bool Client::Login(const std::string& username, const std::string& password) {
   return false;
 }
 
-std::pair<pcpp::IPv4Address, pcpp::IPv6Address> Client::GetDns() {
+std::pair<IPv4Address, IPv6Address> Client::GetDns() {
   SPDLOG_INFO("Obtained DNS server address. Connecting to {}:{}",
-      server_ip_.toString(), server_port_);
+      server_ip_.ToString(), server_port_);
 
-  HttpsClient cli(server_ip_.toString(), server_port_, sni_, md5_fingerprint_);
+  HttpsClient cli(server_ip_.ToString(), server_port_, sni_, md5_fingerprint_);
   const auto resp = cli.Get("/api/v1/dns");
   if (resp.code == 200) {
     try {
@@ -86,7 +88,7 @@ std::pair<pcpp::IPv4Address, pcpp::IPv6Address> Client::GetDns() {
         const std::string dns_ipv6 =
             (msg.contains("dns_ipv6") ? msg["dns_ipv6"]
                                       : FPTN_SERVER_DEFAULT_ADDRESS_IP6);
-        return {pcpp::IPv4Address(dns_ipv4), pcpp::IPv6Address(dns_ipv6)};
+        return {IPv4Address(dns_ipv4), IPv6Address(dns_ipv6)};
       }
     } catch (const nlohmann::json::parse_error& e) {
       latest_error_ = e.what();
@@ -100,7 +102,7 @@ std::pair<pcpp::IPv4Address, pcpp::IPv6Address> Client::GetDns() {
     SPDLOG_ERROR(
         "Error: Request failed code: {} msg: {}", resp.code, resp.errmsg);
   }
-  return {pcpp::IPv4Address(), pcpp::IPv6Address()};
+  return {IPv4Address(), IPv6Address()};
 }
 
 void Client::SetRecvIPPacketCallback(
@@ -108,7 +110,7 @@ void Client::SetRecvIPPacketCallback(
   new_ip_pkt_callback_ = callback;
 }
 
-bool Client::Send(fptn::common::network::IPPacketPtr packet) {
+bool Client::Send(fptn::common::network::IPPacketPtr packet) const {
   try {
     const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 

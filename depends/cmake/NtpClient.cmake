@@ -1,9 +1,7 @@
 include(FetchContent)
 
-#FetchContent_Declare(ntp_client URL https://github.com/batchar2/NTP-client/archive/refs/heads/master.zip)
-
 # experimental
-FetchContent_Declare(ntp_client URL https://github.com/batchar2/NTP-client/archive/refs/heads/bugfix/fix-android-and-small-refactoring.zip)
+FetchContent_Declare(ntp_client URL https://github.com/batchar2/NTP-client/archive/refs/heads/feature/ios-support.zip)
 
 
 FetchContent_GetProperties(ntp_client)

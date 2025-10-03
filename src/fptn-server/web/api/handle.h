@@ -16,6 +16,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <boost/beast/ssl.hpp>
 
 #include "common/client_id.h"
+#include "common/network/ip_address.h"
 #include "common/network/ip_packet.h"
 
 namespace fptn::web {
@@ -53,16 +54,19 @@ inline ApiHandle GetApiHandle(const ApiHandleMap& m,
 }
 
 class Session;
+
 using WebSocketOpenConnectionCallback = std::function<bool(
     fptn::ClientID client_id,
-    const pcpp::IPv4Address& client_ip,
-    const pcpp::IPv4Address& client_vpn_ipv4,
-    const pcpp::IPv6Address& client_vpn_ipv6,
+    const fptn::common::network::IPv4Address& client_ip,
+    const fptn::common::network::IPv4Address& client_vpn_ipv4,
+    const fptn::common::network::IPv6Address& client_vpn_ipv6,
     const std::shared_ptr<Session>& session,
     const std::string& url,
     const std::string& access_token)>;
+
 using WebSocketNewIPPacketCallback = std::function<void(
-    fptn::common::network::IPPacketPtr packet)>;
+  fptn::common::network::IPPacketPtr packet)>;
+
 using WebSocketCloseConnectionCallback = std::function<void(
-    fptn::ClientID client_id)>;
+  fptn::ClientID client_id)>;
 }  // namespace fptn::web
