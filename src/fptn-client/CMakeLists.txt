@@ -32,7 +32,10 @@ add_executable(
   routing/iptables.h
   routing/iptables.cpp
   config/config_file.cpp
-  config/config_file.h)
+  config/config_file.h
+  utils/speed_estimator/speed_estimator.cpp
+  utils/speed_estimator/speed_estimator.h
+  utils/speed_estimator/server_info.h)
 
 target_link_libraries(
   "${PROJECT_NAME}-cli"
@@ -128,6 +131,9 @@ WarningsAsErrors: ''
     gui/autoupdate/autoupdate.h
     utils/windows/vpn_conflict.h
     utils/macos/admin.h
+    utils/speed_estimator/speed_estimator.cpp
+    utils/speed_estimator/speed_estimator.h
+    utils/speed_estimator/server_info.h
     ${PROJECT_RESOURCES}
     ${TRANSLATIONS_OUT})
   target_link_libraries(

@@ -4,7 +4,7 @@ Copyright (c) 2024-2025 Stas Skokov
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
 
-#include "fptn-protocol-lib/https/https_client.h"
+#include "api_client.h"
 
 #include <memory>
 #include <string>
@@ -36,13 +36,14 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <boost/beast/version.hpp>
 #include <boost/nowide/convert.hpp>
 
-#include "fptn-protocol-lib/tls/tls.h"
+#include "fptn-protocol-lib/https/utils/tls/tls.h"
+#include "https/obfuscator/methods/none/none_obfuscator.h"
 
 #ifdef _WIN32
 #pragma warning(pop)
 #endif
 
-using fptn::protocol::https::HttpsClient;
+using fptn::protocol::https::ApiClient;
 using fptn::protocol::https::Response;
 
 namespace {
@@ -154,20 +155,34 @@ Headers RealBrowserHeaders(const std::string& host) {
 }
 };  // namespace fptn::protocol::https
 
-HttpsClient::HttpsClient(const std::string& host, int port)
-    : host_(host), port_(port), sni_(host) {}
+ApiClient::ApiClient(
+    const std::string& host, int port, obfuscator::IObfuscatorSPtr obfuscator)
+    : host_(host),
+      port_(port),
+      sni_(host),
+      obfuscator_(std::move(obfuscator)) {}
 
-HttpsClient::HttpsClient(std::string host, int port, std::string sni)
-    : host_(std::move(host)), port_(port), sni_(std::move(sni)) {}
-
-HttpsClient::HttpsClient(
-    std::string host, int port, std::string sni, std::string md5_fingerprint)
+ApiClient::ApiClient(std::string host,
+    int port,
+    std::string sni,
+    obfuscator::IObfuscatorSPtr obfuscator)
     : host_(std::move(host)),
       port_(port),
       sni_(std::move(sni)),
-      expected_md5_fingerprint_(std::move(md5_fingerprint)) {}
+      obfuscator_(std::move(obfuscator)) {}
 
-Response HttpsClient::Get(const std::string& handle, int timeout) {
+ApiClient::ApiClient(std::string host,
+    int port,
+    std::string sni,
+    std::string md5_fingerprint,
+    obfuscator::IObfuscatorSPtr obfuscator)
+    : host_(std::move(host)),
+      port_(port),
+      sni_(std::move(sni)),
+      expected_md5_fingerprint_(std::move(md5_fingerprint)),
+      obfuscator_(std::move(obfuscator)) {}
+
+Response ApiClient::Get(const std::string& handle, int timeout) {
   std::string body;
   std::string error;
   int respcode = 400;
@@ -176,24 +191,36 @@ Response HttpsClient::Get(const std::string& handle, int timeout) {
   try {
     boost::asio::io_context ioc;
 
-    SSL_CTX* ssl_ctx = fptn::protocol::tls::CreateNewSslCtx();
+    SSL_CTX* ssl_ctx = fptn::protocol::https::utils::CreateNewSslCtx();
     boost::asio::ssl::context ctx(ssl_ctx);
 
+    auto socket_wrapper = CreateObfuscatedSocket(ioc);
+
     boost::beast::net::ip::tcp::resolver resolver(ioc);
-    boost::beast::ssl_stream<boost::beast::tcp_stream> stream(ioc, ctx);
+
+    // Используем SSL поверх obfuscated socket
+    boost::beast::ssl_stream<obfuscator::SocketWrapper> stream(
+        std::move(socket_wrapper), ctx);
 
     const std::string port = std::to_string(port_);
     auto const results = resolver.resolve(host_, port);
-    boost::beast::get_lowest_layer(stream).expires_after(
-        std::chrono::seconds(timeout));
-    boost::beast::get_lowest_layer(stream).connect(results);
 
-    fptn::protocol::tls::SetHandshakeSessionID(stream.native_handle());
-    fptn::protocol::tls::SetHandshakeSni(stream.native_handle(), sni_);
+    stream.next_layer().expires_after(std::chrono::seconds(timeout));
+    stream.next_layer().async_connect(
+        *results.begin(), [](boost::system::error_code ec) {
+          if (ec) {
+            throw boost::system::system_error(ec);
+          }
+        });
+    ioc.run();
+    ioc.restart();
+
+    fptn::protocol::https::utils::SetHandshakeSessionID(stream.native_handle());
+    fptn::protocol::https::utils::SetHandshakeSni(stream.native_handle(), sni_);
 
     if (!expected_md5_fingerprint_.empty()) {
       ssl = stream.native_handle();
-      fptn::protocol::tls::AttachCertificateVerificationCallback(
+      fptn::protocol::https::utils::AttachCertificateVerificationCallback(
           ssl, [this, &error](const std::string& md5_fingerprint) {
             return onVerifyCertificate(md5_fingerprint, error);
           });
@@ -210,26 +237,23 @@ Response HttpsClient::Get(const std::string& handle, int timeout) {
       req.set(key, value);
     }
 
-    boost::beast::get_lowest_layer(stream).expires_after(
-        std::chrono::seconds(timeout));
+    stream.next_layer().expires_after(std::chrono::seconds(timeout));
     boost::beast::http::write(stream, req);
 
     boost::beast::flat_buffer buffer;
     boost::beast::http::response<boost::beast::http::dynamic_body> res;
-    boost::beast::get_lowest_layer(stream).expires_after(
-        std::chrono::seconds(timeout));
+    stream.next_layer().expires_after(std::chrono::seconds(timeout));
     boost::beast::http::read(stream, buffer, res);
 
     respcode = static_cast<int>(res.result_int());
     body = GetHttpBody(res);
 
-    boost::beast::get_lowest_layer(stream).expires_after(
-        std::chrono::seconds(timeout));
+    stream.next_layer().expires_after(std::chrono::seconds(timeout));
 
     boost::system::error_code ec;
     stream.shutdown(ec);
     try {
-      boost::beast::get_lowest_layer(stream).close();
+      stream.next_layer().close();
     } catch (boost::system::system_error const& e) {
       SPDLOG_ERROR("Exception during HttpsClient::Get: {}", e.what());
     }
@@ -255,12 +279,13 @@ Response HttpsClient::Get(const std::string& handle, int timeout) {
     SPDLOG_ERROR("Unknown exception occurred during HttpsClient::Get");
   }
   if (ssl) {
-    fptn::protocol::tls::AttachCertificateVerificationCallbackDelete(ssl);
+    fptn::protocol::https::utils::AttachCertificateVerificationCallbackDelete(
+        ssl);
   }
   return {body, respcode, error};
 }
 
-Response HttpsClient::Post(const std::string& handle,
+Response ApiClient::Post(const std::string& handle,
     const std::string& request,
     const std::string& content_type,
     int timeout) {
@@ -271,25 +296,35 @@ Response HttpsClient::Post(const std::string& handle,
   SSL* ssl = nullptr;
   try {
     boost::asio::io_context ioc;
-    SSL_CTX* ssl_ctx = fptn::protocol::tls::CreateNewSslCtx();
+    SSL_CTX* ssl_ctx = fptn::protocol::https::utils::CreateNewSslCtx();
     boost::asio::ssl::context ctx(ssl_ctx);
 
+    auto socket_wrapper = CreateObfuscatedSocket(ioc);
+
     boost::beast::net::ip::tcp::resolver resolver(ioc);
-    boost::beast::ssl_stream<boost::beast::tcp_stream> stream(ioc, ctx);
+
+    boost::beast::ssl_stream<obfuscator::SocketWrapper> stream(
+        std::move(socket_wrapper), ctx);
 
     const std::string port = std::to_string(port_);
     auto const results = resolver.resolve(host_, port);
 
-    boost::beast::get_lowest_layer(stream).expires_after(
-        std::chrono::seconds(timeout));
-    boost::beast::get_lowest_layer(stream).connect(results);
+    stream.next_layer().expires_after(std::chrono::seconds(timeout));
+    stream.next_layer().async_connect(
+        *results.begin(), [](boost::system::error_code ec) {
+          if (ec) {
+            throw boost::system::system_error(ec);
+          }
+        });
+    ioc.run();
+    ioc.restart();
 
-    fptn::protocol::tls::SetHandshakeSessionID(stream.native_handle());
-    fptn::protocol::tls::SetHandshakeSni(stream.native_handle(), sni_);
+    fptn::protocol::https::utils::SetHandshakeSessionID(stream.native_handle());
+    fptn::protocol::https::utils::SetHandshakeSni(stream.native_handle(), sni_);
 
     if (!expected_md5_fingerprint_.empty()) {
       ssl = stream.native_handle();
-      fptn::protocol::tls::AttachCertificateVerificationCallback(
+      fptn::protocol::https::utils::AttachCertificateVerificationCallback(
           ssl, [this, &error](const std::string& md5_fingerprint) {
             return onVerifyCertificate(md5_fingerprint, error);
           });
@@ -312,25 +347,22 @@ Response HttpsClient::Post(const std::string& handle,
     req.body() = request;
     req.prepare_payload();
 
-    boost::beast::get_lowest_layer(stream).expires_after(
-        std::chrono::seconds(timeout));
+    stream.next_layer().expires_after(std::chrono::seconds(timeout));
     boost::beast::http::write(stream, req);
 
     boost::beast::flat_buffer buffer;
     boost::beast::http::response<boost::beast::http::dynamic_body> res;
-    boost::beast::get_lowest_layer(stream).expires_after(
-        std::chrono::seconds(timeout));
+    stream.next_layer().expires_after(std::chrono::seconds(timeout));
     boost::beast::http::read(stream, buffer, res);
 
     respcode = static_cast<int>(res.result_int());
     body = GetHttpBody(res);
 
-    boost::beast::get_lowest_layer(stream).expires_after(
-        std::chrono::seconds(timeout));
+    stream.next_layer().expires_after(std::chrono::seconds(timeout));
     boost::system::error_code ec;
     stream.shutdown(ec);
     try {
-      boost::beast::get_lowest_layer(stream).close();
+      stream.next_layer().close();
     } catch (boost::system::system_error const& e) {
       SPDLOG_ERROR("Exception during HttpsClient::Get: {}", e.what());
     }
@@ -356,12 +388,13 @@ Response HttpsClient::Post(const std::string& handle,
     SPDLOG_ERROR("Unknown exception occurred during HttpsClient::Post");
   }
   if (ssl) {
-    fptn::protocol::tls::AttachCertificateVerificationCallbackDelete(ssl);
+    fptn::protocol::https::utils::AttachCertificateVerificationCallbackDelete(
+        ssl);
   }
   return {body, respcode, error};
 }
 
-bool HttpsClient::onVerifyCertificate(
+bool ApiClient::onVerifyCertificate(
     const std::string& md5_fingerprint, std::string& error) const {
   if (md5_fingerprint == expected_md5_fingerprint_) {
     SPDLOG_INFO("Certificate verified successfully (MD5 matched: {}).",
@@ -374,4 +407,11 @@ bool HttpsClient::onVerifyCertificate(
       expected_md5_fingerprint_, md5_fingerprint);
   SPDLOG_ERROR(error);
   return false;
+}
+
+fptn::protocol::https::obfuscator::SocketWrapper
+ApiClient::CreateObfuscatedSocket(boost::asio::io_context& ioc) const {
+  auto socket =
+      std::make_shared<obfuscator::Socket>(ioc.get_executor(), obfuscator_);
+  return obfuscator::SocketWrapper(socket);
 }

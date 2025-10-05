@@ -7,7 +7,6 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #pragma once
 
 #include <functional>
-#include <iostream>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -16,7 +15,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include "common/network/ip_packet.h"
 
-#include "fptn-protocol-lib/websocket/websocket_client.h"
+#include "fptn-protocol-lib/https/websocket_client/websocket_client.h"
 
 namespace fptn::http {
 
@@ -32,6 +31,7 @@ class Client final {
       pcpp::IPv6Address tun_interface_address_ipv6,
       std::string sni,
       std::string md5_fingerprint,
+      fptn::protocol::https::obfuscator::IObfuscatorSPtr obfuscator,
       NewIPPacketCallback new_ip_pkt_callback = nullptr);
   bool Login(const std::string& username, const std::string& password);
   std::pair<pcpp::IPv4Address, pcpp::IPv6Address> GetDns();
@@ -61,10 +61,12 @@ class Client final {
   const std::string sni_;
   const std::string md5_fingerprint_;
 
+  const fptn::protocol::https::obfuscator::IObfuscatorSPtr obfuscator_;
+
   NewIPPacketCallback new_ip_pkt_callback_;
 
   std::string access_token_;
-  fptn::protocol::websocket::WebsocketClientSPtr ws_;
+  fptn::protocol::https::WebsocketClientSPtr ws_;
 
   std::string latest_error_;
 
