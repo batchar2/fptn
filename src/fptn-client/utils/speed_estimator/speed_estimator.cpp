@@ -4,7 +4,7 @@ Copyright (c) 2024-2025 Stas Skokov
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
 
-#include "fptn-protocol-lib/server/speed_estimator.h"
+#include "fptn-client/utils/speed_estimator/speed_estimator.h"
 
 #include <algorithm>
 #include <future>
@@ -13,23 +13,25 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <utility>
 #include <vector>
 
-#include "fptn-protocol-lib/https/https_client.h"
+#include "fptn-protocol-lib/https/api_client/api_client.h"
+#include "fptn-protocol-lib/https/obfuscator/methods/none/none_obfuscator.h"
 
-using fptn::protocol::https::HttpsClient;
-using fptn::protocol::server::ServerInfo;
+using fptn::protocol::https::ApiClient;
+using fptn::utils::speed_estimator::ServerInfo;
 
 constexpr std::uint64_t kMaxTimeout = UINT64_MAX;
 
-namespace fptn::protocol::server {
+namespace fptn::utils::speed_estimator {
 
 // NOLINTNEXTLINE(misc-use-internal-linkage)
 std::uint64_t GetDownloadTimeMs(const ServerInfo& server,
     const std::string& sni,
     int timeout,
-    const std::string& md5_fingerprint) {
+    const std::string& md5_fingerprint,
+    const fptn::protocol::https::obfuscator::IObfuscatorSPtr& obfuscator) {
   auto const start = std::chrono::high_resolution_clock::now();  // start
 
-  HttpsClient cli(server.host, server.port, sni, md5_fingerprint);
+  ApiClient cli(server.host, server.port, sni, md5_fingerprint, obfuscator);
   auto const resp = cli.Get("/api/v1/test/file.bin", timeout);
   if (resp.code == 200) {
     auto const end = std::chrono::high_resolution_clock::now();
@@ -39,8 +41,9 @@ std::uint64_t GetDownloadTimeMs(const ServerInfo& server,
   return kMaxTimeout;
 }
 
-ServerInfo FindFastestServer(
-    const std::string& sni, const std::vector<ServerInfo>& servers) {
+ServerInfo FindFastestServer(const std::string& sni,
+    const std::vector<ServerInfo>& servers,
+    const fptn::protocol::https::obfuscator::IObfuscatorSPtr& obfuscator) {
   constexpr int kTimeoutSeconds = 30;
   std::vector<std::future<std::uint64_t>> futures;
 
@@ -48,16 +51,16 @@ ServerInfo FindFastestServer(
   // NOLINTNEXTLINE(modernize-use-ranges)
   std::transform(servers.begin(), servers.end(), std::back_inserter(futures),
       // NOLINTNEXTLINE(bugprone-exception-escape)
-      [kTimeoutSeconds, sni](const auto& server) {
+      [kTimeoutSeconds, sni, obfuscator](const auto& server) {
         (void)kTimeoutSeconds;  // fix Windows build
         try {
           // NOLINTNEXTLINE(modernize-use-ranges)
           return std::async(std::launch::async,
               // NOLINTNEXTLINE(bugprone-exception-escape)
-              [server, sni, kTimeoutSeconds]() {
+              [server, sni, kTimeoutSeconds, obfuscator]() {
                 (void)kTimeoutSeconds;  // fix Windows build
-                return GetDownloadTimeMs(
-                    server, sni, kTimeoutSeconds, server.md5_fingerprint);
+                return GetDownloadTimeMs(server, sni, kTimeoutSeconds,
+                    server.md5_fingerprint, obfuscator);
               });
         } catch (const std::exception& ex) {
           (void)ex;
@@ -111,4 +114,4 @@ ServerInfo FindFastestServer(
 
   return servers[fastest_server_index];
 }
-}  // namespace fptn::protocol::server
+}  // namespace fptn::utils::speed_estimator

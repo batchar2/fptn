@@ -14,6 +14,9 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <nlohmann/json.hpp>
 #include <openssl/ssl.h>  // NOLINT(build/include_order)
 
+#include "fptn-protocol-lib/https/obfuscator/methods/obfuscator_interface.h"
+#include "fptn-protocol-lib/https/obfuscator/socket_wrapper/socket_wrapper.h"
+
 namespace fptn::protocol::https {
 
 struct Response final {
@@ -30,13 +33,21 @@ struct Response final {
 using Headers = std::unordered_map<std::string, std::string>;
 Headers RealBrowserHeaders(const std::string& host);
 
-class HttpsClient final {
+class ApiClient final {
  public:
-  explicit HttpsClient(const std::string& host, int port);
-  explicit HttpsClient(std::string host, int port, std::string sni);
-  explicit HttpsClient(
-      std::string host, int port, std::string sni, std::string md5_fingerprint);
-  ~HttpsClient() = default;
+  explicit ApiClient(const std::string& host,
+      int port,
+      obfuscator::IObfuscatorSPtr obfuscator);
+  explicit ApiClient(std::string host,
+      int port,
+      std::string sni,
+      obfuscator::IObfuscatorSPtr obfuscator);
+  explicit ApiClient(std::string host,
+      int port,
+      std::string sni,
+      std::string md5_fingerprint,
+      obfuscator::IObfuscatorSPtr obfuscator);
+  ~ApiClient() = default;
 
   Response Get(const std::string& handle, int timeout = 5);
   Response Post(const std::string& handle,
@@ -48,12 +59,16 @@ class HttpsClient final {
   bool onVerifyCertificate(
       const std::string& md5_fingerprint, std::string& error) const;
 
+  obfuscator::SocketWrapper CreateObfuscatedSocket(
+      boost::asio::io_context& ioc) const;
+
  private:
   const std::string host_;
   const int port_;
   const std::string sni_;
   const std::string expected_md5_fingerprint_;
+  const obfuscator::IObfuscatorSPtr obfuscator_;
 };
 
-using HttpsClientPtr = std::unique_ptr<HttpsClient>;
+using HttpsClientPtr = std::unique_ptr<ApiClient>;
 }  // namespace fptn::protocol::https

@@ -17,11 +17,14 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <argparse/argparse.hpp>
 #include <boost/asio.hpp>
 #include <boost/process.hpp>
+#include <fmt/format.h>  // NOLINT(build/include_order)
+#include <fmt/ranges.h>  // NOLINT(build/include_order)
 
 #include "common/logger/logger.h"
 #include "common/network/net_interface.h"
 
 #include "config/config_file.h"
+#include "fptn-protocol-lib/https/obfuscator/methods/detector.h"
 #include "fptn-protocol-lib/time/time_provider.h"
 #include "http/client.h"
 #include "routing/iptables.h"
@@ -45,6 +48,9 @@ int main(int argc, char* argv[]) {
 #endif
 
   try {
+    using fptn::protocol::https::obfuscator::GetObfuscatorByName;
+    using fptn::protocol::https::obfuscator::GetObfuscatorNames;
+
     argparse::ArgumentParser args("fptn-client", FPTN_VERSION);
     // Required arguments
     args.add_argument("--access-token").required().help("Access token");
@@ -72,6 +78,16 @@ int main(int argc, char* argv[]) {
         .help(
             "Domain name for SNI in TLS handshake (used to obfuscate VPN "
             "traffic)");
+    args.add_argument("--obfuscator")
+        .default_value("none")
+        .help("Traffic obfuscation method: " +
+              fmt::format("{}", fmt::join(GetObfuscatorNames(), ", ")))
+        .action([](const std::string& value) {
+          if (!GetObfuscatorByName(value)) {
+            throw std::runtime_error("Unknown obfuscator: '" + value + "' ");
+          }
+          return value;
+        });
     // parse cmd arguments
     try {
       args.parse_args(argc, argv);
@@ -125,10 +141,13 @@ int main(int argc, char* argv[]) {
       return EXIT_FAILURE;
     }
 
+    const auto obfuscator_name = args.get<std::string>("--obfuscator");
+    auto obfuscator = GetObfuscatorByName(obfuscator_name);
+
     /* check config */
     const auto access_token = args.get<std::string>("--access-token");
-    fptn::config::ConfigFile config(access_token, sni);
-    fptn::protocol::server::ServerInfo selected_server;
+    fptn::config::ConfigFile config(access_token, sni, obfuscator.value());
+    fptn::utils::speed_estimator::ServerInfo selected_server;
     try {
       config.Parse();
       selected_server = config.FindFastestServer();
@@ -153,15 +172,17 @@ int main(int argc, char* argv[]) {
         "VPN SERVER PORT:    {}\n"
         "TUN INTERFACE IPv4: {}\n"
         "TUN INTERFACE IPv6: {}\n",
-        FPTN_VERSION, sni, using_gateway_ip.toString(),
-        out_network_interface_name, selected_server.name, selected_server.host,
-        selected_server.port, tun_interface_address_ipv4.toString(),
-        tun_interface_address_ipv6.toString());
+        "OBFUSCATOR:         {}\n" FPTN_VERSION, sni,
+        using_gateway_ip.toString(), out_network_interface_name,
+        selected_server.name, selected_server.host, selected_server.port,
+        tun_interface_address_ipv4.toString(),
+        tun_interface_address_ipv6.toString(), obfuscator_name);
 
     /* auth & dns */
-    auto http_client = std::make_unique<fptn::http::Client>(server_ip,
-        selected_server.port, tun_interface_address_ipv4,
-        tun_interface_address_ipv6, sni, selected_server.md5_fingerprint);
+    auto http_client =
+        std::make_unique<fptn::http::Client>(server_ip, selected_server.port,
+            tun_interface_address_ipv4, tun_interface_address_ipv6, sni,
+            selected_server.md5_fingerprint, obfuscator.value());
     const bool status =
         http_client->Login(config.GetUsername(), config.GetPassword());
     if (!status) {

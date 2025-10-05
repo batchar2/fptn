@@ -27,6 +27,8 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include "common/jwt_token/token_manager.h"
 
+#include "fptn-protocol-lib/https/obfuscator/socket/socket.h"
+#include "fptn-protocol-lib/https/obfuscator/socket_wrapper/socket_wrapper.h"
 #include "web/api/handle.h"
 
 namespace fptn::web {
@@ -73,6 +75,8 @@ class Session : public std::enable_shared_from_this<Session> {
       const boost::beast::http::request<boost::beast::http::string_body>&
           request);
 
+  boost::asio::awaitable<bool> SetupObfuscator();
+
  private:
   mutable std::mutex mutex_;
 
@@ -81,9 +85,13 @@ class Session : public std::enable_shared_from_this<Session> {
   const std::uint16_t port_;
   const bool enable_detect_probing_;
 
-  boost::beast::websocket::stream<
-      boost::asio::ssl::stream<boost::beast::tcp_stream>>
-      ws_;
+  protocol::https::obfuscator::SocketSPtr obfuscator_socket_;
+  protocol::https::obfuscator::SocketWrapperSPtr obfuscator_wrapper_;
+  using ssl_obfuscator_stream =
+      boost::asio::ssl::stream<protocol::https::obfuscator::SocketWrapper>;
+  std::unique_ptr<ssl_obfuscator_stream> ssl_stream_;
+  boost::beast::websocket::stream<ssl_obfuscator_stream&> ws_;
+
   boost::asio::strand<boost::asio::any_io_executor> strand_;
   boost::asio::experimental::concurrent_channel<void(
       boost::system::error_code, fptn::common::network::IPPacketPtr)>

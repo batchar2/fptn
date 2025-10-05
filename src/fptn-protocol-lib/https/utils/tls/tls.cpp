@@ -4,7 +4,7 @@ Copyright (c) 2024-2025 Stas Skokov
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
 
-#include "fptn-protocol-lib/tls/tls.h"
+#include "fptn-protocol-lib/https/utils/tls/tls.h"
 
 #include <string>
 #include <unordered_map>
@@ -25,7 +25,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include "fptn-protocol-lib/time/time_provider.h"
 
-namespace fptn::protocol::tls {
+namespace fptn::protocol::https::utils  {
 
 constexpr std::size_t kFptnKeyLength = 4;
 

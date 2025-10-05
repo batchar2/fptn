@@ -9,7 +9,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <string>
 #include <utility>
 
-namespace fptn::protocol::server {
+namespace fptn::utils::speed_estimator {
 
 struct ServerInfo {
   std::string name;
@@ -35,4 +35,4 @@ struct ServerInfo {
         md5_fingerprint(std::move(_md5_fingerprint)) {}
 };
 
-}  // namespace fptn::protocol::server
+}  // namespace fptn::utils::speed_estimator

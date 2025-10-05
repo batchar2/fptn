@@ -14,11 +14,11 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
-#include "fptn-protocol-lib/https/https_client.h"
+#include "fptn-protocol-lib/https/api_client/api_client.h"
 #include "routing/iptables.h"
 
 using fptn::http::Client;
-using fptn::protocol::https::HttpsClient;
+using fptn::protocol::https::ApiClient;
 
 Client::Client(pcpp::IPv4Address server_ip,
     int server_port,
@@ -26,6 +26,7 @@ Client::Client(pcpp::IPv4Address server_ip,
     pcpp::IPv6Address tun_interface_address_ipv6,
     std::string sni,
     std::string md5_fingerprint,
+    fptn::protocol::https::obfuscator::IObfuscatorSPtr obfuscator,
     NewIPPacketCallback new_ip_pkt_callback)
     : running_(false),
       server_ip_(std::move(server_ip)),
@@ -34,13 +35,15 @@ Client::Client(pcpp::IPv4Address server_ip,
       tun_interface_address_ipv6_(std::move(tun_interface_address_ipv6)),
       sni_(std::move(sni)),
       md5_fingerprint_(std::move(md5_fingerprint)),
+      obfuscator_(std::move(obfuscator)),
       new_ip_pkt_callback_(std::move(new_ip_pkt_callback)),
       reconnection_attempts_(kMaxReconnectionAttempts_) {}
 
 bool Client::Login(const std::string& username, const std::string& password) {
   const std::string request = fmt::format(
       R"({{ "username": "{}", "password": "{}" }})", username, password);
-  HttpsClient cli(server_ip_.toString(), server_port_, sni_, md5_fingerprint_);
+  const std::string ip = server_ip_.toString();
+  ApiClient cli(ip, server_port_, sni_, md5_fingerprint_, obfuscator_);
   const auto resp = cli.Post("/api/v1/login", request, "application/json");
   if (resp.code == 200) {
     try {
@@ -73,7 +76,8 @@ std::pair<pcpp::IPv4Address, pcpp::IPv6Address> Client::GetDns() {
   SPDLOG_INFO("Obtained DNS server address. Connecting to {}:{}",
       server_ip_.toString(), server_port_);
 
-  HttpsClient cli(server_ip_.toString(), server_port_, sni_, md5_fingerprint_);
+  const std::string ip = server_ip_.toString();
+  ApiClient cli(ip, server_port_, sni_, md5_fingerprint_, obfuscator_);
   const auto resp = cli.Get("/api/v1/dns");
   if (resp.code == 200) {
     try {
@@ -140,10 +144,10 @@ void Client::Run() {
 
       // cppcheck-suppress identicalInnerCondition
       if (running_) {  // Double-check after acquiring lock
-        ws_ = std::make_shared<fptn::protocol::websocket::WebsocketClient>(
+        ws_ = std::make_shared<fptn::protocol::https::WebsocketClient>(
             server_ip_, server_port_, tun_interface_address_ipv4_,
             tun_interface_address_ipv6_, new_ip_pkt_callback_, sni_,
-            access_token_, md5_fingerprint_);
+            access_token_, md5_fingerprint_, obfuscator_);
       }
     }
 
@@ -155,8 +159,8 @@ void Client::Run() {
     }
 
     // Calculate time since last window start
-    auto current_time = std::chrono::steady_clock::now();
-    auto elapsed = current_time - window_start_time;
+    const auto current_time = std::chrono::steady_clock::now();
+    const auto elapsed = current_time - window_start_time;
 
     // Reconnection attempt counting logic
     if (elapsed >= kReconnectionWindow) {
