@@ -6,7 +6,7 @@ project(
 
 # project settings
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Global project definitions
 add_compile_definitions(FPTN_VERSION=\"${FPTN_VERSION}\")

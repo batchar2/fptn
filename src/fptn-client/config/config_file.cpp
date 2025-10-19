@@ -17,12 +17,19 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "common/utils/utils.h"
 
 using fptn::config::ConfigFile;
-using fptn::protocol::server::ServerInfo;
+using fptn::utils::speed_estimator::ServerInfo;
 
-ConfigFile::ConfigFile(std::string sni) : sni_(std::move(sni)), version_(0) {}
+ConfigFile::ConfigFile(std::string sni,
+    fptn::protocol::https::obfuscator::IObfuscatorSPtr obfuscator)
+    : sni_(std::move(sni)), version_(0), obfuscator_(std::move(obfuscator)) {}
 
-ConfigFile::ConfigFile(std::string token, std::string sni)
-    : token_(std::move(token)), sni_(std::move(sni)), version_(0) {}
+ConfigFile::ConfigFile(std::string token,
+    std::string sni,
+    fptn::protocol::https::obfuscator::IObfuscatorSPtr obfuscator)
+    : token_(std::move(token)),
+      sni_(std::move(sni)),
+      version_(0),
+      obfuscator_(std::move(obfuscator)) {}
 
 bool ConfigFile::AddServer(const ServerInfo& s) {
   servers_.push_back(s);
@@ -60,16 +67,16 @@ bool ConfigFile::Parse() {
 }
 
 ServerInfo ConfigFile::FindFastestServer() const {
-  return fptn::protocol::server::FindFastestServer(sni_, servers_);
+  return fptn::utils::speed_estimator::FindFastestServer(
+      sni_, servers_, obfuscator_);
 }
 
-// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
 std::uint64_t ConfigFile::GetDownloadTimeMs(const ServerInfo& server,
     const std::string& sni,
     int timeout,
     const std::string& md5_fingerprint) {
-  return fptn::protocol::server::GetDownloadTimeMs(
-      server, sni, timeout, md5_fingerprint);
+  return fptn::utils::speed_estimator::GetDownloadTimeMs(
+      server, sni, timeout, md5_fingerprint, obfuscator_);
 }
 
 int ConfigFile::GetVersion() const noexcept { return version_; }

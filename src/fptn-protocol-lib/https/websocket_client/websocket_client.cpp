@@ -4,19 +4,21 @@ Copyright (c) 2024-2025 Stas Skokov
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
 
-#include "fptn-protocol-lib/websocket/websocket_client.h"
+#include "fptn-protocol-lib/https/websocket_client/websocket_client.h"
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <utility>
 
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
-#include "fptn-protocol-lib/https/https_client.h"
+#include "fptn-protocol-lib/https/api_client/api_client.h"
+#include "fptn-protocol-lib/https/obfuscator/methods/none/none_obfuscator.h"
+#include "fptn-protocol-lib/https/utils/tls/tls.h"
 #include "fptn-protocol-lib/protobuf/protocol.h"
-#include "fptn-protocol-lib/tls/tls.h"
 
-using fptn::protocol::websocket::WebsocketClient;
+namespace fptn::protocol::https {
 
 WebsocketClient::WebsocketClient(pcpp::IPv4Address server_ip,
     int server_port,
@@ -26,10 +28,16 @@ WebsocketClient::WebsocketClient(pcpp::IPv4Address server_ip,
     std::string sni,
     std::string access_token,
     std::string expected_md5_fingerprint,
+    obfuscator::IObfuscatorSPtr obfuscator,
     OnConnectedCallback on_connected_callback)
-    : ctx_(fptn::protocol::tls::CreateNewSslCtx()),
+    : ctx_(fptn::protocol::https::utils::CreateNewSslCtx()),
       resolver_(boost::asio::make_strand(ioc_)),
-      ws_(boost::asio::make_strand(ioc_), ctx_),
+      obfuscator_(std::move(obfuscator)),
+      socket_(std::make_shared<obfuscator::Socket>(
+          ioc_.get_executor(), obfuscator_)),
+      socket_wrapper_(std::make_shared<obfuscator::SocketWrapper>(socket_)),
+      ssl_stream_(std::make_unique<ssl_socket_stream>(*socket_wrapper_, ctx_)),
+      ws_(*ssl_stream_),
       strand_(ioc_.get_executor()),
       running_(false),
       was_connected_(false),
@@ -43,11 +51,11 @@ WebsocketClient::WebsocketClient(pcpp::IPv4Address server_ip,
       expected_md5_fingerprint_(std::move(expected_md5_fingerprint)),
       on_connected_callback_(std::move(on_connected_callback)) {
   auto* ssl = ws_.next_layer().native_handle();
-  fptn::protocol::tls::SetHandshakeSni(ssl, sni_);
-  fptn::protocol::tls::SetHandshakeSessionID(ssl);
-  // Validate the server certificate
+  fptn::protocol::https::utils::SetHandshakeSni(ssl, sni_);
+  fptn::protocol::https::utils::SetHandshakeSessionID(ssl);
+
   ssl_ = ws_.next_layer().native_handle();
-  fptn::protocol::tls::AttachCertificateVerificationCallback(
+  fptn::protocol::https::utils::AttachCertificateVerificationCallback(
       ssl_, [this](const std::string& md5_fingerprint) mutable {
         if (md5_fingerprint == expected_md5_fingerprint_) {
           SPDLOG_INFO("Certificate verified successfully (MD5 matched: {}).",
@@ -65,7 +73,7 @@ WebsocketClient::WebsocketClient(pcpp::IPv4Address server_ip,
 WebsocketClient::~WebsocketClient() {
   Stop();
   if (ssl_) {
-    fptn::protocol::tls::AttachCertificateVerificationCallbackDelete(ssl_);
+    protocol::https::utils::AttachCertificateVerificationCallbackDelete(ssl_);
     ssl_ = nullptr;
   }
 }
@@ -74,6 +82,8 @@ void WebsocketClient::Run() {
   try {
     running_ = true;
     SPDLOG_INFO("Connection: {}:{}", server_ip_.toString(), server_port_str_);
+
+    obfuscator_->Reset();
 
     auto self = shared_from_this();
 
@@ -84,15 +94,12 @@ void WebsocketClient::Run() {
     resolve_timeout->async_wait(
         [self, timeout](const boost::system::error_code& ec) mutable {
           if (ec) {
-            // Timer was cancelled - this is normal operation when resolve
-            // completes
             if (ec != boost::asio::error::operation_aborted) {
               SPDLOG_WARN("Unexpected timer error: {}", ec.message());
             } else {
               SPDLOG_INFO("Resolution timer cancelled (normal operation)");
             }
           } else {
-            // Timeout triggered - resolution took too long
             SPDLOG_ERROR("DNS resolution failed to complete within {} seconds",
                 timeout.count());
             try {
@@ -105,10 +112,10 @@ void WebsocketClient::Run() {
           }
         });
 
-    // Resolve operations
     resolver_.async_resolve(server_ip_.toString(), server_port_str_,
         [self, resolve_timeout](boost::beast::error_code ec,
-            boost::asio::ip::tcp::resolver::results_type results) mutable {
+            const boost::asio::ip::tcp::resolver::results_type&
+                results) mutable {
           try {
             resolve_timeout->cancel();
           } catch (const std::exception& e) {
@@ -125,7 +132,7 @@ void WebsocketClient::Run() {
 
           try {
             SPDLOG_DEBUG("DNS resolution successful, proceeding to connection");
-            self->onResolve(ec, std::move(results));
+            self->onResolve(ec, results);
           } catch (const std::exception& e) {
             SPDLOG_ERROR("Exception in onResolve: {}", e.what());
             self->Stop();
@@ -147,10 +154,9 @@ bool WebsocketClient::Stop() {
     return false;
   }
 
-  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+  const std::unique_lock<std::mutex> lock(mutex_);
 
-  // cppcheck-suppress identicalConditionAfterEarlyExit
-  if (!running_) {  // Double-check after acquiring lock
+  if (!running_) {
     return false;
   }
   SPDLOG_INFO("Marked client as stopped and disconnected");
@@ -160,14 +166,16 @@ bool WebsocketClient::Stop() {
 
   boost::system::error_code ec;
 
-  // Close WebSocket by triggering a timeout
+  // Close WebSocket
   try {
-    boost::beast::get_lowest_layer(ws_).expires_after(
-        std::chrono::microseconds(1));
+    ws_.close(boost::beast::websocket::close_code::normal, ec);
+    if (ec) {
+      SPDLOG_WARN("WebSocket close error: {}", ec.message());
+    }
   } catch (const std::exception& err) {
-    SPDLOG_ERROR("Failed to set WebSocket expiration timer: {}", err.what());
+    SPDLOG_ERROR("Failed to close WebSocket: {}", err.what());
   } catch (...) {
-    SPDLOG_ERROR("Unknown error while setting WebSocket expiration timer");
+    SPDLOG_ERROR("Unknown error while closing WebSocket");
   }
 
   // Close SSL
@@ -175,7 +183,6 @@ bool WebsocketClient::Stop() {
     SPDLOG_DEBUG("Shutting down SSL layer...");
     auto& ssl = ws_.next_layer();
     if (ssl.native_handle()) {
-      // More robust SSL shutdown
       ::SSL_set_quiet_shutdown(ssl.native_handle(), 1);
       ::SSL_shutdown(ssl.native_handle());
     }
@@ -191,15 +198,7 @@ bool WebsocketClient::Stop() {
   // Close TCP connection
   try {
     SPDLOG_DEBUG("Shutting down TCP socket...");
-    auto& tcp = ws_.next_layer().next_layer();
-    tcp.socket().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
-    if (ec) {
-      SPDLOG_WARN("TCP socket shutdown error: {}", ec.message());
-    } else {
-      SPDLOG_DEBUG("TCP socket shutdown successfully");
-    }
-
-    tcp.socket().close(ec);
+    get_socket().close(ec);
     if (ec) {
       SPDLOG_WARN("TCP socket close error: {}", ec.message());
     } else {
@@ -227,42 +226,35 @@ bool WebsocketClient::Stop() {
 }
 
 void WebsocketClient::onResolve(boost::beast::error_code ec,
-    // NOLINTNEXTLINE(performance-unnecessary-value-param)
-    boost::asio::ip::tcp::resolver::results_type results) {
+    const boost::asio::ip::tcp::resolver::results_type& results) {
   if (ec) {
     return Fail(ec, "resolve");
   }
-  // Set a timeout on the operation
-  boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::seconds(30));
-  // Make the connection on the IP address we get from a lookup
-  boost::beast::get_lowest_layer(ws_).async_connect(
-      results, boost::beast::bind_front_handler(
-                   &WebsocketClient::onConnect, shared_from_this()));
+
+  get_socket().expires_after(std::chrono::seconds(30));
+  get_socket().async_connect(*results.begin(),
+      [self = shared_from_this()](
+          boost::system::error_code ec) { self->onConnect(ec); });
 }
 
-void WebsocketClient::onConnect(boost::beast::error_code ec,
-    // NOLINTNEXTLINE(performance-unnecessary-value-param)
-    boost::asio::ip::tcp::resolver::results_type::endpoint_type) {
+void WebsocketClient::onConnect(boost::beast::error_code ec) {
   if (ec) {
-    return Fail(ec, "connect");
+    return Fail(ec, "onConnect");
   }
-
   try {
-    // Set a timeout on the operation
-    boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::seconds(30));
+    get_socket().expires_after(std::chrono::seconds(30));
 
     ws_.text(false);
-    ws_.binary(true);                  // Only binary
-    ws_.auto_fragment(true);           // FIXME NEED CHECK
-    ws_.read_message_max(128 * 1024);  // MaxSize (128 KB)
+    ws_.binary(true);
+    ws_.auto_fragment(true);
+    ws_.read_message_max(128 * 1024);
     ws_.set_option(boost::beast::websocket::stream_base::timeout::suggested(
         boost::beast::role_type::client));
-    boost::beast::get_lowest_layer(ws_).socket().set_option(
-        boost::asio::ip::tcp::no_delay(true));  // turn off the Nagle algorithm.
+    get_socket().set_option(boost::asio::ip::tcp::no_delay(true));
 
     ws_.next_layer().async_handshake(boost::asio::ssl::stream_base::client,
-        boost::beast::bind_front_handler(
-            &WebsocketClient::onSslHandshake, shared_from_this()));
+        [self = shared_from_this()](
+            boost::system::error_code ec) { self->onSslHandshake(ec); });
   } catch (boost::system::system_error& err) {
     SPDLOG_ERROR("Exception during onConnect: {}", err.what());
     Stop();
@@ -280,28 +272,23 @@ void WebsocketClient::onSslHandshake(boost::beast::error_code ec) {
     return Fail(ec, "onSslHandshake");
   }
   try {
-    // Turn off the timeout on the tcp_stream, because
-    // the websocket stream has its own timeout system.
-    boost::beast::get_lowest_layer(ws_).expires_never();
+    // get_socket().expires_never();
+    get_socket().expires_after(std::chrono::hours(24));
 
-    // Set suggested timeout settings for the websocket
     ws_.set_option(boost::beast::websocket::stream_base::timeout::suggested(
         boost::beast::role_type::client));
 
-    // Set https headers
     auto self = shared_from_this();
     ws_.set_option(boost::beast::websocket::stream_base::decorator(
         [self](boost::beast::websocket::request_type& req) mutable {
           try {
-            using fptn::protocol::https::HttpsClient;
+            using fptn::protocol::https::ApiClient;
             if (self->running_) {
-              // set browser headers
               const auto headers =
                   fptn::protocol::https::RealBrowserHeaders(self->sni_);
               for (const auto& [key, value] : headers) {
                 req.set(key, value);
               }
-              // set custom headers
               req.set("Authorization", "Bearer " + self->access_token_);
               req.set("ClientIP", self->tun_interface_address_ipv4_.toString());
               req.set(
@@ -318,10 +305,9 @@ void WebsocketClient::onSslHandshake(boost::beast::error_code ec) {
           }
         }));
 
-    // Perform the websocket handshake
     ws_.async_handshake(server_ip_.toString(), kUrlWebSocket_,
-        boost::beast::bind_front_handler(
-            &WebsocketClient::onHandshake, shared_from_this()));
+        [self = shared_from_this()](
+            boost::system::error_code ec) { self->onHandshake(ec); });
   } catch (const boost::system::system_error& err) {
     SPDLOG_ERROR("Exception during onSslHandshake: {}", err.what());
     Stop();
@@ -342,13 +328,11 @@ void WebsocketClient::onHandshake(boost::beast::error_code ec) {
   SPDLOG_INFO("WebSocket connection started successfully");
 
   try {
-    // set timeout
-    // NOLINTNEXTLINE(modernize-use-designated-initializers)
-    ws_.set_option(boost::beast::websocket::stream_base::timeout{
-        std::chrono::seconds(10),  // handshake_timeout
-        std::chrono::seconds(5),   // idle_timeout
-        true                       // keep_alive_pings
-    });
+    boost::beast::websocket::stream_base::timeout timeout_option;
+    timeout_option.handshake_timeout = std::chrono::seconds(10);
+    timeout_option.idle_timeout = std::chrono::seconds(5);
+    timeout_option.keep_alive_pings = true;
+    ws_.set_option(timeout_option);
 
     if (nullptr != on_connected_callback_) {
       on_connected_callback_();
@@ -374,7 +358,6 @@ void WebsocketClient::onRead(
 
   if (running_) {
     try {
-      // FIXME REDUNDANT COPY
       const auto data = boost::beast::buffers_to_string(buffer_.data());
       std::string raw = fptn::protocol::protobuf::GetProtoPayload(data);
       auto packet = fptn::common::network::IPPacket::Parse(std::move(raw));
@@ -430,10 +413,9 @@ bool WebsocketClient::Send(fptn::common::network::IPPacketPtr packet) {
             return;
           }
 
-          const std::unique_lock<std::mutex> lock(self->mutex_);  // mutex
+          const std::unique_lock<std::mutex> lock(self->mutex_);
 
           if (!self->running_ || !self->was_connected_) {
-            // Double-check after acquiring lock
             return;
           }
 
@@ -451,7 +433,6 @@ bool WebsocketClient::Send(fptn::common::network::IPPacketPtr packet) {
 void WebsocketClient::DoWrite() {
   try {
     if (!out_queue_.empty() && running_ && was_connected_) {
-      // PACK DATA
       fptn::common::network::IPPacketPtr packet = std::move(out_queue_.front());
       const std::string msg =
           fptn::protocol::protobuf::CreateProtoPayload(std::move(packet));
@@ -481,16 +462,17 @@ void WebsocketClient::onWrite(boost::beast::error_code ec, std::size_t) {
   }
 
   if (running_ && was_connected_) {
-    const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+    const std::unique_lock<std::mutex> lock(mutex_);
 
-    // cppcheck-suppress identicalInnerCondition
-    if (running_) {      // Double-check after acquiring lock
-      out_queue_.pop();  // remove written item
+    if (running_) {
+      out_queue_.pop();
       if (!out_queue_.empty() && running_) {
-        DoWrite();  // send next message
+        DoWrite();
       }
     }
   }
 }
 
 bool WebsocketClient::IsStarted() { return running_ && was_connected_; }
+
+}  // namespace fptn::protocol::https
