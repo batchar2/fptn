@@ -77,20 +77,27 @@ if [[ "$INSTALL_FPTN_SERVER" =~ ^[Yy]$ ]]; then
         exit 1
     fi
 
-    # 1a. Get repository URL from git
+    # 1a. Get repository URL from git and set fallback
+    ORIGINAL_REPO="batchar2/fptn"
     GIT_URL=$(git config --get remote.origin.url)
     REPO_PATH=$(echo "$GIT_URL" | sed -E 's/https?:\/\/github.com\/(.*).git/\1/')
     if [ -z "$REPO_PATH" ]; then
-        echo "Ошибка: не удалось определить репозиторий GitHub из 'git remote'."
-        exit 1
+        echo "Предупреждение: не удалось определить репозиторий GitHub из 'git remote'. Используется репозиторий по умолчанию: $ORIGINAL_REPO"
+        REPO_PATH=$ORIGINAL_REPO
+    else
+        echo "Репозиторий определен как: $REPO_PATH"
     fi
-    echo "Репозиторий определен как: $REPO_PATH"
 
     LATEST_TAG=$(curl -s "https://api.github.com/repos/$REPO_PATH/releases/latest" | jq -r .tag_name)
     if [ -z "$LATEST_TAG" ] || [ "$LATEST_TAG" = "null" ]; then
-        echo "Ошибка: не удалось получить последнюю версию FPTN с GitHub репозитория '$REPO_PATH'."
-        echo "Убедитесь, что в вашем форке есть хотя бы один релиз."
-        exit 1
+        echo "В репозитории '$REPO_PATH' не найдены релизы."
+        echo "Попытка получить релиз из основного репозитория: $ORIGINAL_REPO"
+        REPO_PATH=$ORIGINAL_REPO
+        LATEST_TAG=$(curl -s "https://api.github.com/repos/$REPO_PATH/releases/latest" | jq -r .tag_name)
+        if [ -z "$LATEST_TAG" ] || [ "$LATEST_TAG" = "null" ]; then
+            echo "Ошибка: не удалось найти релизы и в основном репозитории '$REPO_PATH'."
+            exit 1
+        fi
     fi
     echo "Последняя версия FPTN: $LATEST_TAG"
 
