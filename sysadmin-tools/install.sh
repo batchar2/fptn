@@ -32,7 +32,7 @@ echo ""
 
 # --- Dependency Checks ---
 print_header "Проверка зависимостей..."
-DEPS=("docker" "docker-compose" "curl" "jq" "openssl")
+DEPS=("docker" "docker-compose" "curl" "jq" "openssl" "git")
 for dep in "${DEPS[@]}"; do
     if ! command_exists "$dep"; then
         echo "Ошибка: '$dep' не найден. Пожалуйста, установите его."
@@ -77,16 +77,26 @@ if [[ "$INSTALL_FPTN_SERVER" =~ ^[Yy]$ ]]; then
         exit 1
     fi
 
-    LATEST_TAG=$(curl -s "https://api.github.com/repos/batchar2/fptn/releases/latest" | jq -r .tag_name)
-    if [ -z "$LATEST_TAG" ]; then
-        echo "Ошибка: не удалось получить последнюю версию FPTN с GitHub."
+    # 1a. Get repository URL from git
+    GIT_URL=$(git config --get remote.origin.url)
+    REPO_PATH=$(echo "$GIT_URL" | sed -E 's/https?:\/\/github.com\/(.*).git/\1/')
+    if [ -z "$REPO_PATH" ]; then
+        echo "Ошибка: не удалось определить репозиторий GitHub из 'git remote'."
+        exit 1
+    fi
+    echo "Репозиторий определен как: $REPO_PATH"
+
+    LATEST_TAG=$(curl -s "https://api.github.com/repos/$REPO_PATH/releases/latest" | jq -r .tag_name)
+    if [ -z "$LATEST_TAG" ] || [ "$LATEST_TAG" = "null" ]; then
+        echo "Ошибка: не удалось получить последнюю версию FPTN с GitHub репозитория '$REPO_PATH'."
+        echo "Убедитесь, что в вашем форке есть хотя бы один релиз."
         exit 1
     fi
     echo "Последняя версия FPTN: $LATEST_TAG"
 
     # 2. Download and install .deb package
     DEB_NAME="fptn-server-${LATEST_TAG}-ubuntu22.04-${ARCH}.deb"
-    DOWNLOAD_URL="https://github.com/batchar2/fptn/releases/latest/download/$DEB_NAME"
+    DOWNLOAD_URL="https://github.com/$REPO_PATH/releases/download/$LATEST_TAG/$DEB_NAME"
     echo "Загрузка пакета: $DOWNLOAD_URL"
     curl -L -o "$DEB_NAME" "$DOWNLOAD_URL"
     echo "Установка пакета..."
