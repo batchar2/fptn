@@ -88,13 +88,38 @@ if [[ "$INSTALL_FPTN_SERVER" =~ ^[Yy]$ ]]; then
         echo "Репозиторий определен как: $REPO_PATH"
     fi
 
-    LATEST_TAG=$(curl -s "https://api.github.com/repos/$REPO_PATH/releases/latest" | jq -r .tag_name)
-    if [ -z "$LATEST_TAG" ] || [ "$LATEST_TAG" = "null" ]; then
+    # Function to fetch the latest release tag from a repo
+    fetch_latest_tag() {
+        local repo_path=$1
+        local api_url="https://api.github.com/repos/$repo_path/releases/latest"
+
+        # Fetch the full response from the API
+        local response
+        response=$(curl -s "$api_url")
+
+        # Try to extract the tag name
+        local tag
+        tag=$(echo "$response" | jq -r .tag_name)
+
+        if [ -z "$tag" ] || [ "$tag" = "null" ]; then
+            # If tag is not found, print the full response for debugging
+            echo "Ошибка: не удалось получить тег релиза из '$repo_path'." >&2
+            echo "Ответ от GitHub API:" >&2
+            echo "$response" >&2
+            return 1
+        else
+            echo "$tag"
+            return 0
+        fi
+    }
+
+    LATEST_TAG=$(fetch_latest_tag "$REPO_PATH")
+    if [ $? -ne 0 ]; then
         echo "В репозитории '$REPO_PATH' не найдены релизы."
         echo "Попытка получить релиз из основного репозитория: $ORIGINAL_REPO"
         REPO_PATH=$ORIGINAL_REPO
-        LATEST_TAG=$(curl -s "https://api.github.com/repos/$REPO_PATH/releases/latest" | jq -r .tag_name)
-        if [ -z "$LATEST_TAG" ] || [ "$LATEST_TAG" = "null" ]; then
+        LATEST_TAG=$(fetch_latest_tag "$REPO_PATH")
+        if [ $? -ne 0 ]; then
             echo "Ошибка: не удалось найти релизы и в основном репозитории '$REPO_PATH'."
             exit 1
         fi
