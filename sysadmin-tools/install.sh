@@ -77,7 +77,23 @@ if [[ "$INSTALL_FPTN_SERVER" =~ ^[Yy]$ ]]; then
         exit 1
     fi
 
-    # 1a. Get repository URL from git and set fallback
+    # 1a. Check GitHub API rate limit
+    RATE_LIMIT_INFO=$(curl -s "https://api.github.com/rate_limit")
+    REMAINING_REQUESTS=$(echo "$RATE_LIMIT_INFO" | jq -r .resources.core.remaining)
+    LIMIT_RESET_TIME=$(echo "$RATE_LIMIT_INFO" | jq -r .resources.core.reset)
+
+    echo "Проверка лимита GitHub API: осталось $REMAINING_REQUESTS запросов."
+
+    if [ "$REMAINING_REQUESTS" -lt 5 ]; then # Check if remaining requests are critically low
+        echo "Предупреждение: лимит запросов к GitHub API почти исчерпан."
+        echo "Лимит будет сброшен в $(date -d @"$LIMIT_RESET_TIME")"
+        if [ "$REMAINING_REQUESTS" -eq 0 ]; then
+            echo "Ошибка: лимит запросов к GitHub API исчерпан. Пожалуйста, подождите или запустите скрипт с другого IP-адреса."
+            exit 1
+        fi
+    fi
+
+    # 1b. Get repository URL from git and set fallback
     ORIGINAL_REPO="batchar2/fptn"
     GIT_URL=$(git config --get remote.origin.url)
     REPO_PATH=$(echo "$GIT_URL" | sed -E 's/https?:\/\/github.com\/(.*).git/\1/')
@@ -88,22 +104,22 @@ if [[ "$INSTALL_FPTN_SERVER" =~ ^[Yy]$ ]]; then
         echo "Репозиторий определен как: $REPO_PATH"
     fi
 
-    # Function to fetch the latest release tag from a repo
+    # Function to fetch the latest tag from a repo
     fetch_latest_tag() {
         local repo_path=$1
-        local api_url="https://api.github.com/repos/$repo_path/releases/latest"
+        local api_url="https://api.github.com/repos/$repo_path/tags"
 
         # Fetch the full response from the API
         local response
         response=$(curl -s "$api_url")
 
-        # Try to extract the tag name
+        # Try to extract the name of the latest tag (first in the list)
         local tag
-        tag=$(echo "$response" | jq -r .tag_name)
+        tag=$(echo "$response" | jq -r '.[0].name')
 
         if [ -z "$tag" ] || [ "$tag" = "null" ]; then
             # If tag is not found, print the full response for debugging
-            echo "Ошибка: не удалось получить тег релиза из '$repo_path'." >&2
+            echo "Ошибка: не удалось получить последний тег из '$repo_path'." >&2
             echo "Ответ от GitHub API:" >&2
             echo "$response" >&2
             return 1
