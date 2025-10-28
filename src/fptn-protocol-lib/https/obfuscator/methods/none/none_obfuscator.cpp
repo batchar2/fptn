@@ -7,8 +7,8 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include "fptn-protocol-lib/https/obfuscator/methods/none/none_obfuscator.h"
 
-#include <iostream>
 #include <random>
+#include <vector>
 
 namespace fptn::protocol::https::obfuscator {
 

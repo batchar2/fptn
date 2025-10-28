@@ -15,7 +15,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <openssl/ssl.h>  // NOLINT(build/include_order)
 
 #include "fptn-protocol-lib/https/obfuscator/methods/obfuscator_interface.h"
-#include "fptn-protocol-lib/https/obfuscator/socket_wrapper/socket_wrapper.h"
+#include "fptn-protocol-lib/https/obfuscator/socket/socket.h"
 
 namespace fptn::protocol::https {
 
@@ -59,7 +59,7 @@ class ApiClient final {
   bool onVerifyCertificate(
       const std::string& md5_fingerprint, std::string& error) const;
 
-  obfuscator::SocketWrapper CreateObfuscatedSocket(
+  obfuscator::SocketSPtr CreateObfuscatedSocket(
       boost::asio::io_context& ioc) const;
 
  private:

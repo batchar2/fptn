@@ -25,7 +25,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include "fptn-protocol-lib/time/time_provider.h"
 
-namespace fptn::protocol::https::utils  {
+namespace fptn::protocol::https::utils {
 
 constexpr std::size_t kFptnKeyLength = 4;
 
@@ -289,4 +289,4 @@ void AttachCertificateVerificationCallbackDelete(SSL* ssl) {
   }
 }
 
-}  // namespace fptn::protocol::tls
+}  // namespace fptn::protocol::https::utils

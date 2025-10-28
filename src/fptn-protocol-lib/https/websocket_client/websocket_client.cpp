@@ -10,7 +10,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <string>
 #include <utility>
 
-#include <spdlog/spdlog.h>
+#include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
 #include "fptn-protocol-lib/https/api_client/api_client.h"
 #include "fptn-protocol-lib/https/obfuscator/methods/none/none_obfuscator.h"
@@ -32,8 +32,8 @@ WebsocketClient::WebsocketClient(pcpp::IPv4Address server_ip,
       obfuscator_(std::move(obfuscator)),
       socket_(std::make_shared<obfuscator::Socket>(
           ioc_.get_executor(), obfuscator_)),
-      socket_wrapper_(std::make_shared<obfuscator::SocketWrapper>(socket_)),
-      ssl_stream_(std::make_unique<ssl_socket_stream>(*socket_wrapper_, ctx_)),
+      // Передаем разыменованный shared_ptr (Socket&) в ssl_stream
+      ssl_stream_(std::make_unique<ssl_socket_stream>(*socket_, ctx_)),
       ws_(*ssl_stream_),
       strand_(ioc_.get_executor()),
       write_channel_(strand_, kMaxSizeOutQueue_),
@@ -258,7 +258,6 @@ boost::asio::awaitable<void> WebsocketClient::RunClient() {
           return self->RunSender();
         },
         boost::asio::detached);
-
   } catch (const std::exception& e) {
     SPDLOG_ERROR("Exception in RunClient: {}", e.what());
     Stop();

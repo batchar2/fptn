@@ -19,7 +19,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
-#include "../../../fptn-protocol-lib/https/api_client/https_client.h"
+#include "fptn-protocol-lib/https/api_client/api_client.h"
 
 namespace fptn::gui::autoupdate {
 namespace version {

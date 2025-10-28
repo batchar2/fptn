@@ -30,24 +30,26 @@ class Socket : public std::enable_shared_from_this<Socket> {
   using executor_type = next_layer_type::executor_type;
   using endpoint_type = next_layer_type::endpoint_type;
   using lowest_layer_type = next_layer_type;
-
   using strand_type = boost::asio::strand<executor_type>;
 
   explicit Socket(const executor_type& ex);
   explicit Socket(const executor_type& ex, IObfuscatorSPtr obfuscator);
-
   explicit Socket(next_layer_type&& socket);
   explicit Socket(next_layer_type&& socket, IObfuscatorSPtr obfuscator);
 
   void SetObfuscator(IObfuscatorSPtr obfuscator);
 
   next_layer_type& next_layer();
+
   const next_layer_type& next_layer() const;
 
   lowest_layer_type& lowest_layer();
+
   const lowest_layer_type& lowest_layer() const;
 
   executor_type get_executor();
+
+  strand_type get_strand() const;
 
   template <typename MutableBufferSequence, typename ReadHandler>
   void async_read_some(
@@ -65,6 +67,7 @@ class Socket : public std::enable_shared_from_this<Socket> {
               });
         });
   }
+
   template <typename ConstBufferSequence, typename WriteHandler>
   void async_write_some(
       const ConstBufferSequence& buffers, WriteHandler&& handler) {
@@ -85,8 +88,7 @@ class Socket : public std::enable_shared_from_this<Socket> {
   template <typename MutableBufferSequence>
   std::size_t read_some(
       const MutableBufferSequence& buffers, boost::system::error_code& ec) {
-    const std::lock_guard<std::mutex> lock(mutex_);  // mutex
-
+    const std::lock_guard<std::mutex> lock(mutex_);
     const auto bites_read = socket_.read_some(buffers, ec);
     // std::cerr << "r>" << bites_read << std::endl;
     return bites_read;
@@ -95,9 +97,8 @@ class Socket : public std::enable_shared_from_this<Socket> {
   template <typename ConstBufferSequence>
   std::size_t write_some(
       const ConstBufferSequence& buffers, boost::system::error_code& ec) {
-    const std::lock_guard<std::mutex> lock(mutex_);  // mutex
+    const std::lock_guard<std::mutex> lock(mutex_);
     const auto bites_write = socket_.write_some(buffers, ec);
-
     // std::cerr << "r>" << bites_write << std::endl;
     return bites_write;
   }
@@ -110,7 +111,6 @@ class Socket : public std::enable_shared_from_this<Socket> {
 
   void close(boost::system::error_code& ec);
   void close();
-
   bool is_open() const;
 
   endpoint_type remote_endpoint(boost::system::error_code& ec) const;
@@ -118,29 +118,24 @@ class Socket : public std::enable_shared_from_this<Socket> {
 
   template <typename Option>
   void set_option(const Option& option) {
-    // Для опций используем strand через post
     auto self = shared_from_this();
     boost::asio::post(
         strand_, [self, option]() { self->socket_.set_option(option); });
   }
 
-  inline strand_type get_strand() const { return strand_; }
-
   void expires_after(std::chrono::steady_clock::duration timeout);
   void expires_never();
 
+  std::shared_ptr<Socket> shared_socket() { return shared_from_this(); }
+
  private:
   mutable std::mutex mutex_;
-
   next_layer_type socket_;
   IObfuscatorSPtr obfuscator_;
-
   strand_type strand_;
-
   std::unique_ptr<boost::asio::steady_timer> timer_;
 };
 
-// External functions for working with Socket
 void teardown(boost::beast::role_type role,
     Socket& socket,
     boost::system::error_code& ec);

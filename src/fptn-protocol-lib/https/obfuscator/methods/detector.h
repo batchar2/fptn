@@ -8,6 +8,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include <memory>
 #include <optional>
+#include <string>
 #include <vector>
 
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
@@ -31,7 +32,6 @@ inline IObfuscatorSPtr DetectObfuscator(
 }
 
 inline std::vector<std::string> GetObfuscatorNames() { return {"tls", "none"}; }
-
 
 inline std::optional<IObfuscatorSPtr> GetObfuscatorByName(
     const std::string& name) {

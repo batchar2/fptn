@@ -7,6 +7,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "fptn-protocol-lib/https/obfuscator/socket/socket.h"
 
 #include <future>
+#include <utility>
 
 #include <boost/beast.hpp>
 #include <boost/system/error_code.hpp>
@@ -24,7 +25,8 @@ Socket::Socket(next_layer_type&& socket)
 Socket::Socket(next_layer_type&& socket, IObfuscatorSPtr obfuscator)
     : socket_(std::move(socket)),
       obfuscator_(std::move(obfuscator)),
-      strand_(socket_.get_executor()) {}
+      strand_(socket_.get_executor())
+{}
 
 void Socket::SetObfuscator(IObfuscatorSPtr obfuscator) {
   auto self = shared_from_this();
@@ -42,22 +44,14 @@ const Socket::lowest_layer_type& Socket::lowest_layer() const {
   return socket_;
 }
 
+Socket::strand_type Socket::get_strand() const { return strand_; }
+
 Socket::executor_type Socket::get_executor() { return socket_.get_executor(); }
 
+// cppcheck-suppress constParameterReference
 void Socket::close(boost::system::error_code& ec) {
-  std::promise<void> promise;
-  auto future = promise.get_future();
-
-  auto self = shared_from_this();
-  boost::asio::post(strand_, [self, &promise, &ec]() {
-    if (self->obfuscator_) {
-      self->obfuscator_->Reset();
-    }
-    self->socket_.close(ec);
-    promise.set_value();
-  });
-
-  future.wait();
+  (void)ec;
+  close();
 }
 
 void Socket::close() {

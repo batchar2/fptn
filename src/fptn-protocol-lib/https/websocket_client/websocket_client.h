@@ -22,7 +22,6 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "common/network/ip_packet.h"
 
 #include "fptn-protocol-lib/https/obfuscator/socket/socket.h"
-#include "fptn-protocol-lib/https/obfuscator/socket_wrapper/socket_wrapper.h"
 #include "fptn-protocol-lib/https/utils/tls/tls.h"
 #include "fptn-protocol-lib/protobuf/protocol.h"
 
@@ -68,11 +67,12 @@ class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
   boost::asio::ip::tcp::resolver resolver_;
 
   obfuscator::IObfuscatorSPtr obfuscator_;
-  obfuscator::SocketSPtr socket_;
-  obfuscator::SocketWrapperSPtr socket_wrapper_;
 
-  using ssl_socket_stream = boost::asio::ssl::stream<obfuscator::SocketWrapper>;
+  obfuscator::SocketSPtr socket_;
+
+  using ssl_socket_stream = boost::asio::ssl::stream<obfuscator::Socket&>;
   std::unique_ptr<ssl_socket_stream> ssl_stream_;
+
   boost::beast::websocket::stream<ssl_socket_stream&> ws_;
 
   boost::asio::strand<boost::asio::io_context::executor_type> strand_;

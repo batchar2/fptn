@@ -36,4 +36,4 @@ void AttachCertificateVerificationCallback(
 
 void AttachCertificateVerificationCallbackDelete(SSL* ssl);
 
-}  // namespace fptn::protocol::tls
+}  // namespace fptn::protocol::https::utils

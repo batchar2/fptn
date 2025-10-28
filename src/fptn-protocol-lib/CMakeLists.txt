@@ -1,9 +1,5 @@
 project(fptn-protocol-lib LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_INCLUDE_CURRENT_DIR ON)
-
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 if(__ANDROID__)
@@ -86,13 +82,11 @@ set(FPTN_CLIENT_PROTOCOL_SOURCES
     https/utils/tls/tls.cpp
     https/websocket_client/websocket_client.h
     https/websocket_client/websocket_client.cpp
-    https/obfuscator/socket_wrapper/socket_wrapper.cpp
-    https/obfuscator/socket_wrapper/socket_wrapper.h
     protobuf/protocol.h
     protobuf/protocol.cpp
     time/time_provider.h
     time/time_provider.cpp
-        https/obfuscator/methods/detector.h)
+    https/obfuscator/methods/detector.h)
 
 add_library("${PROJECT_NAME}_static" STATIC ${FPTN_CLIENT_PROTOCOL_SOURCES})
 
