@@ -1,9 +1,3 @@
-/*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
-
-Distributed under the MIT License (https://opensource.org/licenses/MIT)
-=============================================================================*/
-
 #pragma once
 
 #include <memory>
@@ -51,38 +45,24 @@ class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
   WebsocketClient(WebsocketClient&&) = delete;
   WebsocketClient& operator=(WebsocketClient&&) = delete;
 
- public:
   void Run();
   bool Stop();
   bool Send(fptn::common::network::IPPacketPtr packet);
-  bool IsStarted();
+  bool IsStarted() const;
 
  protected:
-  void onResolve(const boost::beast::error_code& ec,
-      const boost::asio::ip::tcp::resolver::results_type& results);
-  void onConnect(const boost::beast::error_code& ec,
-      const boost::asio::ip::tcp::resolver::results_type::endpoint_type& ep);
-  void onSslHandshake(const boost::beast::error_code& ec);
-  void onHandshake(const boost::beast::error_code& ec);
-  void onWrite(
-      const boost::beast::error_code& ec, std::size_t bytes_transferred);
-  void onRead(const boost::beast::error_code& ec, std::size_t transferred);
-
- protected:
-  void DoRead();
-  void DoWrite();
-  void Fail(const boost::beast::error_code& ec, const char* what);
-
-  auto& get_obfuscator_layer() { return ws_.next_layer().next_layer(); }
+  boost::asio::awaitable<void> RunInternal();
+  boost::asio::awaitable<void> RunReader();
+  boost::asio::awaitable<void> RunSender();
+  boost::asio::awaitable<bool> Connect();
 
  private:
   const std::string kUrlWebSocket_ = "/fptn";
   const std::size_t kMaxSizeOutQueue_ = 128;
 
-  std::thread th_;
   mutable std::mutex mutex_;
-
-  std::queue<fptn::common::network::IPPacketPtr> out_queue_;
+  std::atomic<bool> running_{false};
+  std::atomic<bool> was_connected_{false};
 
   boost::asio::io_context ioc_;
   boost::asio::ssl::context ctx_;
@@ -90,16 +70,17 @@ class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
 
   // TCP -> obfuscator -> SSL -> WebSocket
   using tcp_stream_type = boost::beast::tcp_stream;
-  using obfuscator_socket_type = obfuscator::obfuscator_socket<tcp_stream_type>;
+  using obfuscator_socket_type = obfuscator::TcpStream<tcp_stream_type>;
   using ssl_stream_type = boost::beast::ssl_stream<obfuscator_socket_type>;
   using websocket_type = boost::beast::websocket::stream<ssl_stream_type>;
+
   obfuscator::IObfuscatorSPtr obfuscator_;
   websocket_type ws_;
 
-  boost::beast::flat_buffer buffer_;
-
-  std::atomic<bool> running_{false};
-  std::atomic<bool> was_connected_{false};
+  boost::asio::strand<boost::asio::io_context::executor_type> strand_;
+  boost::asio::experimental::concurrent_channel<void(
+      boost::system::error_code, fptn::common::network::IPPacketPtr)>
+      write_channel_;
 
   const pcpp::IPv4Address server_ip_;
   const std::string server_port_str_;
@@ -110,6 +91,8 @@ class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
   const std::string access_token_;
   const std::string expected_md5_fingerprint_;
   OnConnectedCallback on_connected_callback_;
+
+  boost::asio::cancellation_signal cancel_signal_;
 };
 
 using WebsocketClientSPtr = std::shared_ptr<WebsocketClient>;

@@ -9,6 +9,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <atomic>
 #include <memory>
 #include <string>
+#include <tuple>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -50,7 +51,7 @@ std::vector<std::string> GetServerIpAddresses() {
 
 }  // namespace
 
-using fptn::web::Session;
+namespace fptn::web {
 
 Session::Session(std::uint16_t port,
     bool enable_detect_probing,
@@ -63,17 +64,15 @@ Session::Session(std::uint16_t port,
     fptn::protocol::https::obfuscator::IObfuscatorSPtr obfuscator)
     : port_(port),
       enable_detect_probing_(enable_detect_probing),
-      socket_(std::make_shared<fptn::protocol::https::obfuscator::Socket>(
-          std::move(socket),
-          obfuscator
-              ? std::move(obfuscator)
-              : std::make_shared<
-                    fptn::protocol::https::obfuscator::NoneObfuscator>())),
-      ssl_stream_(std::make_unique<ssl_socket_stream>(*socket_, ctx)),
-      ws_(std::make_unique<boost::beast::websocket::stream<ssl_socket_stream&>>(
-          *ssl_stream_)),
-      strand_(socket_->get_executor()),
-      write_channel_(strand_, 256),
+      ws_(ssl_stream_type(
+          obfuscator_socket_type(tcp_stream_type(std::move(socket)),
+              obfuscator
+                  ? std::move(obfuscator)
+                  : std::make_shared<
+                        fptn::protocol::https::obfuscator::NoneObfuscator>()),
+          ctx)),
+      strand_(boost::asio::make_strand(ws_.get_executor())),
+      write_channel_(strand_, 128),
       api_handles_(api_handles),
       ws_open_callback_(std::move(ws_open_callback)),
       ws_new_ippacket_callback_(std::move(ws_new_ippacket_callback)),
@@ -85,20 +84,21 @@ Session::Session(std::uint16_t port,
   try {
     client_id_ = ++client_id_counter;
 
-    socket_->set_option(boost::asio::ip::tcp::no_delay(true));
+    boost::beast::get_lowest_layer(ws_).socket().set_option(
+        boost::asio::ip::tcp::no_delay(true));
 
-    ws_->text(false);
-    ws_->binary(true);
-    ws_->auto_fragment(true);
-    ws_->read_message_max(128 * 1024);
-    ws_->set_option(boost::beast::websocket::stream_base::timeout::suggested(
+    ws_.text(false);
+    ws_.binary(true);
+    ws_.auto_fragment(true);
+    ws_.read_message_max(128 * 1024);
+    ws_.set_option(boost::beast::websocket::stream_base::timeout::suggested(
         boost::beast::role_type::server));
-    ws_->set_option(boost::beast::websocket::stream_base::timeout{
+    ws_.set_option(boost::beast::websocket::stream_base::timeout{
         .handshake_timeout = std::chrono::seconds(60),
         .idle_timeout = std::chrono::seconds(60),
         .keep_alive_pings = true});
 
-    socket_->expires_after(std::chrono::seconds(30));
+    boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::seconds(15));
     init_completed_ = true;
   } catch (const boost::system::system_error& err) {
     SPDLOG_ERROR("Session::init failed (client_id={}): {} [{}]", client_id_,
@@ -150,8 +150,9 @@ boost::asio::awaitable<void> Session::Run() {
   }
 
   // SSL handshake
-  socket_->expires_after(std::chrono::seconds(30));
-  co_await ssl_stream_->async_handshake(boost::asio::ssl::stream_base::server,
+  boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::seconds(30));
+  co_await ws_.next_layer().async_handshake(
+      boost::asio::ssl::stream_base::server,
       boost::asio::redirect_error(boost::asio::use_awaitable, ec));
   if (ec) {
     SPDLOG_DEBUG(
@@ -170,6 +171,7 @@ boost::asio::awaitable<void> Session::Run() {
           return self->RunReader();
         },
         boost::asio::detached);
+
     boost::asio::co_spawn(
         strand_,
         [self]() mutable -> boost::asio::awaitable<void> {
@@ -184,13 +186,12 @@ boost::asio::awaitable<void> Session::Run() {
 
 boost::asio::awaitable<Session::ProbingResult> Session::DetectProbing() {
   try {
-    // ????
-    auto& socket = socket_->next_layer();
+    auto& tcp_socket = boost::beast::get_lowest_layer(ws_).socket();
 
     // Peek data without consuming it
     std::array<std::uint8_t, 4096> buffer{};
     const std::size_t bytes_read =
-        co_await socket.async_receive(boost::asio::buffer(buffer),
+        co_await tcp_socket.async_receive(boost::asio::buffer(buffer),
             boost::asio::socket_base::message_peek, boost::asio::use_awaitable);
 
     if (!bytes_read) {
@@ -337,11 +338,12 @@ boost::asio::awaitable<bool> Session::IsSniSelfProxyAttempt(
 
 boost::asio::awaitable<bool> Session::HandleProxy(
     const std::string& sni, int port) {
-  auto& socket = socket_->next_layer();
+  // ИСПРАВЛЕНО: доступ к TCP сокету через get_lowest_layer
+  auto& tcp_socket = boost::beast::get_lowest_layer(ws_).socket();
   boost::asio::ip::tcp::socket target_socket(
       co_await boost::asio::this_coro::executor);
 
-  socket_->expires_after(std::chrono::seconds(10));
+  boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::seconds(10));
 
   bool status = false;
   try {
@@ -389,9 +391,9 @@ boost::asio::awaitable<bool> Session::HandleProxy(
     auto [client_to_server_result, server_to_client_result, completion_status] =
         co_await boost::asio::experimental::make_parallel_group(
             boost::asio::co_spawn(co_await boost::asio::this_coro::executor,
-                forward(socket, target_socket), boost::asio::deferred),
+                forward(tcp_socket, target_socket), boost::asio::deferred),
             boost::asio::co_spawn(co_await boost::asio::this_coro::executor,
-                forward(target_socket, socket), boost::asio::deferred))
+                forward(target_socket, tcp_socket), boost::asio::deferred))
             .async_wait(boost::asio::experimental::wait_for_all(),
                 boost::asio::use_awaitable);
     (void)client_to_server_result;
@@ -406,7 +408,7 @@ boost::asio::awaitable<bool> Session::HandleProxy(
   }
 
   try {
-    socket.close();
+    tcp_socket.close();
   } catch (const boost::system::system_error& e) {
     SPDLOG_ERROR(
         "Failed to close the socket after proxy completion (client_id={}): {} "
@@ -427,13 +429,18 @@ boost::asio::awaitable<void> Session::RunReader() {
 
   auto token = boost::asio::redirect_error(boost::asio::use_awaitable, ec);
   try {
-    while (running_) {
-      co_await ws_->async_read(buffer, token);
+    while (running_ && ws_.is_open()) {
+      co_await ws_.async_read(buffer, token);
+
       if (ec) {
+        if (ec != boost::beast::websocket::error::closed) {
+          SPDLOG_DEBUG("WebSocket read error (client_id={}): {}", client_id_,
+              ec.message());
+        }
         break;
       }
 
-      if (buffer.size() != 0) {
+      if (buffer.size() > 0) {
         std::string raw_data = boost::beast::buffers_to_string(buffer.data());
         std::string raw_ip =
             fptn::protocol::protobuf::GetProtoPayload(std::move(raw_data));
@@ -444,72 +451,61 @@ boost::asio::awaitable<void> Session::RunReader() {
             ws_new_ippacket_callback_(std::move(packet));
           }
         }
-        buffer.consume(buffer.size());
       }
+      buffer.consume(buffer.size());
     }
-  } catch (const fptn::protocol::protobuf::ProcessingError& err) {
-    SPDLOG_ERROR(
-        "RunReader: failed to process protobuf payload (client_id={}): {}",
-        client_id_, err.what());
-  } catch (const fptn::protocol::protobuf::MessageError& err) {
-    SPDLOG_ERROR(
-        "RunReader: received invalid protobuf message (client_id={}): {}",
-        client_id_, err.what());
-  } catch (const fptn::protocol::protobuf::UnsupportedProtocolVersion& err) {
-    SPDLOG_ERROR("RunReader: unsupported protocol version (client_id={}): {}",
-        client_id_, err.what());
-  } catch (const boost::system::system_error& err) {
-    SPDLOG_ERROR("RunReader: Boost system error (client_id={}): {} [code={}]",
-        client_id_, err.what(), err.code().value());
   } catch (const std::exception& e) {
-    SPDLOG_ERROR("RunReader: unexpected exception (client_id={}): {}",
-        client_id_, e.what());
-  } catch (...) {
-    SPDLOG_ERROR("RunReader: unknown fatal error (client_id={})", client_id_);
+    SPDLOG_ERROR(
+        "RunReader exception (client_id={}): {}", client_id_, e.what());
   }
+
   Close();
   co_return;
 }
 
 boost::asio::awaitable<void> Session::RunSender() {
-  boost::system::error_code ec;
-
-  auto token = boost::asio::bind_cancellation_slot(cancel_signal_.slot(),
-      boost::asio::redirect_error(boost::asio::use_awaitable, ec));
-
-  std::string msg;
-  msg.reserve(4096);
-
   try {
-    while (running_ && ws_->is_open()) {
-      auto packet = co_await write_channel_.async_receive(token);
-      if (!running_ || !write_channel_.is_open() || ec) {
+    while (running_ && ws_.is_open()) {
+      auto [ec, packet] = co_await write_channel_.async_receive(
+          boost::asio::bind_cancellation_slot(cancel_signal_.slot(),
+              boost::asio::as_tuple(boost::asio::use_awaitable)));
+
+      if (!running_ || !ws_.is_open() || ec) {
         break;
       }
       if (packet != nullptr) {
-        msg = fptn::protocol::protobuf::CreateProtoPayload(std::move(packet));
+        std::string msg =
+            fptn::protocol::protobuf::CreateProtoPayload(std::move(packet));
         if (!msg.empty()) {
-          co_await ws_->async_write(
-              boost::asio::buffer(msg.data(), msg.size()), token);
-          if (ec) {
-            SPDLOG_ERROR(
-                "RunSender: failed to send packet (client_id={}): {} [code={}]",
-                client_id_, ec.message(), ec.value());
-            break;
-          }
-          msg.clear();
+          // co_await strand_.post(boost::asio::use_awaitable);
+          co_await ws_.async_write(
+              boost::asio::buffer(msg), boost::asio::use_awaitable);
+
+          // co_await ws_.async_write(boost::asio::buffer(msg),
+          //     boost::asio::bind_executor(strand_,
+          //     boost::asio::use_awaitable));
+          // co_await ws_.async_write(
+          //     boost::asio::buffer(msg), boost::asio::use_awaitable);
+          // co_await ws_.async_write(boost::asio::buffer(msg),
+          //     boost::asio::bind_executor(strand_,
+          //     boost::asio::use_awaitable));
+          // co_await ws_.async_write(boost::asio::buffer(msg),
+          //     boost::asio::bind_executor(strand_,
+          //     boost::asio::use_awaitable));
         }
       }
     }
   } catch (const boost::system::system_error& err) {
-    SPDLOG_ERROR("RunSender: Boost system error (client_id={}): {} [code={}]",
-        client_id_, err.what(), err.code().value());
+    if (err.code() != boost::asio::error::operation_aborted &&
+        err.code() != boost::beast::websocket::error::closed) {
+      SPDLOG_ERROR(
+          "RunSender error (client_id={}): {}", client_id_, err.what());
+    }
   } catch (const std::exception& e) {
-    SPDLOG_ERROR("RunSender: unhandled exception (client_id={}): {}",
-        client_id_, e.what());
-  } catch (...) {
-    SPDLOG_ERROR("RunSender: unknown fatal error (client_id={})", client_id_);
+    SPDLOG_ERROR(
+        "RunSender exception (client_id={}): {}", client_id_, e.what());
   }
+
   Close();
   co_return;
 }
@@ -522,13 +518,13 @@ boost::asio::awaitable<bool> Session::ProcessRequest() {
     boost::beast::flat_buffer buffer;
     boost::beast::http::request<boost::beast::http::string_body> request;
 
-    co_await boost::beast::http::async_read(*ssl_stream_, buffer, request,
+    co_await boost::beast::http::async_read(ws_.next_layer(), buffer, request,
         boost::asio::redirect_error(boost::asio::use_awaitable, ec));
 
     if (boost::beast::websocket::is_upgrade(request)) {
       status = co_await HandleWebSocket(request);
       if (status) {
-        co_await ws_->async_accept(request,
+        co_await ws_.async_accept(request,
             boost::asio::redirect_error(boost::asio::use_awaitable, ec));
       }
     } else {
@@ -547,7 +543,7 @@ boost::asio::awaitable<bool> Session::HandleHttp(
   const std::string url = request.target();
   const std::string method = request.method_string();
 
-  socket_->expires_after(std::chrono::seconds(30));
+  boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::seconds(30));
 
   if (method.empty() && url.empty()) {
     SPDLOG_WARN(
@@ -592,7 +588,7 @@ boost::asio::awaitable<bool> Session::HandleHttp(
       std::move(resp));
   try {
     co_await boost::beast::http::async_write(
-        *ssl_stream_, *res_ptr, boost::asio::use_awaitable);
+        ws_.next_layer(), *res_ptr, boost::asio::use_awaitable);
   } catch (const boost::beast::system_error& e) {
     SPDLOG_ERROR("Session::HandleHttp write error (client_id={}): {}",
         client_id_, e.what());
@@ -606,7 +602,7 @@ boost::asio::awaitable<bool> Session::HandleHttp(
 boost::asio::awaitable<bool> Session::HandleWebSocket(
     const boost::beast::http::request<boost::beast::http::string_body>&
         request) {
-  socket_->expires_after(std::chrono::hours(12));
+  boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::hours(12));
 
   if (request.find("Authorization") != request.end() &&
       request.find("ClientIP") != request.end()) {
@@ -616,8 +612,11 @@ boost::asio::awaitable<bool> Session::HandleWebSocket(
     const std::string client_vpn_ipv4_str = request["ClientIP"];
 
     boost::system::error_code ec;
-    const std::string client_ip_str =
-        socket_->remote_endpoint(ec).address().to_string();
+    const std::string client_ip_str = boost::beast::get_lowest_layer(ws_)
+                                          .socket()
+                                          .remote_endpoint(ec)
+                                          .address()
+                                          .to_string();
     if (ec) {
       SPDLOG_ERROR("Failed to get remote endpoint: {}", ec.message());
       co_return false;
@@ -680,9 +679,10 @@ void Session::Close() {
   }
 
   // Close WebSocket
-  if (ws_ && ws_->is_open()) {
+  if (ws_.is_open()) {
     try {
-      socket_->expires_after(std::chrono::microseconds(1));
+      boost::beast::get_lowest_layer(ws_).expires_after(
+          std::chrono::microseconds(1));
     } catch (const std::exception& err) {
       SPDLOG_ERROR(
           "Session::Close (client_id={}): Failed to set socket timeout using "
@@ -697,9 +697,8 @@ void Session::Close() {
   }
 
   try {
-    if (ws_ && ws_->is_open()) {
-      ws_->async_close(boost::beast::websocket::close_code::normal,
-          [](const boost::system::error_code&) {});
+    if (ws_.is_open()) {
+      ws_.close(boost::beast::websocket::close_code::normal, ec);
     }
   } catch (const std::exception& err) {
     SPDLOG_ERROR(
@@ -712,11 +711,11 @@ void Session::Close() {
   }
 
   // Close SSL
-  if (ssl_stream_ && ssl_stream_->native_handle()) {
+  if (ws_.next_layer().native_handle()) {
     try {
-      ::SSL_set_quiet_shutdown(ssl_stream_->native_handle(), 1);
-      ::SSL_shutdown(ssl_stream_->native_handle());
-      ssl_stream_->shutdown(ec);
+      ::SSL_set_quiet_shutdown(ws_.next_layer().native_handle(), 1);
+      ::SSL_shutdown(ws_.next_layer().native_handle());
+      ws_.next_layer().shutdown(ec);
     } catch (const std::exception& err) {
       SPDLOG_ERROR(
           "Session::Close (client_id={}): Exception during SSL_shutdown: {}",
@@ -728,9 +727,8 @@ void Session::Close() {
     }
   }
 
-  // Close TCP
-  if (socket_ && socket_->is_open()) {
-    socket_->close(ec);
+  if (boost::beast::get_lowest_layer(ws_).socket().is_open()) {
+    boost::beast::get_lowest_layer(ws_).socket().close(ec);
   }
 
   if (ws_close_callback_ && ws_session_was_opened_) {
@@ -748,27 +746,20 @@ void Session::Close() {
   }
 }
 
-boost::asio::awaitable<bool> Session::Send(
-    fptn::common::network::IPPacketPtr packet) {
-  try {
-    if (running_ && write_channel_.is_open()) {
-      const bool status = write_channel_.try_send(
-          boost::system::error_code(), std::move(packet));
-      if (!status && !full_queue_) {
-        full_queue_ = true;
-        SPDLOG_WARN("Session::send queue is full (client_id={})", client_id_);
+boost::asio::awaitable<bool> Session::Send(common::network::IPPacketPtr pkt) {
+  auto self = shared_from_this();
+  boost::asio::post(strand_, [self, pkt = std::move(pkt)]() mutable {
+    if (self->running_ && self->write_channel_.is_open()) {
+      const bool status = self->write_channel_.try_send(
+          boost::system::error_code(), std::move(pkt));
+      if (!status && !self->full_queue_) {
+        self->full_queue_ = true;
+        SPDLOG_WARN(
+            "Session::send queue is full (client_id={})", self->client_id_);
       }
     }
-    co_return true;
-  } catch (const boost::system::system_error& err) {
-    SPDLOG_ERROR(
-        "Session::Send failed (client_id={}): {}", client_id_, err.what());
-  } catch (const std::exception& ex) {
-    SPDLOG_ERROR("Session::Send unexpected exception (client_id={}): {}",
-        client_id_, ex.what());
-  } catch (...) {
-    SPDLOG_ERROR(
-        "Session::Send unknown fatal error (client_id={})", client_id_);
-  }
-  co_return false;
+  });
+  co_return true;
 }
+
+};  // namespace fptn::web

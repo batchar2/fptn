@@ -48,7 +48,7 @@ class Session : public std::enable_shared_from_this<Session> {
 
   // async
   boost::asio::awaitable<void> Run();
-  boost::asio::awaitable<bool> Send(fptn::common::network::IPPacketPtr packet);
+  boost::asio::awaitable<bool> Send(fptn::common::network::IPPacketPtr pkt);
 
  protected:
   boost::asio::awaitable<void> RunReader();
@@ -83,13 +83,14 @@ class Session : public std::enable_shared_from_this<Session> {
   const std::uint16_t port_;
   const bool enable_detect_probing_;
 
-  fptn::protocol::https::obfuscator::SocketSPtr socket_;
+  // TCP -> obfuscator -> SSL -> WebSocket
+  using tcp_stream_type = boost::beast::tcp_stream;
+  using obfuscator_socket_type =
+      fptn::protocol::https::obfuscator::TcpStream<tcp_stream_type>;
+  using ssl_stream_type = boost::beast::ssl_stream<obfuscator_socket_type>;
+  using websocket_type = boost::beast::websocket::stream<ssl_stream_type>;
 
-  using ssl_socket_stream =
-      boost::asio::ssl::stream<fptn::protocol::https::obfuscator::Socket&>;
-  std::unique_ptr<ssl_socket_stream> ssl_stream_;
-
-  std::unique_ptr<boost::beast::websocket::stream<ssl_socket_stream&>> ws_;
+  websocket_type ws_;
 
   boost::asio::strand<boost::asio::any_io_executor> strand_;
   boost::asio::experimental::concurrent_channel<void(
@@ -101,9 +102,9 @@ class Session : public std::enable_shared_from_this<Session> {
   const WebSocketNewIPPacketCallback ws_new_ippacket_callback_;
   const WebSocketCloseConnectionCallback ws_close_callback_;
 
-  std::atomic<bool> running_;
-  bool init_completed_;
-  bool ws_session_was_opened_;
+  std::atomic<bool> running_ ;
+  std::atomic<bool> init_completed_;
+  std::atomic<bool> ws_session_was_opened_;
   std::atomic<bool> full_queue_;
 
   boost::asio::cancellation_signal cancel_signal_;
