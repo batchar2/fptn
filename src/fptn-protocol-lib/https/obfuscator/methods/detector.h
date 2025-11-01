@@ -28,6 +28,7 @@ inline IObfuscatorSPtr DetectObfuscator(
   }
   SPDLOG_INFO(
       "No specific obfuscator detected - using NoneObfuscator as default");
+  // return nullptr;
   return std::make_shared<NoneObfuscator>();
 }
 
@@ -39,6 +40,7 @@ inline std::optional<IObfuscatorSPtr> GetObfuscatorByName(
     return std::make_shared<TlsObfuscator>();
   }
   if (name == "none") {
+    // return nullptr;
     return std::make_shared<NoneObfuscator>();
   }
   return std::nullopt;

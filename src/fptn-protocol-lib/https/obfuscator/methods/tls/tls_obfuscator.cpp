@@ -52,7 +52,7 @@ std::uint16_t HostToNetwork16(std::uint16_t value) { return htons(value); }
 std::uint16_t NetworkToHost16(std::uint16_t value) { return ntohs(value); }
 
 std::uint64_t GetRandomData() {
-  static std::mt19937 gen{std::random_device {} ()};
+  static std::mt19937 gen{std::random_device {}()};
   std::uniform_int_distribution<std::uint64_t> dist(1024, UINT64_MAX);
   return dist(gen);
 }
@@ -61,9 +61,8 @@ std::uint64_t GetRandomData() {
 
 namespace fptn::protocol::https::obfuscator {
 
-std::size_t TlsObfuscator::Deobfuscate(const std::uint8_t* data,
-    std::size_t size,
-    std::vector<std::uint8_t>& output) {
+std::vector<std::uint8_t> TlsObfuscator::Deobfuscate(
+    const std::uint8_t* data, std::size_t size) {
   // Add new data to buffer if provided
   if (data && size > 0) {
     // Limit total buffer size to 64KB to prevent memory exhaustion
@@ -81,6 +80,7 @@ std::size_t TlsObfuscator::Deobfuscate(const std::uint8_t* data,
   std::size_t total_processed = 0;
   std::size_t search_offset = 0;
 
+  std::vector<std::uint8_t> output;
   // Search for valid TLS records in the buffer
   while (
       input_buffer_.size() - search_offset >= sizeof(TLSAppDataRecordHeader)) {
@@ -137,18 +137,17 @@ std::size_t TlsObfuscator::Deobfuscate(const std::uint8_t* data,
     // We found only invalid data - remove the searched portion
     input_buffer_.erase(
         input_buffer_.begin(), input_buffer_.begin() + search_offset);
-    total_processed = search_offset;
   }
-  return total_processed;
+  return output;
 }
 
 std::vector<std::uint8_t> TlsObfuscator::Obfuscate(
-    const std::vector<std::uint8_t>& data) {
+    const std::uint8_t* data, std::size_t size) {
   const std::uint16_t total_content_length =
       sizeof(TLSAppDataRecordHeader::random_data) +
       sizeof(TLSAppDataRecordHeader::magic_flag) +
       sizeof(TLSAppDataRecordHeader::protocol_version) +
-      static_cast<std::uint16_t>(data.size());
+      static_cast<std::uint16_t>(size);
 
   TLSAppDataRecordHeader header = {};
   header.headertype = kFptnTlsApplicationHeaderType;
@@ -161,13 +160,13 @@ std::vector<std::uint8_t> TlsObfuscator::Obfuscate(
   header.magic_flag = HostToNetwork16(kFptnTlsApplicationMagicFlag);
   header.protocol_version = kFptnTlsApplicationProtocolVersion;
 
-  const auto* header_ptr = reinterpret_cast<const std::uint8_t*>(&header);
   std::vector<std::uint8_t> result;
-  result.reserve(sizeof(TLSAppDataRecordHeader) + data.size());
-  result.insert(
-      result.end(), header_ptr, header_ptr + sizeof(TLSAppDataRecordHeader));
-  result.insert(result.end(), data.begin(), data.end());
+  result.resize(sizeof(TLSAppDataRecordHeader) + size);
 
+  std::memcpy(result.data(), &header, sizeof(TLSAppDataRecordHeader));
+  if (size > 0 && data != nullptr) {
+    std::memcpy(result.data() + sizeof(TLSAppDataRecordHeader), data, size);
+  }
   return result;
 }
 

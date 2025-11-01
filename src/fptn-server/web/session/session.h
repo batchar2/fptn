@@ -20,14 +20,10 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <boost/beast.hpp>
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
-#include <boost/coroutine/all.hpp>
-#include <openssl/err.h>   // NOLINT(build/include_order)
-#include <openssl/ssl.h>   // NOLINT(build/include_order)
-#include <openssl/x509.h>  // NOLINT(build/include_order)
 
 #include "common/jwt_token/token_manager.h"
 
-#include "fptn-protocol-lib/https/obfuscator/socket/socket.h"
+#include "fptn-protocol-lib/https/obfuscator/tcp_stream/tcp_stream.h"
 #include "web/api/handle.h"
 
 namespace fptn::web {
@@ -41,8 +37,7 @@ class Session : public std::enable_shared_from_this<Session> {
       const ApiHandleMap& api_handles,
       WebSocketOpenConnectionCallback ws_open_callback,
       WebSocketNewIPPacketCallback ws_new_ippacket_callback,
-      WebSocketCloseConnectionCallback ws_close_callback,
-      fptn::protocol::https::obfuscator::IObfuscatorSPtr obfuscator = nullptr);
+      WebSocketCloseConnectionCallback ws_close_callback);
   virtual ~Session();
   void Close();
 
@@ -65,6 +60,8 @@ class Session : public std::enable_shared_from_this<Session> {
   boost::asio::awaitable<bool> IsSniSelfProxyAttempt(
       const std::string& sni) const;
   boost::asio::awaitable<bool> HandleProxy(const std::string& sni, int port);
+
+  boost::asio::awaitable<bool> SetupObfuscator();
 
  protected:
   boost::asio::awaitable<bool> ProcessRequest();
@@ -102,7 +99,7 @@ class Session : public std::enable_shared_from_this<Session> {
   const WebSocketNewIPPacketCallback ws_new_ippacket_callback_;
   const WebSocketCloseConnectionCallback ws_close_callback_;
 
-  std::atomic<bool> running_ ;
+  std::atomic<bool> running_;
   std::atomic<bool> init_completed_;
   std::atomic<bool> ws_session_was_opened_;
   std::atomic<bool> full_queue_;

@@ -1,9 +1,18 @@
+/*=============================================================================
+Copyright (c) 2024-2025 Stas Skokov
+
+Distributed under the MIT License (https://opensource.org/licenses/MIT)
+=============================================================================*/
+
 #include "fptn-protocol-lib/https/websocket_client/websocket_client.h"
 
-#include <spdlog/spdlog.h>
+#include <string>
+#include <utility>
 
+#include <spdlog/spdlog.h>  // NOLINT(build/include_order)
+
+#include "fptn-protocol-lib/https/api_client/api_client.h"
 #include "fptn-protocol-lib/https/obfuscator/methods/none/none_obfuscator.h"
-#include "https/api_client/api_client.h"
 
 namespace fptn::protocol::https {
 
@@ -171,13 +180,16 @@ boost::asio::awaitable<void> WebsocketClient::RunInternal() {
       running_ = false;
       co_return;
     }
+
+    // reset obfuscator after connect
+    ws_.next_layer().next_layer().set_obfuscator(nullptr);
+
     // Start reader and sender
     auto self = shared_from_this();
     boost::asio::co_spawn(
         strand_, [self]() { return self->RunReader(); }, boost::asio::detached);
     boost::asio::co_spawn(
         strand_, [self]() { return self->RunSender(); }, boost::asio::detached);
-
   } catch (const std::exception& e) {
     SPDLOG_ERROR("RunInternal exception: {}", e.what());
     running_ = false;
@@ -259,9 +271,7 @@ boost::asio::awaitable<bool> WebsocketClient::Connect() {
     if (on_connected_callback_) {
       on_connected_callback_();
     }
-
     co_return true;
-
   } catch (const std::exception& e) {
     SPDLOG_ERROR("Connect exception: {}", e.what());
     co_return false;

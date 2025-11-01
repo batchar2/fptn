@@ -46,7 +46,7 @@ class SettingsWidget : public QDialog {
   QTableWidget* server_table_ = nullptr;
 
 // AUTOSTART (show only for Linux)
-#if defined(__linux__)
+#ifdef __linux__
   QLabel* autostart_label_ = nullptr;
   QCheckBox* autostart_checkbox_ = nullptr;
 #endif

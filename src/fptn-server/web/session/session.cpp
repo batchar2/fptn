@@ -29,6 +29,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include "common/network/utils.h"
 
+#include "fptn-protocol-lib/https/obfuscator/methods/detector.h"
 #include "fptn-protocol-lib/https/obfuscator/methods/none/none_obfuscator.h"
 #include "fptn-protocol-lib/https/utils/tls/tls.h"
 #include "fptn-protocol-lib/protobuf/protocol.h"
@@ -41,7 +42,7 @@ std::vector<std::string> GetServerIpAddresses() {
   static std::mutex ip_mutex;
   static std::vector<std::string> server_ips;
 
-  const std::lock_guard<std::mutex> lock(ip_mutex);
+  const std::scoped_lock lock(ip_mutex);  // mutex
 
   if (server_ips.empty()) {
     server_ips = fptn::common::network::GetServerIpAddresses();
@@ -60,17 +61,11 @@ Session::Session(std::uint16_t port,
     const ApiHandleMap& api_handles,
     WebSocketOpenConnectionCallback ws_open_callback,
     WebSocketNewIPPacketCallback ws_new_ippacket_callback,
-    WebSocketCloseConnectionCallback ws_close_callback,
-    fptn::protocol::https::obfuscator::IObfuscatorSPtr obfuscator)
+    WebSocketCloseConnectionCallback ws_close_callback)
     : port_(port),
       enable_detect_probing_(enable_detect_probing),
       ws_(ssl_stream_type(
-          obfuscator_socket_type(tcp_stream_type(std::move(socket)),
-              obfuscator
-                  ? std::move(obfuscator)
-                  : std::make_shared<
-                        fptn::protocol::https::obfuscator::NoneObfuscator>()),
-          ctx)),
+          obfuscator_socket_type(tcp_stream_type(std::move(socket))), ctx)),
       strand_(boost::asio::make_strand(ws_.get_executor())),
       write_channel_(strand_, 128),
       api_handles_(api_handles),
@@ -125,6 +120,14 @@ boost::asio::awaitable<void> Session::Run() {
     co_return;
   }
 
+  // Setup traffic obfuscator
+  const auto obfuscator_initialized = co_await SetupObfuscator();
+  if (!obfuscator_initialized) {
+    SPDLOG_ERROR("Failed to initialize traffic obfuscator");
+    Close();
+    co_return;
+  }
+
   // Detect probing
   if (enable_detect_probing_) {
     const auto probing_result = co_await DetectProbing();
@@ -155,8 +158,6 @@ boost::asio::awaitable<void> Session::Run() {
       boost::asio::ssl::stream_base::server,
       boost::asio::redirect_error(boost::asio::use_awaitable, ec));
   if (ec) {
-    SPDLOG_DEBUG(
-        "SSL handshake failed (client_id={}): {}", client_id_, ec.message());
     Close();
     co_return;
   }
@@ -164,6 +165,9 @@ boost::asio::awaitable<void> Session::Run() {
   // Process request (HTTP or WebSocket)
   const bool status = co_await ProcessRequest();
   if (status) {
+    // reset obfuscator after connect
+    ws_.next_layer().next_layer().set_obfuscator(nullptr);
+
     auto self = shared_from_this();
     boost::asio::co_spawn(
         strand_,
@@ -432,10 +436,6 @@ boost::asio::awaitable<void> Session::RunReader() {
       co_await ws_.async_read(buffer, token);
 
       if (ec) {
-        if (ec != boost::beast::websocket::error::closed) {
-          SPDLOG_DEBUG("WebSocket read error (client_id={}): {}", client_id_,
-              ec.message());
-        }
         break;
       }
 
@@ -749,6 +749,47 @@ boost::asio::awaitable<bool> Session::Send(common::network::IPPacketPtr pkt) {
     }
   });
   co_return true;
+}
+
+boost::asio::awaitable<bool> Session::SetupObfuscator() {
+  try {
+    auto& tcp_socket = boost::beast::get_lowest_layer(ws_).socket();
+
+    // Peek data without consuming it from the socket buffer
+    // This allows inspection without affecting subsequent reads
+    std::array<std::uint8_t, 4096> buffer{};
+
+    const std::size_t bytes_read =
+        co_await tcp_socket.async_receive(boost::asio::buffer(buffer),
+            boost::asio::socket_base::message_peek, boost::asio::use_awaitable);
+
+    if (!bytes_read) {
+      SPDLOG_WARN("No data received for obfuscator detection [client_id: {}]",
+          client_id_);
+      co_return false;
+    }
+
+    // Detect the appropriate obfuscator based on the peeked data
+    auto obfuscator = fptn::protocol::https::obfuscator::DetectObfuscator(
+        buffer.data(), bytes_read);
+
+    ws_.next_layer().next_layer().set_obfuscator(std::move(obfuscator));
+    co_return true;
+  } catch (const boost::system::system_error& e) {
+    SPDLOG_ERROR(
+        "System error during obfuscator setup [client_id: {}, error: '{}', "
+        "code: {}]",
+        client_id_, e.what(), e.code().message());
+  } catch (const std::exception& e) {
+    SPDLOG_ERROR(
+        "Exception during obfuscator setup [client_id: {}, error: '{}']",
+        client_id_, e.what());
+  } catch (...) {
+    SPDLOG_ERROR(
+        "Unknown error during obfuscator setup [client_id: {}]", client_id_);
+  }
+
+  co_return false;
 }
 
 };  // namespace fptn::web

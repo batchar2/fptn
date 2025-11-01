@@ -1,8 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(
-        fptn
-        VERSION "${FPTN_VERSION}"
-        LANGUAGES CXX)
+project(fptn VERSION "${FPTN_VERSION}" LANGUAGES CXX)
 
 # project settings
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
@@ -10,18 +7,28 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if (APPLE)
-    set(CMAKE_CXX_STANDARD 20)
+  set(CMAKE_CXX_STANDARD 20)
 else ()
-    add_definitions(-DBOOST_ASIO_HAS_CO_AWAIT)
-    add_definitions(-DBOOST_ASIO_HAS_CO_SPAWN)
-    add_definitions(-DBOOST_ASIO_HAS_COROUTINES)
-    set(CMAKE_INCLUDE_CURRENT_DIR ON)
-    set(CMAKE_CXX_STANDARD 20)
-    set(CMAKE_CXX_STANDARD_REQUIRED ON)
-    if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-command-line-argumen")
-    endif ()
+  add_definitions(-DBOOST_ASIO_HAS_CO_AWAIT)
+  add_definitions(-DBOOST_ASIO_HAS_CO_SPAWN)
+  add_definitions(-DBOOST_ASIO_HAS_COROUTINES)
+  set(CMAKE_INCLUDE_CURRENT_DIR ON)
+  set(CMAKE_CXX_STANDARD 20)
+  set(CMAKE_CXX_STANDARD_REQUIRED ON)
+  if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-command-line-argumen")
+  endif ()
 endif ()
+
+if(MSVC)
+  add_compile_options("/bigobj")
+  add_compile_options("/std:c++20")
+  add_compile_options("/Zc:inline-")
+  add_compile_options("/permissive-")
+  add_compile_options("/Zc:__cplusplus")
+  add_compile_options("/d2SSAOptimizer-")
+  add_compile_definitions(_WIN32_WINNT=0x0A00)  # Windows 10
+endif()
 
 # Global project definitions
 add_compile_definitions(FPTN_VERSION=\"${FPTN_VERSION}\")
@@ -156,7 +163,7 @@ if (NOT FPTN_BUILD_ONLY_FPTN_LIB)
                     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                     COMMAND
                     bash -c
-                    "${CMAKE_CURRENT_SOURCE_DIR}/deploy/macos/create-pkg.py --fptn-client-cli=${CMAKE_BINARY_DIR}/src/fptn-client/fptn-client-cli --fptn-client-gui=${CMAKE_BINARY_DIR}/src/fptn-client/fptn-client-gui  --version=${FPTN_VERSION}"
+                    python3 "${CMAKE_CURRENT_SOURCE_DIR}/deploy/macos/create-pkg.py --fptn-client-cli=${CMAKE_BINARY_DIR}/src/fptn-client/fptn-client-cli --fptn-client-gui=${CMAKE_BINARY_DIR}/src/fptn-client/fptn-client-gui  --version=${FPTN_VERSION}"
                     COMMENT "Building .dmg package"
                     VERBATIM)
         endif ()

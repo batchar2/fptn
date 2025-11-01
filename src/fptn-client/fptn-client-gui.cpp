@@ -18,7 +18,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include "gui/tray/tray.h"
 
-#if defined(__APPLE__)
+#ifdef __APPLE__
 #include "utils/macos/admin.h"
 #endif
 
@@ -41,7 +41,7 @@ BOOL WINAPI SignalHandler(DWORD ctrlType) {
 
 int main(int argc, char* argv[]) {
   try {
-#if defined(__linux__)
+#ifdef __linux__
     if (geteuid() != 0) {
       std::cerr << "You must be root to run this program.\n";
       return EXIT_FAILURE;

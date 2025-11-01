@@ -43,7 +43,7 @@ inline bool init(const std::string& app_name) {
     auto logger = spdlog::android_logger_mt("android", app_name);
 #else
 
-#if defined(__linux__)
+#ifdef __linux__
     const std::filesystem::path log_dir = "/var/log/fptn/";
 #elif defined(__APPLE__)
     const std::filesystem::path log_dir = []() {

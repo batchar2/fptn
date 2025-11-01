@@ -15,12 +15,11 @@ class IObfuscator {
  public:
   virtual ~IObfuscator() = default;
 
-  virtual std::size_t Deobfuscate(const std::uint8_t* data,
-      std::size_t size,
-      std::vector<std::uint8_t>& output) = 0;
+  virtual std::vector<std::uint8_t> Deobfuscate(
+      const std::uint8_t* data, std::size_t size) = 0;
 
   virtual std::vector<std::uint8_t> Obfuscate(
-      const std::vector<std::uint8_t>& data) = 0;
+      const std::uint8_t* data, std::size_t size) = 0;
   virtual void Reset() = 0;
 
   virtual bool CheckProtocol(const std::uint8_t* data, std::size_t size) = 0;

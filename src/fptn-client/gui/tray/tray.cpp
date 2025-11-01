@@ -251,7 +251,7 @@ void TrayApp::UpdateTrayMenu() {
             connect(
                 server_connect, &QAction::triggered, [this, server, service]() {
                   smart_connect_ = false;
-                  fptn::protocol::server::ServerInfo cfg_server;
+                  fptn::utils::speed_estimator::ServerInfo cfg_server;
                   {
                     cfg_server.name = server.name.toStdString();
                     cfg_server.host = server.host.toStdString();
@@ -284,7 +284,7 @@ void TrayApp::UpdateTrayMenu() {
             connect(
                 server_connect, &QAction::triggered, [this, server, service]() {
                   smart_connect_ = false;
-                  fptn::protocol::server::ServerInfo cfg_server;
+                  fptn::utils::speed_estimator::ServerInfo cfg_server;
                   {
                     cfg_server.name = server.name.toStdString();
                     cfg_server.host = server.host.toStdString();
@@ -682,11 +682,12 @@ bool TrayApp::startVpn(QString& err_msg) {
   const std::string sni = !settings_->SNI().isEmpty()
                               ? settings_->SNI().toStdString()
                               : FPTN_DEFAULT_SNI;
-  fptn::config::ConfigFile config(sni);  // SET SNI
-  if (smart_connect_) {                  // find the best server
+  // OBFUSCATOR
+  fptn::config::ConfigFile config(sni, nullptr);  // SET SNI
+  if (smart_connect_) {                           // find the best server
     for (const auto& service : settings_->Services()) {
       for (const auto& s : service.servers) {
-        fptn::protocol::server::ServerInfo cfg_server;
+        fptn::utils::speed_estimator::ServerInfo cfg_server;
         {
           cfg_server.name = s.name.toStdString();
           cfg_server.host = s.host.toStdString();
@@ -726,9 +727,12 @@ bool TrayApp::startVpn(QString& err_msg) {
     return false;
   }
 
-  auto http_client = std::make_unique<fptn::http::Client>(server_ip,
-      selected_server_.port, tun_interface_address_ipv4,
-      tun_interface_address_ipv6, sni, selected_server_.md5_fingerprint);
+  // OBFUSCATOR
+  fptn::protocol::https::obfuscator::IObfuscatorSPtr obfuscator = nullptr;
+  auto http_client =
+      std::make_unique<fptn::http::Client>(server_ip, selected_server_.port,
+          tun_interface_address_ipv4, tun_interface_address_ipv6, sni,
+          selected_server_.md5_fingerprint, obfuscator, nullptr);
   // login
   bool login_status =
       http_client->Login(selected_server_.username, selected_server_.password);

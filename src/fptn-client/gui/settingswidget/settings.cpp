@@ -62,7 +62,7 @@ void SettingsWidget::SetupUi() {
   grid_layout->setColumnStretch(1, 4);  // Field column
 
   // AUTOSTART (show only for Linux)
-#if defined(__linux__)
+#ifdef __linux__
   autostart_label_ = new QLabel(QObject::tr("Autostart"), this);
   autostart_checkbox_ = new QCheckBox(" ", this);
   autostart_checkbox_->setChecked(settings_->Autostart());
@@ -373,7 +373,7 @@ void SettingsWidget::onLanguageChanged(const QString&) {
     gateway_auto_checkbox_->setText(QObject::tr("Auto"));
   }
   // AUTOSTART (show only for Linux)
-#if defined(__linux__)
+#ifdef __linux__
   if (autostart_label_) {
     autostart_label_->setText(QObject::tr("Autostart"));
   }

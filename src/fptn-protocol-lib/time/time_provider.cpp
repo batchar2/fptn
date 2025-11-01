@@ -46,7 +46,7 @@ std::int32_t TimeProvider::OffsetSeconds() const {
 }
 
 std::uint32_t TimeProvider::NowTimestamp() {
-  const std::lock_guard<std::mutex> lock(mutex_);  // mutex
+  const std::scoped_lock lock(mutex_);  // mutex
 
   const auto now = std::chrono::steady_clock::now();
   if (now - last_sync_time_.load() > kSyncInterval_) {
@@ -58,7 +58,7 @@ std::uint32_t TimeProvider::NowTimestamp() {
 }
 
 bool TimeProvider::SyncWithNtp() {
-  const std::lock_guard<std::mutex> lock(mutex_);  // mutex
+  const std::scoped_lock lock(mutex_);  // mutex
 
   return Refresh();
 }

@@ -12,16 +12,20 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 namespace fptn::protocol::https::obfuscator {
 
-std::size_t NoneObfuscator::Deobfuscate(const std::uint8_t* data,
-    std::size_t size,
-    std::vector<std::uint8_t>& output) {
+std::vector<std::uint8_t> NoneObfuscator::Deobfuscate(
+    const std::uint8_t* data, std::size_t size) {
+  std::vector<std::uint8_t> output;
+  output.reserve(size);
   output.insert(output.end(), data, data + size);
-  return size;
+  return output;
 }
 
 std::vector<std::uint8_t> NoneObfuscator::Obfuscate(
-    const std::vector<std::uint8_t>& data) {
-  return data;
+    const std::uint8_t* data, std::size_t size) {
+  std::vector<std::uint8_t> output;
+  output.reserve(size);
+  output.insert(output.end(), data, data + size);
+  return output;
 }
 
 void NoneObfuscator::Reset() {

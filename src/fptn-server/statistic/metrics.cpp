@@ -36,7 +36,7 @@ void Metrics::UpdateStatistics(fptn::ClientID session_id,
     const std::string& username,
     std::size_t incoming_bytes,
     std::size_t outgoing_bytes) noexcept {
-  const std::lock_guard<std::mutex> lock(mutex_);  // mutex
+  const std::scoped_lock lock(mutex_);  // mutex
 
   auto& incoming_metric = incoming_bytes_counter_->Add(
       {{"username", username}, {"session_id", std::to_string(session_id)}});
@@ -49,13 +49,13 @@ void Metrics::UpdateStatistics(fptn::ClientID session_id,
 }
 
 void Metrics::UpdateActiveSessions(std::size_t count) noexcept {
-  const std::lock_guard<std::mutex> lock(mutex_);  // mutex
+  const std::scoped_lock lock(mutex_);  // mutex
 
   active_sessions_->Set(static_cast<double>(count));
 }
 
 std::string Metrics::Collect() noexcept {
-  const std::lock_guard<std::mutex> lock(mutex_);  // mutex
+  const std::scoped_lock lock(mutex_);  // mutex
 
   try {
     std::ostringstream result;

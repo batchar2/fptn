@@ -76,8 +76,7 @@ set(FPTN_CLIENT_PROTOCOL_SOURCES
     https/obfuscator/methods/none/none_obfuscator.cpp
     https/obfuscator/methods/none/none_obfuscator.h
     https/obfuscator/methods/obfuscator_interface.h
-    https/obfuscator/socket/socket.h
-    https/obfuscator/socket/socket.cpp
+    https/obfuscator/tcp_stream/tcp_stream.h
     https/utils/tls/tls.h
     https/utils/tls/tls.cpp
     https/websocket_client/websocket_client.h
@@ -102,6 +101,7 @@ foreach(target "${PROJECT_NAME}_static")
     protobuf::protobuf
     ZLIB::ZLIB
     Boost::boost
+    Boost::nowide
     Boost::random
     Boost::filesystem
     OpenSSL::SSL

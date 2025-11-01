@@ -33,9 +33,10 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
 #include <boost/beast/ssl.hpp>
+#include <boost/nowide/convert.hpp>
 
 #include "fptn-protocol-lib/https/obfuscator/methods/none/none_obfuscator.h"
-#include "fptn-protocol-lib/https/obfuscator/socket/socket.h"
+#include "fptn-protocol-lib/https/obfuscator/tcp_stream/tcp_stream.h"
 #include "fptn-protocol-lib/https/utils/tls/tls.h"
 
 #ifdef _WIN32
@@ -159,7 +160,7 @@ ApiClient::ApiClient(
     : host_(host),
       port_(port),
       sni_(host),
-      obfuscator_(std::move(obfuscator)) {}
+      obfuscator_(std::move(obfuscator)) {}  // NOLINT
 
 ApiClient::ApiClient(std::string host,
     int port,
@@ -168,7 +169,7 @@ ApiClient::ApiClient(std::string host,
     : host_(std::move(host)),
       port_(port),
       sni_(std::move(sni)),
-      obfuscator_(std::move(obfuscator)) {}
+      obfuscator_(std::move(obfuscator)) {}  // NOLINT
 
 ApiClient::ApiClient(std::string host,
     int port,
@@ -179,7 +180,7 @@ ApiClient::ApiClient(std::string host,
       port_(port),
       sni_(std::move(sni)),
       expected_md5_fingerprint_(std::move(md5_fingerprint)),
-      obfuscator_(std::move(obfuscator)) {}
+      obfuscator_(std::move(obfuscator)) {}  // NOLINT
 
 Response ApiClient::Get(const std::string& handle, int timeout) const {
   std::string body;
@@ -218,7 +219,6 @@ Response ApiClient::Get(const std::string& handle, int timeout) const {
     } else {
       ctx.set_verify_mode(boost::asio::ssl::verify_none);
     }
-
     stream.handshake(boost::asio::ssl::stream_base::client);
 
     boost::beast::http::request<boost::beast::http::string_body> req{
@@ -236,6 +236,7 @@ Response ApiClient::Get(const std::string& handle, int timeout) const {
     boost::beast::http::response<boost::beast::http::dynamic_body> res;
     boost::beast::get_lowest_layer(stream).expires_after(
         std::chrono::seconds(timeout));
+
     boost::beast::http::read(stream, buffer, res);
 
     respcode = static_cast<int>(res.result_int());
