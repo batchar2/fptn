@@ -338,7 +338,6 @@ boost::asio::awaitable<bool> Session::IsSniSelfProxyAttempt(
 
 boost::asio::awaitable<bool> Session::HandleProxy(
     const std::string& sni, int port) {
-  // ИСПРАВЛЕНО: доступ к TCP сокету через get_lowest_layer
   auto& tcp_socket = boost::beast::get_lowest_layer(ws_).socket();
   boost::asio::ip::tcp::socket target_socket(
       co_await boost::asio::this_coro::executor);
@@ -480,18 +479,6 @@ boost::asio::awaitable<void> Session::RunSender() {
           // co_await strand_.post(boost::asio::use_awaitable);
           co_await ws_.async_write(
               boost::asio::buffer(msg), boost::asio::use_awaitable);
-
-          // co_await ws_.async_write(boost::asio::buffer(msg),
-          //     boost::asio::bind_executor(strand_,
-          //     boost::asio::use_awaitable));
-          // co_await ws_.async_write(
-          //     boost::asio::buffer(msg), boost::asio::use_awaitable);
-          // co_await ws_.async_write(boost::asio::buffer(msg),
-          //     boost::asio::bind_executor(strand_,
-          //     boost::asio::use_awaitable));
-          // co_await ws_.async_write(boost::asio::buffer(msg),
-          //     boost::asio::bind_executor(strand_,
-          //     boost::asio::use_awaitable));
         }
       }
     }
@@ -663,6 +650,8 @@ void Session::Close() {
   if (!running_) {  // Double-check after acquiring lock
     return;
   }
+
+  SPDLOG_INFO("Close session {}", client_id_);
 
   running_ = false;
   boost::system::error_code ec;
