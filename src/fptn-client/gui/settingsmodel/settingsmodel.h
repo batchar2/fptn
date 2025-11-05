@@ -130,6 +130,10 @@ class SettingsModel : public QObject {
   void SetAutostart(bool value);
 
   QString GetFilePath() const;
+
+  QString BypassMethod() const;
+  void SetBypassMethod(const QString& method);
+
  signals:
   void dataChanged();
 
@@ -146,6 +150,8 @@ class SettingsModel : public QObject {
   QString sni_;
 
   bool client_autostart_;
+
+  QString bypass_method_;
 };
 
 using SettingsModelPtr = std::shared_ptr<SettingsModel>;

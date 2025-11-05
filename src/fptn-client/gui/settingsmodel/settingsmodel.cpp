@@ -143,6 +143,14 @@ void SettingsModel::Load(bool dont_load_server) {
   if (sni_.isEmpty()) {
     sni_ = FPTN_DEFAULT_SNI;
   }
+
+  if (service_obj.contains("bypass_method")) {
+    bypass_method_ = service_obj["bypass_method"].toString();
+  }
+  if (bypass_method_.isEmpty() ||
+      (bypass_method_ != "SNI" && bypass_method_ != "OBFUSCATION")) {
+    bypass_method_ = "SNI";
+  }
 }
 
 QString SettingsModel::LanguageName() const {
@@ -244,6 +252,7 @@ bool SettingsModel::Save() {
   json_object["gateway_ip"] = gateway_ip_;
   json_object["autostart"] = client_autostart_ ? 1 : 0;
   json_object["sni"] = sni_;
+  json_object["bypass_method"] = bypass_method_;
   QJsonDocument document(json_object);
   auto len = file.write(document.toJson());
   file.close();
@@ -251,9 +260,6 @@ bool SettingsModel::Save() {
   if (len > 0) {
     SPDLOG_INFO("Success save: {}", file_path.toStdString());
   }
-  // load saved data
-  Load();
-
   // send signal
   emit dataChanged();
 
@@ -370,4 +376,13 @@ int SettingsModel::GetExistServiceIndex(const QString& name) const {
     }
   }
   return -1;
+}
+
+QString SettingsModel::BypassMethod() const {
+  return bypass_method_.isEmpty() ? "SNI" : bypass_method_;
+}
+
+void SettingsModel::SetBypassMethod(const QString& method) {
+  bypass_method_ = method;
+  Save();
 }

@@ -27,6 +27,28 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "gui/tokendialog/tokendialog.h"
 #include "gui/translations/translations.h"
 
+namespace {
+QString CleanDomain(const QString& domain) {
+  if (domain.isEmpty()) {
+    return domain;
+  }
+
+  QString cleaned;
+  cleaned.reserve(domain.length());
+
+  static QRegularExpression valid_chars("[a-zA-Z0-9.-]");
+
+  for (int i = 0; i < domain.length(); ++i) {
+    QChar ch = domain[i];
+
+    if (valid_chars.match(ch).hasMatch()) {
+      cleaned.append(ch.toLower());
+    }
+  }
+  return cleaned;
+}
+}  // namespace
+
 using fptn::gui::SettingsWidget;
 
 SettingsWidget::SettingsWidget(SettingsModelPtr settings, QWidget* parent)
@@ -121,19 +143,50 @@ void SettingsWidget::SetupUi() {
   grid_layout->addLayout(gateway_layout, 3, 1, 1, 2);
   settings_layout->addLayout(grid_layout);
 
-  // SNI
-  sni_label_ = new QLabel(
-      QObject::tr("Fake SNI to bypass censorship (hides the VPN)") + ": ",
-      this);
-  sni_line_edit_ = new QLineEdit(this);
-  sni_line_edit_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-  sni_line_edit_->setText(settings_->SNI());
-  connect(sni_line_edit_, &QLineEdit::textChanged, this,
-      [this](const QString& sni) { settings_->SetSNI(sni); });
+  // Bypass blocking method
+  bypass_method_label_ =
+      new QLabel(QObject::tr("Bypass blocking method"), this);
+  bypass_method_combo_box_ = new QComboBox(this);
+  bypass_method_combo_box_->addItem(QObject::tr("SNI"), "SNI");
+  bypass_method_combo_box_->addItem(QObject::tr("OBFUSCATION"), "OBFUSCATION");
+  bypass_method_combo_box_->setSizePolicy(
+      QSizePolicy::Expanding, QSizePolicy::Fixed);
+  if (settings_->BypassMethod() == "OBFUSCATION") {
+    bypass_method_combo_box_->setCurrentText(QObject::tr("OBFUSCATION"));
+  } else {
+    bypass_method_combo_box_->setCurrentText(QObject::tr("SNI"));
+  }
+  connect(bypass_method_combo_box_, &QComboBox::currentTextChanged, this,
+      &SettingsWidget::onBypassMethodChanged);
 
-  grid_layout->addWidget(sni_label_, 4, 0, Qt::AlignLeft);
-  grid_layout->addWidget(sni_line_edit_, 4, 1, 1, 2);
-  settings_->SetSNI(sni_line_edit_->text());
+  grid_layout->addWidget(bypass_method_label_, 4, 0, Qt::AlignLeft);
+  grid_layout->addWidget(bypass_method_combo_box_, 4, 1, 1, 2);
+
+  sni_label_ =
+      new QLabel(QObject::tr("Fake domain to bypass blocking") + ": ", this);
+  sni_line_edit_ = new QLineEdit(this);
+  sni_line_edit_->setText(settings_->SNI());
+  sni_label_->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+  sni_line_edit_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+  connect(sni_line_edit_, &QLineEdit::textChanged, this,
+      [this](const QString& text) {
+        if (text.isEmpty()) {
+          settings_->SetSNI(FPTN_DEFAULT_SNI);
+          return;
+        }
+        QString normalized = CleanDomain(text.toLower());
+        if (normalized != text) {
+          sni_line_edit_->blockSignals(true);
+          sni_line_edit_->setText(normalized);
+          sni_line_edit_->blockSignals(false);
+        }
+        settings_->SetSNI(normalized);
+      });
+
+  grid_layout->addWidget(sni_label_, 5, 0, Qt::AlignLeft | Qt::AlignVCenter);
+  grid_layout->addWidget(sni_line_edit_, 5, 1, 1, 2);
+
+  settings_layout->addStretch(0);
 
   // Server Table
   server_table_ = new QTableWidget(0, 4, this);
@@ -236,6 +289,9 @@ void SettingsWidget::SetupUi() {
     action_layout->addWidget(delete_button);
     server_table_->setCellWidget(i, 3, button_container);
   }
+
+  // show current method
+  onBypassMethodChanged(bypass_method_combo_box_->currentText());
 }
 
 void SettingsWidget::onExit() {
@@ -243,6 +299,12 @@ void SettingsWidget::onExit() {
   settings_->SetLanguage(language_combo_box_->currentText());
   settings_->SetGatewayIp(gateway_line_edit_->text());
   settings_->SetSNI(sni_line_edit_->text());
+  if (bypass_method_combo_box_->currentText() == QObject::tr("OBFUSCATION") ||
+      bypass_method_combo_box_->currentText() == "OBFUSCATION") {
+    settings_->SetBypassMethod("OBFUSCATION");
+  } else {
+    settings_->SetBypassMethod("SNI");
+  }
   if (!settings_->Save()) {
     QMessageBox::critical(this, QObject::tr("Save Failed"),
         QObject::tr("An error occurred while saving the data."));
@@ -378,9 +440,27 @@ void SettingsWidget::onLanguageChanged(const QString&) {
     autostart_label_->setText(QObject::tr("Autostart"));
   }
 #endif
+
+  // Bypass blocking
+  if (bypass_method_label_) {
+    bypass_method_label_->setText(QObject::tr("Bypass blocking method"));
+  }
+  if (bypass_method_combo_box_) {
+    QString current_method = bypass_method_combo_box_->currentText();
+    bypass_method_combo_box_->clear();
+    bypass_method_combo_box_->addItem("SNI", "SNI");
+    bypass_method_combo_box_->addItem(
+        QObject::tr("OBFUSCATION"), "OBFUSCATION");
+
+    if (current_method == "SNI" || current_method == QObject::tr("SNI")) {
+      bypass_method_combo_box_->setCurrentText(QObject::tr("SNI"));
+    } else {
+      bypass_method_combo_box_->setCurrentText(QObject::tr("OBFUSCATION"));
+    }
+  }
+
   if (sni_label_) {
-    sni_label_->setText(
-        QObject::tr("Fake SNI to bypass censorship (hides the VPN)") + ": ");
+    sni_label_->setText(QObject::tr("Fake domain to bypass blocking") + ": ");
   }
   // about
   if (version_label_) {
@@ -423,5 +503,23 @@ void SettingsWidget::onAutoGatewayChanged(bool checked) {
     settings_->SetGatewayIp("auto");
   } else {
     gateway_line_edit_->setEnabled(true);
+  }
+}
+
+void SettingsWidget::onBypassMethodChanged(const QString& method) {
+  const bool is_sni_mode = (method == QObject::tr("SNI") || method == "SNI");
+
+  if (is_sni_mode) {
+    sni_label_->setText(QObject::tr("Fake domain to bypass blocking") + ": ");
+    sni_line_edit_->setVisible(true);
+  } else {
+    sni_label_->setText(" ");  // hide text
+    sni_line_edit_->setVisible(false);
+  }
+
+  if (method == QObject::tr("OBFUSCATION") || method == "OBFUSCATION") {
+    settings_->SetBypassMethod("OBFUSCATION");
+  } else {
+    settings_->SetBypassMethod("SNI");
   }
 }

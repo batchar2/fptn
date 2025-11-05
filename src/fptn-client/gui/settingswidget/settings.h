@@ -28,6 +28,7 @@ class SettingsWidget : public QDialog {
  protected:
   void closeEvent(QCloseEvent* event) override;
   void SetupUi();
+
  private slots:
   void onExit();
   void onLoadNewConfig();
@@ -36,6 +37,7 @@ class SettingsWidget : public QDialog {
   void onInterfaceChanged(const QString& new_language);
   void onAutostartChanged(bool checked);
   void onAutoGatewayChanged(bool checked);
+  void onBypassMethodChanged(const QString& method);
 
  private:
   SettingsModelPtr settings_;
@@ -59,6 +61,9 @@ class SettingsWidget : public QDialog {
   QLineEdit* gateway_line_edit_ = nullptr;
   QCheckBox* gateway_auto_checkbox_ = nullptr;
   QLabel* gateway_label_ = nullptr;
+
+  QLabel* bypass_method_label_ = nullptr;
+  QComboBox* bypass_method_combo_box_ = nullptr;
 
   QLabel* sni_label_ = nullptr;
   QLineEdit* sni_line_edit_ = nullptr;

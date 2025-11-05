@@ -208,8 +208,8 @@
         </message>
 
         <message>
-            <source>Fake SNI to bypass censorship (hides the VPN)</source>
-            <translation>Фейковый SNI для обхода блокировок (скрывает VPN)</translation>
+            <source>Fake domain to bypass blocking</source>
+            <translation>Фейковый домен для обхода блокировок</translation>
         </message>
 
         <message>
@@ -272,5 +272,19 @@ This may cause network connectivity issues or prevent proper operation of FPTN.<
             <translation>Обнаружено конфликтующее VPN-соединение: %1
 Это может вызвать проблемы с подключением к сети или нарушить работу FPTN.</translation>
         </message>
+
+        <message>
+            <source>Bypass blocking method</source>
+            <translation>Метод обхода блокировок</translation>
+        </message>
+        <message>
+            <source>SNI</source>
+            <translation>Подмена домена (SNI)</translation>
+        </message>
+        <message>
+            <source>OBFUSCATION</source>
+            <translation>Маскировка трафика (обфускация)</translation>
+        </message>
+
     </context>
 </TS>

@@ -25,6 +25,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include "common/system/command.h"
 
+#include "fptn-protocol-lib/https/obfuscator/methods/tls/tls_obfuscator.h"
 #include "fptn-protocol-lib/time/time_provider.h"
 #include "gui/autoupdate/autoupdate.h"
 #include "gui/style/style.h"
@@ -683,8 +684,13 @@ bool TrayApp::startVpn(QString& err_msg) {
                               ? settings_->SNI().toStdString()
                               : FPTN_DEFAULT_SNI;
   // OBFUSCATOR
-  fptn::config::ConfigFile config(sni, nullptr);  // SET SNI
-  if (smart_connect_) {                           // find the best server
+  fptn::protocol::https::obfuscator::IObfuscatorSPtr obfuscator = nullptr;
+  if (settings_->BypassMethod() == "OBFUSCATION") {
+    obfuscator =
+        std::make_shared<fptn::protocol::https::obfuscator::TlsObfuscator>();
+  }
+  fptn::config::ConfigFile config(sni, obfuscator);  // SET SNI
+  if (smart_connect_) {                              // find the best server
     for (const auto& service : settings_->Services()) {
       for (const auto& s : service.servers) {
         fptn::utils::speed_estimator::ServerInfo cfg_server;
@@ -727,8 +733,6 @@ bool TrayApp::startVpn(QString& err_msg) {
     return false;
   }
 
-  // OBFUSCATOR
-  fptn::protocol::https::obfuscator::IObfuscatorSPtr obfuscator = nullptr;
   auto http_client =
       std::make_unique<fptn::http::Client>(server_ip, selected_server_.port,
           tun_interface_address_ipv4, tun_interface_address_ipv6, sni,

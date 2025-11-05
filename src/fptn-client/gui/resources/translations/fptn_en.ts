@@ -208,8 +208,8 @@
         </message>
 
         <message>
-            <source>Fake SNI to bypass censorship (hides the VPN)</source>
-            <translation>Fake SNI to bypass censorship (hides the VPN)</translation>
+            <source>Fake domain to bypass blocking</source>
+            <translation>Fake domain to bypass blocking</translation>
         </message>
 
         <message>
@@ -272,5 +272,19 @@ This may cause network connectivity issues or prevent proper operation of FPTN.<
             <translation> A conflicting VPN connection is currently active on your system: %1
 This may cause network connectivity issues or prevent proper operation of FPTN.</translation>
         </message>
+
+        <message>
+            <source>Bypass blocking method</source>
+            <translation>Bypass blocking method</translation>
+        </message>
+        <message>
+            <source>SNI</source>
+            <translation>Domain spoofing (SNI)</translation>
+        </message>
+        <message>
+            <source>OBFUSCATION</source>
+            <translation>Traffic masking (obfuscation)</translation>
+        </message>
+
     </context>
 </TS>
