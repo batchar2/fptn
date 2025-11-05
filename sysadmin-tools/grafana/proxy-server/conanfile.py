@@ -11,7 +11,7 @@ class ProxyServer(ConanFile):
         "zlib/1.3.1",
         "boost/1.89.0",
         "fmt/12.1.0",
-        "abseil/20250512.1",
+        "abseil/20250814.0",
         "argparse/3.2",
         "cpp-httplib/0.20.1",
         "spdlog/1.15.3",
