@@ -163,7 +163,7 @@ if (NOT FPTN_BUILD_ONLY_FPTN_LIB)
                     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                     COMMAND
                     bash -c
-                    python3 "${CMAKE_CURRENT_SOURCE_DIR}/deploy/macos/create-pkg.py --fptn-client-cli=${CMAKE_BINARY_DIR}/src/fptn-client/fptn-client-cli --fptn-client-gui=${CMAKE_BINARY_DIR}/src/fptn-client/fptn-client-gui  --version=${FPTN_VERSION}"
+                    "python3 \"${CMAKE_CURRENT_SOURCE_DIR}/deploy/macos/create-pkg.py\" --fptn-client-cli=\"${CMAKE_BINARY_DIR}/src/fptn-client/fptn-client-cli\" --fptn-client-gui=\"${CMAKE_BINARY_DIR}/src/fptn-client/fptn-client-gui\" --version=\"${FPTN_VERSION}\""
                     COMMENT "Building .dmg package"
                     VERBATIM)
         endif ()
