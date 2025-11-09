@@ -411,7 +411,6 @@ class WindowsTunInterface final : public BaseNetInterface<WindowsTunInterface> {
     return receive_rate_calculator_.GetRateForSecond();
   }
 
-  // cppcheck-suppress unusedPrivateFunction
   bool SetIPv4AndNetmask(
       const fptn::common::network::IPv4Address& addr, const int mask) {
     const std::string ipaddr = addr.ToString();
@@ -438,7 +437,6 @@ class WindowsTunInterface final : public BaseNetInterface<WindowsTunInterface> {
     return true;
   }
 
-  // cppcheck-suppress unusedPrivateFunction
   bool SetIPv6AndNetmask(
       const fptn::common::network::IPv6Address& addr, const int mask) {
     const std::string ipaddr = addr.ToString();
