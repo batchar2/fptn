@@ -15,13 +15,13 @@ using fptn::vpn::VpnClient;
 
 VpnClient::VpnClient(fptn::vpn::http::ClientPtr http_client,
     fptn::common::network::TunInterfacePtr virtual_net_interface,
-    const pcpp::IPv4Address& dns_server_ipv4,
-    const pcpp::IPv6Address& dns_server_ipv6)
+    fptn::common::network::IPv4Address dns_server_ipv4,
+    fptn::common::network::IPv6Address dns_server_ipv6)
     : running_(false),
       http_client_(std::move(http_client)),
       virtual_net_interface_(std::move(virtual_net_interface)),
-      dns_server_ipv4_(dns_server_ipv4),
-      dns_server_ipv6_(dns_server_ipv6) {}
+      dns_server_ipv4_(std::move(dns_server_ipv4)),
+      dns_server_ipv6_(std::move(dns_server_ipv6)) {}
 
 VpnClient::~VpnClient() { Stop(); }
 

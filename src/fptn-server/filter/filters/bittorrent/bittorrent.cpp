@@ -51,7 +51,7 @@ bool DetectBitTorrent(const std::uint8_t* payload, std::size_t payload_size) {
 }
 }  // namespace
 
-IPPacketPtr BitTorrent::apply(IPPacketPtr packet) const noexcept {
+IPPacketPtr BitTorrent::apply(IPPacketPtr packet) const {
   const pcpp::TcpLayer* tcp = packet->Pkt().getLayerOfType<pcpp::TcpLayer>();
   if (tcp) {  // TCP
     if (DetectBitTorrent(tcp->getLayerPayload(), tcp->getLayerPayloadSize())) {

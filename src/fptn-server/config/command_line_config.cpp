@@ -12,6 +12,8 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
+using fptn::common::network::IPv4Address;
+using fptn::common::network::IPv6Address;
 using fptn::config::CommandLineConfig;
 
 namespace {
@@ -147,25 +149,24 @@ std::string CommandLineConfig::TunInterfaceName() const {
   return args_.get<std::string>("--tun-interface-name");
 }
 
-pcpp::IPv4Address CommandLineConfig::TunInterfaceIPv4() const {
-  return pcpp::IPv4Address(args_.get<std::string>("--tun-interface-ip"));
+IPv4Address CommandLineConfig::TunInterfaceIPv4() const {
+  return IPv4Address(args_.get<std::string>("--tun-interface-ip"));
 }
 
-pcpp::IPv4Address CommandLineConfig::TunInterfaceNetworkIPv4Address() const {
-  return pcpp::IPv4Address(
-      args_.get<std::string>("--tun-interface-network-address"));
+IPv4Address CommandLineConfig::TunInterfaceNetworkIPv4Address() const {
+  return IPv4Address(args_.get<std::string>("--tun-interface-network-address"));
 }
 
 int CommandLineConfig::TunInterfaceNetworkIPv4Mask() const {
   return args_.get<int>("--tun-interface-network-mask");
 }
 
-pcpp::IPv6Address CommandLineConfig::TunInterfaceIPv6() const {
-  return pcpp::IPv6Address(args_.get<std::string>("--tun-interface-ipv6"));
+IPv6Address CommandLineConfig::TunInterfaceIPv6() const {
+  return IPv6Address(args_.get<std::string>("--tun-interface-ipv6"));
 }
 
-pcpp::IPv6Address CommandLineConfig::TunInterfaceNetworkIPv6Address() const {
-  return pcpp::IPv6Address(
+IPv6Address CommandLineConfig::TunInterfaceNetworkIPv6Address() const {
+  return IPv6Address(
       args_.get<std::string>("--tun-interface-network-ipv6-address"));
 }
 

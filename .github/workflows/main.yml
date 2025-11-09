@@ -7,7 +7,7 @@ on:
     tags:
       - '*'
   release:
-    types: [published]
+    types: [ published ]
 
 jobs:
   build_ubuntu_x86_64:

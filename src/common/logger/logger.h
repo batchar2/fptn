@@ -16,6 +16,10 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #ifdef __ANDROID__
 #include <spdlog/sinks/android_sink.h>  // NOLINT(build/include_order)
 #elif __APPLE__
+#include <TargetConditionals.h>  // NOLINT(build/include_order)
+#include <pwd.h>                 // NOLINT(build/include_order)
+#include <unistd.h>              // NOLINT(build/include_order)
+#elif __linux__
 #include <pwd.h>     // NOLINT(build/include_order)
 #include <unistd.h>  // NOLINT(build/include_order)
 #elif _WIN32
@@ -27,7 +31,6 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <spdlog/spdlog.h>                    // NOLINT(build/include_order)
 
 namespace fptn::logger {
-
 inline bool init(const std::string& app_name) {
   // Set locale
 #ifdef _WIN32
@@ -41,11 +44,18 @@ inline bool init(const std::string& app_name) {
   try {
 #ifdef __ANDROID__
     auto logger = spdlog::android_logger_mt("android", app_name);
+#elif TARGET_OS_IPHONE || TARGET_IPHONE_SIMULATOR
+    // iOS specific logging - use console only since filesystem access is
+    // restricted
+    auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+    auto logger = std::make_shared<spdlog::logger>(app_name, console_sink);
+    logger->flush_on(spdlog::level::debug);
+    spdlog::flush_every(std::chrono::seconds(3));
 #else
 
 #ifdef __linux__
     const std::filesystem::path log_dir = "/var/log/fptn/";
-#elif defined(__APPLE__)
+#elif defined(__APPLE__) && TARGET_OS_MAC
     const std::filesystem::path log_dir = []() {
       if (const char* home = getenv("HOME")) {
         return std::filesystem::path(home) / "Library/Logs/fptn";
@@ -79,10 +89,14 @@ inline bool init(const std::string& app_name) {
     logger->flush_on(spdlog::level::debug);
     spdlog::flush_every(std::chrono::seconds(3));
 #endif
+
     spdlog::set_default_logger(logger);
     spdlog::set_level(spdlog::level::info);
     spdlog::set_pattern("[%Y-%m-%d %H:%M:%S] [%^%l%$] [%s:%#] %v");
-#ifdef __ANDROID__
+
+#if TARGET_OS_IPHONE || TARGET_IPHONE_SIMULATOR
+    SPDLOG_INFO("Logger initialized for iOS - console output only");
+#elif __ANDROID__
     SPDLOG_INFO("Logger inited");
 #else
     SPDLOG_INFO("Logging to file: {}", log_file.string());

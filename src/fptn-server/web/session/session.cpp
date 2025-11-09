@@ -609,14 +609,14 @@ boost::asio::awaitable<bool> Session::HandleWebSocket(
     }
 
     try {
-      const pcpp::IPv4Address client_ip(client_ip_str);
-      const pcpp::IPv4Address client_vpn_ipv4(client_vpn_ipv4_str);
+      const common::network::IPv4Address client_ip(client_ip_str);
+      const common::network::IPv4Address client_vpn_ipv4(client_vpn_ipv4_str);
 
       const std::string client_vpn_ipv6_str =
           (request.find("ClientIPv6") != request.end()
                   ? request["ClientIPv6"]
                   : FPTN_CLIENT_DEFAULT_ADDRESS_IP6);
-      const pcpp::IPv6Address client_vpn_ipv6(client_vpn_ipv6_str);
+      const common::network::IPv6Address client_vpn_ipv6(client_vpn_ipv6_str);
 
       const bool status =
           ws_open_callback_(client_id_, client_ip, client_vpn_ipv4,

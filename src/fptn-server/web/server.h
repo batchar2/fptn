@@ -35,8 +35,8 @@ class Server final {
       const fptn::common::jwt_token::TokenManagerSPtr& token_manager,
       const fptn::statistic::MetricsSPtr& prometheus,
       const std::string& prometheus_access_key,
-      const pcpp::IPv4Address& dns_server_ipv4,
-      const pcpp::IPv6Address& dns_server_ipv6,
+      fptn::common::network::IPv4Address dns_server_ipv4,
+      fptn::common::network::IPv6Address dns_server_ipv6,
       bool enable_detect_probing,
       std::size_t max_active_sessions_per_user,
       int thread_number = 8);
@@ -61,9 +61,9 @@ class Server final {
  protected:
   // websocket
   bool HandleWsOpenConnection(fptn::ClientID client_id,
-      const pcpp::IPv4Address& client_ip,
-      const pcpp::IPv4Address& client_vpn_ipv4,
-      const pcpp::IPv6Address& client_vpn_ipv6,
+      const fptn::common::network::IPv4Address& client_ip,
+      const fptn::common::network::IPv4Address& client_vpn_ipv4,
+      const fptn::common::network::IPv6Address& client_vpn_ipv6,
       const SessionSPtr& session,
       const std::string& url,
       const std::string& access_token);
@@ -86,8 +86,8 @@ class Server final {
   const fptn::common::jwt_token::TokenManagerSPtr token_manager_;
   const fptn::statistic::MetricsSPtr& prometheus_;
   const std::string prometheus_access_key_;
-  const pcpp::IPv4Address dns_server_ipv4_;
-  const pcpp::IPv6Address dns_server_ipv6_;
+  const fptn::common::network::IPv4Address dns_server_ipv4_;
+  const fptn::common::network::IPv6Address dns_server_ipv6_;
   const bool enable_detect_probing_;
   const std::size_t max_active_sessions_per_user_;
   const std::size_t thread_number_;

@@ -21,34 +21,35 @@ using fptn::filter::AntiScan;
 
 AntiScan::AntiScan(
     /* IPv4 */
-    const pcpp::IPv4Address& server_ipv4,
-    const pcpp::IPv4Address& server_ipv4_net,
+    const fptn::common::network::IPv4Address& server_ipv4,
+    const fptn::common::network::IPv4Address& server_ipv4_net,
     const int serverIPv4Mask,
     /* IPv6 */
-    const pcpp::IPv6Address& server_ipv6,
-    const pcpp::IPv6Address& server_ipv6_net,
+    const fptn::common::network::IPv6Address& server_ipv6,
+    const fptn::common::network::IPv6Address& server_ipv6_net,
     const int serverIPv6Mask)
-    : server_ipv4_(ntohl(server_ipv4.toInt())),
-      server_ipv4_net_(ntohl(server_ipv4_net.toInt())),
+    : server_ipv4_(ntohl(server_ipv4.ToInt())),
+      server_ipv4_net_(ntohl(server_ipv4_net.ToInt())),
       server_ipv4_mask_((0xFFFFFFFF << (32 - serverIPv4Mask))),
-      server_ipv6_(fptn::common::network::ipv6::toUInt128(server_ipv6)),
-      server_ipv6_net_(fptn::common::network::ipv6::toUInt128(server_ipv6_net)),
+      server_ipv6_(
+          fptn::common::network::ipv6::toUInt128(server_ipv6.ToString())),
+      server_ipv6_net_(
+          fptn::common::network::ipv6::toUInt128(server_ipv6_net.ToString())),
       server_ipv6_mask_(
           (boost::multiprecision::uint128_t(1) << (128 - serverIPv6Mask)) - 1) {
 }
 
-IPPacketPtr AntiScan::apply(IPPacketPtr packet) const noexcept {
+IPPacketPtr AntiScan::apply(IPPacketPtr packet) const {
   // Prevent sending requests to the VPN virtual network from the client
-  static pcpp::IPv4Address ipv4_broadcast("255.255.255.255");
+  static fptn::common::network::IPv4Address ipv4_broadcast("255.255.255.255");
+  static std::uint32_t ipv4_broadcast_int = ntohl(ipv4_broadcast.ToInt());
 
   if (packet->IsIPv4()) {
     const std::uint32_t dst =
         ntohl(packet->IPv4Layer()->getDstIPv4Address().toInt());
     const bool is_in_network =
         (dst & server_ipv4_mask_) == (server_ipv4_net_ & server_ipv4_mask_);
-    if (server_ipv4_ == dst ||
-        (!is_in_network &&
-            ipv4_broadcast != packet->IPv4Layer()->getDstIPv4Address())) {
+    if (server_ipv4_ == dst || (!is_in_network && ipv4_broadcast_int != dst)) {
       return packet;
     }
   } else if (packet->IsIPv6()) {

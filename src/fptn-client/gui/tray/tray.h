@@ -22,7 +22,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <QWidgetAction>    // NOLINT(build/include_order)
 
 #include "common/data/channel.h"
-#include "common/network/ip_packet.h"
+#include "common/network/ip_address.h"
 #include "common/network/net_interface.h"
 
 #include "config/config_file.h"

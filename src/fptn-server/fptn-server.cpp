@@ -13,6 +13,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include "common/jwt_token/token_manager.h"
 #include "common/logger/logger.h"
+#include "common/network/ip_address.h"
 
 #include "config/command_line_config.h"
 #include "filter/filters/antiscan/antiscan.h"
@@ -132,8 +133,8 @@ int main(int argc, char* argv[]) {
         "DETECT_PROBING:    {}\n"
         "MAX_ACTIVE_SESSIONS_PER_USER: {}\n",
         FPTN_VERSION, config.OutNetworkInterface(),
-        config.TunInterfaceNetworkIPv4Address().toString(),
-        config.TunInterfaceNetworkIPv6Address().toString(), config.ServerPort(),
+        config.TunInterfaceNetworkIPv4Address().ToString(),
+        config.TunInterfaceNetworkIPv6Address().ToString(), config.ServerPort(),
         config.EnableDetectProbing() ? "YES" : "NO",
         config.MaxActiveSessionsPerUser());
 

@@ -15,10 +15,10 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 namespace fptn::protocol::https {
 
-WebsocketClient::WebsocketClient(pcpp::IPv4Address server_ip,
+WebsocketClient::WebsocketClient(fptn::common::network::IPv4Address server_ip,
     int server_port,
-    pcpp::IPv4Address tun_interface_address_ipv4,
-    pcpp::IPv6Address tun_interface_address_ipv6,
+    fptn::common::network::IPv4Address tun_interface_address_ipv4,
+    fptn::common::network::IPv6Address tun_interface_address_ipv6,
     NewIPPacketCallback new_ip_pkt_callback,
     std::string sni,
     std::string access_token,
@@ -33,10 +33,10 @@ WebsocketClient::WebsocketClient(pcpp::IPv4Address server_ip,
           ctx_)),
       strand_(boost::asio::make_strand(ioc_)),
       write_channel_(strand_, kMaxSizeOutQueue_),
-      server_ip_(server_ip),
+      server_ip_(std::move(server_ip)),
       server_port_str_(std::to_string(server_port)),
-      tun_interface_address_ipv4_(tun_interface_address_ipv4),
-      tun_interface_address_ipv6_(tun_interface_address_ipv6),
+      tun_interface_address_ipv4_(std::move(tun_interface_address_ipv4)),
+      tun_interface_address_ipv6_(std::move(tun_interface_address_ipv6)),
       new_ip_pkt_callback_(std::move(new_ip_pkt_callback)),
       sni_(std::move(sni)),
       access_token_(std::move(access_token)),
@@ -48,6 +48,9 @@ WebsocketClient::WebsocketClient(pcpp::IPv4Address server_ip,
 
   fptn::protocol::https::utils::AttachCertificateVerificationCallback(
       ssl, [this](const std::string& md5_fingerprint) mutable {
+        if (!expected_md5_fingerprint_.empty()) {
+          return true;
+        }
         if (md5_fingerprint == expected_md5_fingerprint_) {
           SPDLOG_INFO("Certificate verified successfully (MD5 matched: {}).",
               md5_fingerprint);
@@ -80,13 +83,12 @@ void WebsocketClient::Run() {
     return;
   }
 
-  SPDLOG_INFO("Connecting to {}:{}", server_ip_.toString(), server_port_str_);
+  SPDLOG_INFO("Connecting to {}:{}", server_ip_.ToString(), server_port_str_);
 
   if (obfuscator_) {
     obfuscator_->Reset();
   }
 
-  // Запускаем внутреннюю корутину
   boost::asio::co_spawn(
       ioc_,
       [self = shared_from_this()]() -> boost::asio::awaitable<void> {
@@ -201,7 +203,7 @@ boost::asio::awaitable<bool> WebsocketClient::Connect() {
   try {
     // DNS resolution
     boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::seconds(30));
-    auto results = co_await resolver_.async_resolve(server_ip_.toString(),
+    auto results = co_await resolver_.async_resolve(server_ip_.ToString(),
         server_port_str_,
         boost::asio::redirect_error(boost::asio::use_awaitable, ec));
     if (ec) {
@@ -217,7 +219,7 @@ boost::asio::awaitable<bool> WebsocketClient::Connect() {
       co_return false;
     }
 
-    SPDLOG_INFO("Connected to {}:{}", server_ip_.toString(), server_port_str_);
+    SPDLOG_INFO("Connected to {}:{}", server_ip_.ToString(), server_port_str_);
 
     // TCP options
     boost::beast::get_lowest_layer(ws_).socket().set_option(
@@ -243,12 +245,13 @@ boost::asio::awaitable<bool> WebsocketClient::Connect() {
             req.set(key, value);
           }
           req.set("Authorization", "Bearer " + access_token_);
-          req.set("ClientIP", tun_interface_address_ipv4_.toString());
-          req.set("ClientIPv6", tun_interface_address_ipv6_.toString());
-          req.set("Client-Agent", "FptnClient/1.0");
+          req.set("ClientIP", tun_interface_address_ipv4_.ToString());
+          req.set("ClientIPv6", tun_interface_address_ipv6_.ToString());
+          req.set("Client-Agent",
+              fmt::format("FptnClient({}/{})", FPTN_USER_OS, FPTN_VERSION));
         }));
 
-    co_await ws_.async_handshake(server_ip_.toString(), kUrlWebSocket_,
+    co_await ws_.async_handshake(server_ip_.ToString(), kUrlWebSocket_,
         boost::asio::redirect_error(boost::asio::use_awaitable, ec));
     if (ec) {
       SPDLOG_ERROR("WebSocket handshake error: {}", ec.message());

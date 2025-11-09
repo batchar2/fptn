@@ -19,6 +19,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <boost/beast/ssl.hpp>
 #include <boost/beast/websocket.hpp>
 
+#include "common/network/ip_address.h"
 #include "common/network/ip_packet.h"
 
 #include "fptn-protocol-lib/https/obfuscator/tcp_stream/tcp_stream.h"
@@ -33,10 +34,10 @@ class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
       std::function<void(fptn::common::network::IPPacketPtr packet)>;
   using OnConnectedCallback = std::function<void()>;
 
-  WebsocketClient(pcpp::IPv4Address server_ip,
+  explicit WebsocketClient(fptn::common::network::IPv4Address server_ip,
       int server_port,
-      pcpp::IPv4Address tun_interface_address_ipv4,
-      pcpp::IPv6Address tun_interface_address_ipv6,
+      fptn::common::network::IPv4Address tun_interface_address_ipv4,
+      fptn::common::network::IPv6Address tun_interface_address_ipv6,
       NewIPPacketCallback new_ip_pkt_callback,
       std::string sni,
       std::string access_token,
@@ -88,10 +89,12 @@ class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
       boost::system::error_code, fptn::common::network::IPPacketPtr)>
       write_channel_;
 
-  const pcpp::IPv4Address server_ip_;
+  const fptn::common::network::IPv4Address server_ip_;
   const std::string server_port_str_;
-  const pcpp::IPv4Address tun_interface_address_ipv4_;
-  const pcpp::IPv6Address tun_interface_address_ipv6_;
+
+  const fptn::common::network::IPv4Address tun_interface_address_ipv4_;
+  const fptn::common::network::IPv6Address tun_interface_address_ipv6_;
+
   const NewIPPacketCallback new_ip_pkt_callback_;
   const std::string sni_;
   const std::string access_token_;
