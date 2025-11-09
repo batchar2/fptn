@@ -28,6 +28,8 @@ class SettingsWidget : public QDialog {
  protected:
   void closeEvent(QCloseEvent* event) override;
   void SetupUi();
+
+  // cppcheck-suppress unknownMacro
  private slots:
   void onExit();
   void onLoadNewConfig();

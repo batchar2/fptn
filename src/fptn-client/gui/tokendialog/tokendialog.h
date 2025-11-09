@@ -20,6 +20,8 @@ class TokenDialog final : public QDialog {
  public:
   explicit TokenDialog(QWidget* parent = nullptr);
   const QString& Token() const;
+
+  // cppcheck-suppress unknownMacro
  private slots:
   void onOkClicked();
 
