@@ -14,22 +14,26 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 using fptn::nat::Table;
 
-Table::Table(const pcpp::IPv4Address& tun_ipv4,
-    const pcpp::IPv4Address& tun_ipv4_network_address,
+Table::Table(fptn::common::network::IPv4Address tun_ipv4,
+    fptn::common::network::IPv4Address tun_ipv4_network_address,
     std::uint32_t tun_network_ipv4_mask,
-    const pcpp::IPv6Address& tun_ipv6,
-    const pcpp::IPv6Address& tun_ipv6_network_address,
+    fptn::common::network::IPv6Address tun_ipv6,
+    fptn::common::network::IPv6Address tun_ipv6_network_address,
     std::uint32_t tun_network_ipv6_mask)
     : client_number_(0),
-      tun_ipv4_(tun_ipv4),
-      tun_ipv6_(tun_ipv6),
-      ipv4_generator_(tun_ipv4_network_address, tun_network_ipv4_mask),
-      ipv6_generator_(tun_ipv6_network_address, tun_network_ipv6_mask) {}
+      tun_ipv4_(std::move(tun_ipv4)),
+      tun_ipv4_network_address_(std::move(tun_ipv4_network_address)),
+      tun_network_ipv4_mask_(tun_network_ipv4_mask),
+      tun_ipv6_(std::move(tun_ipv6)),
+      tun_ipv6_network_address_(std::move(tun_ipv6_network_address)),
+      tun_network_ipv6_mask_(tun_network_ipv6_mask),
+      ipv4_generator_(tun_ipv4_network_address_, tun_network_ipv4_mask_),
+      ipv6_generator_(tun_ipv6_network_address_, tun_network_ipv6_mask_) {}
 
 fptn::client::SessionSPtr Table::CreateClientSession(ClientID client_id,
     const std::string& user_name,
-    const pcpp::IPv4Address& client_ipv4,
-    const pcpp::IPv6Address& client_ipv6,
+    const fptn::common::network::IPv4Address& client_ipv4,
+    const fptn::common::network::IPv6Address& client_ipv6,
     const fptn::traffic_shaper::LeakyBucketSPtr& to_client,
     const fptn::traffic_shaper::LeakyBucketSPtr& from_client) {
   const std::unique_lock<std::mutex> lock(mutex_);  // mutex
@@ -49,9 +53,9 @@ fptn::client::SessionSPtr Table::CreateClientSession(ClientID client_id,
           from_client);
       client_id_to_sessions_.insert({client_id, session});
       ipv4_to_sessions_.insert(
-          {fake_ipv4.toInt(), session});  // ipv4 -> session
+          {fake_ipv4.ToInt(), session});  // ipv4 -> session
       ipv6_to_sessions_.insert(
-          {fake_ipv6.toString(), session});  // ipv6 -> session
+          {fake_ipv6.ToString(), session});  // ipv6 -> session
       return session;
     } catch (const std::runtime_error& err) {
       SPDLOG_INFO("Client error: {}", err.what());
@@ -73,8 +77,8 @@ bool Table::DelClientSession(ClientID client_id) {
 
     auto it = client_id_to_sessions_.find(client_id);
     if (it != client_id_to_sessions_.end()) {
-      const IPv4INT ipv4_int = it->second->FakeClientIPv4().toInt();
-      const std::string ipv6_str = it->second->FakeClientIPv6().toString();
+      const IPv4INT ipv4_int = it->second->FakeClientIPv4().ToInt();
+      const std::string ipv6_str = it->second->FakeClientIPv6().ToString();
       client_id_to_sessions_.erase(it);
 
       // delete ipv4 -> session
@@ -99,10 +103,10 @@ bool Table::DelClientSession(ClientID client_id) {
 }
 
 fptn::client::SessionSPtr Table::GetSessionByFakeIPv4(
-    const pcpp::IPv4Address& ip) noexcept {
+    const fptn::common::network::IPv4Address& ip) noexcept {
   const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
-  auto it = ipv4_to_sessions_.find(ip.toInt());
+  const auto it = ipv4_to_sessions_.find(ip.ToInt());
   if (it != ipv4_to_sessions_.end()) {
     return it->second;
   }
@@ -110,10 +114,10 @@ fptn::client::SessionSPtr Table::GetSessionByFakeIPv4(
 }
 
 fptn::client::SessionSPtr Table::GetSessionByFakeIPv6(
-    const pcpp::IPv6Address& ip) noexcept {
+    const fptn::common::network::IPv6Address& ip) noexcept {
   const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
-  auto it = ipv6_to_sessions_.find(ip.toString());
+  auto it = ipv6_to_sessions_.find(ip.ToString());
   if (it != ipv6_to_sessions_.end()) {
     return it->second;
   }
@@ -136,25 +140,24 @@ std::size_t Table::GetNumberActiveSessionByUsername(
   const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
   return std::count_if(ipv4_to_sessions_.begin(), ipv4_to_sessions_.end(),
-      [&username](const auto& pair) {
-        return pair.second->UserName() == username;
-      });
+      [&username](
+          const auto& pair) { return pair.second->UserName() == username; });
 }
 
-pcpp::IPv4Address Table::GetUniqueIPv4Address() {
+fptn::common::network::IPv4Address Table::GetUniqueIPv4Address() {
   for (std::uint32_t i = 0; i < ipv4_generator_.NumAvailableAddresses(); i++) {
     const auto ip = ipv4_generator_.GetNextAddress();
-    if (ip != tun_ipv4_ && !ipv4_to_sessions_.contains(ip.toInt())) {
+    if (ip != tun_ipv4_ && !ipv4_to_sessions_.contains(ip.ToInt())) {
       return ip;
     }
   }
   throw std::runtime_error("No available address");
 }
 
-pcpp::IPv6Address Table::GetUniqueIPv6Address() {
+fptn::common::network::IPv6Address Table::GetUniqueIPv6Address() {
   for (int i = 0; i < ipv6_generator_.NumAvailableAddresses(); i++) {
     const auto ip = ipv6_generator_.GetNextAddress();
-    if (ip != tun_ipv6_ && !ipv6_to_sessions_.contains(ip.toString())) {
+    if (ip != tun_ipv6_ && !ipv6_to_sessions_.contains(ip.ToString())) {
       return ip;
     }
   }

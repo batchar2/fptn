@@ -9,6 +9,13 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Global project definitions
+
+if (FPTN_BUILD_ONLY_FPTN_LIB)
+  # build fptnlib without pcappp
+  set(FPTN_IP_ADDRESS_WITHOUT_PCAP ON)
+  add_compile_definitions(FPTN_IP_ADDRESS_WITHOUT_PCAP)
+endif()
+
 add_compile_definitions(FPTN_VERSION=\"${FPTN_VERSION}\")
 add_compile_definitions(FPTN_MTU_SIZE=1500)
 add_compile_definitions(FPTN_DEFAULT_SNI=\"rutube.ru\")

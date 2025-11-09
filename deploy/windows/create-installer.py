@@ -56,9 +56,7 @@ def download_file(url: str, destination_path: pathlib.Path) -> bool:
                 file.write(response.content)
             print(f"File downloaded successfully: {destination_path}")
             return True
-        raise ConnectionError(
-            f"Failed to download file: HTTP {response.status_code} {response.reason}"
-        )
+        raise ConnectionError(f"Failed to download file: HTTP {response.status_code} {response.reason}")
     except Exception as err:
         raise err
 
@@ -118,17 +116,13 @@ def copy_qt_libraries(frameworks_path: pathlib.Path):
             shutil.copy(lib, frameworks_path / lib_name)
         elif "qtbase/plugins" in str(lib_path.as_posix()):
             separated = str(lib_path.as_posix()).split("qtbase/plugins/")
-            plugin_folder = frameworks_qt_plugins_path / separated[1].replace(
-                lib_name, ""
-            )
+            plugin_folder = frameworks_qt_plugins_path / separated[1].replace(lib_name, "")
             os.makedirs(plugin_folder, exist_ok=True)
             print(f"Copy {lib_path} -> {plugin_folder / lib_name}")
             shutil.copy(lib, plugin_folder / lib_name)
 
 
-def compile_inno_setup_script(
-    script_path: pathlib.Path, output_dir: pathlib.Path
-) -> bool:
+def compile_inno_setup_script(script_path: pathlib.Path, output_dir: pathlib.Path) -> bool:
     command = [INNOSETUP_DEFAULT_PATH, script_path]
     # if output_dir:
     #     command.append(f"/O{output_dir}")
@@ -158,9 +152,7 @@ def compile_inno_setup_script(
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="A script to manage the build process for FPTN Client."
-    )
+    parser = argparse.ArgumentParser(description="A script to manage the build process for FPTN Client.")
     parser.add_argument(
         "--wintun-dll",
         type=pathlib.Path,
@@ -185,13 +177,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if is_arm_64():
-        download_file(
-            "https://aka.ms/vs/17/release/vc_redist.arm64.exe", DEPENDS_VC_REDIST_PATH
-        )
+        download_file("https://aka.ms/vs/17/release/vc_redist.arm64.exe", DEPENDS_VC_REDIST_PATH)
     elif is_windows_x86_64():
-        download_file(
-            "https://aka.ms/vs/17/release/vc_redist.x64.exe", DEPENDS_VC_REDIST_PATH
-        )
+        download_file("https://aka.ms/vs/17/release/vc_redist.x64.exe", DEPENDS_VC_REDIST_PATH)
     else:
         raise EnvironmentError("Unsuported system!")
     # copy wintun dll
@@ -236,17 +224,10 @@ if __name__ == "__main__":
 
     # change permissions
     manifest = INSTALLER_DIR / "app.manifest"
-    run_command(
-        f'mt.exe -manifest "{manifest.as_posix()}" -outputresource:"{APP_FPTN_CLIENT.as_posix()}";1'
-    )
-    run_command(
-        f'mt.exe -manifest "{manifest.as_posix()}" -outputresource:"{APP_FPTN_CLIENT_CLI.as_posix()}";1'
-    )
+    run_command(f'mt.exe -manifest "{manifest.as_posix()}" -outputresource:"{APP_FPTN_CLIENT.as_posix()}";1')
+    run_command(f'mt.exe -manifest "{manifest.as_posix()}" -outputresource:"{APP_FPTN_CLIENT_CLI.as_posix()}";1')
 
     compile_inno_setup_script(PREPARED_INNOSETUP_SCRIPT_PATH, OUTPUT_DIR)
     arch = "arm64" if is_arm_64() else "x64_x86"
-    output_file = (
-        pathlib.Path(args.output_folder)
-        / f"FptnClientInstaller-{args.version}-windows-{arch}.exe"
-    )
+    output_file = pathlib.Path(args.output_folder) / f"FptnClientInstaller-{args.version}-windows-{arch}.exe"
     shutil.copy(INSTALLER_DIR / "Output" / "FptnClientInstaller.exe", output_file)

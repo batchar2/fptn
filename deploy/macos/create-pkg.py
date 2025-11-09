@@ -27,9 +27,7 @@ def run_command(command, cwd=None):
         capture_output=True,
     )
     if result.returncode != 0:
-        raise RuntimeError(
-            f"Command '{command}' failed with error: {result.stderr.strip()}"
-        )
+        raise RuntimeError(f"Command '{command}' failed with error: {result.stderr.strip()}")
     return result.stdout.strip()
 
 
@@ -38,12 +36,7 @@ def save_tunnelblick_tun_driver(target_dir: pathlib.Path) -> bool:
     with tempfile.TemporaryDirectory() as temp_git_dir:
         print("Cloning repository...")
         run_command(f"git clone --depth 1 -b master {repo_url}", cwd=temp_git_dir)
-        source_folder = (
-                pathlib.Path(temp_git_dir)
-                / "Tunnelblick"
-                / "third_party"
-                / "tun-notarized.kext"
-        )
+        source_folder = pathlib.Path(temp_git_dir) / "Tunnelblick" / "third_party" / "tun-notarized.kext"
         if source_folder.exists():
             print(f"Copying folder '{source_folder}' to target directory...")
             shutil.copytree(source_folder, target_dir, dirs_exist_ok=True)
@@ -53,10 +46,10 @@ def save_tunnelblick_tun_driver(target_dir: pathlib.Path) -> bool:
 
 
 def create_app(
-        app_path: pathlib.Path,
-        fptn_client_cli: pathlib.Path,
-        fptn_client_gui: pathlib.Path,
-        version: str,
+    app_path: pathlib.Path,
+    fptn_client_cli: pathlib.Path,
+    fptn_client_gui: pathlib.Path,
+    version: str,
 ) -> bool:
     print(app_path)
     try:
@@ -78,9 +71,7 @@ def create_app(
         shutil.copy(fptn_client_cli, binary_dest)
         os.chmod(binary_dest, 0o755)
         # copy wrapper of program
-        fptn_client_cli_wrapper_sh = (
-                SCRIPT_FOLDER / "scripts" / "fptn-client-cli-wrapper.sh"
-        )
+        fptn_client_cli_wrapper_sh = SCRIPT_FOLDER / "scripts" / "fptn-client-cli-wrapper.sh"
         fptn_client_cli_wrapper_sh_dest = macos_path / "fptn-client-cli-wrapper.sh"
         shutil.copy(fptn_client_cli_wrapper_sh, fptn_client_cli_wrapper_sh_dest)
         os.chmod(binary_dest, 0o755)
@@ -89,21 +80,15 @@ def create_app(
         binary_dest = macos_path / "fptn-client-gui"
         shutil.copy(fptn_client_gui, binary_dest)
         # Fix rpath
-        run_command(
-            f'install_name_tool -add_rpath @executable_path/../Frameworks {macos_path / "fptn-client-gui"}'
-        )
+        run_command(f'install_name_tool -add_rpath @executable_path/../Frameworks {macos_path / "fptn-client-gui"}')
 
         os.chmod(binary_dest, 0o755)
-        fptn_client_gui_wrapper_sh = (
-                SCRIPT_FOLDER / "scripts" / "fptn-client-gui-wrapper.sh"
-        )
+        fptn_client_gui_wrapper_sh = SCRIPT_FOLDER / "scripts" / "fptn-client-gui-wrapper.sh"
         fptn_client_gui_wrapper_sh_dest = macos_path / "fptn-client-gui-wrapper.sh"
         shutil.copy(fptn_client_gui_wrapper_sh, fptn_client_gui_wrapper_sh_dest)
         os.chmod(binary_dest, 0o4755)  # 0o755)
 
-        qt_libs = run_command(
-            r'find ~/.conan2 -type f \( -name "*.dylib" \) | grep Release'
-        )
+        qt_libs = run_command(r'find ~/.conan2 -type f \( -name "*.dylib" \) | grep Release')
 
         qt_lib_paths = qt_libs.splitlines()
         for lib in qt_lib_paths:
@@ -116,9 +101,7 @@ def create_app(
                 shutil.copy(lib, frameworks_path / lib_name)
             elif "qtbase/plugins/" in str(lib_path):
                 separeted = lib.split(r"qtbase/plugins/")
-                plugin_folder = frameworks_qt_plugins_path / separeted[1].replace(
-                    lib_name, ""
-                )
+                plugin_folder = frameworks_qt_plugins_path / separeted[1].replace(lib_name, "")
                 os.makedirs(plugin_folder, exist_ok=True)
 
                 print(f"Copy {lib_path} -> {plugin_folder / lib_name}")
@@ -193,12 +176,8 @@ def create_pkg(app_path: pathlib.Path, version: str) -> bool:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="PKG build configuration.")
-    parser.add_argument(
-        "--fptn-client-cli", required=True, help="Path to the cli application binary."
-    )
-    parser.add_argument(
-        "--fptn-client-gui", required=True, help="Path to the gui application binary."
-    )
+    parser.add_argument("--fptn-client-cli", required=True, help="Path to the cli application binary.")
+    parser.add_argument("--fptn-client-gui", required=True, help="Path to the gui application binary.")
     parser.add_argument("--version", required=True, help="Version")
     args = parser.parse_args()
 

@@ -7,7 +7,7 @@ on:
     tags:
       - '*'
   release:
-    types: [published]
+    types: [ published ]
 
 jobs:
   build_ubuntu_x86_64:
@@ -93,7 +93,7 @@ jobs:
           python3 cpplint.py --recursive --filter=-build/c++17 --counting=total ./src/ ./tests/
       - name: Run cppcheck
         run: |
-          cppcheck --error-exitcode=1 --enable=all --language=c++ --suppress=unusedFunction --inline-suppr --suppress=missingIncludeSystem -I ./src/fptn-client/ -I ./src/fptn-server/ -I ./src/fptn-passwd/ -I ./src/fptn-client-protocol-lib -I ./src/ ./src/ ./tests/
+          cppcheck --error-exitcode=1 --enable=all --check-level=exhaustive --language=c++ --suppress=unusedFunction --inline-suppr --suppress=missingIncludeSystem -I ./src/fptn-client/ -I ./src/fptn-server/ -I ./src/fptn-passwd/ -I ./src/fptn-client-protocol-lib -I ./src/ ./src/ ./tests/
       - name: Run cmake-format
         run: |
           cmake-format -i CMakeLists.txt src/fptn-client/CMakeLists.txt src/fptn-passwd/CMakeLists.txt src/fptn-server/CMakeLists.txt src/fptn-protocol-lib/CMakeLists.txt depends/cmake/FetchBase64.cmake depends/cmake/FetchLibTunTap.cmake depends/cmake/FetchWintun.cmake
@@ -144,13 +144,13 @@ jobs:
           sed -i '' "s/^FPTN_VERSION = \".*\"/FPTN_VERSION = \"$RELEASE_VERSION\"/" conanfile.py
       - name: Install dependencies
         run: |
-          CXXFLAGS="-Wno-vla-cxx-extension -Wno-error=vla-cxx-extension" conan install . --output-folder=build --build=missing -o with_gui_client=True --settings build_type=Release -s compiler.cppstd=17
+          conan install . --output-folder=build --build=missing -o with_gui_client=True --settings build_type=Release -s compiler.cppstd=17
       - name: Run cpplint
         run: |
           python3 cpplint.py --recursive --filter=-build/c++17 --counting=total ./src/ ./tests/
       - name: Run cppcheck
         run: |
-          cppcheck --error-exitcode=1 --enable=all --check-level=exhaustive --language=c++ --suppress=unusedFunction --inline-suppr --suppress=missingIncludeSystem --suppress=unknownMacro -I ./src/fptn-client/ -I ./src/fptn-server/ -I ./src/fptn-passwd/ -I ./src/fptn-client-protocol-lib -I ./src/  ./src/ ./tests/
+          cppcheck --error-exitcode=1 --enable=all --check-level=exhaustive --language=c++ --suppress=unusedFunction --inline-suppr --suppress=missingIncludeSystem --suppress=unknownMacro --suppress=unmatchedSuppression -I ./src/fptn-client/ -I ./src/fptn-server/ -I ./src/fptn-passwd/ -I ./src/fptn-client-protocol-lib -I ./src/  ./src/ ./tests/
       - name: Run cmake-format
         run: |
           cmake-format -i CMakeLists.txt src/fptn-client/CMakeLists.txt src/fptn-passwd/CMakeLists.txt src/fptn-server/CMakeLists.txt src/fptn-protocol-lib/CMakeLists.txt depends/cmake/FetchBase64.cmake depends/cmake/FetchLibTunTap.cmake depends/cmake/FetchWintun.cmake

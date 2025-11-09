@@ -18,10 +18,10 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 using fptn::protocol::websocket::WebsocketClient;
 
-WebsocketClient::WebsocketClient(pcpp::IPv4Address server_ip,
+WebsocketClient::WebsocketClient(fptn::common::network::IPv4Address server_ip,
     int server_port,
-    pcpp::IPv4Address tun_interface_address_ipv4,
-    pcpp::IPv6Address tun_interface_address_ipv6,
+    fptn::common::network::IPv4Address tun_interface_address_ipv4,
+    fptn::common::network::IPv6Address tun_interface_address_ipv6,
     NewIPPacketCallback new_ip_pkt_callback,
     std::string sni,
     std::string access_token,
@@ -73,7 +73,7 @@ WebsocketClient::~WebsocketClient() {
 void WebsocketClient::Run() {
   try {
     running_ = true;
-    SPDLOG_INFO("Connection: {}:{}", server_ip_.toString(), server_port_str_);
+    SPDLOG_INFO("Connection: {}:{}", server_ip_.ToString(), server_port_str_);
 
     auto self = shared_from_this();
 
@@ -106,7 +106,7 @@ void WebsocketClient::Run() {
         });
 
     // Resolve operations
-    resolver_.async_resolve(server_ip_.toString(), server_port_str_,
+    resolver_.async_resolve(server_ip_.ToString(), server_port_str_,
         [self, resolve_timeout](boost::beast::error_code ec,
             boost::asio::ip::tcp::resolver::results_type results) mutable {
           try {
@@ -303,9 +303,9 @@ void WebsocketClient::onSslHandshake(boost::beast::error_code ec) {
               }
               // set custom headers
               req.set("Authorization", "Bearer " + self->access_token_);
-              req.set("ClientIP", self->tun_interface_address_ipv4_.toString());
+              req.set("ClientIP", self->tun_interface_address_ipv4_.ToString());
               req.set(
-                  "ClientIPv6", self->tun_interface_address_ipv6_.toString());
+                  "ClientIPv6", self->tun_interface_address_ipv6_.ToString());
               req.set("Client-Agent",
                   fmt::format("FptnClient({}/{})", FPTN_USER_OS, FPTN_VERSION));
             }
@@ -319,7 +319,7 @@ void WebsocketClient::onSslHandshake(boost::beast::error_code ec) {
         }));
 
     // Perform the websocket handshake
-    ws_.async_handshake(server_ip_.toString(), kUrlWebSocket_,
+    ws_.async_handshake(server_ip_.ToString(), kUrlWebSocket_,
         boost::beast::bind_front_handler(
             &WebsocketClient::onHandshake, shared_from_this()));
   } catch (const boost::system::system_error& err) {
