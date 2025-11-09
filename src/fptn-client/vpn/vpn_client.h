@@ -19,7 +19,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 namespace fptn::vpn {
 class VpnClient final {
  public:
-  explicit VpnClient(fptn::http::ClientPtr http_client,
+  explicit VpnClient(fptn::vpn::http::ClientPtr http_client,
       fptn::common::network::TunInterfacePtr virtual_net_interface,
       const pcpp::IPv4Address& dns_server_ipv4,
       const pcpp::IPv6Address& dns_server_ipv6);
@@ -39,7 +39,7 @@ class VpnClient final {
   mutable std::mutex mutex_;
   std::atomic<bool> running_;
 
-  fptn::http::ClientPtr http_client_;
+  fptn::vpn::http::ClientPtr http_client_;
   fptn::common::network::TunInterfacePtr virtual_net_interface_;
   const pcpp::IPv4Address dns_server_ipv4_;
   const pcpp::IPv6Address dns_server_ipv6_;

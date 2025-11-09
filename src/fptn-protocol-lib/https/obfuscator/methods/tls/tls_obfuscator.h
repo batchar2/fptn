@@ -19,11 +19,13 @@ class TlsObfuscator : public IObfuscator {
   TlsObfuscator() = default;
   ~TlsObfuscator() override = default;
 
-  std::vector<std::uint8_t> Deobfuscate(
-      const std::uint8_t* data, std::size_t size) override;
-  std::vector<std::uint8_t> Obfuscate(
-      const std::uint8_t* data, std::size_t size) override;
+  bool AddData(const std::uint8_t* data, std::size_t size) override;
+
+  PreparedData Deobfuscate() override;
+  PreparedData Obfuscate(const std::uint8_t* data, std::size_t size) override;
   void Reset() override;
+
+  bool HasPendingData() const override;
 
   bool CheckProtocol(const std::uint8_t* data, std::size_t size) override;
 

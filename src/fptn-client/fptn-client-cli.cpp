@@ -15,8 +15,6 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <utility>
 
 #include <argparse/argparse.hpp>
-#include <boost/asio.hpp>
-#include <boost/process.hpp>
 #include <fmt/format.h>  // NOLINT(build/include_order)
 #include <fmt/ranges.h>  // NOLINT(build/include_order)
 
@@ -26,18 +24,9 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "config/config_file.h"
 #include "fptn-protocol-lib/https/obfuscator/methods/detector.h"
 #include "fptn-protocol-lib/time/time_provider.h"
-#include "http/client.h"
 #include "routing/iptables.h"
+#include "utils/signal/main_loop.h"
 #include "vpn/vpn_client.h"
-
-namespace {
-void WaitForSignal() {
-  boost::asio::io_context io_context;
-  boost::asio::signal_set signals(io_context, SIGINT, SIGTERM);
-  signals.async_wait([&](auto, auto) { io_context.stop(); });
-  io_context.run();
-}
-}  // namespace
 
 int main(int argc, char* argv[]) {
 #if defined(__linux__) || defined(__APPLE__)
@@ -46,7 +35,6 @@ int main(int argc, char* argv[]) {
     return EXIT_FAILURE;
   }
 #endif
-
   try {
     using fptn::protocol::https::obfuscator::GetObfuscatorByName;
     using fptn::protocol::https::obfuscator::GetObfuscatorNames;
@@ -179,10 +167,10 @@ int main(int argc, char* argv[]) {
         tun_interface_address_ipv6.toString(), obfuscator_name);
 
     /* auth & dns */
-    auto http_client =
-        std::make_unique<fptn::http::Client>(server_ip, selected_server.port,
-            tun_interface_address_ipv4, tun_interface_address_ipv6, sni,
-            selected_server.md5_fingerprint, obfuscator.value());
+    auto http_client = std::make_unique<fptn::vpn::http::Client>(server_ip,
+        selected_server.port, tun_interface_address_ipv4,
+        tun_interface_address_ipv6, sni, selected_server.md5_fingerprint,
+        obfuscator.value());
     const bool status =
         http_client->Login(config.GetUsername(), config.GetPassword());
     if (!status) {
@@ -215,8 +203,6 @@ int main(int argc, char* argv[]) {
     /* vpn client */
     fptn::vpn::VpnClient vpn_client(std::move(http_client),
         std::move(virtual_network_interface), dnsServerIPv4, dnsServerIPv6);
-
-    /* loop */
     vpn_client.Start();
 
     // Wait for the WebSocket tunnel to establish
@@ -230,15 +216,15 @@ int main(int argc, char* argv[]) {
       std::this_thread::sleep_for(std::chrono::microseconds(200));
     }
 
-    // start
     iptables->Apply();
-    WaitForSignal();
+
+    /* start event loop */
+    fptn::utils::WaitForSignal(vpn_client);
 
     /* clean */
     iptables->Clean();
     vpn_client.Stop();
     spdlog::shutdown();
-
     return EXIT_SUCCESS;
   } catch (const std::exception& ex) {
     SPDLOG_ERROR("An error occurred: {}. Exiting...", ex.what());

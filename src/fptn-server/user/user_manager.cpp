@@ -13,8 +13,6 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <fmt/format.h>     // NOLINT(build/include_order)
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
-#include "fptn-protocol-lib/https/obfuscator/methods/none/none_obfuscator.h"
-
 using fptn::user::UserManager;
 
 UserManager::UserManager(const std::string& userfile,
@@ -27,8 +25,7 @@ UserManager::UserManager(const std::string& userfile,
   if (use_remote_server_) {
     // remote user list
     http_api_client_ = std::make_unique<fptn::protocol::https::ApiClient>(
-        remote_server_ip_, remote_server_port,
-        std::make_shared<fptn::protocol::https::obfuscator::NoneObfuscator>());
+        remote_server_ip_, remote_server_port, nullptr);
   } else {
     // local user list
     common_manager_ =

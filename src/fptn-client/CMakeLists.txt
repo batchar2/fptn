@@ -27,8 +27,8 @@ add_executable(
   fptn-client-cli.cpp
   vpn/vpn_client.h
   vpn/vpn_client.cpp
-  http/client.h
-  http/client.cpp
+  vpn/http/client.h
+  vpn/http/client.cpp
   routing/iptables.h
   routing/iptables.cpp
   config/config_file.cpp
@@ -88,7 +88,8 @@ WarningsAsErrors: ''
 
   set(QT_ADDITIONAL_PARAMS "")
   if(WIN32)
-    set(QT_ADDITIONAL_PARAMS WIN32)
+    set(QT_ADDITIONAL_PARAMS WIN32
+            utils/signal/main_loop.h)
   endif()
 
   set(PLATFORM_SPECIFIC_LIBS "")
@@ -107,8 +108,8 @@ WarningsAsErrors: ''
     fptn-client-gui.cpp
     vpn/vpn_client.h
     vpn/vpn_client.cpp
-    http/client.h
-    http/client.cpp
+    vpn/http/client.h
+    vpn/http/client.cpp
     routing/iptables.h
     routing/iptables.cpp
     config/config_file.cpp

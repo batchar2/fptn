@@ -17,7 +17,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include "fptn-protocol-lib/https/websocket_client/websocket_client.h"
 
-namespace fptn::http {
+namespace fptn::vpn::http {
 
 class Client final {
  public:
@@ -74,4 +74,4 @@ class Client final {
 };
 
 using ClientPtr = std::unique_ptr<Client>;
-}  // namespace fptn::http
+}  // namespace fptn::vpn::http

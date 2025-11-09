@@ -30,7 +30,6 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "common/network/utils.h"
 
 #include "fptn-protocol-lib/https/obfuscator/methods/detector.h"
-#include "fptn-protocol-lib/https/obfuscator/methods/none/none_obfuscator.h"
 #include "fptn-protocol-lib/https/utils/tls/tls.h"
 #include "fptn-protocol-lib/protobuf/protocol.h"
 #include "fptn-protocol-lib/time/time_provider.h"

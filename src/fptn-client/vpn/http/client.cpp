@@ -4,7 +4,7 @@ Copyright (c) 2024-2025 Stas Skokov
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
 
-#include "http/client.h"
+#include "vpn/http/client.h"
 
 #include <memory>
 #include <string>
@@ -17,8 +17,8 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "fptn-protocol-lib/https/api_client/api_client.h"
 #include "routing/iptables.h"
 
-using fptn::http::Client;
 using fptn::protocol::https::ApiClient;
+using fptn::vpn::http::Client;
 
 Client::Client(pcpp::IPv4Address server_ip,
     int server_port,
@@ -154,6 +154,13 @@ void Client::Run() {
     if (running_ && ws_) {
       ws_->Run();  // Start the WebSocket client
     }
+    if (running_) {
+      const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+      if (running_ && ws_) {
+        ws_->Stop();
+        ws_.reset();
+      }
+    }
     if (!running_) {
       break;
     }
@@ -180,6 +187,13 @@ void Client::Run() {
 
     std::this_thread::sleep_for(kReconnectionDelay);
   }
+
+  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+  if (running_ && ws_) {
+    ws_->Stop();
+    ws_.reset();
+  }
+
   if (running_ && !reconnection_attempts_) {
     SPDLOG_ERROR("Connection failure: Could not establish connection");
   }
@@ -196,14 +210,15 @@ bool Client::Stop() {
     return false;
   }
 
-  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
-
-  // cppcheck-suppress identicalConditionAfterEarlyExit
-  if (!running_) {  // Double-check after acquiring lock
-    return false;
+  {
+    const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+    // cppcheck-suppress identicalConditionAfterEarlyExit
+    if (!running_) {  // Double-check after acquiring lock
+      return false;
+    }
+    running_ = false;
   }
 
-  running_ = false;
   if (ws_) {
     ws_->Stop();
     ws_.reset();

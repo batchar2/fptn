@@ -35,7 +35,6 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <boost/beast/ssl.hpp>
 #include <boost/nowide/convert.hpp>
 
-#include "fptn-protocol-lib/https/obfuscator/methods/none/none_obfuscator.h"
 #include "fptn-protocol-lib/https/obfuscator/tcp_stream/tcp_stream.h"
 #include "fptn-protocol-lib/https/utils/tls/tls.h"
 

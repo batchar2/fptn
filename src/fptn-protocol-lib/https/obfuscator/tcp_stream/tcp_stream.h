@@ -6,10 +6,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #pragma once
 
-#include <iostream>
 #include <memory>
-#include <mutex>
-#include <thread>
 #include <utility>
 #include <vector>
 
@@ -22,7 +19,6 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 namespace fptn::protocol::https::obfuscator {
 
-// Need to refactor
 template <typename Stream>
 class TcpStream {
  public:
@@ -71,8 +67,6 @@ class TcpStream {
   template <typename MutableBufferSequence>
   std::size_t read_some(
       const MutableBufferSequence& buffers, boost::system::error_code& ec) {
-    const std::unique_lock<std::mutex> lock(mutex_);  // mutex
-
     if (!obfuscator_) {
       return stream_.read_some(buffers, ec);
     }
@@ -80,27 +74,41 @@ class TcpStream {
     constexpr std::size_t kTempBufferSize = 16 * 1024;
     std::array<std::uint8_t, kTempBufferSize> temp_buffer;
 
-    std::size_t bytes_read =
-        stream_.read_some(boost::asio::buffer(temp_buffer), ec);
-    if (ec || bytes_read == 0) {
-      return bytes_read;
-    }
+    while (true) {
+      if (obfuscator_->HasPendingData()) {
+        auto deobfuscated = obfuscator_->Deobfuscate();
+        if (deobfuscated.has_value()) {
+          return boost::asio::buffer_copy(buffers,
+              boost::asio::buffer(deobfuscated->data(), deobfuscated->size()));
+        }
+      }
 
-    const std::vector<std::uint8_t> deobfuscated =
-        obfuscator_->Deobfuscate(temp_buffer.data(), bytes_read);
+      const std::size_t bytes_read =
+          stream_.read_some(boost::asio::buffer(temp_buffer), ec);
 
-    if (!deobfuscated.empty()) {
-      return boost::asio::buffer_copy(buffers,
-          boost::asio::buffer(deobfuscated.data(), deobfuscated.size()));
+      if (ec) {
+        return bytes_read;
+      }
+
+      if (bytes_read == 0) {
+        return 0;
+      }
+
+      obfuscator_->AddData(temp_buffer.data(), bytes_read);
+
+      auto deobfuscated = obfuscator_->Deobfuscate();
+      if (deobfuscated.has_value()) {
+        return boost::asio::buffer_copy(buffers,
+            boost::asio::buffer(deobfuscated->data(), deobfuscated->size()));
+      }
     }
-    return 0;
   }
 
   template <typename MutableBufferSequence, typename ReadHandler>
   void async_read_some(
       const MutableBufferSequence& buffers, ReadHandler&& handler) {
     if (!obfuscator_) {
-      boost::asio::post(
+      boost::asio::dispatch(
           strand_, [this, buffers,
                        handler = std::forward<ReadHandler>(handler)]() mutable {
             stream_.async_read_some(buffers, std::move(handler));
@@ -108,9 +116,18 @@ class TcpStream {
       return;
     }
 
-    boost::asio::post(strand_, [this, buffers,
-                                   handler = std::forward<ReadHandler>(
-                                       handler)]() mutable {
+    boost::asio::dispatch(strand_, [this, buffers,
+                                       handler = std::forward<ReadHandler>(
+                                           handler)]() mutable {
+      if (obfuscator_->HasPendingData()) {
+        auto deobfuscated = obfuscator_->Deobfuscate();
+        if (deobfuscated.has_value()) {
+          const std::size_t bytes_copied = boost::asio::buffer_copy(
+              buffers, boost::asio::buffer(deobfuscated.value()));
+          handler(boost::system::error_code{}, bytes_copied);
+          return;
+        }
+      }
       stream_.async_read_some(buffers,
           [this, buffers, handler = std::move(handler)](
               boost::system::error_code ec, std::size_t bytes_read) mutable {
@@ -125,22 +142,31 @@ class TcpStream {
               const std::uint8_t* data_ptr =
                   static_cast<std::uint8_t*>(first_buffer.data());
 
-              std::vector<std::uint8_t> deobfuscated =
-                  obfuscator_->Deobfuscate(data_ptr, bytes_read);
+              obfuscator_->AddData(data_ptr, bytes_read);
 
-              const std::size_t bytes_copied = boost::asio::buffer_copy(
-                  buffers, boost::asio::buffer(deobfuscated));
-              handler(ec, bytes_copied);
+              auto deobfuscated = obfuscator_->Deobfuscate();
+
+              if (deobfuscated.has_value()) {
+                const std::size_t bytes_copied = boost::asio::buffer_copy(
+                    buffers, boost::asio::buffer(deobfuscated.value()));
+                handler(ec, bytes_copied);
+              } else {
+                this->async_read_some(buffers, std::move(handler));
+              }
             } else {
               std::vector<std::uint8_t> temp_data(bytes_read);
               boost::asio::buffer_copy(boost::asio::buffer(temp_data), buffers);
+              obfuscator_->AddData(temp_data.data(), bytes_read);
 
-              std::vector<std::uint8_t> deobfuscated =
-                  obfuscator_->Deobfuscate(temp_data.data(), bytes_read);
+              auto deobfuscated = obfuscator_->Deobfuscate();
 
-              const std::size_t bytes_copied = boost::asio::buffer_copy(
-                  buffers, boost::asio::buffer(deobfuscated));
-              handler(ec, bytes_copied);
+              if (deobfuscated.has_value()) {
+                const std::size_t bytes_copied = boost::asio::buffer_copy(
+                    buffers, boost::asio::buffer(deobfuscated.value()));
+                handler(ec, bytes_copied);
+              } else {
+                this->async_read_some(buffers, std::move(handler));
+              }
             }
           });
     });
@@ -149,8 +175,6 @@ class TcpStream {
   template <typename ConstBufferSequence>
   std::size_t write_some(
       const ConstBufferSequence& buffers, boost::system::error_code& ec) {
-    const std::unique_lock<std::mutex> lock(mutex_);  // mutex
-
     if (!obfuscator_) {
       return stream_.write_some(buffers, ec);
     }
@@ -158,21 +182,21 @@ class TcpStream {
     std::vector<std::uint8_t> plain_data(boost::asio::buffer_size(buffers));
     boost::asio::buffer_copy(boost::asio::buffer(plain_data), buffers);
 
-    std::vector<std::uint8_t> obfuscated =
+    auto obfuscated =
         obfuscator_->Obfuscate(plain_data.data(), plain_data.size());
 
-    if (obfuscated.empty()) {
+    if (!obfuscated.has_value()) {
       ec = boost::asio::error::eof;
       return 0;
     }
-    return stream_.write_some(boost::asio::buffer(obfuscated), ec);
+    return stream_.write_some(boost::asio::buffer(obfuscated.value()), ec);
   }
 
   template <typename ConstBufferSequence, typename WriteHandler>
   void async_write_some(
       const ConstBufferSequence& buffers, WriteHandler&& handler) {
     if (!obfuscator_) {
-      boost::asio::post(strand_,
+      boost::asio::dispatch(strand_,
           [this, buffers,
               handler = std::forward<WriteHandler>(handler)]() mutable {
             stream_.async_write_some(buffers, std::move(handler));
@@ -184,18 +208,17 @@ class TcpStream {
     auto plain_data = std::make_shared<std::vector<std::uint8_t>>(total_size);
     boost::asio::buffer_copy(boost::asio::buffer(*plain_data), buffers);
 
-    boost::asio::post(
+    boost::asio::dispatch(
         strand_, [this, plain_data,
                      handler = std::forward<WriteHandler>(handler)]() mutable {
-          std::vector<std::uint8_t> obfuscated_data =
+          auto obfuscated_data =
               obfuscator_->Obfuscate(plain_data->data(), plain_data->size());
-          if (obfuscated_data.empty()) {
+          if (!obfuscated_data.has_value()) {
             handler(boost::system::error_code(boost::asio::error::eof), 0);
             return;
           }
-
           stream_.async_write_some(
-              boost::asio::buffer(obfuscated_data), std::move(handler));
+              boost::asio::buffer(obfuscated_data.value()), std::move(handler));
         });
   }
 
@@ -204,77 +227,42 @@ class TcpStream {
     return stream_.async_connect(std::forward<Args>(args)...);
   }
 
-  void close() {
-    const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+  void close() { stream_.close(); }
 
-    stream_.close();
-  }
-
-  void close(boost::system::error_code& ec) {
-    const std::unique_lock<std::mutex> lock(mutex_);  // mutex
-
-    stream_.close(ec);
-  }
+  void close(boost::system::error_code& ec) { stream_.close(ec); }
 
   template <typename Option>
   void set_option(const Option& option) {
-    const std::unique_lock<std::mutex> lock(mutex_);  // mutex
-
     stream_.set_option(option);
   }
 
   void expires_after(std::chrono::steady_clock::duration expiry_time) {
-    const std::unique_lock<std::mutex> lock(mutex_);  // mutex
-
     stream_.expires_after(expiry_time);
   }
 
-  void expires_never() {
-    const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+  void expires_never() { stream_.expires_never(); }
 
-    stream_.expires_never();
-  }
+  bool is_open() const { return stream_.is_open(); }
 
-  bool is_open() const {
-    const std::unique_lock<std::mutex> lock(mutex_);  // mutex
-
-    return stream_.is_open();
-  }
-
-  auto remote_endpoint() {
-    const std::unique_lock<std::mutex> lock(mutex_);  // mutex
-
-    return stream_.socket().remote_endpoint();
-  }
+  auto remote_endpoint() { return stream_.socket().remote_endpoint(); }
 
   auto remote_endpoint(boost::system::error_code& ec) {
-    const std::unique_lock<std::mutex> lock(mutex_);  // mutex
-
     return stream_.socket().remote_endpoint(ec);
   }
 
-  auto local_endpoint() {
-    const std::unique_lock<std::mutex> lock(mutex_);  // mutex
-
-    return stream_.socket().local_endpoint();
-  }
+  auto local_endpoint() { return stream_.socket().local_endpoint(); }
 
   auto local_endpoint(boost::system::error_code& ec) {
-    const std::unique_lock<std::mutex> lock(mutex_);  // mutex
-
     return stream_.socket().local_endpoint(ec);
   }
 
   void set_obfuscator(IObfuscatorSPtr obfuscator) {
-    const std::unique_lock<std::mutex> lock(mutex_);  // mutex
-
     obfuscator_ = std::move(obfuscator);
   }
 
  protected:
   template <typename Sequence>
   static bool has_single_buffer(const Sequence& buffers) {
-    // REWRITE IT
     std::size_t count = 0;
     auto end = boost::asio::buffer_sequence_end(buffers);
     for (auto it = boost::asio::buffer_sequence_begin(buffers); it != end;
@@ -285,7 +273,6 @@ class TcpStream {
   }
 
  private:
-  mutable std::mutex mutex_;
   Stream stream_;
   boost::asio::strand<executor_type> strand_;
   IObfuscatorSPtr obfuscator_;

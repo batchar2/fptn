@@ -733,10 +733,10 @@ bool TrayApp::startVpn(QString& err_msg) {
     return false;
   }
 
-  auto http_client =
-      std::make_unique<fptn::http::Client>(server_ip, selected_server_.port,
-          tun_interface_address_ipv4, tun_interface_address_ipv6, sni,
-          selected_server_.md5_fingerprint, obfuscator, nullptr);
+  auto http_client = std::make_unique<fptn::vpn::http::Client>(server_ip,
+      selected_server_.port, tun_interface_address_ipv4,
+      tun_interface_address_ipv6, sni, selected_server_.md5_fingerprint,
+      obfuscator, nullptr);
   // login
   bool login_status =
       http_client->Login(selected_server_.username, selected_server_.password);

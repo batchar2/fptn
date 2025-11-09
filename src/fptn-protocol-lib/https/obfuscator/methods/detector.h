@@ -13,7 +13,6 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
-#include "fptn-protocol-lib/https/obfuscator/methods/none/none_obfuscator.h"
 #include "fptn-protocol-lib/https/obfuscator/methods/obfuscator_interface.h"
 #include "fptn-protocol-lib/https/obfuscator/methods/tls/tls_obfuscator.h"
 
@@ -28,8 +27,7 @@ inline IObfuscatorSPtr DetectObfuscator(
   }
   SPDLOG_INFO(
       "No specific obfuscator detected - using NoneObfuscator as default");
-  // return nullptr;
-  return std::make_shared<NoneObfuscator>();
+  return nullptr;
 }
 
 inline std::vector<std::string> GetObfuscatorNames() { return {"tls", "none"}; }
@@ -41,7 +39,7 @@ inline std::optional<IObfuscatorSPtr> GetObfuscatorByName(
   }
   if (name == "none") {
     // return nullptr;
-    return std::make_shared<NoneObfuscator>();
+    return std::nullopt;
   }
   return std::nullopt;
 }

@@ -1,4 +1,3 @@
-
 /*=============================================================================
 Copyright (c) 2024-2025 Stas Skokov
 
@@ -8,9 +7,10 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "fptn-protocol-lib/https/obfuscator/methods/tls/tls_obfuscator.h"
 
 #include <cstring>
-#include <iostream>
 #include <random>
 #include <vector>
+
+#include <boost/fusion/container/list/cons.hpp>
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -40,16 +40,25 @@ struct TLSAppDataRecordHeader {
   std::uint16_t content_length;  // Must be in network byte order!
 
   /* FPTN TLS obfuscator protocol */
-  std::uint64_t random_data;  // Must be in network byte order!
-  std::uint16_t magic_flag;   // Must be in network byte order!
-  std::uint8_t protocol_version;
+  std::uint64_t random_data;      // Must be in network byte order!
+  std::uint16_t magic_flag;       // Must be in network byte order!
+  std::uint8_t protocol_version;  // Must be in network byte order!
+  std::uint8_t xor_key;
+  std::uint16_t payload_length;  // Must be in network byte order!
+  std::uint8_t padding_length;
+  // std::uint8_t xor_payload[payload_length];
+  // std::uint8_t padding[padding_length]
 };
 
 #pragma pack(pop)
 
-std::uint16_t HostToNetwork16(std::uint16_t value) { return htons(value); }
+std::uint16_t HostToNetwork16(const std::uint16_t value) {
+  return htons(value);
+}
 
-std::uint16_t NetworkToHost16(std::uint16_t value) { return ntohs(value); }
+std::uint16_t NetworkToHost16(const std::uint16_t value) {
+  return ntohs(value);
+}
 
 std::uint64_t GetRandomData() {
   static std::mt19937 gen{std::random_device {}()};
@@ -57,13 +66,33 @@ std::uint64_t GetRandomData() {
   return dist(gen);
 }
 
+std::uint8_t GetRandomByte(
+    const std::uint8_t min = 0, const std::uint8_t max = UINT8_MAX) {
+  static std::mt19937 gen{std::random_device {}()};
+  std::uniform_int_distribution<std::uint16_t> dist(min, max);
+  return static_cast<std::uint8_t>(dist(gen));
+}
+
+std::vector<std::uint8_t> GenerateRandomPadding(const std::size_t length) {
+  std::vector<std::uint8_t> padding(length);
+  for (std::size_t i = 0; i < length; ++i) {
+    padding[i] = GetRandomByte();
+  }
+  return padding;
+}
+
+void ApplyXorTransform(
+    std::uint8_t* data, const std::size_t size, const std::uint8_t key) {
+  for (std::size_t i = 0; i < size; ++i) {
+    data[i] ^= key;
+  }
+}
+
 }  // namespace
 
 namespace fptn::protocol::https::obfuscator {
 
-std::vector<std::uint8_t> TlsObfuscator::Deobfuscate(
-    const std::uint8_t* data, std::size_t size) {
-  // Add new data to buffer if provided
+bool TlsObfuscator::AddData(const std::uint8_t* data, std::size_t size) {
   if (data && size > 0) {
     // Limit total buffer size to 64KB to prevent memory exhaustion
     if (input_buffer_.size() + size > kMmaxBufferSize) {
@@ -71,16 +100,23 @@ std::vector<std::uint8_t> TlsObfuscator::Deobfuscate(
       std::size_t available_space = kMmaxBufferSize - input_buffer_.size();
       if (available_space > 0) {
         input_buffer_.insert(input_buffer_.end(), data, data + available_space);
+        return true;
       }
-    } else {
-      input_buffer_.insert(input_buffer_.end(), data, data + size);
+      return false;
     }
+    // Normal case - add all data
+    input_buffer_.insert(input_buffer_.end(), data, data + size);
+    return true;
   }
+  return false;
+}
 
+PreparedData TlsObfuscator::Deobfuscate() {
   std::size_t total_processed = 0;
   std::size_t search_offset = 0;
 
   std::vector<std::uint8_t> output;
+
   // Search for valid TLS records in the buffer
   while (
       input_buffer_.size() - search_offset >= sizeof(TLSAppDataRecordHeader)) {
@@ -92,6 +128,8 @@ std::vector<std::uint8_t> TlsObfuscator::Deobfuscate(
     const std::uint16_t total_content_length =
         NetworkToHost16(header.content_length);
     const std::uint16_t magic_flag = NetworkToHost16(header.magic_flag);
+    const std::uint16_t payload_length = NetworkToHost16(header.payload_length);
+    const std::uint8_t padding_length = header.padding_length;
 
     // Validate header fields
     bool is_valid_header =
@@ -99,7 +137,10 @@ std::vector<std::uint8_t> TlsObfuscator::Deobfuscate(
         (header.headermajor == kFptnTlsApplicationHeaderMajor) &&
         (header.headerminor == kFptnTlsApplicationHeaderMinor) &&
         (header.protocol_version == kFptnTlsApplicationProtocolVersion) &&
-        (magic_flag == kFptnTlsApplicationMagicFlag);
+        (magic_flag == kFptnTlsApplicationMagicFlag) &&
+        (total_content_length >= 11 + sizeof(header.xor_key) +
+                                     sizeof(header.payload_length) +
+                                     sizeof(header.padding_length));
 
     if (!is_valid_header) {
       // Invalid header - shift search position by 1 byte and continue searching
@@ -107,11 +148,9 @@ std::vector<std::uint8_t> TlsObfuscator::Deobfuscate(
       continue;
     }
 
-    // Calculate payload size and full record size
-    const std::uint16_t content_size =
-        total_content_length - 11;  // Subtract header fields (8+2+1)
+    // Calculate full record size including padding
     const size_t full_record_size =
-        sizeof(TLSAppDataRecordHeader) + content_size;
+        sizeof(TLSAppDataRecordHeader) + payload_length + padding_length;
 
     // Check if we have a complete record at this position
     if (input_buffer_.size() - search_offset < full_record_size) {
@@ -119,16 +158,27 @@ std::vector<std::uint8_t> TlsObfuscator::Deobfuscate(
       break;
     }
 
-    // Extract payload data from the complete record
-    output.insert(output.end(),
-        input_buffer_.begin() + search_offset + sizeof(TLSAppDataRecordHeader),
-        input_buffer_.begin() + search_offset + sizeof(TLSAppDataRecordHeader) +
-            content_size);
+    // Extract and process payload data
+    const std::uint8_t* encrypted_payload =
+        input_buffer_.data() + search_offset + sizeof(TLSAppDataRecordHeader);
+
+    // Copy encrypted payload to temporary buffer for XOR processing
+    std::vector<std::uint8_t> decrypted_payload(
+        encrypted_payload, encrypted_payload + payload_length);
+
+    // Apply XOR decryption
+    ApplyXorTransform(
+        decrypted_payload.data(), decrypted_payload.size(), header.xor_key);
+
+    // Add decrypted payload to output
+    output.insert(
+        output.end(), decrypted_payload.begin(), decrypted_payload.end());
 
     // Remove the processed record from buffer starting from search_offset
     input_buffer_.erase(input_buffer_.begin() + search_offset,
         input_buffer_.begin() + search_offset + full_record_size);
     total_processed += full_record_size;
+    break;
   }
 
   // If we searched through the entire buffer without finding valid headers,
@@ -138,16 +188,35 @@ std::vector<std::uint8_t> TlsObfuscator::Deobfuscate(
     input_buffer_.erase(
         input_buffer_.begin(), input_buffer_.begin() + search_offset);
   }
-  return output;
+  if (!output.empty()) {
+    return output;
+  }
+  return std::nullopt;
 }
 
-std::vector<std::uint8_t> TlsObfuscator::Obfuscate(
+PreparedData TlsObfuscator::Obfuscate(
     const std::uint8_t* data, std::size_t size) {
+  // Generate random padding (0-255 bytes)
+  const std::uint8_t padding_length = GetRandomByte(64, 255);
+  std::vector<std::uint8_t> random_padding =
+      GenerateRandomPadding(padding_length);
+
+  // Generate XOR key
+  const std::uint8_t xor_key = GetRandomByte();
+
+  // Prepare payload for XOR encryption
+  std::vector<std::uint8_t> encrypted_payload(data, data + size);
+  ApplyXorTransform(
+      encrypted_payload.data(), encrypted_payload.size(), xor_key);
+
   const std::uint16_t total_content_length =
       sizeof(TLSAppDataRecordHeader::random_data) +
       sizeof(TLSAppDataRecordHeader::magic_flag) +
       sizeof(TLSAppDataRecordHeader::protocol_version) +
-      static_cast<std::uint16_t>(size);
+      sizeof(TLSAppDataRecordHeader::xor_key) +
+      sizeof(TLSAppDataRecordHeader::payload_length) +
+      sizeof(TLSAppDataRecordHeader::padding_length) +
+      static_cast<std::uint16_t>(size) + padding_length;
 
   TLSAppDataRecordHeader header = {};
   header.headertype = kFptnTlsApplicationHeaderType;
@@ -159,15 +228,32 @@ std::vector<std::uint8_t> TlsObfuscator::Obfuscate(
   header.random_data = GetRandomData();
   header.magic_flag = HostToNetwork16(kFptnTlsApplicationMagicFlag);
   header.protocol_version = kFptnTlsApplicationProtocolVersion;
+  header.xor_key = xor_key;
+  header.payload_length = HostToNetwork16(static_cast<std::uint16_t>(size));
+  header.padding_length = padding_length;
 
   std::vector<std::uint8_t> result;
-  result.resize(sizeof(TLSAppDataRecordHeader) + size);
+  result.resize(sizeof(TLSAppDataRecordHeader) + size + padding_length);
 
+  // Copy header
   std::memcpy(result.data(), &header, sizeof(TLSAppDataRecordHeader));
-  if (size > 0 && data != nullptr) {
-    std::memcpy(result.data() + sizeof(TLSAppDataRecordHeader), data, size);
+
+  // Copy encrypted payload
+  if (size > 0) {
+    std::memcpy(result.data() + sizeof(TLSAppDataRecordHeader),
+        encrypted_payload.data(), size);
   }
-  return result;
+
+  // Copy random padding
+  if (padding_length > 0) {
+    std::memcpy(result.data() + sizeof(TLSAppDataRecordHeader) + size,
+        random_padding.data(), padding_length);
+  }
+
+  if (!result.empty()) {
+    return result;
+  }
+  return std::nullopt;
 }
 
 void TlsObfuscator::Reset() { input_buffer_.clear(); }
@@ -182,18 +268,27 @@ bool TlsObfuscator::CheckProtocol(const std::uint8_t* data, std::size_t size) {
 
   const std::uint16_t magic_flag = NetworkToHost16(header.magic_flag);
   const std::uint16_t content_length = NetworkToHost16(header.content_length);
+  const std::uint16_t payload_length = NetworkToHost16(header.payload_length);
 
-  bool is_valid_protocol =
+  const bool is_valid_protocol =
       (header.headertype == kFptnTlsApplicationHeaderType) &&
       (header.headermajor == kFptnTlsApplicationHeaderMajor) &&
       (header.headerminor == kFptnTlsApplicationHeaderMinor) &&
       (header.protocol_version == kFptnTlsApplicationProtocolVersion) &&
       (magic_flag == kFptnTlsApplicationMagicFlag) &&
-      (content_length >=
-          (sizeof(TLSAppDataRecordHeader::random_data) +
-              sizeof(TLSAppDataRecordHeader::protocol_version))) &&
-      (content_length <= 16384);
+      (content_length >= 11 + sizeof(header.xor_key) +
+                             sizeof(header.payload_length) +
+                             sizeof(header.padding_length)) &&
+      (content_length <= 16384) &&
+      (payload_length <= content_length - 11 - sizeof(header.xor_key) -
+                             sizeof(header.payload_length) -
+                             sizeof(header.padding_length));
   return is_valid_protocol;
+}
+
+bool TlsObfuscator::HasPendingData() const {
+  bool result = !input_buffer_.empty();
+  return result;
 }
 
 };  // namespace fptn::protocol::https::obfuscator

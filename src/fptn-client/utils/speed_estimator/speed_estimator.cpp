@@ -15,7 +15,6 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <vector>
 
 #include "fptn-protocol-lib/https/api_client/api_client.h"
-#include "fptn-protocol-lib/https/obfuscator/methods/none/none_obfuscator.h"
 
 using fptn::protocol::https::ApiClient;
 using fptn::utils::speed_estimator::ServerInfo;
