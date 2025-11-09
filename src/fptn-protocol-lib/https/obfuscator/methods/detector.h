@@ -38,8 +38,7 @@ inline std::optional<IObfuscatorSPtr> GetObfuscatorByName(
     return std::make_shared<TlsObfuscator>();
   }
   if (name == "none") {
-    // return nullptr;
-    return std::nullopt;
+    return nullptr;
   }
   return std::nullopt;
 }

@@ -6,7 +6,12 @@
 
 [![Build and Test](https://github.com/batchar2/fptn/actions/workflows/main.yml/badge.svg)](https://github.com/batchar2/fptn/actions/workflows/main.yml) [![Github All Releases](https://img.shields.io/github/downloads/batchar2/fptn/total.svg)]()
 
-FPTN is a non-commercial VPN, a volunteer project for bypassing censorship. [Visit our website.](http://batchar2.github.io/fptn/)
+
+FPTN is a fully custom-built VPN technology — developed from scratch, including the core protocol, server implementation, and cross-platform clients.
+
+It is a non-commercial, open-source project developed by volunteers and designed to bypass censorship.
+
+[Visit our website.](http://batchar2.github.io/fptn/)
 
 ##### Features
 

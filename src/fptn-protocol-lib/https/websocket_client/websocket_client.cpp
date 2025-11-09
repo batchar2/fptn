@@ -25,7 +25,7 @@ WebsocketClient::WebsocketClient(fptn::common::network::IPv4Address server_ip,
     std::string expected_md5_fingerprint,
     obfuscator::IObfuscatorSPtr obfuscator,
     OnConnectedCallback on_connected_callback)
-    : ctx_(fptn::protocol::https::utils::CreateNewSslCtx()),
+    : ctx_(https::utils::CreateNewSslCtx()),
       resolver_(boost::asio::make_strand(ioc_)),
       obfuscator_(std::move(obfuscator)),
       ws_(ssl_stream_type(
@@ -43,10 +43,10 @@ WebsocketClient::WebsocketClient(fptn::common::network::IPv4Address server_ip,
       expected_md5_fingerprint_(std::move(expected_md5_fingerprint)),
       on_connected_callback_(std::move(on_connected_callback)) {
   auto* ssl = ws_.next_layer().native_handle();
-  fptn::protocol::https::utils::SetHandshakeSni(ssl, sni_);
-  fptn::protocol::https::utils::SetHandshakeSessionID(ssl);
+  https::utils::SetHandshakeSni(ssl, sni_);
+  https::utils::SetHandshakeSessionID(ssl);
 
-  fptn::protocol::https::utils::AttachCertificateVerificationCallback(
+  https::utils::AttachCertificateVerificationCallback(
       ssl, [this](const std::string& md5_fingerprint) mutable {
         if (!expected_md5_fingerprint_.empty()) {
           return true;
@@ -72,8 +72,7 @@ WebsocketClient::WebsocketClient(fptn::common::network::IPv4Address server_ip,
 WebsocketClient::~WebsocketClient() {
   Stop();
   if (auto* ssl = ws_.next_layer().native_handle()) {
-    fptn::protocol::https::utils::AttachCertificateVerificationCallbackDelete(
-        ssl);
+    https::utils::AttachCertificateVerificationCallbackDelete(ssl);
   }
 }
 
@@ -92,7 +91,10 @@ void WebsocketClient::Run() {
   boost::asio::co_spawn(
       ioc_,
       [self = shared_from_this()]() -> boost::asio::awaitable<void> {
-        return self->RunInternal();
+        const bool status = co_await self->RunInternal();
+        if (!status) {
+          self->Stop();
+        }
       },
       boost::asio::detached);
   ioc_.run();
@@ -115,7 +117,6 @@ bool WebsocketClient::Stop() {
   // Close WebSocket
   try {
     if (ws_.is_open()) {
-      boost::beast::get_lowest_layer(ws_).expires_never();
       ws_.close(boost::beast::websocket::close_code::normal, ec);
       if (ec) {
         SPDLOG_WARN("WebSocket close error: {}", ec.message());
@@ -174,16 +175,18 @@ bool WebsocketClient::IsStarted() const {
   return running_ && was_connected_;
 }
 
-boost::asio::awaitable<void> WebsocketClient::RunInternal() {
+boost::asio::awaitable<bool> WebsocketClient::RunInternal() {
   try {
+    // set obfuscator
+    ws_.next_layer().next_layer().set_obfuscator(obfuscator_);
+
     bool connected = co_await Connect();
     if (!connected) {
       running_ = false;
-      co_return;
+      co_return false;
     }
 
-    // reset obfuscator after connect
-    ws_.next_layer().next_layer().set_obfuscator(nullptr);
+    boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::hours(6));
 
     // Start reader and sender
     auto self = shared_from_this();
@@ -191,15 +194,16 @@ boost::asio::awaitable<void> WebsocketClient::RunInternal() {
         strand_, [self]() { return self->RunReader(); }, boost::asio::detached);
     boost::asio::co_spawn(
         strand_, [self]() { return self->RunSender(); }, boost::asio::detached);
+    co_return true;
   } catch (const std::exception& e) {
     SPDLOG_ERROR("RunInternal exception: {}", e.what());
     running_ = false;
   }
+  co_return false;
 }
 
 boost::asio::awaitable<bool> WebsocketClient::Connect() {
   boost::system::error_code ec;
-
   try {
     // DNS resolution
     boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::seconds(30));
@@ -235,28 +239,15 @@ boost::asio::awaitable<bool> WebsocketClient::Connect() {
       co_return false;
     }
 
+    // Reset obfuscator after TLS-handshake
+    co_await boost::asio::steady_timer(
+        co_await boost::asio::this_coro::executor,
+        std::chrono::milliseconds(100))
+        .async_wait(boost::asio::use_awaitable);
+
+    ws_.next_layer().next_layer().set_obfuscator(nullptr);
+
     SPDLOG_INFO("SSL handshake completed");
-
-    // WebSocket handshake
-    ws_.set_option(boost::beast::websocket::stream_base::decorator(
-        [this](boost::beast::websocket::request_type& req) {
-          const auto headers = fptn::protocol::https::RealBrowserHeaders(sni_);
-          for (const auto& [key, value] : headers) {
-            req.set(key, value);
-          }
-          req.set("Authorization", "Bearer " + access_token_);
-          req.set("ClientIP", tun_interface_address_ipv4_.ToString());
-          req.set("ClientIPv6", tun_interface_address_ipv6_.ToString());
-          req.set("Client-Agent",
-              fmt::format("FptnClient({}/{})", FPTN_USER_OS, FPTN_VERSION));
-        }));
-
-    co_await ws_.async_handshake(server_ip_.ToString(), kUrlWebSocket_,
-        boost::asio::redirect_error(boost::asio::use_awaitable, ec));
-    if (ec) {
-      SPDLOG_ERROR("WebSocket handshake error: {}", ec.message());
-      co_return false;
-    }
 
     // WebSocket options
     boost::beast::websocket::stream_base::timeout timeout_option;
@@ -265,7 +256,21 @@ boost::asio::awaitable<bool> WebsocketClient::Connect() {
     timeout_option.keep_alive_pings = true;
     ws_.set_option(timeout_option);
 
-    boost::beast::get_lowest_layer(ws_).expires_never();
+    // WebSocket handshake
+    ws_.set_option(boost::beast::websocket::stream_base::decorator(
+        [this](boost::beast::websocket::request_type& req) {
+          req.set("Authorization", "Bearer " + access_token_);
+          req.set("ClientIP", tun_interface_address_ipv4_.ToString());
+          req.set("ClientIPv6", tun_interface_address_ipv6_.ToString());
+          req.set("Client-Agent",
+              fmt::format("FptnClient({}/{})", FPTN_USER_OS, FPTN_VERSION));
+        }));
+    co_await ws_.async_handshake(server_ip_.ToString(), kUrlWebSocket_,
+        boost::asio::redirect_error(boost::asio::use_awaitable, ec));
+    if (ec) {
+      SPDLOG_ERROR("WebSocket handshake error: {}", ec.message());
+      co_return false;
+    }
 
     was_connected_ = true;
     SPDLOG_INFO("WebSocket connection established successfully");
@@ -276,8 +281,8 @@ boost::asio::awaitable<bool> WebsocketClient::Connect() {
     co_return true;
   } catch (const std::exception& e) {
     SPDLOG_ERROR("Connect exception: {}", e.what());
-    co_return false;
   }
+  co_return false;
 }
 
 boost::asio::awaitable<void> WebsocketClient::RunReader() {

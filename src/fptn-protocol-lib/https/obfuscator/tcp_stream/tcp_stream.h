@@ -165,7 +165,12 @@ class TcpStream {
                     buffers, boost::asio::buffer(deobfuscated.value()));
                 handler(ec, bytes_copied);
               } else {
-                this->async_read_some(buffers, std::move(handler));
+                boost::asio::dispatch(strand_,
+                    [this, buffers,
+                        handler =
+                            std::forward<ReadHandler>(handler)]() mutable {
+                      this->async_read_some(buffers, std::move(handler));
+                    });
               }
             }
           });

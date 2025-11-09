@@ -29,9 +29,6 @@ struct Response final {
   nlohmann::json Json() const { return nlohmann::json::parse(body); }
 };
 
-using Headers = std::unordered_map<std::string, std::string>;
-Headers RealBrowserHeaders(const std::string& host);
-
 class ApiClient final {
  public:
   explicit ApiClient(const std::string& host,

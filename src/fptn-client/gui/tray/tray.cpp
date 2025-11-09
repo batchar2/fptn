@@ -687,8 +687,11 @@ bool TrayApp::startVpn(QString& err_msg) {
   // OBFUSCATOR
   fptn::protocol::https::obfuscator::IObfuscatorSPtr obfuscator = nullptr;
   if (settings_->BypassMethod() == "OBFUSCATION") {
+    SPDLOG_INFO("Using obfuscation to bypass censorship");
     obfuscator =
         std::make_shared<fptn::protocol::https::obfuscator::TlsObfuscator>();
+  } else {
+    SPDLOG_INFO("Using SNI spoofing to bypass censorship");
   }
   fptn::config::ConfigFile config(sni, obfuscator);  // SET SNI
   if (smart_connect_) {                              // find the best server

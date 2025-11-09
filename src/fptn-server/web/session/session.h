@@ -28,6 +28,8 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 namespace fptn::web {
 
+using IObfuscator = std::optional<protocol::https::obfuscator::IObfuscatorSPtr>;
+
 class Session : public std::enable_shared_from_this<Session> {
  public:
   explicit Session(std::uint16_t port,
@@ -57,11 +59,13 @@ class Session : public std::enable_shared_from_this<Session> {
   };
 
   boost::asio::awaitable<ProbingResult> DetectProbing();
+
+ protected:
   boost::asio::awaitable<bool> IsSniSelfProxyAttempt(
       const std::string& sni) const;
   boost::asio::awaitable<bool> HandleProxy(const std::string& sni, int port);
 
-  boost::asio::awaitable<bool> SetupObfuscator();
+  boost::asio::awaitable<IObfuscator> DetectObfuscator();
 
  protected:
   boost::asio::awaitable<bool> ProcessRequest();

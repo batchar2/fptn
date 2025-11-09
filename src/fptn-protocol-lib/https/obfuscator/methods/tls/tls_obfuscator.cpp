@@ -40,9 +40,9 @@ struct TLSAppDataRecordHeader {
   std::uint16_t content_length;  // Must be in network byte order!
 
   /* FPTN TLS obfuscator protocol */
-  std::uint64_t random_data;      // Must be in network byte order!
+  std::uint64_t random_data;
   std::uint16_t magic_flag;       // Must be in network byte order!
-  std::uint8_t protocol_version;  // Must be in network byte order!
+  std::uint8_t protocol_version;
   std::uint8_t xor_key;
   std::uint16_t payload_length;  // Must be in network byte order!
   std::uint8_t padding_length;
@@ -112,6 +112,10 @@ bool TlsObfuscator::AddData(const std::uint8_t* data, std::size_t size) {
 }
 
 PreparedData TlsObfuscator::Deobfuscate() {
+  if (input_buffer_.size() < sizeof(TLSAppDataRecordHeader)) {
+    return std::nullopt;
+  }
+
   std::size_t total_processed = 0;
   std::size_t search_offset = 0;
 

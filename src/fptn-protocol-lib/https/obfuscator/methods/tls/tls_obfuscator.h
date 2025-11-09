@@ -30,7 +30,6 @@ class TlsObfuscator : public IObfuscator {
   bool CheckProtocol(const std::uint8_t* data, std::size_t size) override;
 
  private:
-  mutable std::mutex mutex_;
   std::vector<uint8_t> input_buffer_;
 };
 

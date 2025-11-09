@@ -58,7 +58,7 @@ class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
   bool IsStarted() const;
 
  protected:
-  boost::asio::awaitable<void> RunInternal();
+  boost::asio::awaitable<bool> RunInternal();
   boost::asio::awaitable<void> RunReader();
   boost::asio::awaitable<void> RunSender();
   boost::asio::awaitable<bool> Connect();
