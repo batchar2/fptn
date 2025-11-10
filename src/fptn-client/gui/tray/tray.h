@@ -30,8 +30,9 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "gui/settingswidget/settings.h"
 #include "gui/speedwidget/speedwidget.h"
 #include "gui/tray/tray.h"
-#include "http/client.h"
 #include "routing/iptables.h"
+#include "utils/speed_estimator/server_info.h"
+#include "vpn/http/client.h"
 #include "vpn/vpn_client.h"
 
 namespace fptn::gui {
@@ -80,7 +81,7 @@ class TrayApp : public QWidget {
   mutable std::mutex mutex_;
 
   bool smart_connect_ = false;
-  fptn::protocol::server::ServerInfo selected_server_;
+  fptn::utils::speed_estimator::ServerInfo selected_server_;
 
   SettingsModelPtr settings_;
 

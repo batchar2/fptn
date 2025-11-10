@@ -39,7 +39,7 @@ class Server final {
       fptn::common::network::IPv6Address dns_server_ipv6,
       bool enable_detect_probing,
       std::size_t max_active_sessions_per_user,
-      int thread_number = 4);
+      int thread_number = 8);
   ~Server();
   bool Start();
   bool Stop();

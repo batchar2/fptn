@@ -4,7 +4,7 @@ Copyright (c) 2024-2025 Stas Skokov
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
 
-#include "http/client.h"
+#include "vpn/http/client.h"
 
 #include <memory>
 #include <string>
@@ -14,13 +14,15 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
-#include "fptn-protocol-lib/https/https_client.h"
+#include "common/network/ip_address.h"
+
+#include "fptn-protocol-lib/https/api_client/api_client.h"
 #include "routing/iptables.h"
 
-using fptn::http::Client;
-using fptn::http::IPv4Address;
-using fptn::http::IPv6Address;
-using fptn::protocol::https::HttpsClient;
+using fptn::common::network::IPv4Address;
+using fptn::common::network::IPv6Address;
+using fptn::protocol::https::ApiClient;
+using fptn::vpn::http::Client;
 
 Client::Client(IPv4Address server_ip,
     int server_port,
@@ -28,6 +30,7 @@ Client::Client(IPv4Address server_ip,
     IPv6Address tun_interface_address_ipv6,
     std::string sni,
     std::string md5_fingerprint,
+    fptn::protocol::https::obfuscator::IObfuscatorSPtr obfuscator,
     NewIPPacketCallback new_ip_pkt_callback)
     : running_(false),
       server_ip_(std::move(server_ip)),
@@ -36,13 +39,16 @@ Client::Client(IPv4Address server_ip,
       tun_interface_address_ipv6_(std::move(tun_interface_address_ipv6)),
       sni_(std::move(sni)),
       md5_fingerprint_(std::move(md5_fingerprint)),
+      obfuscator_(std::move(obfuscator)),
       new_ip_pkt_callback_(std::move(new_ip_pkt_callback)),
       reconnection_attempts_(kMaxReconnectionAttempts_) {}
 
 bool Client::Login(const std::string& username, const std::string& password) {
   const std::string request = fmt::format(
       R"({{ "username": "{}", "password": "{}" }})", username, password);
-  HttpsClient cli(server_ip_.ToString(), server_port_, sni_, md5_fingerprint_);
+  const std::string ip = server_ip_.ToString();
+  ApiClient cli(ip, server_port_, sni_, md5_fingerprint_, obfuscator_);
+
   const auto resp = cli.Post("/api/v1/login", request, "application/json");
   if (resp.code == 200) {
     try {
@@ -75,7 +81,8 @@ std::pair<IPv4Address, IPv6Address> Client::GetDns() {
   SPDLOG_INFO("Obtained DNS server address. Connecting to {}:{}",
       server_ip_.ToString(), server_port_);
 
-  HttpsClient cli(server_ip_.ToString(), server_port_, sni_, md5_fingerprint_);
+  const std::string ip = server_ip_.ToString();
+  ApiClient cli(ip, server_port_, sni_, md5_fingerprint_, obfuscator_);
   const auto resp = cli.Get("/api/v1/dns");
   if (resp.code == 200) {
     try {
@@ -142,23 +149,30 @@ void Client::Run() {
 
       // cppcheck-suppress identicalInnerCondition
       if (running_) {  // Double-check after acquiring lock
-        ws_ = std::make_shared<fptn::protocol::websocket::WebsocketClient>(
+        ws_ = std::make_shared<fptn::protocol::https::WebsocketClient>(
             server_ip_, server_port_, tun_interface_address_ipv4_,
             tun_interface_address_ipv6_, new_ip_pkt_callback_, sni_,
-            access_token_, md5_fingerprint_);
+            access_token_, md5_fingerprint_, obfuscator_);
       }
     }
 
     if (running_ && ws_) {
       ws_->Run();  // Start the WebSocket client
     }
+    if (running_) {
+      const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+      if (running_ && ws_) {
+        ws_->Stop();
+        ws_.reset();
+      }
+    }
     if (!running_) {
       break;
     }
 
     // Calculate time since last window start
-    auto current_time = std::chrono::steady_clock::now();
-    auto elapsed = current_time - window_start_time;
+    const auto current_time = std::chrono::steady_clock::now();
+    const auto elapsed = current_time - window_start_time;
 
     // Reconnection attempt counting logic
     if (elapsed >= kReconnectionWindow) {
@@ -178,6 +192,13 @@ void Client::Run() {
 
     std::this_thread::sleep_for(kReconnectionDelay);
   }
+
+  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+  if (running_ && ws_) {
+    ws_->Stop();
+    ws_.reset();
+  }
+
   if (running_ && !reconnection_attempts_) {
     SPDLOG_ERROR("Connection failure: Could not establish connection");
   }
@@ -194,14 +215,15 @@ bool Client::Stop() {
     return false;
   }
 
-  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
-
-  // cppcheck-suppress identicalConditionAfterEarlyExit
-  if (!running_) {  // Double-check after acquiring lock
-    return false;
+  {
+    const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+    // cppcheck-suppress identicalConditionAfterEarlyExit
+    if (!running_) {  // Double-check after acquiring lock
+      return false;
+    }
+    running_ = false;
   }
 
-  running_ = false;
   if (ws_) {
     ws_->Stop();
     ws_.reset();

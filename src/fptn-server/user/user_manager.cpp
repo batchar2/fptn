@@ -24,8 +24,8 @@ UserManager::UserManager(const std::string& userfile,
       remote_server_port_(remote_server_port) {
   if (use_remote_server_) {
     // remote user list
-    http_client_ = std::make_unique<fptn::protocol::https::HttpsClient>(
-        remote_server_ip_, remote_server_port);
+    http_api_client_ = std::make_unique<fptn::protocol::https::ApiClient>(
+        remote_server_ip_, remote_server_port, nullptr);
   } else {
     // local user list
     common_manager_ =
@@ -44,7 +44,7 @@ bool UserManager::Login(const std::string& username,
     const std::string request = fmt::format(
         R"({{ "username": "{}", "password": "{}" }})", username, password);
     const auto resp =
-        http_client_->Post("/api/v1/login", request, "application/json");
+        http_api_client_->Post("/api/v1/login", request, "application/json");
 
     if (resp.code == 200) {
       try {

@@ -65,6 +65,7 @@ class FPTN(ConanFile):
         "boost/*:without_iostreams": False,
         "boost/*:without_regex": False,
         "boost/*:without_zlib": False,
+        "boost/*:without_nowide": False,
         "boost/*:without_python": True,
         "boost/*:without_chrono": True,
         "boost/*:without_contract": True,
@@ -75,7 +76,6 @@ class FPTN(ConanFile):
         "boost/*:without_log": True,
         "boost/*:without_math": True,
         "boost/*:without_mpi": True,
-        "boost/*:without_nowide": True,
         "boost/*:without_program_options": True,
         "boost/*:without_serialization": True,
         "boost/*:without_stacktrace": True,
@@ -114,16 +114,16 @@ class FPTN(ConanFile):
     def requirements(self):
         # WE USE BORINGSSL
         self._register_local_recipe("boringssl", "openssl", "boringssl", True, False)
+        if self.options.with_gui_client:
+            self.requires("qt/6.7.1")
+        if self.settings.os != "Windows":
+            self.requires("meson/1.9.1", override=True, force=True)
         if not self.options.build_only_fptn_lib:
             # pcap++ does not support iOS and Android.
             # Since libfptn is built as a detached part of the whole project,
             #   we don't use pcap++ in that case.
             self.requires("pcapplusplus/25.05")
             self.requires("prometheus-cpp/1.3.0")
-        if self.options.with_gui_client:
-            self.requires("qt/6.7.1")
-        if self.settings.os != "Windows":
-            self.requires("meson/1.9.1", override=True, force=True)
 
     def build_requirements(self):
         self.build_requires("cmake/3.22.0", override=True)

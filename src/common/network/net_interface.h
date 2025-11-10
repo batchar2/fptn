@@ -47,7 +47,7 @@ class DataRateCalculator {
         lastUpdateTime_(std::chrono::steady_clock::now()),
         rate_(0) {}
   void Update(std::size_t len) noexcept {
-    const std::lock_guard<std::mutex> lock(mutex_);  // mutex
+    const std::scoped_lock lock(mutex_);  // mutex
 
     auto now = std::chrono::steady_clock::now();
     std::chrono::duration<double> elapsed = now - lastUpdateTime_;
@@ -59,7 +59,7 @@ class DataRateCalculator {
     }
   }
   std::size_t GetRateForSecond() const noexcept {
-    const std::lock_guard<std::mutex> lock(mutex_);  // mutex
+    const std::scoped_lock lock(mutex_);  // mutex
 
     const auto interval_count = interval_.count();
     if (interval_count) {
@@ -178,7 +178,7 @@ class PosixTunInterface final : public BaseNetInterface<PosixTunInterface> {
 
  protected:
   bool StartImpl() noexcept {
-    const std::lock_guard<std::mutex> lock(mutex_);  // mutex
+    const std::scoped_lock lock(mutex_);  // mutex
 
     try {
       tun_ = std::make_unique<tuntap::tun>();
@@ -204,7 +204,7 @@ class PosixTunInterface final : public BaseNetInterface<PosixTunInterface> {
       return false;
     }
 
-    const std::lock_guard<std::mutex> lock(mutex_);  // mutex
+    const std::scoped_lock lock(mutex_);  // mutex
 
     // cppcheck-suppress identicalConditionAfterEarlyExit
     if (!running_) {  // Double-check after acquiring lock
@@ -224,7 +224,7 @@ class PosixTunInterface final : public BaseNetInterface<PosixTunInterface> {
       return false;
     }
 
-    const std::lock_guard<std::mutex> lock(mutex_);  // mutex
+    const std::scoped_lock lock(mutex_);  // mutex
 
     if (running_) {
       const auto* raw_packet = packet->GetRawPacket();
@@ -306,7 +306,7 @@ class WindowsTunInterface final : public BaseNetInterface<WindowsTunInterface> {
 
  protected:
   bool StartImpl() {
-    const std::lock_guard<std::mutex> lock(mutex_);  // mutex
+    const std::scoped_lock lock(mutex_);  // mutex
 
     if (!wintun_) {
       return false;
@@ -348,7 +348,7 @@ class WindowsTunInterface final : public BaseNetInterface<WindowsTunInterface> {
       return false;
     }
 
-    const std::lock_guard<std::mutex> lock(mutex_);  // mutex
+    const std::scoped_lock lock(mutex_);  // mutex
 
     // cppcheck-suppress identicalConditionAfterEarlyExit
     if (!running_) {  // Double-check after acquiring lock
@@ -374,10 +374,10 @@ class WindowsTunInterface final : public BaseNetInterface<WindowsTunInterface> {
       return false;
     }
 
-    const std::lock_guard<std::mutex> lock(mutex_);  // mutex
+    const std::scoped_lock lock(mutex_);  // mutex
 
-    // cppcheck-suppress identicalConditionAfterEarlyExit
-    if (!running_) {  // Double-check after acquiring lock
+    // Double-check after acquiring lock
+    if (!running_) {  // NOLINT
       return false;
     }
 
@@ -411,10 +411,10 @@ class WindowsTunInterface final : public BaseNetInterface<WindowsTunInterface> {
     return receive_rate_calculator_.GetRateForSecond();
   }
 
-  // cppcheck-suppress unusedPrivateFunction
   bool SetIPv4AndNetmask(
       const fptn::common::network::IPv4Address& addr, const int mask) {
     const std::string ipaddr = addr.ToString();
+
     MIB_UNICASTIPADDRESS_ROW address_row;
 
     InitializeUnicastIpAddressEntry(&address_row);
@@ -436,10 +436,11 @@ class WindowsTunInterface final : public BaseNetInterface<WindowsTunInterface> {
     }
     return true;
   }
-  // cppcheck-suppress unusedPrivateFunction
+
   bool SetIPv6AndNetmask(
       const fptn::common::network::IPv6Address& addr, const int mask) {
     const std::string ipaddr = addr.ToString();
+
     MIB_UNICASTIPADDRESS_ROW address_row;
 
     InitializeUnicastIpAddressEntry(&address_row);
@@ -477,18 +478,15 @@ class WindowsTunInterface final : public BaseNetInterface<WindowsTunInterface> {
     }
   }
 
-  // cppcheck-suppress unusedFunction
   std::wstring ToWString(const std::string& s) {
     return std::wstring(s.begin(), s.end());
   }
 
-  // cppcheck-suppress unusedFunction
   std::string ParseWinTunVersion(DWORD version_number) {
     return std::to_string((version_number >> 16) & 0xff) + "." +
            std::to_string((version_number >> 0) & 0xff);
   }
 
-  // cppcheck-suppress unusedFunction
   int ReadPacketNonblock(
       WINTUN_SESSION_HANDLE session, BYTE* buff, DWORD* size) {
     static constexpr size_t retry_amount = 20;

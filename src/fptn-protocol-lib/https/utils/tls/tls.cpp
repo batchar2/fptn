@@ -4,7 +4,7 @@ Copyright (c) 2024-2025 Stas Skokov
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
 
-#include "fptn-protocol-lib/tls/tls.h"
+#include "fptn-protocol-lib/https/utils/tls/tls.h"
 
 #include <string>
 #include <unordered_map>
@@ -25,7 +25,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include "fptn-protocol-lib/time/time_provider.h"
 
-namespace fptn::protocol::tls {
+namespace fptn::protocol::https::utils {
 
 constexpr std::size_t kFptnKeyLength = 4;
 
@@ -244,7 +244,7 @@ void AttachCertificateVerificationCallback(
     SSL* ssl, const CertificateVerificationCallback& callback) {
   auto* func_ptr = new CertificateVerificationCallback(callback);
   {
-    const std::lock_guard<std::mutex> lock(attach_callback_mutex);  // mutex
+    const std::scoped_lock lock(attach_callback_mutex);  // mutex
     attach_callbacks[ssl] = func_ptr;
   }
 
@@ -268,7 +268,7 @@ void AttachCertificateVerificationCallback(
           return 0;
         }
 
-        const std::lock_guard<std::mutex> lock(attach_callback_mutex);  // mutex
+        const std::scoped_lock lock(attach_callback_mutex);  // mutex
         {
           const auto it = attach_callbacks.find(ssl);
           if (it == attach_callbacks.end()) {
@@ -280,7 +280,7 @@ void AttachCertificateVerificationCallback(
 }
 
 void AttachCertificateVerificationCallbackDelete(SSL* ssl) {
-  const std::lock_guard<std::mutex> lock(attach_callback_mutex);  // mutex
+  const std::scoped_lock lock(attach_callback_mutex);  // mutex
 
   auto it = attach_callbacks.find(ssl);
   if (it != attach_callbacks.end()) {
@@ -289,4 +289,4 @@ void AttachCertificateVerificationCallbackDelete(SSL* ssl) {
   }
 }
 
-}  // namespace fptn::protocol::tls
+}  // namespace fptn::protocol::https::utils

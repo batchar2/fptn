@@ -13,7 +13,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 using fptn::vpn::VpnClient;
 
-VpnClient::VpnClient(fptn::http::ClientPtr http_client,
+VpnClient::VpnClient(fptn::vpn::http::ClientPtr http_client,
     fptn::common::network::TunInterfacePtr virtual_net_interface,
     fptn::common::network::IPv4Address dns_server_ipv4,
     fptn::common::network::IPv6Address dns_server_ipv6)

@@ -30,7 +30,7 @@ class CommonUserManager final {
 
   bool AddUser(
       const std::string& username, const std::string& password, int bandwidth) {
-    const std::lock_guard<std::mutex> lock(mutex_);  // mutex
+    const std::scoped_lock lock(mutex_);  // mutex
 
     if (!ValidateUsername(username)) {
       std::cerr << "Invalid username." << std::endl;
@@ -56,7 +56,7 @@ class CommonUserManager final {
   }
 
   bool DeleteUser(const std::string& username) {
-    const std::lock_guard<std::mutex> lock(mutex_);  // mutex
+    const std::scoped_lock lock(mutex_);  // mutex
 
     if (users_.find(username) == users_.end()) {
       return false;
@@ -67,18 +67,18 @@ class CommonUserManager final {
   }
 
   void ListUsers() const {
-    const std::lock_guard<std::mutex> lock(mutex_);  // mutex
+    const std::scoped_lock lock(mutex_);  // mutex
 
-    // cppcheck-suppress unassignedVariable
-    for (const auto& [username, credentials] : users_) {
-      std::cout << username << " "
-                << std::string(credentials.first.length(), 'X') << " "
-                << credentials.second << " MB" << std::endl;
+    for (const auto& user_entry : users_) {
+      const auto& username = user_entry.first;
+      const auto& [hash_password, max_speed] = user_entry.second;
+      std::cout << username << " " << std::string(hash_password.length(), 'X')
+                << " " << max_speed << " MB" << std::endl;
     }
   }
 
   bool Authenticate(const std::string& username, const std::string& password) {
-    const std::lock_guard<std::mutex> lock(mutex_);  // mutex
+    const std::scoped_lock lock(mutex_);  // mutex
 
     LoadUsers();
 
@@ -91,7 +91,7 @@ class CommonUserManager final {
   }
 
   int GetUserBandwidthBit(const std::string& username) const {
-    const std::lock_guard<std::mutex> lock(mutex_);  // mutex
+    const std::scoped_lock lock(mutex_);  // mutex
 
     auto it = users_.find(username);
     if (it != users_.end()) {
@@ -100,7 +100,7 @@ class CommonUserManager final {
     return 0;
   }
   int GetUserBandwidth(const std::string& username) const {
-    const std::lock_guard<std::mutex> lock(mutex_);  // mutex
+    const std::scoped_lock lock(mutex_);  // mutex
 
     auto it = users_.find(username);
     if (it != users_.end()) {
@@ -138,10 +138,10 @@ class CommonUserManager final {
   void SaveUsers() const {
     std::ofstream file(file_path_);
     if (file.is_open()) {
-      // cppcheck-suppress unassignedVariable
-      for (const auto& [username, credentials] : users_) {
-        file << username << " " << credentials.first << " "
-             << credentials.second << "\n";
+      for (const auto& user_entry : users_) {
+        const auto& username = user_entry.first;
+        const auto& [hash_password, max_speed] = user_entry.second; // NOLINT
+        file << username << " " << hash_password << " " << max_speed << "\n";
       }
     } else {
       std::cerr << "Unable to open file: " << file_path_ << std::endl;

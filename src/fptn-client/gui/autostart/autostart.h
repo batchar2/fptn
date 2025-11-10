@@ -48,7 +48,7 @@ inline std::string getWindowsFullPath() {
 
   const std::filesystem::path fptnExe(fptn_path);
   const auto batPath = fptnExe.parent_path() / "FptnClient.bat";
-  return batPath.u8string();
+  return batPath.string();
 }
 
 inline std::string getWindowsStartupFolder() {
@@ -145,15 +145,11 @@ inline bool enable() {
     SPDLOG_ERROR("Failed to get the macOS plist path.");
     return false;
   }
-  SPDLOG_INFO("DesktopEntry path: {}", path.u8string());
   std::ofstream file(path);
   if (file.is_open()) {
     file << entry;
     file.close();
-    SPDLOG_INFO(
-        "DesktopEntry file written successfully at {}", path.u8string());
   } else {
-    SPDLOG_ERROR("Unable to write to DesktopEntry file at {}", path.u8string());
     return false;
   }
 #elif _WIN32

@@ -1,9 +1,5 @@
 project(fptn-protocol-lib LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_INCLUDE_CURRENT_DIR ON)
-
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 # include(${CMAKE_SOURCE_DIR}/depends/cmake/NtpClient.cmake)
@@ -27,7 +23,7 @@ else()
 endif()
 
 find_package(absl REQUIRED)
-find_package(Protobuf REQUIRED)
+find_package(protobuf REQUIRED)
 find_package(OpenSSL REQUIRED)
 # find_package(argparse REQUIRED)
 find_package(spdlog REQUIRED)
@@ -90,19 +86,21 @@ WarningsAsErrors: ''
 set(FPTN_CLIENT_PROTOCOL_SOURCES
     ${PROTO_SRCS}
     ${PROTO_HDRS}
-    tls/tls.h
-    tls/tls.cpp
-    https/https_client.h
-    https/https_client.cpp
+    https/api_client/api_client.h
+    https/api_client/api_client.cpp
+    https/obfuscator/methods/tls/tls_obfuscator.cpp
+    https/obfuscator/methods/tls/tls_obfuscator.h
+    https/obfuscator/methods/obfuscator_interface.h
+    https/obfuscator/tcp_stream/tcp_stream.h
+    https/utils/tls/tls.h
+    https/utils/tls/tls.cpp
+    https/websocket_client/websocket_client.h
+    https/websocket_client/websocket_client.cpp
     protobuf/protocol.h
     protobuf/protocol.cpp
-    server/server_info.h
-    server/speed_estimator.h
-    server/speed_estimator.cpp
-    websocket/websocket_client.h
-    websocket/websocket_client.cpp
     time/time_provider.h
-    time/time_provider.cpp)
+    time/time_provider.cpp
+    https/obfuscator/methods/detector.h)
 
 add_library("${PROJECT_NAME}_static" STATIC ${FPTN_CLIENT_PROTOCOL_SOURCES})
 
@@ -143,6 +141,7 @@ foreach(target "${PROJECT_NAME}_static")
     protobuf::protobuf
     ZLIB::ZLIB
     Boost::boost
+    Boost::nowide
     Boost::random
     Boost::filesystem
     OpenSSL::SSL

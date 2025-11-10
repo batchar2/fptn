@@ -20,16 +20,15 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <boost/beast.hpp>
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
-#include <boost/coroutine/all.hpp>
-#include <openssl/err.h>   // NOLINT(build/include_order)
-#include <openssl/ssl.h>   // NOLINT(build/include_order)
-#include <openssl/x509.h>  // NOLINT(build/include_order)
 
 #include "common/jwt_token/token_manager.h"
 
+#include "fptn-protocol-lib/https/obfuscator/tcp_stream/tcp_stream.h"
 #include "web/api/handle.h"
 
 namespace fptn::web {
+
+using IObfuscator = std::optional<protocol::https::obfuscator::IObfuscatorSPtr>;
 
 class Session : public std::enable_shared_from_this<Session> {
  public:
@@ -46,7 +45,7 @@ class Session : public std::enable_shared_from_this<Session> {
 
   // async
   boost::asio::awaitable<void> Run();
-  boost::asio::awaitable<bool> Send(fptn::common::network::IPPacketPtr packet);
+  boost::asio::awaitable<bool> Send(fptn::common::network::IPPacketPtr pkt);
 
  protected:
   boost::asio::awaitable<void> RunReader();
@@ -60,9 +59,13 @@ class Session : public std::enable_shared_from_this<Session> {
   };
 
   boost::asio::awaitable<ProbingResult> DetectProbing();
+
+ protected:
   boost::asio::awaitable<bool> IsSniSelfProxyAttempt(
       const std::string& sni) const;
   boost::asio::awaitable<bool> HandleProxy(const std::string& sni, int port);
+
+  boost::asio::awaitable<IObfuscator> DetectObfuscator();
 
  protected:
   boost::asio::awaitable<bool> ProcessRequest();
@@ -81,9 +84,15 @@ class Session : public std::enable_shared_from_this<Session> {
   const std::uint16_t port_;
   const bool enable_detect_probing_;
 
-  boost::beast::websocket::stream<
-      boost::asio::ssl::stream<boost::beast::tcp_stream>>
-      ws_;
+  // TCP -> obfuscator -> SSL -> WebSocket
+  using tcp_stream_type = boost::beast::tcp_stream;
+  using obfuscator_socket_type =
+      fptn::protocol::https::obfuscator::TcpStream<tcp_stream_type>;
+  using ssl_stream_type = boost::beast::ssl_stream<obfuscator_socket_type>;
+  using websocket_type = boost::beast::websocket::stream<ssl_stream_type>;
+
+  websocket_type ws_;
+
   boost::asio::strand<boost::asio::any_io_executor> strand_;
   boost::asio::experimental::concurrent_channel<void(
       boost::system::error_code, fptn::common::network::IPPacketPtr)>
@@ -95,8 +104,8 @@ class Session : public std::enable_shared_from_this<Session> {
   const WebSocketCloseConnectionCallback ws_close_callback_;
 
   std::atomic<bool> running_;
-  bool init_completed_;
-  bool ws_session_was_opened_;
+  std::atomic<bool> init_completed_;
+  std::atomic<bool> ws_session_was_opened_;
   std::atomic<bool> full_queue_;
 
   boost::asio::cancellation_signal cancel_signal_;

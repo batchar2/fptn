@@ -53,7 +53,7 @@ inline bool init(const std::string& app_name) {
     spdlog::flush_every(std::chrono::seconds(3));
 #else
 
-#if defined(__linux__)
+#ifdef __linux__
     const std::filesystem::path log_dir = "/var/log/fptn/";
 #elif defined(__APPLE__) && TARGET_OS_MAC
     const std::filesystem::path log_dir = []() {

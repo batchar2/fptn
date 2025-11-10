@@ -12,7 +12,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include <openssl/ssl.h>  // NOLINT(build/include_order)
 
-namespace fptn::protocol::tls {
+namespace fptn::protocol::https::utils {
 
 std::string GetSHA1Hash(std::uint32_t number);
 std::string GenerateFptnKey(std::uint32_t timestamp);
@@ -36,4 +36,4 @@ void AttachCertificateVerificationCallback(
 
 void AttachCertificateVerificationCallbackDelete(SSL* ssl);
 
-}  // namespace fptn::protocol::tls
+}  // namespace fptn::protocol::https::utils

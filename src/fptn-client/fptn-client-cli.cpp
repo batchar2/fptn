@@ -15,27 +15,19 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <utility>
 
 #include <argparse/argparse.hpp>
-#include <boost/asio.hpp>
-#include <boost/process.hpp>
+#include <fmt/format.h>  // NOLINT(build/include_order)
+#include <fmt/ranges.h>  // NOLINT(build/include_order)
 
 #include "common/logger/logger.h"
 #include "common/network/ip_address.h"
 #include "common/network/net_interface.h"
 
 #include "config/config_file.h"
+#include "fptn-protocol-lib/https/obfuscator/methods/detector.h"
 #include "fptn-protocol-lib/time/time_provider.h"
-#include "http/client.h"
 #include "routing/iptables.h"
+#include "utils/signal/main_loop.h"
 #include "vpn/vpn_client.h"
-
-namespace {
-void WaitForSignal() {
-  boost::asio::io_context io_context;
-  boost::asio::signal_set signals(io_context, SIGINT, SIGTERM);
-  signals.async_wait([&](auto, auto) { io_context.stop(); });
-  io_context.run();
-}
-}  // namespace
 
 int main(int argc, char* argv[]) {
 #if defined(__linux__) || defined(__APPLE__)
@@ -44,8 +36,10 @@ int main(int argc, char* argv[]) {
     return EXIT_FAILURE;
   }
 #endif
-
   try {
+    using fptn::protocol::https::obfuscator::GetObfuscatorByName;
+    using fptn::protocol::https::obfuscator::GetObfuscatorNames;
+
     argparse::ArgumentParser args("fptn-client", FPTN_VERSION);
     // Required arguments
     args.add_argument("--access-token").required().help("Access token");
@@ -73,6 +67,16 @@ int main(int argc, char* argv[]) {
         .help(
             "Domain name for SNI in TLS handshake (used to obfuscate VPN "
             "traffic)");
+    args.add_argument("--obfuscator")
+        .default_value("none")
+        .help("Traffic obfuscation method: " +
+              fmt::format("{}", fmt::join(GetObfuscatorNames(), ", ")))
+        .action([](const std::string& value) {
+          if (!GetObfuscatorByName(value)) {
+            throw std::runtime_error("Unknown obfuscator: '" + value + "' ");
+          }
+          return value;
+        });
     // parse cmd arguments
     try {
       args.parse_args(argc, argv);
@@ -90,8 +94,6 @@ int main(int argc, char* argv[]) {
       return EXIT_FAILURE;
     }
 
-    std::cerr << "+1" << std::endl;
-
     // Synchronize VPN client time with NTP servers
     fptn::time::TimeProvider::Instance()->SyncWithNtp();
 
@@ -104,7 +106,7 @@ int main(int argc, char* argv[]) {
         fptn::common::network::IPv4Address::Create(param_gateway_ip);
     const auto tun_interface_name =
         args.get<std::string>("--tun-interface-name");
-    std::cerr << "+2" << std::endl;
+
     const auto tun_interface_address_ipv4 =
         fptn::common::network::IPv4Address::Create(
             args.get<std::string>("--tun-interface-ip"));
@@ -112,8 +114,6 @@ int main(int argc, char* argv[]) {
         fptn::common::network::IPv6Address::Create(
             args.get<std::string>("--tun-interface-ipv6"));
     const auto sni = args.get<std::string>("--sni");
-
-    std::cerr << "+3" << std::endl;
 
     /* check gateway address */
     const auto using_gateway_ip =
@@ -132,10 +132,13 @@ int main(int argc, char* argv[]) {
       return EXIT_FAILURE;
     }
 
+    const auto obfuscator_name = args.get<std::string>("--obfuscator");
+    auto obfuscator = GetObfuscatorByName(obfuscator_name);
+
     /* check config */
     const auto access_token = args.get<std::string>("--access-token");
-    fptn::config::ConfigFile config(access_token, sni);
-    fptn::protocol::server::ServerInfo selected_server;
+    fptn::config::ConfigFile config(access_token, sni, obfuscator.value());
+    fptn::utils::speed_estimator::ServerInfo selected_server;
     try {
       config.Parse();
       selected_server = config.FindFastestServer();
@@ -160,15 +163,17 @@ int main(int argc, char* argv[]) {
         "VPN SERVER PORT:    {}\n"
         "TUN INTERFACE IPv4: {}\n"
         "TUN INTERFACE IPv6: {}\n",
-        FPTN_VERSION, sni, using_gateway_ip.ToString(),
-        out_network_interface_name, selected_server.name, selected_server.host,
-        selected_server.port, tun_interface_address_ipv4.ToString(),
-        tun_interface_address_ipv6.ToString());
+        "OBFUSCATOR:         {}\n" FPTN_VERSION, sni,
+        using_gateway_ip.ToString(), out_network_interface_name,
+        selected_server.name, selected_server.host, selected_server.port,
+        tun_interface_address_ipv4.ToString(),
+        tun_interface_address_ipv6.ToString(), obfuscator_name);
 
     /* auth & dns */
-    auto http_client = std::make_unique<fptn::http::Client>(server_ip,
+    auto http_client = std::make_unique<fptn::vpn::http::Client>(server_ip,
         selected_server.port, tun_interface_address_ipv4,
-        tun_interface_address_ipv6, sni, selected_server.md5_fingerprint);
+        tun_interface_address_ipv6, sni, selected_server.md5_fingerprint,
+        obfuscator.value());
     const bool status =
         http_client->Login(config.GetUsername(), config.GetPassword());
     if (!status) {
@@ -200,8 +205,6 @@ int main(int argc, char* argv[]) {
     /* vpn client */
     fptn::vpn::VpnClient vpn_client(std::move(http_client),
         std::move(virtual_network_interface), dnsServerIPv4, dnsServerIPv6);
-
-    /* loop */
     vpn_client.Start();
 
     // Wait for the WebSocket tunnel to establish
@@ -215,15 +218,15 @@ int main(int argc, char* argv[]) {
       std::this_thread::sleep_for(std::chrono::microseconds(200));
     }
 
-    // start
     iptables->Apply();
-    WaitForSignal();
+
+    /* start event loop */
+    fptn::utils::WaitForSignal(vpn_client);
 
     /* clean */
     iptables->Clean();
     vpn_client.Stop();
     spdlog::shutdown();
-
     return EXIT_SUCCESS;
   } catch (const std::exception& ex) {
     SPDLOG_ERROR("An error occurred: {}. Exiting...", ex.what());

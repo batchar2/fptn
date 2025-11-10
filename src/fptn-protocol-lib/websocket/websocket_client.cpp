@@ -4,7 +4,7 @@ Copyright (c) 2024-2025 Stas Skokov
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
 
-#include "fptn-protocol-lib/websocket/websocket_client.h"
+#include "fptn-protocol-lib/https/websocket_client/websocket_client.h"
 
 #include <memory>
 #include <string>
@@ -12,9 +12,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
-#include "fptn-protocol-lib/https/https_client.h"
-#include "fptn-protocol-lib/protobuf/protocol.h"
-#include "fptn-protocol-lib/tls/tls.h"
+#include "fptn-protocol-lib/https/api_client/api_client.h"
 
 using fptn::protocol::websocket::WebsocketClient;
 

@@ -32,12 +32,12 @@ class TimeProvider final {
   bool SyncWithNtp();
 
  protected:
-  explicit TimeProvider(NtpServers servers = {
-                            {"ru.pool.ntp.org", 123},
-                            {"ntp.ix.ru", 123},
-                            {"europe.pool.ntp.org", 123},
-                            {"cn.pool.ntp.org", 123}
-                        });
+  explicit TimeProvider(
+      NtpServers servers = {
+        {"ru.pool.ntp.org", 123},
+        {"ntp.ix.ru", 123},
+        {"europe.pool.ntp.org", 123},
+        {"cn.pool.ntp.org", 123}});
   bool Refresh();
 
  private:

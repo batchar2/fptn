@@ -27,12 +27,15 @@ add_executable(
   fptn-client-cli.cpp
   vpn/vpn_client.h
   vpn/vpn_client.cpp
-  http/client.h
-  http/client.cpp
+  vpn/http/client.h
+  vpn/http/client.cpp
   routing/iptables.h
   routing/iptables.cpp
   config/config_file.cpp
-  config/config_file.h)
+  config/config_file.h
+  utils/speed_estimator/speed_estimator.cpp
+  utils/speed_estimator/speed_estimator.h
+  utils/speed_estimator/server_info.h)
 
 target_link_libraries(
   "${PROJECT_NAME}-cli"
@@ -85,7 +88,8 @@ WarningsAsErrors: ''
 
   set(QT_ADDITIONAL_PARAMS "")
   if(WIN32)
-    set(QT_ADDITIONAL_PARAMS WIN32)
+    set(QT_ADDITIONAL_PARAMS WIN32
+            utils/signal/main_loop.h)
   endif()
 
   set(PLATFORM_SPECIFIC_LIBS "")
@@ -104,8 +108,8 @@ WarningsAsErrors: ''
     fptn-client-gui.cpp
     vpn/vpn_client.h
     vpn/vpn_client.cpp
-    http/client.h
-    http/client.cpp
+    vpn/http/client.h
+    vpn/http/client.cpp
     routing/iptables.h
     routing/iptables.cpp
     config/config_file.cpp
@@ -128,6 +132,9 @@ WarningsAsErrors: ''
     gui/autoupdate/autoupdate.h
     utils/windows/vpn_conflict.h
     utils/macos/admin.h
+    utils/speed_estimator/speed_estimator.cpp
+    utils/speed_estimator/speed_estimator.h
+    utils/speed_estimator/server_info.h
     ${PROJECT_RESOURCES}
     ${TRANSLATIONS_OUT})
   target_link_libraries(
