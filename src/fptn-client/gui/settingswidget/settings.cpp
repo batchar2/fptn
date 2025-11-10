@@ -248,6 +248,34 @@ void SettingsWidget::SetupUi() {
       new QLabel(QObject::tr("FPTN_TELEGRAM_DESCRIPTION"), this);
   telegram_group_lLabel_->setOpenExternalLinks(true);
   about_layout->addWidget(telegram_group_lLabel_);
+
+  // Sponsors section
+  boosty_link_label_ =
+      new QLabel(QObject::tr("Support the project on") +
+                     " <a href=\"https://boosty.to/fptn\">Boosty</a>",
+          this);
+  boosty_link_label_->setOpenExternalLinks(true);
+  boosty_link_label_->setAlignment(Qt::AlignLeft);
+  about_layout->addWidget(boosty_link_label_);
+
+  sponsors_label_ = new QLabel(QObject::tr("Project Sponsors") + ":", this);
+  sponsors_label_->setAlignment(Qt::AlignLeft);
+  about_layout->addWidget(sponsors_label_);
+
+  QString sponsors_list =
+      "  - Brebor<br>"
+      "  - miklefox<br>"
+      "  - usrbb<br>"
+      "  - Secret_Agent_001<br>"
+      "  - ragdollmaster<br>"
+      "  - slimefrozik<br>"
+      "  - HooLigaN";
+
+  sponsors_names_label_ = new QLabel(sponsors_list, this);
+  sponsors_names_label_->setAlignment(Qt::AlignLeft);
+  sponsors_names_label_->setTextInteractionFlags(Qt::TextSelectableByMouse);
+  about_layout->addWidget(sponsors_names_label_);
+
   // stretch
   about_layout->addStretch(1);
   // Add About Tab to TabWidget
@@ -475,6 +503,15 @@ void SettingsWidget::onLanguageChanged(const QString&) {
   }
   if (telegram_group_lLabel_) {
     telegram_group_lLabel_->setText(QObject::tr("FPTN_TELEGRAM_DESCRIPTION"));
+  }
+  // sponsors section
+  if (boosty_link_label_) {
+    boosty_link_label_->setText(
+        QObject::tr("Support the project on") +
+        " <a href=\"https://boosty.to/fptn\">Boosty</a>");
+  }
+  if (sponsors_label_) {
+    sponsors_label_->setText(QObject::tr("Project Sponsors") + ":");
   }
 }
 

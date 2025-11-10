@@ -286,5 +286,14 @@ This may cause network connectivity issues or prevent proper operation of FPTN.<
             <translation>Traffic masking (obfuscation)</translation>
         </message>
 
+        <message>
+            <source>Support the project on</source>
+            <translation>Support the project on</translation>
+        </message>
+        <message>
+            <source>Project Sponsors</source>
+            <translation>Project Sponsors</translation>
+        </message>
+
     </context>
 </TS>
