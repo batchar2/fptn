@@ -78,5 +78,8 @@ class SettingsWidget : public QDialog {
   QLabel* project_info_label_ = nullptr;
   QLabel* website_link_label_ = nullptr;
   QLabel* telegram_group_lLabel_ = nullptr;
+  QLabel* boosty_link_label_ = nullptr;
+  QLabel* sponsors_label_ = nullptr;
+  QLabel* sponsors_names_label_ = nullptr;
 };
 }  // namespace fptn::gui
