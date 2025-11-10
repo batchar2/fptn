@@ -6,6 +6,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include "fptn-protocol-lib/https/websocket_client/websocket_client.h"
 
+#include <memory>
 #include <string>
 #include <utility>
 
@@ -101,60 +102,101 @@ void WebsocketClient::Run() {
 }
 
 bool WebsocketClient::Stop() {
-  if (!running_) {
-    return false;
-  }
-
-  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
-
-  // cppcheck-suppress identicalConditionAfterEarlyExit
-  if (!running_) {  // Double-check after acquiring lock
-    return false;
-  }
-
-  boost::system::error_code ec;
-
-  // Close WebSocket
   try {
-    if (ws_.is_open()) {
-      ws_.close(boost::beast::websocket::close_code::normal, ec);
-      if (ec) {
-        SPDLOG_WARN("WebSocket close error: {}", ec.message());
+    if (!running_) {
+      return false;
+    }
+
+    const std::unique_lock<std::mutex> lock(mutex_);
+
+    // cppcheck-suppress identicalConditionAfterEarlyExit
+    if (!running_) {  // Double-check after acquiring lock
+      return false;
+    }
+
+    running_ = false;
+    was_connected_ = false;
+
+    auto stop_promise = std::make_shared<std::promise<void>>();
+    auto stop_future = stop_promise->get_future();
+
+    auto self = shared_from_this();
+    boost::asio::post(strand_, [self, stop_promise]() noexcept {
+      try {
+        boost::system::error_code ec;
+
+        // Send signal
+        self->cancel_signal_.emit(boost::asio::cancellation_type::all);
+
+        // Close WebSocket
+        if (self->ws_.is_open()) {
+          self->ws_.close(boost::beast::websocket::close_code::normal, ec);
+        }
+
+        // Close SSL
+        try {
+          SPDLOG_DEBUG("Shutting down SSL layer...");
+          auto& ssl = self->ws_.next_layer();
+          if (ssl.native_handle()) {
+            ::SSL_set_quiet_shutdown(ssl.native_handle(), 1);
+            ::SSL_shutdown(ssl.native_handle());
+          }
+          ssl.shutdown(ec);
+        } catch (const boost::system::system_error& err) {
+          SPDLOG_ERROR("Exception during SSL shutdown: {}", err.what());
+        } catch (const std::exception& e) {
+          SPDLOG_ERROR(
+              "Unexpected exception during SSL shutdown: {}", e.what());
+        } catch (...) {
+          SPDLOG_ERROR("Unknown exception occurred during SSL shutdown");
+        }
+
+        // Close TCP
+        try {
+          auto& tcp = boost::beast::get_lowest_layer(self->ws_);
+          if (tcp.socket().is_open()) {
+            tcp.socket().shutdown(
+                boost::asio::ip::tcp::socket::shutdown_both, ec);
+            try {
+              tcp.close();
+            } catch (const std::exception& e) {
+              SPDLOG_ERROR("Exception during TCP shutdown: {}", e.what());
+            }
+          }
+        } catch (const boost::system::system_error& err) {
+          SPDLOG_ERROR("Exception during TCP shutdown: {}", err.what());
+        } catch (...) {
+          SPDLOG_ERROR("Unknown exception during TCP shutdown");
+        }
+        SPDLOG_INFO("WebsocketClient shutdown completed");
+      } catch (...) {
+        SPDLOG_ERROR("Unexpected exception during shutdown");
       }
+      stop_promise->set_value();
+    });
+
+    stop_future.wait();
+
+    // Stop io_context
+    try {
+      SPDLOG_DEBUG("Stopping io_context...");
+      ioc_.stop();
+      SPDLOG_DEBUG("io_context stopped");
+    } catch (const boost::system::system_error& err) {
+      SPDLOG_ERROR("Exception while stopping io_context: {}", err.what());
+    } catch (...) {
+      SPDLOG_ERROR("Unknown exception while stopping io_context");
     }
-  } catch (const std::exception& e) {
-    SPDLOG_ERROR("Exception during WebSocket close: {}", e.what());
-  }
 
-  // Close SSL
-  try {
-    auto& ssl = ws_.next_layer();
-    if (ssl.native_handle()) {
-      ::SSL_set_quiet_shutdown(ssl.native_handle(), 1);
-      // ::SSL_shutdown(ssl.native_handle());
-    }
-    ssl.shutdown(ec);
-  } catch (const std::exception& e) {
-    SPDLOG_ERROR("Exception during SSL shutdown: {}", e.what());
-  }
+    SPDLOG_INFO("WebsocketClient fully stopped");
 
-  // Close TCP
-  try {
-    auto& tcp = boost::beast::get_lowest_layer(ws_);
-    tcp.close();
+    return true;
   } catch (const std::exception& e) {
-    SPDLOG_ERROR("Exception during TCP shutdown: {}", e.what());
+    SPDLOG_CRITICAL("Exception in Stop(): {}", e.what());
+  } catch (...) {
+    SPDLOG_CRITICAL("Unknown exception in Stop()");
   }
-
-  // Stop IO context
-  try {
-    ioc_.stop();
-  } catch (const std::exception& e) {
-    SPDLOG_ERROR("Exception while stopping IO context: {}", e.what());
-  }
-
-  SPDLOG_INFO("WebsocketClient stopped successfully");
-  return true;
+  return false;
 }
 
 bool WebsocketClient::Send(fptn::common::network::IPPacketPtr packet) {
@@ -177,10 +219,7 @@ bool WebsocketClient::IsStarted() const {
 
 boost::asio::awaitable<bool> WebsocketClient::RunInternal() {
   try {
-    // set obfuscator
-    ws_.next_layer().next_layer().set_obfuscator(obfuscator_);
-
-    bool connected = co_await Connect();
+    const bool connected = co_await Connect();
     if (!connected) {
       running_ = false;
       co_return false;
@@ -229,6 +268,11 @@ boost::asio::awaitable<bool> WebsocketClient::Connect() {
     boost::beast::get_lowest_layer(ws_).socket().set_option(
         boost::asio::ip::tcp::no_delay(true));
 
+    // Set obfuscator
+    if (obfuscator_ != nullptr) {
+      ws_.next_layer().next_layer().set_obfuscator(obfuscator_);
+    }
+
     // SSL handshake
     boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::seconds(10));
     co_await ws_.next_layer().async_handshake(
@@ -240,13 +284,24 @@ boost::asio::awaitable<bool> WebsocketClient::Connect() {
     }
 
     // Reset obfuscator after TLS-handshake
-    co_await boost::asio::steady_timer(
-        co_await boost::asio::this_coro::executor,
-        std::chrono::milliseconds(100))
-        .async_wait(boost::asio::use_awaitable);
-
-    ws_.next_layer().next_layer().set_obfuscator(nullptr);
-
+    if (obfuscator_ != nullptr) {
+      constexpr int kMaxRetries = 10;
+      int retry_count = 0;
+      do {
+        co_await boost::asio::steady_timer(
+            co_await boost::asio::this_coro::executor,
+            std::chrono::milliseconds(200))
+            .async_wait(boost::asio::use_awaitable);
+        retry_count += 1;
+      } while (obfuscator_->HasPendingData() && retry_count < kMaxRetries);
+      if (retry_count >= kMaxRetries) {
+        SPDLOG_WARN(
+            "Failed to clear obfuscator pending data within {} attempts. ",
+            retry_count);
+        co_return false;
+      }
+      ws_.next_layer().next_layer().set_obfuscator(nullptr);
+    }
     SPDLOG_INFO("SSL handshake completed");
 
     // WebSocket options

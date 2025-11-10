@@ -34,6 +34,7 @@ class TimeProvider final {
  protected:
   explicit TimeProvider(
       NtpServers servers = {
+        {"pool.ntp.org", 123},
         {"ru.pool.ntp.org", 123},
         {"ntp.ix.ru", 123},
         {"europe.pool.ntp.org", 123},

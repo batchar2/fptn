@@ -7,12 +7,16 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "fptn-client/utils/speed_estimator/speed_estimator.h"
 
 #include <algorithm>
-#include <future>
+#include <atomic>
+#include <condition_variable>
+#include <memory>
+#include <mutex>
 #include <random>
 #include <string>
 #include <thread>
-#include <utility>
 #include <vector>
+
+#include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
 #include "fptn-protocol-lib/https/api_client/api_client.h"
 
@@ -23,20 +27,26 @@ constexpr std::uint64_t kMaxTimeout = UINT64_MAX;
 
 namespace fptn::utils::speed_estimator {
 
-// NOLINTNEXTLINE(misc-use-internal-linkage)
 std::uint64_t GetDownloadTimeMs(const ServerInfo& server,
     const std::string& sni,
     int timeout,
     const std::string& md5_fingerprint,
     const fptn::protocol::https::obfuscator::IObfuscatorSPtr& obfuscator) {
-  auto const start = std::chrono::high_resolution_clock::now();  // start
-
-  ApiClient cli(server.host, server.port, sni, md5_fingerprint, obfuscator);
-  auto const resp = cli.Get("/api/v1/test/file.bin", timeout);
-  if (resp.code == 200) {
-    auto const end = std::chrono::high_resolution_clock::now();
-    return std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
-        .count();
+  try {
+    auto const start = std::chrono::high_resolution_clock::now();
+    ApiClient cli(server.host, server.port, sni, md5_fingerprint, obfuscator);
+    auto const resp = cli.Get("/api/v1/test/file.bin", timeout);
+    if (resp.code == 200) {
+      auto const end = std::chrono::high_resolution_clock::now();
+      const std::uint64_t ms =
+          std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
+              .count();
+      return ms;
+    }
+  } catch (const std::exception& ex) {
+    SPDLOG_WARN("Exception in GetDownloadTimeMs: {}", ex.what());
+  } catch (...) {
+    SPDLOG_WARN("Unknown exception in GetDownloadTimeMs");
   }
   return kMaxTimeout;
 }
@@ -56,74 +66,55 @@ ServerInfo FindFastestServer(const std::string& sni,
   std::vector<ServerInfo> selected_servers(
       shuffled_servers.begin(), shuffled_servers.begin() + half_size);
 
-  std::vector<std::future<std::uint64_t>> futures;
-  futures.reserve(selected_servers.size());
+  // Simple shared state
+  struct SharedState {
+    std::mutex mutex;
+    std::condition_variable cv;
+    std::uint64_t min_time = kMaxTimeout;
+    std::size_t fastest_server_index = 0;
+    bool found = false;
+  };
 
-  // NOLINTNEXTLINE(modernize-use-ranges)
-  std::transform(selected_servers.begin(), selected_servers.end(),
-      std::back_inserter(futures),
-      // NOLINTNEXTLINE(bugprone-exception-escape)
-      [kTimeoutSeconds, sni, obfuscator](const auto& server) {
-        (void)kTimeoutSeconds;  // fix Windows build
-        try {
-          // NOLINTNEXTLINE(modernize-use-ranges)
-          return std::async(std::launch::async,
-              // NOLINTNEXTLINE(bugprone-exception-escape)
-              [server, sni, kTimeoutSeconds, obfuscator]() {
-                (void)kTimeoutSeconds;  // fix Windows build
-                return GetDownloadTimeMs(server, sni, kTimeoutSeconds,
-                    server.md5_fingerprint, obfuscator);
-              });
-        } catch (const std::exception& ex) {
-          (void)ex;
-          // SPDLOG_ERROR("Exception in GetDownloadTimeMs: {}", ex.what());
-          return std::async(std::launch::deferred, [] { return kMaxTimeout; });
-        } catch (...) {
-          // SPDLOG_ERROR("Unknown error occurred in GetDownloadTimeMs");
-          return std::async(std::launch::deferred, [] { return kMaxTimeout; });
+  auto state = std::make_shared<SharedState>();
+
+  // Launch all requests
+  for (std::size_t i = 0; i < selected_servers.size(); ++i) {
+    // NOLINTNEXTLINE(bugprone-exception-escape)
+    std::thread([state, server = selected_servers[i], i, sni, obfuscator]() {
+      try {
+        auto cloned_obfuscator =
+            (obfuscator != nullptr ? obfuscator->Clone() : nullptr);
+        auto time = GetDownloadTimeMs(server, sni, kTimeoutSeconds,
+            server.md5_fingerprint, cloned_obfuscator);
+
+        const std::scoped_lock<std::mutex> lock(state->mutex);  // mutex
+        if (!state->found && time < state->min_time) {
+          state->min_time = time;
+          state->fastest_server_index = i;
+          if (time != kMaxTimeout) {
+            state->found = true;
+            state->cv.notify_one();
+          }
         }
-      });
-
-  std::vector<std::uint64_t> times(selected_servers.size(), kMaxTimeout);
-  const auto time_begin = std::chrono::high_resolution_clock::now();
-  const auto timeout_time = time_begin + std::chrono::seconds(kTimeoutSeconds);
-
-  bool any_ready = false;
-  do {
-    // Check all server connections for responses
-    for (std::size_t i = 0; i < futures.size(); ++i) {
-      auto& future = futures[i];
-      auto const status = future.wait_for(std::chrono::milliseconds(1));
-      if (status == std::future_status::ready) {
-        times[i] = future.get();
-        any_ready = true;
+      } catch (...) {  // NOLINT
+        // Ignore exceptions in background threads
       }
-    }
+    }).detach();
+  }
 
-    // Exit loop if we've exceeded maximum allowed time
-    if (std::chrono::high_resolution_clock::now() > timeout_time) {
-      break;
-    }
+  // Wait for result with timeout
+  std::unique_lock<std::mutex> lock(state->mutex);
+  if (!state->cv.wait_for(lock, std::chrono::seconds(kTimeoutSeconds),
+          [state]() { return state->found; })) {
+    // Timeout reached
+    state->found = true;  // Force exit
+  }
 
-    // Only sleep if no servers responded this iteration
-    if (!any_ready) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(500));
-    }
-  } while (!any_ready);
-
-  // NOLINTNEXTLINE(modernize-use-ranges)
-  auto const min_time_it = std::min_element(times.begin(), times.end());
-  if (min_time_it == times.end() || *min_time_it == kMaxTimeout) {
+  if (state->min_time == kMaxTimeout) {
     throw std::runtime_error("All servers unavailable!");
   }
-  const std::size_t fastest_server_index =
-      std::distance(times.begin(), min_time_it);
 
-  // wait for futures in detached stream
-  std::thread([futures = std::move(futures)]() mutable {
-    (void)futures;
-  }).detach();
-
-  return selected_servers[fastest_server_index];
+  return selected_servers[state->fastest_server_index];
 }
+
 }  // namespace fptn::utils::speed_estimator

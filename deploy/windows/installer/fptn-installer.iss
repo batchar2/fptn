@@ -61,7 +61,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}";
 // --- Name: "startup"; Description: {cm:AutoStartProgram,{#APP_NAME}};
 
 [Run]
-Filename: "cmd.exe"; Parameters: "/c reg add ""HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters"" /v IPEnableRouter /t REG_DWORD /d 1 /f"; Flags: runhidden
+// Filename: "cmd.exe"; Parameters: "/c reg add ""HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters"" /v IPEnableRouter /t REG_DWORD /d 1 /f"; Flags: runhidden
 Filename: "{app}\FptnClient.bat"; Description: "{cm:LaunchProgram,{#APP_NAME}}"; Flags: nowait postinstall skipifdoesntexist
 
 [UninstallRun]

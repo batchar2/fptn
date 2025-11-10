@@ -30,6 +30,8 @@ class IObfuscator {
   virtual bool HasPendingData() const = 0;
 
   virtual bool CheckProtocol(const std::uint8_t* data, std::size_t size) = 0;
+
+  virtual std::shared_ptr<IObfuscator> Clone() const = 0;
 };
 
 using IObfuscatorSPtr = std::shared_ptr<IObfuscator>;

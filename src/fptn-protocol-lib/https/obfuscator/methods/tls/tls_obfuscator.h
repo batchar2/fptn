@@ -7,6 +7,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #pragma once
 
 #include <cstdint>
+#include <memory>
 #include <mutex>
 #include <vector>
 
@@ -28,6 +29,8 @@ class TlsObfuscator : public IObfuscator {
   bool HasPendingData() const override;
 
   bool CheckProtocol(const std::uint8_t* data, std::size_t size) override;
+
+  std::shared_ptr<IObfuscator> Clone() const override;
 
  private:
   std::vector<uint8_t> input_buffer_;
