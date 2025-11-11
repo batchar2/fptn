@@ -7,6 +7,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "fptn-protocol-lib/https/obfuscator/methods/tls/tls_obfuscator.h"
 
 #include <cstring>
+#include <memory>
 #include <random>
 #include <vector>
 
@@ -41,7 +42,7 @@ struct TLSAppDataRecordHeader {
 
   /* FPTN TLS obfuscator protocol */
   std::uint64_t random_data;
-  std::uint16_t magic_flag;       // Must be in network byte order!
+  std::uint16_t magic_flag;  // Must be in network byte order!
   std::uint8_t protocol_version;
   std::uint8_t xor_key;
   std::uint16_t payload_length;  // Must be in network byte order!
@@ -293,6 +294,10 @@ bool TlsObfuscator::CheckProtocol(const std::uint8_t* data, std::size_t size) {
 bool TlsObfuscator::HasPendingData() const {
   bool result = !input_buffer_.empty();
   return result;
+}
+
+std::shared_ptr<IObfuscator> TlsObfuscator::Clone() const {
+  return std::make_shared<TlsObfuscator>();
 }
 
 };  // namespace fptn::protocol::https::obfuscator

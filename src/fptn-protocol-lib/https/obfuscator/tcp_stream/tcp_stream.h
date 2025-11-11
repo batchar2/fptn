@@ -265,6 +265,8 @@ class TcpStream {
     obfuscator_ = std::move(obfuscator);
   }
 
+  IObfuscatorSPtr get_obfuscator() const { return obfuscator_; }
+
  protected:
   template <typename Sequence>
   static bool has_single_buffer(const Sequence& buffers) {

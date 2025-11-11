@@ -9,10 +9,12 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <chrono>
 #include <memory>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 
+#include <fmt/format.h>     // NOLINT(build/include_order)
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 #include <zlib.h>           // NOLINT(build/include_order)
 
@@ -85,6 +87,27 @@ std::string GetHttpBody(
   return body;
 }
 
+void SetSocketTimeouts(
+    boost::asio::ip::tcp::socket& socket, int timeout_seconds) {
+  auto native_socket = socket.native_handle();
+
+#ifdef _WIN32
+  DWORD timeout_ms = timeout_seconds * 1000;
+  ::setsockopt(native_socket, SOL_SOCKET, SO_RCVTIMEO,
+      reinterpret_cast<const char*>(&timeout_ms), sizeof(timeout_ms));
+  ::setsockopt(native_socket, SOL_SOCKET, SO_SNDTIMEO,
+      reinterpret_cast<const char*>(&timeout_ms), sizeof(timeout_ms));
+#else
+  timeval tv = {};
+  tv.tv_sec = timeout_seconds;
+  tv.tv_usec = 0;
+  ::setsockopt(native_socket, SOL_SOCKET, SO_RCVTIMEO,
+      reinterpret_cast<const char*>(&tv), sizeof(tv));
+  ::setsockopt(native_socket, SOL_SOCKET, SO_SNDTIMEO,
+      reinterpret_cast<const char*>(&tv), sizeof(tv));
+#endif
+}
+
 };  // namespace
 
 namespace fptn::protocol::https {
@@ -128,6 +151,8 @@ Response ApiClient::Get(const std::string& handle, int timeout) const {
   const auto start_time = std::chrono::steady_clock::now();
 
   SSL* ssl = nullptr;
+  std::string server_ip;
+
   try {
     boost::asio::io_context ioc;
 
@@ -140,14 +165,24 @@ Response ApiClient::Get(const std::string& handle, int timeout) const {
     ssl_stream_type stream(std::move(obfuscator_stream), ctx);
 
     boost::beast::net::ip::tcp::resolver resolver(ioc);
-    const std::string port = std::to_string(port_);
-    auto const results = resolver.resolve(host_, port);
+    const std::string port_str = std::to_string(port_);
+    const auto results = resolver.resolve(host_, port_str);
+
+    SPDLOG_INFO("GET [{}] - Connecting to server: {}:{}", handle, host_, port_);
 
     boost::beast::get_lowest_layer(stream).expires_after(
         std::chrono::seconds(timeout));
     stream.next_layer().next_layer().expires_after(
         std::chrono::seconds(timeout));
-    boost::beast::get_lowest_layer(stream).connect(results);
+
+    auto connected_endpoint =
+        boost::beast::get_lowest_layer(stream).connect(results);
+    server_ip = connected_endpoint.address().to_string();
+
+    SPDLOG_INFO("GET [{}] - Successfully connected to {}", handle, host_);
+
+    auto& socket = boost::beast::get_lowest_layer(stream).socket();
+    SetSocketTimeouts(socket, timeout);
 
     utils::SetHandshakeSessionID(stream.native_handle());
     utils::SetHandshakeSni(stream.native_handle(), sni_);
@@ -161,11 +196,26 @@ Response ApiClient::Get(const std::string& handle, int timeout) const {
     } else {
       ctx.set_verify_mode(boost::asio::ssl::verify_none);
     }
+
     // TLS handshake with obfuscator
     stream.handshake(boost::asio::ssl::stream_base::client);
 
     // Remove obfuscator after handshake
-    stream.next_layer().set_obfuscator(nullptr);
+    if (obfuscator_ != nullptr) {
+      constexpr int kMaxRetries = 5;
+      int retry_count = 0;
+      do {
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        retry_count += 1;
+      } while (obfuscator_->HasPendingData() && retry_count < kMaxRetries);
+      if (retry_count >= kMaxRetries) {
+        SPDLOG_WARN(
+            "GET [{}] - Failed to clear obfuscator pending data within {} "
+            "attempts for server: {}",
+            handle, retry_count, host_);
+      }
+      stream.next_layer().set_obfuscator(nullptr);
+    }
 
     boost::beast::http::request<boost::beast::http::string_body> req{
         boost::beast::http::verb::get, handle, 11};
@@ -184,7 +234,9 @@ Response ApiClient::Get(const std::string& handle, int timeout) const {
     try {
       boost::beast::get_lowest_layer(stream).close();
     } catch (boost::system::system_error const& e) {
-      SPDLOG_ERROR("Exception during HttpsClient::Get: {}", e.what());
+      SPDLOG_ERROR(
+          "GET [{}] - Exception during connection close for server {}: {}",
+          handle, host_, e.what());
     }
   } catch (const boost::system::system_error& err) {
 #ifdef _WIN32
@@ -193,7 +245,8 @@ Response ApiClient::Get(const std::string& handle, int timeout) const {
     error = err.what();
 #endif
     respcode = 600;
-    SPDLOG_ERROR("Exception during HttpsClient::Get: {}", error);
+    SPDLOG_ERROR("GET [{}] - System error for server {} (IP: {}): {}", handle,
+        host_, server_ip, error);
   } catch (const std::exception& e) {
 #ifdef _WIN32
     error = boost::nowide::narrow(boost::nowide::widen(e.what()));
@@ -201,11 +254,13 @@ Response ApiClient::Get(const std::string& handle, int timeout) const {
     error = e.what();
 #endif
     respcode = 601;
-    SPDLOG_ERROR("Exception during HttpsClient::Get: {}", error);
+    SPDLOG_ERROR("GET [{}] - Exception for server {} (IP: {}): {}", handle,
+        host_, server_ip, error);
   } catch (...) {
     error = "Unknown exception";
     respcode = 602;
-    SPDLOG_ERROR("Unknown exception occurred during HttpsClient::Get");
+    SPDLOG_ERROR("GET [{}] - Unknown exception for server {} (IP: {})", handle,
+        host_, server_ip);
   }
   if (ssl) {
     utils::AttachCertificateVerificationCallbackDelete(ssl);
@@ -214,8 +269,19 @@ Response ApiClient::Get(const std::string& handle, int timeout) const {
   const auto end_time = std::chrono::steady_clock::now();
   const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
       end_time - start_time);
-  SPDLOG_INFO("GET [{}] completed in {} ms with status {}", handle,
-      duration.count(), respcode);
+
+  if (respcode >= 200 && respcode < 300) {
+    SPDLOG_INFO(
+        "GET [{}] - Success from server {} (IP: {}) in {} ms - Status: {}, "
+        "Body size: {} bytes",
+        handle, host_, server_ip, duration.count(), respcode, body.size());
+  } else {
+    SPDLOG_WARN(
+        "GET [{}] - Failed from server {} (IP: {}) in {} ms - Status: {}, "
+        "Error: {}, Body size: {} bytes",
+        handle, host_, server_ip, duration.count(), respcode, error,
+        body.size());
+  }
 
   return {body, respcode, error};
 }
@@ -231,6 +297,8 @@ Response ApiClient::Post(const std::string& handle,
   const auto start_time = std::chrono::steady_clock::now();
 
   SSL* ssl = nullptr;
+  std::string server_ip;
+
   try {
     boost::asio::io_context ioc;
     auto* ssl_ctx = utils::CreateNewSslCtx();
@@ -242,14 +310,25 @@ Response ApiClient::Post(const std::string& handle,
     ssl_stream_type stream(std::move(obfuscator_stream), ctx);
 
     boost::beast::net::ip::tcp::resolver resolver(ioc);
-    const std::string port = std::to_string(port_);
-    auto const results = resolver.resolve(host_, port);
+    const std::string port_str = std::to_string(port_);
+    const auto results = resolver.resolve(host_, port_str);
+
+    SPDLOG_INFO(
+        "POST [{}] - Connecting to server: {}:{}", handle, host_, port_);
 
     boost::beast::get_lowest_layer(stream).expires_after(
         std::chrono::seconds(timeout));
     stream.next_layer().next_layer().expires_after(
         std::chrono::seconds(timeout));
-    boost::beast::get_lowest_layer(stream).connect(results);
+
+    auto connected_endpoint =
+        boost::beast::get_lowest_layer(stream).connect(results);
+    server_ip = connected_endpoint.address().to_string();
+
+    SPDLOG_INFO("POST [{}] - Successfully connected to {}", handle, host_);
+
+    auto& socket = boost::beast::get_lowest_layer(stream).socket();
+    SetSocketTimeouts(socket, timeout);
 
     utils::SetHandshakeSessionID(stream.native_handle());
     utils::SetHandshakeSni(stream.native_handle(), sni_);
@@ -268,7 +347,21 @@ Response ApiClient::Post(const std::string& handle,
     stream.handshake(boost::asio::ssl::stream_base::client);
 
     // Remove obfuscator after handshake
-    stream.next_layer().set_obfuscator(nullptr);
+    if (obfuscator_ != nullptr) {
+      constexpr int kMaxRetries = 5;
+      int retry_count = 0;
+      do {
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        retry_count += 1;
+      } while (obfuscator_->HasPendingData() && retry_count < kMaxRetries);
+      if (retry_count >= kMaxRetries) {
+        SPDLOG_WARN(
+            "POST [{}] - Failed to clear obfuscator pending data within {} "
+            "attempts for server: {}",
+            handle, retry_count, host_);
+      }
+      stream.next_layer().set_obfuscator(nullptr);
+    }
 
     boost::beast::http::request<boost::beast::http::string_body> req{
         boost::beast::http::verb::post, handle, 11};
@@ -293,7 +386,9 @@ Response ApiClient::Post(const std::string& handle,
     try {
       boost::beast::get_lowest_layer(stream).close();
     } catch (boost::system::system_error const& e) {
-      SPDLOG_ERROR("Exception during HttpsClient::Get: {}", e.what());
+      SPDLOG_ERROR(
+          "POST [{}] - Exception during connection close for server {}: {}",
+          handle, host_, e.what());
     }
   } catch (const boost::system::system_error& err) {
 #ifdef _WIN32
@@ -302,7 +397,8 @@ Response ApiClient::Post(const std::string& handle,
     error = err.what();
 #endif
     respcode = 600;
-    SPDLOG_ERROR("Exception during HttpsClient::Post: {}", error);
+    SPDLOG_ERROR("POST [{}] - System error for server {} (IP: {}): {}", handle,
+        host_, server_ip, error);
   } catch (const std::exception& e) {
 #ifdef _WIN32
     error = boost::nowide::narrow(boost::nowide::widen(e.what()));
@@ -310,11 +406,13 @@ Response ApiClient::Post(const std::string& handle,
     error = e.what();
 #endif
     respcode = 601;
-    SPDLOG_ERROR("Exception during HttpsClient::Post: {}", error);
+    SPDLOG_ERROR("POST [{}] - Exception for server {} (IP: {}): {}", handle,
+        host_, server_ip, error);
   } catch (...) {
     error = "Unknown exception";
     respcode = 602;
-    SPDLOG_ERROR("Unknown exception occurred during HttpsClient::Post");
+    SPDLOG_ERROR("POST [{}] - Unknown exception for server {} (IP: {})", handle,
+        host_, server_ip);
   }
   if (ssl) {
     utils::AttachCertificateVerificationCallbackDelete(ssl);
@@ -323,8 +421,20 @@ Response ApiClient::Post(const std::string& handle,
   const auto end_time = std::chrono::steady_clock::now();
   const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
       end_time - start_time);
-  SPDLOG_INFO("POST [{}] completed in {} ms with status {}", handle,
-      duration.count(), respcode);
+
+  if (respcode >= 200 && respcode < 300) {
+    SPDLOG_INFO(
+        "POST [{}] - Success from server {} (IP: {}) in {} ms - Status: {}, "
+        "Request: {} bytes, Response: {} bytes",
+        handle, host_, server_ip, duration.count(), respcode, request.size(),
+        body.size());
+  } else {
+    SPDLOG_WARN(
+        "POST [{}] - Failed from server {} (IP: {}) in {} ms - Status: {}, "
+        "Error: {}, Request: {} bytes, Response: {} bytes",
+        handle, host_, server_ip, duration.count(), respcode, error,
+        request.size(), body.size());
+  }
 
   return {body, respcode, error};
 }
@@ -341,7 +451,8 @@ bool ApiClient::onVerifyCertificate(
       "Certificate MD5 mismatch. Expected: {}, got: {}. "
       "Please update your token.",
       expected_md5_fingerprint_, md5_fingerprint);
-  SPDLOG_ERROR(error);
+  SPDLOG_ERROR(
+      "Certificate verification failed for server {}: {}", host_, error);
   return false;
 }
 

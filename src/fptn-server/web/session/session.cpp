@@ -49,6 +49,17 @@ std::vector<std::string> GetServerIpAddresses() {
   return server_ips;
 }
 
+void SetSocketTimeouts(boost::asio::ip::tcp::socket& socket, int timeout_sec) {
+  timeval tv = {};
+  tv.tv_sec = timeout_sec;
+  tv.tv_usec = 0;
+  const int socket_fd = socket.native_handle();
+  ::setsockopt(socket_fd, SOL_SOCKET, SO_RCVTIMEO,
+      reinterpret_cast<const char*>(&tv), sizeof(tv));
+  ::setsockopt(socket_fd, SOL_SOCKET, SO_SNDTIMEO,
+      reinterpret_cast<const char*>(&tv), sizeof(tv));
+}
+
 }  // namespace
 
 namespace fptn::web {
@@ -164,9 +175,6 @@ boost::asio::awaitable<void> Session::Run() {
   }
 
   // Reset obfuscator after TLS handshake
-  co_await boost::asio::steady_timer(
-      co_await boost::asio::this_coro::executor, std::chrono::milliseconds(100))
-      .async_wait(boost::asio::use_awaitable);
   ws_.next_layer().next_layer().set_obfuscator(nullptr);
 
   // Process request (HTTP or WebSocket)
@@ -355,9 +363,11 @@ boost::asio::awaitable<bool> Session::HandleProxy(
   boost::asio::ip::tcp::socket target_socket(
       co_await boost::asio::this_coro::executor);
 
-  bool status = false;
-  std::atomic<bool> proxy_active{true};
+  constexpr int kTimeout = 10;
+  boost::beast::get_lowest_layer(ws_).expires_after(
+      std::chrono::seconds(kTimeout));
 
+  bool status = false;
   try {
     boost::asio::ip::tcp::resolver resolver(
         co_await boost::asio::this_coro::executor);
@@ -373,24 +383,25 @@ boost::asio::awaitable<bool> Session::HandleProxy(
         ep.address().to_string(), ep.port(), sni, port_str, client_id_);
 
     auto self = shared_from_this();
-    auto forward = [self, &proxy_active](
+    auto forward = [self](
                        auto& from, auto& to) -> boost::asio::awaitable<void> {
       try {
         boost::system::error_code ec;
-        std::array<char, 8192> buf{};
-        while (self->running_ && proxy_active.load()) {
-          co_await from.async_read_some(boost::asio::buffer(buf),
+        std::array<std::uint8_t, 16384> buf{};
+        while (self->running_) {
+          const auto n = co_await from.async_read_some(boost::asio::buffer(buf),
               boost::asio::redirect_error(boost::asio::use_awaitable, ec));
-          if (ec || !proxy_active.load()) {
+          if (ec || n == 0) {
             break;
           }
           co_await boost::asio::async_write(to,
-              boost::asio::buffer(buf.data(), buf.size()),
+              boost::asio::buffer(buf.data(), n),
               boost::asio::redirect_error(boost::asio::use_awaitable, ec));
-          if (ec || !proxy_active.load()) {
+          if (ec) {
             break;
           }
         }
+        from.close();
       } catch (const boost::system::system_error& e) {
         SPDLOG_ERROR("Coroutine system error: {} [{}] (client_id={})", e.what(),
             e.code().message(), self->client_id_);
@@ -398,30 +409,21 @@ boost::asio::awaitable<bool> Session::HandleProxy(
       co_return;
     };
 
-    boost::asio::steady_timer timeout_timer(
-        co_await boost::asio::this_coro::executor);
-    timeout_timer.expires_after(std::chrono::seconds(10));
+    // Set socket timeout
+    SetSocketTimeouts(tcp_socket, kTimeout);
+    SetSocketTimeouts(target_socket, kTimeout);
 
-    auto results = co_await boost::asio::experimental::make_parallel_group(
-        boost::asio::co_spawn(co_await boost::asio::this_coro::executor,
-            forward(tcp_socket, target_socket), boost::asio::deferred),
-        boost::asio::co_spawn(co_await boost::asio::this_coro::executor,
-            forward(target_socket, tcp_socket), boost::asio::deferred),
-        timeout_timer.async_wait(boost::asio::deferred))
-                       .async_wait(boost::asio::experimental::wait_for_one(),
-                           boost::asio::use_awaitable);
-    proxy_active = false;
-
-    boost::system::error_code ec;
-    if (tcp_socket.is_open()) {
-      tcp_socket.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
-      tcp_socket.close(ec);
-    }
-    if (target_socket.is_open()) {
-      target_socket.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
-      target_socket.close(ec);
-    }
-
+    auto [client_to_server_result, server_to_client_result, completion_status] =
+        co_await boost::asio::experimental::make_parallel_group(
+            boost::asio::co_spawn(co_await boost::asio::this_coro::executor,
+                forward(tcp_socket, target_socket), boost::asio::deferred),
+            boost::asio::co_spawn(co_await boost::asio::this_coro::executor,
+                forward(target_socket, tcp_socket), boost::asio::deferred))
+            .async_wait(boost::asio::experimental::wait_for_all(),
+                boost::asio::use_awaitable);
+    (void)client_to_server_result;
+    (void)server_to_client_result;
+    (void)completion_status;
     status = true;
   } catch (const boost::system::system_error& e) {
     SPDLOG_ERROR("Proxy system error: {} [{}] (client_id={})", e.what(),
@@ -430,7 +432,22 @@ boost::asio::awaitable<bool> Session::HandleProxy(
     SPDLOG_ERROR("Proxy error (client_id={}): {} ", e.what(), client_id_);
   }
 
+  // close socket
+  try {
+    tcp_socket.close();
+  } catch (const boost::system::system_error& e) {
+    SPDLOG_ERROR(
+        "Failed to close the socket after proxy completion (client_id={}): "
+        "{} "
+        "[{}]",
+        client_id_, e.what(), e.code().message());
+  }
+  // close target socket
+  boost::system::error_code ec;
+  target_socket.close(ec);
+
   SPDLOG_INFO("Close proxy (client_id={})", client_id_);
+
   co_return status;
 }
 
