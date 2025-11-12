@@ -107,15 +107,16 @@ bool WebsocketClient::Stop() {
       return false;
     }
 
-    const std::unique_lock<std::mutex> lock(mutex_);
+    {
+      const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
-    // cppcheck-suppress identicalConditionAfterEarlyExit
-    if (!running_) {  // Double-check after acquiring lock
-      return false;
+      // cppcheck-suppress identicalConditionAfterEarlyExit
+      if (!running_) {  // Double-check after acquiring lock
+        return false;
+      }
+      running_ = false;
+      was_connected_ = false;
     }
-
-    running_ = false;
-    was_connected_ = false;
 
     auto stop_promise = std::make_shared<std::promise<void>>();
     auto stop_future = stop_promise->get_future();
@@ -175,7 +176,10 @@ bool WebsocketClient::Stop() {
       stop_promise->set_value();
     });
 
-    stop_future.wait();
+    if (stop_future.wait_for(std::chrono::seconds(5)) ==
+        std::future_status::timeout) {
+      SPDLOG_WARN("WebsocketClient stop timeout, forcing shutdown");
+    }
 
     // Stop io_context
     try {
@@ -211,11 +215,7 @@ bool WebsocketClient::Send(fptn::common::network::IPPacketPtr packet) {
   }
 }
 
-bool WebsocketClient::IsStarted() const {
-  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
-
-  return running_ && was_connected_;
-}
+bool WebsocketClient::IsStarted() const { return running_ && was_connected_; }
 
 boost::asio::awaitable<bool> WebsocketClient::RunInternal() {
   try {
