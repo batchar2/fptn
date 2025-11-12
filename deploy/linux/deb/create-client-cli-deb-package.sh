@@ -35,12 +35,17 @@ cat <<EOL > "$CLIENT_TMP_DIR/etc/fptn-client/client.conf"
 ACCESS_TOKEN=
 
 # Required: Fake VPN domain name for SNI
-SNI=tv.telecom.kz
+SNI=rutube.ru
 
 # Optional: Specify the network interface
 NETWORK_INTERFACE=
 # Optional: Specify the gateway IP (e.g., router IP)
 GATEWAY_IP=
+
+# Obfuscator for bypassing DPI. Supported values: none, tls
+# - none : no obfuscation
+# - tls  : wrap/obfuscate TLS handshake to avoid simple DPI
+OBFUSCATOR=none
 
 EOL
 
@@ -52,7 +57,7 @@ After=network.target
 
 [Service]
 EnvironmentFile=/etc/fptn-client/client.conf
-ExecStart=/usr/bin/$(basename "$CLIENT_CLI") --access-token=\${ACCESS_TOKEN} --out-network-interface=\${NETWORK_INTERFACE} --gateway-ip=\${GATEWAY_IP} --sni=\${SNI}
+ExecStart=/usr/bin/$(basename "$CLIENT_CLI") --access-token=\${ACCESS_TOKEN} --out-network-interface=\${NETWORK_INTERFACE} --gateway-ip=\${GATEWAY_IP} --sni=\${SNI} --obfuscator=\${OBFUSCATOR}
 Restart=always
 RestartSec=5
 User=root
