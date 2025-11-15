@@ -44,14 +44,6 @@ Click "Open System Settings":
 <img src="images/22-extension.png" alt="Warning" height="520"/>
 
 
-Disable "FileVault" and then click on "Enable System Extensions."
-The system may prompt you to restart. Restart to activate the TUN driver:
-
-<img src="images/23-extension.png" alt="Warning" height="520"/>
-
-
-
-
 After restarting:
 1. Shut down your computer. Start it up by pressing the power button and holding it until your system starts in [macOS Recovery](https://support.apple.com/guide/mac-help/macos-recovery-a-mac-apple-silicon-mchl82829c17/mac) and you see the startup options page.
 2. Select "Options."
