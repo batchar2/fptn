@@ -270,7 +270,8 @@ void SettingsWidget::SetupUi() {
       "  - ragdollmaster<br>"
       "  - slimefrozik<br>"
       "  - HooLigaN<br>"
-      "  - Dima";
+      "  - Dima<br>"
+      "  - Kori";
 
   sponsors_names_label_ = new QLabel(sponsors_list, this);
   sponsors_names_label_->setAlignment(Qt::AlignLeft);
