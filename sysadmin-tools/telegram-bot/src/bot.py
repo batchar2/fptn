@@ -74,15 +74,15 @@ class UserManager:
                 for line in file:
                     parts = line.strip().split()
                     if len(parts) == 3:
-                        username, hashed_password, _ = parts
-                        users[username] = hashed_password
+                        username, hashed_password, speed = parts
+                        users[username] = {"password": hashed_password, "speed": speed}
         return users
 
     def save_users(self, users: dict):
-        self.users_file.parent.mkdir(parents=True, exist_ok=True)  # Ensure the directory exists
+        self.users_file.parent.mkdir(parents=True, exist_ok=True)
         with self.users_file.open("w") as file:
-            for username, hashed_password in users.items():
-                file.write(f"{username} {hashed_password} {MAX_USER_SPEED_LIMIT}\n")  # Default balance
+            for username, data in users.items():
+                file.write(f"{username} {data['password']} {data['speed']}\n")
 
     def register_user(self, user_id: str) -> (str, str):
         username = f"user{user_id}"
@@ -94,7 +94,7 @@ class UserManager:
             else:
                 password = self._generate_password()
                 hashed_password = self._hash_password(password)
-                users[username] = hashed_password
+                users[username] = {"password": hashed_password, "speed": str(MAX_USER_SPEED_LIMIT)}
                 self.save_users(users)
                 logger.info(f"User {user_id} registered with username: {username}")
                 return username, password
@@ -103,9 +103,7 @@ class UserManager:
         username = f"user{user_id}"
         with self.user_data_lock:
             users = self.load_users()
-            if username in users:
-                return True
-        return False
+            return username in users
 
     def reset_password(self, user_id: str) -> (str, str):
         username = f"user{user_id}"
@@ -114,7 +112,8 @@ class UserManager:
             if username in users:
                 new_password = self._generate_password()
                 hashed_password = self._hash_password(new_password)
-                users[username] = hashed_password
+                current_speed = users[username]["speed"]
+                users[username] = {"password": hashed_password, "speed": current_speed}
                 self.save_users(users)
                 logger.info(f"User {user_id} reset password.")
                 return username, new_password
