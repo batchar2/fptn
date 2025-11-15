@@ -143,7 +143,7 @@ TrayApp::TrayApp(const SettingsModelPtr& settings, QObject* parent)
   connect(settings_.get(), &SettingsModel::dataChanged, this,
       &TrayApp::UpdateTrayMenu);
   connect(update_timer_, &QTimer::timeout, this, &TrayApp::handleTimer);
-  update_timer_->start(300);
+  update_timer_->start(1000);
 
   // Settings
   settings_action_ = new QAction(QObject::tr("Settings"), this);
@@ -526,15 +526,28 @@ void TrayApp::handleDisconnecting() {
 }
 
 void TrayApp::handleTimer() {
+  static bool reconnection_in_progress = false;
+  static auto last_reconnection_time = std::chrono::steady_clock::now();
+
   // check connection state
   bool is_disconnected = false;
-  if (connection_state_ == ConnectionState::Connected) {
+  if (connection_state_ == ConnectionState::Connected && vpn_client_) {
     const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
+    // cppcheck-suppress identicalConditionAfterEarlyExit
     if (connection_state_ == ConnectionState::Connected && vpn_client_) {
       if (!vpn_client_->IsStarted()) {
-        // client was disconnected
-        is_disconnected = true;
+        // check reconnection
+        auto now = std::chrono::steady_clock::now();
+        auto time_since_last = std::chrono::duration_cast<std::chrono::seconds>(
+            now - last_reconnection_time);
+
+        if (!reconnection_in_progress &&
+            time_since_last > std::chrono::seconds(3)) {
+          reconnection_in_progress = true;
+          last_reconnection_time = now;
+          is_disconnected = true;
+        }
       } else if (speed_widget_) {
         speed_widget_->UpdateSpeed(
             vpn_client_->GetReceiveRate(), vpn_client_->GetSendRate());
@@ -546,6 +559,7 @@ void TrayApp::handleTimer() {
     // show error
     ShowError(QObject::tr("FPTN Connection Error"),
         QObject::tr("The VPN connection was unexpectedly closed."));
+    SPDLOG_INFO("FPTN Connection Error");
     emit disconnecting();
   }
 
@@ -617,6 +631,7 @@ void TrayApp::RetranslateUi() {
 }
 
 void TrayApp::stop() {
+  SPDLOG_INFO("Stopping TrayApp");
   if (vpn_client_) {
     vpn_client_->Stop();
     vpn_client_.reset();
@@ -646,9 +661,6 @@ bool TrayApp::startVpn(QString& err_msg) {
   SPDLOG_DEBUG("Handling connecting state");
 
   const std::unique_lock<std::mutex> lock(mutex_);  // mutex
-
-  // Synchronize VPN client time with NTP servers
-  fptn::time::TimeProvider::Instance()->SyncWithNtp();
 
   const fptn::common::network::IPv4Address tun_interface_address_ipv4(
       FPTN_CLIENT_DEFAULT_ADDRESS_IP4);
@@ -800,6 +812,7 @@ bool TrayApp::startVpn(QString& err_msg) {
 }
 
 bool TrayApp::stopVpn() {
+  SPDLOG_INFO("Stopping vpn");
   if (vpn_client_) {
     vpn_client_->Stop();
     vpn_client_.reset();

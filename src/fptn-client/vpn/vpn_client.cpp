@@ -26,6 +26,10 @@ VpnClient::VpnClient(fptn::vpn::http::ClientPtr http_client,
 VpnClient::~VpnClient() { Stop(); }
 
 bool VpnClient::IsStarted() {
+  if (!running_) {
+    return false;
+  }
+
   const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
   return running_ && http_client_ && http_client_->IsStarted();

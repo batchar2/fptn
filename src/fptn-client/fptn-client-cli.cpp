@@ -94,9 +94,6 @@ int main(int argc, char* argv[]) {
       return EXIT_FAILURE;
     }
 
-    // Synchronize VPN client time with NTP servers
-    fptn::time::TimeProvider::Instance()->SyncWithNtp();
-
     /* parse cmd args */
     const auto out_network_interface_name =
         args.get<std::string>("--out-network-interface");

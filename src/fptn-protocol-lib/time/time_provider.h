@@ -36,13 +36,12 @@ class TimeProvider final {
       NtpServers servers = {
         {"pool.ntp.org", 123},
         {"ru.pool.ntp.org", 123},
-        {"ntp.ix.ru", 123},
-        {"europe.pool.ntp.org", 123},
-        {"cn.pool.ntp.org", 123}});
+        {"ntp.ix.ru", 123}
+      });
   bool Refresh();
 
  private:
-  const std::chrono::minutes kSyncInterval_{5};
+  const std::chrono::hours kSyncInterval_{1};
 
   mutable std::mutex mutex_;
   const NtpServers servers_;
