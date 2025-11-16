@@ -89,7 +89,8 @@ WarningsAsErrors: ''
   set(QT_ADDITIONAL_PARAMS "")
   if(WIN32)
     set(QT_ADDITIONAL_PARAMS WIN32
-            utils/signal/main_loop.h)
+            utils/signal/main_loop.h
+            ../common/network/resolv.h)
   endif()
 
   set(PLATFORM_SPECIFIC_LIBS "")
