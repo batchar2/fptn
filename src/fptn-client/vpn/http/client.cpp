@@ -215,9 +215,11 @@ bool Client::Stop() {
     return false;
   }
 
+  SPDLOG_INFO("Stopping client");
+
   {
     const std::unique_lock<std::mutex> lock(mutex_);  // mutex
-    // cppcheck-suppress identicalConditionAfterEarlyExit
+
     if (!running_) {  // Double-check after acquiring lock
       return false;
     }
@@ -241,7 +243,7 @@ bool Client::IsStarted() {
 
   const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
-  return running_ && ws_ && reconnection_attempts_ > 0;
+  return running_ && reconnection_attempts_ > 0;
 }
 
 const std::string& Client::LatestError() const { return latest_error_; }
