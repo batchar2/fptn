@@ -56,11 +56,13 @@ class TrayApp : public QWidget {
   void disconnecting();
   void vpnStarted(bool success, const QString& err_msg);
 
+  // cppcheck-suppress unknownMacro
  protected slots:
   void onConnectToServer();
   void onDisconnectFromServer();
   void onShowSettings();
 
+  // cppcheck-suppress unknownMacro
  protected slots:
   void handleDefaultState();
   void handleConnecting();

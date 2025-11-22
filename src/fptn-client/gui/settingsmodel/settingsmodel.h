@@ -17,6 +17,8 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <QString>        // NOLINT(build/include_order)
 #include <QVector>        // NOLINT(build/include_order)
 
+#include "gui/sni_manager/sni_manager.h"
+
 namespace fptn::gui {
 /*
 {
@@ -129,10 +131,13 @@ class SettingsModel : public QObject {
   bool Autostart() const;
   void SetAutostart(bool value);
 
-  QString GetFilePath() const;
+  QString GetSettingsFilePath() const;
+  QString GetSettingsFolderPath() const;
 
   QString BypassMethod() const;
   void SetBypassMethod(const QString& method);
+
+  SNIManagerSPtr SniManager() const;
 
  signals:
   void dataChanged();
@@ -152,6 +157,8 @@ class SettingsModel : public QObject {
   bool client_autostart_;
 
   QString bypass_method_;
+
+  SNIManagerSPtr sni_manager_;
 };
 
 using SettingsModelPtr = std::shared_ptr<SettingsModel>;

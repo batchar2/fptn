@@ -281,7 +281,7 @@ Use the following template:
         {
             "name": "MyFptnServer",
             "host": "YOUR_IP",
-            "md5_fingerprint": "YOUR_SERVER_FINGERPRINT"
+            "md5_fingerprint": "YOUR_SERVER_FINGERPRINT",
             "port": 443
         }
     ]
