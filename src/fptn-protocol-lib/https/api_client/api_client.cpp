@@ -28,6 +28,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/connect.hpp>
+#include <boost/asio/deadline_timer.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ssl/detail/openssl_types.hpp>
 #include <boost/asio/ssl/error.hpp>
@@ -37,6 +38,8 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <boost/beast/http.hpp>
 #include <boost/beast/ssl.hpp>
 #include <boost/nowide/convert.hpp>
+
+#include "common/network/resolv.h"
 
 #include "fptn-protocol-lib/https/obfuscator/tcp_stream/tcp_stream.h"
 #include "fptn-protocol-lib/https/utils/tls/tls.h"
@@ -69,7 +72,7 @@ std::string DecompressGzip(const std::string& compressed) {
 
     if (ret == Z_STREAM_ERROR || ret == Z_DATA_ERROR || ret == Z_MEM_ERROR) {
       inflateEnd(&strm);
-      return {};  // decompression error
+      return {};
     }
     decompressed.append(buffer.data(), buffer.size() - strm.avail_out);
   } while (ret != Z_STREAM_END);
@@ -164,79 +167,85 @@ Response ApiClient::Get(const std::string& handle, int timeout) const {
         std::move(tcp_stream), obfuscator_);
     ssl_stream_type stream(std::move(obfuscator_stream), ctx);
 
-    boost::beast::net::ip::tcp::resolver resolver(ioc);
     const std::string port_str = std::to_string(port_);
-    const auto results = resolver.resolve(host_, port_str);
+    auto resolve_result = fptn::common::network::ResolveWithTimeout(
+        ioc, host_, port_str, timeout);
 
-    SPDLOG_INFO("GET [{}] - Connecting to server: {}:{}", handle, host_, port_);
-
-    boost::beast::get_lowest_layer(stream).expires_after(
-        std::chrono::seconds(timeout));
-    stream.next_layer().next_layer().expires_after(
-        std::chrono::seconds(timeout));
-
-    auto connected_endpoint =
-        boost::beast::get_lowest_layer(stream).connect(results);
-    server_ip = connected_endpoint.address().to_string();
-
-    SPDLOG_INFO("GET [{}] - Successfully connected to {}", handle, host_);
-
-    auto& socket = boost::beast::get_lowest_layer(stream).socket();
-    SetSocketTimeouts(socket, timeout);
-
-    utils::SetHandshakeSessionID(stream.native_handle());
-    utils::SetHandshakeSni(stream.native_handle(), sni_);
-
-    if (!expected_md5_fingerprint_.empty()) {
-      ssl = stream.native_handle();
-      utils::AttachCertificateVerificationCallback(
-          ssl, [this, &error](const std::string& md5_fingerprint) {
-            return onVerifyCertificate(md5_fingerprint, error);
-          });
+    if (!resolve_result) {
+      error = resolve_result.error.message();
+      respcode = 603;
+      SPDLOG_ERROR("GET [{}] - DNS resolution failed for {}:{}: {}", handle,
+          host_, port_, error);
     } else {
-      ctx.set_verify_mode(boost::asio::ssl::verify_none);
-    }
+      SPDLOG_INFO(
+          "GET [{}] - Connecting to server: {}:{}", handle, host_, port_);
 
-    // TLS handshake with obfuscator
-    stream.handshake(boost::asio::ssl::stream_base::client);
+      boost::beast::get_lowest_layer(stream).expires_after(
+          std::chrono::seconds(timeout));
+      stream.next_layer().next_layer().expires_after(
+          std::chrono::seconds(timeout));
 
-    // Remove obfuscator after handshake
-    if (obfuscator_ != nullptr) {
-      constexpr int kMaxRetries = 5;
-      int retry_count = 0;
-      do {
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
-        retry_count += 1;
-      } while (obfuscator_->HasPendingData() && retry_count < kMaxRetries);
-      if (retry_count >= kMaxRetries) {
-        SPDLOG_WARN(
-            "GET [{}] - Failed to clear obfuscator pending data within {} "
-            "attempts for server: {}",
-            handle, retry_count, host_);
+      auto connected_endpoint = boost::beast::get_lowest_layer(stream).connect(
+          resolve_result.results);
+      server_ip = connected_endpoint.address().to_string();
+
+      SPDLOG_INFO("GET [{}] - Successfully connected to {}", handle, host_);
+
+      auto& socket = boost::beast::get_lowest_layer(stream).socket();
+      SetSocketTimeouts(socket, timeout);
+
+      utils::SetHandshakeSessionID(stream.native_handle());
+      utils::SetHandshakeSni(stream.native_handle(), sni_);
+
+      if (!expected_md5_fingerprint_.empty()) {
+        ssl = stream.native_handle();
+        utils::AttachCertificateVerificationCallback(
+            ssl, [this, &error](const std::string& md5_fingerprint) {
+              return onVerifyCertificate(md5_fingerprint, error);
+            });
+      } else {
+        ctx.set_verify_mode(boost::asio::ssl::verify_none);
       }
-      stream.next_layer().set_obfuscator(nullptr);
-    }
 
-    boost::beast::http::request<boost::beast::http::string_body> req{
-        boost::beast::http::verb::get, handle, 11};
-    boost::beast::http::write(stream, req);
+      stream.handshake(boost::asio::ssl::stream_base::client);
 
-    boost::beast::flat_buffer buffer;
-    boost::beast::http::response<boost::beast::http::dynamic_body> res;
+      if (obfuscator_ != nullptr) {
+        constexpr int kMaxRetries = 5;
+        int retry_count = 0;
+        do {
+          std::this_thread::sleep_for(std::chrono::milliseconds(200));
+          retry_count += 1;
+        } while (obfuscator_->HasPendingData() && retry_count < kMaxRetries);
+        if (retry_count >= kMaxRetries) {
+          SPDLOG_WARN(
+              "GET [{}] - Failed to clear obfuscator pending data within {} "
+              "attempts for server: {}",
+              handle, retry_count, host_);
+        }
+        stream.next_layer().set_obfuscator(nullptr);
+      }
 
-    boost::beast::http::read(stream, buffer, res);
+      boost::beast::http::request<boost::beast::http::string_body> req{
+          boost::beast::http::verb::get, handle, 11};
+      boost::beast::http::write(stream, req);
 
-    respcode = static_cast<int>(res.result_int());
-    body = GetHttpBody(res);
+      boost::beast::flat_buffer buffer;
+      boost::beast::http::response<boost::beast::http::dynamic_body> res;
 
-    boost::system::error_code ec;
-    stream.shutdown(ec);
-    try {
-      boost::beast::get_lowest_layer(stream).close();
-    } catch (boost::system::system_error const& e) {
-      SPDLOG_ERROR(
-          "GET [{}] - Exception during connection close for server {}: {}",
-          handle, host_, e.what());
+      boost::beast::http::read(stream, buffer, res);
+
+      respcode = static_cast<int>(res.result_int());
+      body = GetHttpBody(res);
+
+      boost::system::error_code ec;
+      stream.shutdown(ec);
+      try {
+        boost::beast::get_lowest_layer(stream).close();
+      } catch (boost::system::system_error const& e) {
+        SPDLOG_ERROR(
+            "GET [{}] - Exception during connection close for server {}: {}",
+            handle, host_, e.what());
+      }
     }
   } catch (const boost::system::system_error& err) {
 #ifdef _WIN32
@@ -309,86 +318,91 @@ Response ApiClient::Post(const std::string& handle,
         std::move(tcp_stream), obfuscator_);
     ssl_stream_type stream(std::move(obfuscator_stream), ctx);
 
-    boost::beast::net::ip::tcp::resolver resolver(ioc);
     const std::string port_str = std::to_string(port_);
-    const auto results = resolver.resolve(host_, port_str);
+    auto resolve_result = fptn::common::network::ResolveWithTimeout(
+        ioc, host_, port_str, timeout);
 
-    SPDLOG_INFO(
-        "POST [{}] - Connecting to server: {}:{}", handle, host_, port_);
-
-    boost::beast::get_lowest_layer(stream).expires_after(
-        std::chrono::seconds(timeout));
-    stream.next_layer().next_layer().expires_after(
-        std::chrono::seconds(timeout));
-
-    auto connected_endpoint =
-        boost::beast::get_lowest_layer(stream).connect(results);
-    server_ip = connected_endpoint.address().to_string();
-
-    SPDLOG_INFO("POST [{}] - Successfully connected to {}", handle, host_);
-
-    auto& socket = boost::beast::get_lowest_layer(stream).socket();
-    SetSocketTimeouts(socket, timeout);
-
-    utils::SetHandshakeSessionID(stream.native_handle());
-    utils::SetHandshakeSni(stream.native_handle(), sni_);
-
-    if (!expected_md5_fingerprint_.empty()) {
-      ssl = stream.native_handle();
-      utils::AttachCertificateVerificationCallback(
-          ssl, [this, &error](const std::string& md5_fingerprint) {
-            return onVerifyCertificate(md5_fingerprint, error);
-          });
+    if (!resolve_result) {
+      error = resolve_result.error.message();
+      respcode = 603;
+      SPDLOG_ERROR("POST [{}] - DNS resolution failed for {}:{}: {}", handle,
+          host_, port_, error);
     } else {
-      ctx.set_verify_mode(boost::asio::ssl::verify_none);
-    }
+      SPDLOG_INFO(
+          "POST [{}] - Connecting to server: {}:{}", handle, host_, port_);
 
-    // TLS handshake with obfuscator
-    stream.handshake(boost::asio::ssl::stream_base::client);
+      boost::beast::get_lowest_layer(stream).expires_after(
+          std::chrono::seconds(timeout));
+      stream.next_layer().next_layer().expires_after(
+          std::chrono::seconds(timeout));
 
-    // Remove obfuscator after handshake
-    if (obfuscator_ != nullptr) {
-      constexpr int kMaxRetries = 5;
-      int retry_count = 0;
-      do {
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
-        retry_count += 1;
-      } while (obfuscator_->HasPendingData() && retry_count < kMaxRetries);
-      if (retry_count >= kMaxRetries) {
-        SPDLOG_WARN(
-            "POST [{}] - Failed to clear obfuscator pending data within {} "
-            "attempts for server: {}",
-            handle, retry_count, host_);
+      auto connected_endpoint = boost::beast::get_lowest_layer(stream).connect(
+          resolve_result.results);
+      server_ip = connected_endpoint.address().to_string();
+
+      SPDLOG_INFO("POST [{}] - Successfully connected to {}", handle, host_);
+
+      auto& socket = boost::beast::get_lowest_layer(stream).socket();
+      SetSocketTimeouts(socket, timeout);
+
+      utils::SetHandshakeSessionID(stream.native_handle());
+      utils::SetHandshakeSni(stream.native_handle(), sni_);
+
+      if (!expected_md5_fingerprint_.empty()) {
+        ssl = stream.native_handle();
+        utils::AttachCertificateVerificationCallback(
+            ssl, [this, &error](const std::string& md5_fingerprint) {
+              return onVerifyCertificate(md5_fingerprint, error);
+            });
+      } else {
+        ctx.set_verify_mode(boost::asio::ssl::verify_none);
       }
-      stream.next_layer().set_obfuscator(nullptr);
-    }
 
-    boost::beast::http::request<boost::beast::http::string_body> req{
-        boost::beast::http::verb::post, handle, 11};
-    req.set(boost::beast::http::field::host, host_);
-    req.set(boost::beast::http::field::content_type, content_type);
-    req.set(boost::beast::http::field::content_length,
-        std::to_string(request.size()));
-    req.body() = request;
-    req.prepare_payload();
+      stream.handshake(boost::asio::ssl::stream_base::client);
 
-    boost::beast::http::write(stream, req);
+      if (obfuscator_ != nullptr) {
+        constexpr int kMaxRetries = 5;
+        int retry_count = 0;
+        do {
+          std::this_thread::sleep_for(std::chrono::milliseconds(200));
+          retry_count += 1;
+        } while (obfuscator_->HasPendingData() && retry_count < kMaxRetries);
+        if (retry_count >= kMaxRetries) {
+          SPDLOG_WARN(
+              "POST [{}] - Failed to clear obfuscator pending data within {} "
+              "attempts for server: {}",
+              handle, retry_count, host_);
+        }
+        stream.next_layer().set_obfuscator(nullptr);
+      }
 
-    boost::beast::flat_buffer buffer;
-    boost::beast::http::response<boost::beast::http::dynamic_body> res;
-    boost::beast::http::read(stream, buffer, res);
+      boost::beast::http::request<boost::beast::http::string_body> req{
+          boost::beast::http::verb::post, handle, 11};
+      req.set(boost::beast::http::field::host, host_);
+      req.set(boost::beast::http::field::content_type, content_type);
+      req.set(boost::beast::http::field::content_length,
+          std::to_string(request.size()));
+      req.body() = request;
+      req.prepare_payload();
 
-    respcode = static_cast<int>(res.result_int());
-    body = GetHttpBody(res);
+      boost::beast::http::write(stream, req);
 
-    boost::system::error_code ec;
-    stream.shutdown(ec);
-    try {
-      boost::beast::get_lowest_layer(stream).close();
-    } catch (boost::system::system_error const& e) {
-      SPDLOG_ERROR(
-          "POST [{}] - Exception during connection close for server {}: {}",
-          handle, host_, e.what());
+      boost::beast::flat_buffer buffer;
+      boost::beast::http::response<boost::beast::http::dynamic_body> res;
+      boost::beast::http::read(stream, buffer, res);
+
+      respcode = static_cast<int>(res.result_int());
+      body = GetHttpBody(res);
+
+      boost::system::error_code ec;
+      stream.shutdown(ec);
+      try {
+        boost::beast::get_lowest_layer(stream).close();
+      } catch (boost::system::system_error const& e) {
+        SPDLOG_ERROR(
+            "POST [{}] - Exception during connection close for server {}: {}",
+            handle, host_, e.what());
+      }
     }
   } catch (const boost::system::system_error& err) {
 #ifdef _WIN32

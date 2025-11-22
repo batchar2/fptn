@@ -27,6 +27,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <pcapplusplus/SSLLayer.h>      // NOLINT(build/include_order)
 #include <spdlog/spdlog.h>              // NOLINT(build/include_order)
 
+#include "common/network/resolv.h"
 #include "common/network/utils.h"
 
 #include "fptn-protocol-lib/https/obfuscator/methods/detector.h"
@@ -321,39 +322,40 @@ boost::asio::awaitable<Session::ProbingResult> Session::DetectProbing() {
 boost::asio::awaitable<bool> Session::IsSniSelfProxyAttempt(
     const std::string& sni) const {
   // First check if SNI is already an IP address
-  boost::system::error_code ec;
-  boost::asio::ip::make_address(sni, ec);
-  if (!ec) {
+  if (fptn::common::network::IsIpAddress(sni)) {
     // SNI is a valid IP address - check directly
     const auto server_ips = GetServerIpAddresses();
-    // NOLINTNEXTLINE(modernize-use-ranges)
-    const auto exists = std::find(server_ips.begin(), server_ips.end(), sni);
+    const auto exists = std::ranges::find(server_ips, sni);
     co_return exists != server_ips.end();
   }
 
-  // Not an IP address - proceed with DNS resolution
-  boost::asio::ip::tcp::resolver resolver(
-      co_await boost::asio::this_coro::executor);
+  // Not an IP address - proceed with DNS resolution using our new function
   try {
     const auto server_ips = GetServerIpAddresses();
 
-    const auto endpoints =
-        co_await resolver.async_resolve(sni, "", boost::asio::use_awaitable);
-    for (const auto& endpoint : endpoints) {
+    boost::asio::io_context ioc;
+    auto resolve_result =
+        fptn::common::network::ResolveWithTimeout(ioc, sni, "", 5);
+
+    if (!resolve_result.success()) {
+      SPDLOG_WARN("DNS resolution failed for {}: {}", sni,
+          resolve_result.error.message());
+      co_return true;  // Treat DNS failure as potential self-proxy attempt
+    }
+
+    // Iterate through resolved endpoints
+    for (const auto& endpoint : resolve_result.results) {
       const auto ip = endpoint.endpoint().address().to_string();
-      // NOLINTNEXTLINE(modernize-use-ranges)
-      const auto exists = std::find(server_ips.begin(), server_ips.end(), ip);
+      const auto exists = std::ranges::find(server_ips, ip);
       if (exists != server_ips.end()) {
         co_return true;
       }
     }
-  } catch (const boost::system::system_error& e) {
-    SPDLOG_WARN("DNS resolution failed for {}: {}", sni, e.what());
-    co_return true;
-  } catch (...) {
-    SPDLOG_WARN("Unknown error during DNS resolution for {}", sni);
+  } catch (const std::exception& e) {
+    SPDLOG_WARN("Exception during DNS resolution for {}: {}", sni, e.what());
     co_return true;
   }
+
   co_return false;
 }
 
@@ -369,14 +371,20 @@ boost::asio::awaitable<bool> Session::HandleProxy(
 
   bool status = false;
   try {
-    boost::asio::ip::tcp::resolver resolver(
-        co_await boost::asio::this_coro::executor);
     const std::string port_str = std::to_string(port);
 
-    auto endpoints = co_await resolver.async_resolve(
-        sni, port_str, boost::asio::use_awaitable);
+    boost::asio::io_context ioc;
+    auto resolve_result =
+        fptn::common::network::ResolveWithTimeout(ioc, sni, port_str, kTimeout);
+
+    if (!resolve_result.success()) {
+      SPDLOG_ERROR("Proxy DNS resolution failed for {}:{}: {}", sni, port_str,
+          resolve_result.error.message());
+      co_return false;
+    }
+
     co_await boost::asio::async_connect(
-        target_socket, endpoints, boost::asio::use_awaitable);
+        target_socket, resolve_result.results, boost::asio::use_awaitable);
 
     auto ep = target_socket.local_endpoint();
     SPDLOG_INFO("Proxying {}:{} <-> {}:{} (client_id={})",
