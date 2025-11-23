@@ -6,6 +6,8 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include "gui/settingswidget/settings.h"
 
+#include "gui/sni_autoscan_dialog/sni_autoscan_dialog.h"
+
 #if _WIN32
 #include <Ws2tcpip.h>  // NOLINT(build/include_order)
 #include <windows.h>   // NOLINT(build/include_order)
@@ -74,14 +76,14 @@ void SettingsWidget::SetupUi() {
   settings_layout->setContentsMargins(10, 10, 10, 10);
 
   // Grid Layout for settings
-  auto* grid_layout = new QGridLayout();
-  grid_layout->setContentsMargins(0, 0, 0, 0);
-  grid_layout->setHorizontalSpacing(10);
-  grid_layout->setVerticalSpacing(10);
+  grid_layout_ = new QGridLayout();
+  grid_layout_->setContentsMargins(0, 0, 0, 0);
+  grid_layout_->setHorizontalSpacing(10);
+  grid_layout_->setVerticalSpacing(10);
 
   // Adjust column stretching
-  grid_layout->setColumnStretch(0, 1);  // Label column
-  grid_layout->setColumnStretch(1, 4);  // Field column
+  grid_layout_->setColumnStretch(0, 1);  // Label column
+  grid_layout_->setColumnStretch(1, 4);  // Field column
 
   // AUTOSTART (show only for Linux)
 #ifdef __linux__
@@ -90,8 +92,8 @@ void SettingsWidget::SetupUi() {
   autostart_checkbox_->setChecked(settings_->Autostart());
   connect(autostart_checkbox_, &QCheckBox::toggled, this,
       &SettingsWidget::onAutostartChanged);
-  grid_layout->addWidget(autostart_label_, 0, 0, Qt::AlignLeft);
-  grid_layout->addWidget(autostart_checkbox_, 0, 1, Qt::AlignLeft);
+  grid_layout_->addWidget(autostart_label_, 0, 0, Qt::AlignLeft);
+  grid_layout_->addWidget(autostart_checkbox_, 0, 1, Qt::AlignLeft);
 #endif
 
   // LANGUAGE
@@ -101,8 +103,8 @@ void SettingsWidget::SetupUi() {
   language_combo_box_->setCurrentText(settings_->LanguageName());
   connect(language_combo_box_, &QComboBox::currentTextChanged, this,
       &SettingsWidget::onLanguageChanged);
-  grid_layout->addWidget(language_label_, 1, 0, Qt::AlignLeft);
-  grid_layout->addWidget(language_combo_box_, 1, 1, Qt::AlignLeft);
+  grid_layout_->addWidget(language_label_, 1, 0, Qt::AlignLeft);
+  grid_layout_->addWidget(language_combo_box_, 1, 1, Qt::AlignLeft);
 
   // INTERFACE
   interface_label_ =
@@ -112,8 +114,8 @@ void SettingsWidget::SetupUi() {
   interface_combo_box_->setCurrentText(settings_->UsingNetworkInterface());
   connect(interface_combo_box_, &QComboBox::currentTextChanged, this,
       &SettingsWidget::onInterfaceChanged);
-  grid_layout->addWidget(interface_label_, 2, 0, Qt::AlignLeft);
-  grid_layout->addWidget(interface_combo_box_, 2, 1, Qt::AlignLeft);
+  grid_layout_->addWidget(interface_label_, 2, 0, Qt::AlignLeft);
+  grid_layout_->addWidget(interface_combo_box_, 2, 1, Qt::AlignLeft);
 
   // GATEWAY
   gateway_label_ = new QLabel(
@@ -139,9 +141,9 @@ void SettingsWidget::SetupUi() {
   gateway_layout->addWidget(gateway_line_edit_, Qt::AlignLeft);
   gateway_layout->setStretch(1, 4);
 
-  grid_layout->addWidget(gateway_label_, 3, 0);
-  grid_layout->addLayout(gateway_layout, 3, 1, 1, 2);
-  settings_layout->addLayout(grid_layout);
+  grid_layout_->addWidget(gateway_label_, 3, 0);
+  grid_layout_->addLayout(gateway_layout, 3, 1, 1, 2);
+  settings_layout->addLayout(grid_layout_);
 
   // Bypass blocking method
   bypass_method_label_ =
@@ -159,8 +161,8 @@ void SettingsWidget::SetupUi() {
   connect(bypass_method_combo_box_, &QComboBox::currentTextChanged, this,
       &SettingsWidget::onBypassMethodChanged);
 
-  grid_layout->addWidget(bypass_method_label_, 4, 0, Qt::AlignLeft);
-  grid_layout->addWidget(bypass_method_combo_box_, 4, 1, 1, 2);
+  grid_layout_->addWidget(bypass_method_label_, 4, 0, Qt::AlignLeft);
+  grid_layout_->addWidget(bypass_method_combo_box_, 4, 1, 1, 2);
 
   sni_label_ =
       new QLabel(QObject::tr("Fake domain to bypass blocking") + ": ", this);
@@ -183,9 +185,31 @@ void SettingsWidget::SetupUi() {
         settings_->SetSNI(normalized);
       });
 
-  grid_layout->addWidget(sni_label_, 5, 0, Qt::AlignLeft | Qt::AlignVCenter);
-  grid_layout->addWidget(sni_line_edit_, 5, 1, 1, 2);
+  grid_layout_->addWidget(sni_label_, 5, 0, Qt::AlignLeft | Qt::AlignVCenter);
+  grid_layout_->addWidget(sni_line_edit_, 5, 1, 1, 2);
 
+  // SNI Files - placed right under SNI field
+  sni_files_list_widget_ = new QListWidget(this);
+  sni_files_list_widget_->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+  sni_files_list_widget_->setMaximumHeight(80);
+
+  sni_buttons_layout_ = new QHBoxLayout();
+
+  sni_autoscan_button_ = new QPushButton(QObject::tr("Autoscan sni"), this);
+  sni_import_button_ = new QPushButton(QObject::tr("Import SNI file"), this);
+
+  sni_buttons_layout_->addWidget(sni_autoscan_button_, 0, Qt::AlignLeft);
+  sni_buttons_layout_->addWidget(sni_import_button_, 0, Qt::AlignRight);
+
+  grid_layout_->addLayout(sni_buttons_layout_, 7, 0);
+  grid_layout_->addWidget(sni_files_list_widget_, 7, 1, 1, 2);
+  connect(sni_autoscan_button_, &QPushButton::clicked, this,
+      &SettingsWidget::onAutoscanClicked);
+
+  connect(sni_import_button_, &QPushButton::clicked, this,
+      &SettingsWidget::onImportSniFile);
+
+  settings_layout->addLayout(grid_layout_);
   settings_layout->addStretch(0);
 
   // Server Table
@@ -198,8 +222,9 @@ void SettingsWidget::SetupUi() {
   server_table_->setSelectionBehavior(QAbstractItemView::SelectRows);
   server_table_->verticalHeader()->setSectionResizeMode(
       QHeaderView::ResizeToContents);
+  server_table_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
-  settings_layout->addWidget(server_table_);
+  settings_layout->addWidget(server_table_, 1);
 
   // Buttons
   auto* button_layout = new QHBoxLayout();
@@ -244,10 +269,10 @@ void SettingsWidget::SetupUi() {
   website_link_label_->setOpenExternalLinks(true);
   about_layout->addWidget(website_link_label_);
   // Add group information (optional)
-  telegram_group_lLabel_ =
+  telegram_group_label_ =
       new QLabel(QObject::tr("FPTN_TELEGRAM_DESCRIPTION"), this);
-  telegram_group_lLabel_->setOpenExternalLinks(true);
-  about_layout->addWidget(telegram_group_lLabel_);
+  telegram_group_label_->setOpenExternalLinks(true);
+  about_layout->addWidget(telegram_group_label_);
 
   // Sponsors section
   boosty_link_label_ =
@@ -308,11 +333,30 @@ void SettingsWidget::SetupUi() {
     item->setData(Qt::DisplayRole, servers_text_list);
     server_table_->setItem(i, 2, item);
 
-    auto* delete_button = new QPushButton(QObject::tr("Delete"), this);
+    auto* delete_button = new QPushButton(QObject::tr("X"), this);
+    delete_button->setFixedSize(24, 24);
+    delete_button->setStyleSheet(R"(
+        QPushButton {
+            background-color: #444444;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-weight: bold;
+            padding: 0px;
+        }
+        QPushButton:hover {
+            background-color: #cc0000;
+        }
+        QPushButton:pressed {
+            background-color: #990000;
+        }
+    )");
+    delete_button->setToolTip(QObject::tr("Delete"));
+
     connect(delete_button, &QPushButton::clicked,
         [this, i]() { onRemoveServer(i); });
 
-    auto* button_container = new QWidget();
+    auto* button_container = new QWidget(this);
     auto* action_layout = new QHBoxLayout(button_container);
     action_layout->setContentsMargins(0, 0, 0, 0);
     action_layout->setAlignment(Qt::AlignCenter);
@@ -322,6 +366,8 @@ void SettingsWidget::SetupUi() {
 
   // show current method
   onBypassMethodChanged(bypass_method_combo_box_->currentText());
+
+  UpdateSniFilesList();
 }
 
 void SettingsWidget::onExit() {
@@ -492,6 +538,13 @@ void SettingsWidget::onLanguageChanged(const QString&) {
   if (sni_label_) {
     sni_label_->setText(QObject::tr("Fake domain to bypass blocking") + ": ");
   }
+  if (sni_autoscan_button_) {
+    sni_autoscan_button_->setText(QObject::tr("Autoscan SNI"));
+  }
+  if (sni_import_button_) {
+    sni_import_button_->setText(QObject::tr("Import SNI file"));
+  }
+
   // about
   if (version_label_) {
     version_label_->setText(
@@ -503,8 +556,8 @@ void SettingsWidget::onLanguageChanged(const QString&) {
   if (website_link_label_) {
     website_link_label_->setText(QObject::tr("FPTN_WEBSITE_DESCRIPTION"));
   }
-  if (telegram_group_lLabel_) {
-    telegram_group_lLabel_->setText(QObject::tr("FPTN_TELEGRAM_DESCRIPTION"));
+  if (telegram_group_label_) {
+    telegram_group_label_->setText(QObject::tr("FPTN_TELEGRAM_DESCRIPTION"));
   }
   // sponsors section
   if (boosty_link_label_) {
@@ -548,12 +601,28 @@ void SettingsWidget::onAutoGatewayChanged(bool checked) {
 void SettingsWidget::onBypassMethodChanged(const QString& method) {
   const bool is_sni_mode = (method == QObject::tr("SNI") || method == "SNI");
 
+  // Show/hide SNI field
+  sni_label_->setVisible(is_sni_mode);
+  sni_line_edit_->setVisible(is_sni_mode);
+
+  // Show/hide SNI files section based on mode
+  sni_files_list_widget_->setVisible(is_sni_mode);
+  sni_autoscan_button_->setVisible(is_sni_mode);
+  sni_import_button_->setVisible(is_sni_mode);
+
+  // Убираем строки из GridLayout когда они скрыты
   if (is_sni_mode) {
-    sni_label_->setText(QObject::tr("Fake domain to bypass blocking") + ": ");
-    sni_line_edit_->setVisible(true);
+    // Восстанавливаем строки когда SNI режим
+    grid_layout_->addWidget(sni_label_, 5, 0, Qt::AlignLeft | Qt::AlignVCenter);
+    grid_layout_->addWidget(sni_line_edit_, 5, 1, 1, 2);
+    grid_layout_->addLayout(sni_buttons_layout_, 7, 0);
+    grid_layout_->addWidget(sni_files_list_widget_, 7, 1, 1, 2);
   } else {
-    sni_label_->setText(" ");  // hide text
-    sni_line_edit_->setVisible(false);
+    // Убираем строки когда OBFUSCATION режим
+    grid_layout_->removeWidget(sni_label_);
+    grid_layout_->removeWidget(sni_line_edit_);
+    grid_layout_->removeItem(sni_buttons_layout_);
+    grid_layout_->removeWidget(sni_files_list_widget_);
   }
 
   if (method == QObject::tr("OBFUSCATION") || method == "OBFUSCATION") {
@@ -561,4 +630,108 @@ void SettingsWidget::onBypassMethodChanged(const QString& method) {
   } else {
     settings_->SetBypassMethod("SNI");
   }
+}
+
+void SettingsWidget::UpdateSniFilesList() {
+  sni_files_list_widget_->clear();
+
+  auto files = settings_->SniManager()->SniFileList();
+  for (const auto& file : files) {
+    QString file_name = QString::fromStdString(file);
+
+    auto* item_widget = new QWidget(this);
+    auto* layout = new QHBoxLayout(item_widget);
+    layout->setContentsMargins(10, 5, 10, 5);
+    layout->setSpacing(10);
+
+    auto* name_label = new QLabel(file_name);
+    name_label->setStyleSheet("QLabel { font-weight: bold; }");
+    name_label->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+
+    auto* delete_button = new QPushButton("X");
+    delete_button->setFixedSize(24, 24);
+    delete_button->setStyleSheet(R"(
+        QPushButton {
+            background-color: #444444;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-weight: bold;
+            padding: 0px;
+        }
+        QPushButton:hover {
+            background-color: #cc0000;
+        }
+        QPushButton:pressed {
+            background-color: #990000;
+        }
+    )");
+    delete_button->setToolTip(QObject::tr("Delete this file"));
+
+    connect(delete_button, &QPushButton::clicked, [this, file_name]() {
+      settings_->SniManager()->RemoveFile(file_name.toStdString());
+      UpdateSniFilesList();
+    });
+
+    layout->addWidget(name_label);
+    layout->addWidget(delete_button);
+
+    item_widget->setLayout(layout);
+
+    auto* item = new QListWidgetItem(sni_files_list_widget_);
+    item->setSizeHint(item_widget->sizeHint());
+    sni_files_list_widget_->setItemWidget(item, item_widget);
+  }
+
+  if (files.empty()) {
+    auto* empty_item = new QListWidgetItem(
+        QObject::tr("No SNI files imported"), sni_files_list_widget_);
+    empty_item->setFlags(empty_item->flags() & ~Qt::ItemIsEnabled);
+    empty_item->setTextAlignment(Qt::AlignCenter);
+  }
+}
+
+void SettingsWidget::onImportSniFile() {
+  QString file_path =
+      QFileDialog::getOpenFileName(this, QObject::tr("Select SNI file"), "",
+          QObject::tr("SNI files (*.sni);;All files (*)"));
+
+  if (!file_path.isEmpty()) {
+    QFileInfo file_info(file_path);
+    QString file_name = file_info.fileName();
+
+    auto existing_files = settings_->SniManager()->SniFileList();
+    bool file_exists = false;
+    for (const auto& existing_file : existing_files) {
+      if (QString::fromStdString(existing_file) == file_name) {
+        file_exists = true;
+        break;
+      }
+    }
+
+    if (file_exists) {
+      QMessageBox::StandardButton reply = QMessageBox::question(this,
+          QObject::tr("File exists"),
+          QObject::tr("File \"%1\" already exists. Overwrite?").arg(file_name),
+          QMessageBox::Yes | QMessageBox::No);
+      if (reply != QMessageBox::Yes) {
+        return;
+      }
+    }
+
+    if (settings_->SniManager()->AddSniFile(file_path.toStdString())) {
+      UpdateSniFilesList();
+      QMessageBox::information(this, QObject::tr("Success"),
+          QObject::tr("SNI file imported successfully"));
+    } else {
+      QMessageBox::warning(
+          this, QObject::tr("Error"), QObject::tr("Failed to import SNI file"));
+    }
+  }
+}
+
+void SettingsWidget::onAutoscanClicked() {
+  SniAutoscanDialog dialog(settings_, this);
+  dialog.exec();
+  sni_line_edit_->setText(settings_->SNI());
 }

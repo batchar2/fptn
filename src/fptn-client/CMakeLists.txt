@@ -89,8 +89,7 @@ WarningsAsErrors: ''
   set(QT_ADDITIONAL_PARAMS "")
   if(WIN32)
     set(QT_ADDITIONAL_PARAMS WIN32
-            utils/signal/main_loop.h
-            ../common/network/resolv.h)
+            utils/signal/main_loop.h)
   endif()
 
   set(PLATFORM_SPECIFIC_LIBS "")
@@ -127,6 +126,10 @@ WarningsAsErrors: ''
     gui/tokendialog/tokendialog.cpp
     gui/translations/translations.h
     gui/translations/translations.cpp
+    gui/sni_manager/sni_manager.h
+    gui/sni_manager/sni_manager.cpp
+    gui/sni_autoscan_dialog/sni_autoscan_dialog.h
+    gui/sni_autoscan_dialog/sni_autoscan_dialog.cpp
     gui/style/style.h
     gui/style/style.cpp
     gui/autostart/autostart.h
@@ -138,6 +141,7 @@ WarningsAsErrors: ''
     utils/speed_estimator/server_info.h
     ${PROJECT_RESOURCES}
     ${TRANSLATIONS_OUT})
+
   target_link_libraries(
     "${PROJECT_NAME}-gui"
     PRIVATE ZLIB::ZLIB

@@ -7,10 +7,16 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "gui/settingsmodel/settingsmodel.h"
 
 #if _WIN32
+#include <Windows.h>   // NOLINT(build/include_order)
 #include <Ws2tcpip.h>  // NOLINT(build/include_order)
-#include <windows.h>   // NOLINT(build/include_order)
+#include <shlobj.h>    // NOLINT(build/include_order)
+#elif defined(__linux__)
+#include <linux/limits.h>  // NOLINT(build/include_order)
+#include <unistd.h>        // NOLINT(build/include_order)
 #endif
 
+#include <memory>
+#include <string>
 #include <utility>
 
 #include <boost/asio.hpp>
@@ -48,6 +54,7 @@ QVector<ServerConfig> ParseServers(const QJsonArray& servers_array) {
   }
   return servers;
 }
+
 };  // namespace
 
 SettingsModel::SettingsModel(const QMap<QString, QString>& languages,
@@ -58,11 +65,48 @@ SettingsModel::SettingsModel(const QMap<QString, QString>& languages,
       default_language_(default_language),
       selected_language_(default_language),
       client_autostart_(false) {
+#if _WIN32
+  char exe_path[MAX_PATH] = {};
+  if (SUCCEEDED(GetModuleFileName(nullptr, exe_path, MAX_PATH))) {
+    std::filesystem::path exe_dir =
+        std::filesystem::path(exe_path).parent_path();
+    std::string sni_folder = (exe_dir / "SNI").string();
+    sni_manager_ = std::make_shared<SNIManager>(sni_folder);
+  } else {
+    const auto settings_folder = GetSettingsFolderPath();
+    const std::string sni_folder = settings_folder.toStdString() + "/" + "SNI";
+    sni_manager_ = std::make_shared<SNIManager>(sni_folder);
+  }
+#elif __linux__
+  char exe_path[PATH_MAX] = {};
+  ssize_t count = readlink("/proc/self/exe", exe_path, PATH_MAX);
+  if (count != -1) {
+    exe_path[count] = '\0';
+    std::filesystem::path exe_dir =
+        std::filesystem::path(exe_path).parent_path();
+    std::string sni_folder = (exe_dir / "SNI").string();
+    sni_manager_ = std::make_shared<SNIManager>(sni_folder);
+  } else {
+    const auto settings_folder = GetSettingsFolderPath();
+    const std::string sni_folder = settings_folder.toStdString() + "/" + "SNI";
+    sni_manager_ = std::make_shared<SNIManager>(sni_folder);
+  }
+#else
+  const auto settings_folder = GetSettingsFolderPath();
+  const std::string sni_folder = settings_folder.toStdString() + "/" + "SNI";
+  sni_manager_ = std::make_shared<SNIManager>(sni_folder);
+#endif
   Load(true);
 }
 
 // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
-QString SettingsModel::GetFilePath() const {
+QString SettingsModel::GetSettingsFilePath() const {
+  const QString directory = GetSettingsFolderPath();
+  return directory + "/fptn-settings.json";
+}
+
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+QString SettingsModel::GetSettingsFolderPath() const {
 #ifdef __APPLE__
   const QString directory =
       QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation);
@@ -74,14 +118,14 @@ QString SettingsModel::GetFilePath() const {
   if (!dir.exists()) {
     dir.mkpath(directory);
   }
-  return directory + "/fptn-settings.json";
+  return directory;
 }
 
 void SettingsModel::Load(bool dont_load_server) {
   // Load servers
   services_.clear();
 
-  const QString file_path = GetFilePath();
+  const QString file_path = GetSettingsFilePath();
   QFile file(file_path);
   if (!file.open(QIODevice::ReadOnly)) {
     SPDLOG_WARN("Failed to open file for reading: {}", file_path.toStdString());
@@ -202,7 +246,7 @@ bool SettingsModel::ExistsTranslation(const QString& language_code) const {
 }
 
 bool SettingsModel::Save() {
-  QString file_path = GetFilePath();
+  QString file_path = GetSettingsFilePath();
   QFile file(file_path);
   if (!file.open(QIODevice::WriteOnly)) {
     SPDLOG_ERROR(
@@ -385,4 +429,8 @@ QString SettingsModel::BypassMethod() const {
 void SettingsModel::SetBypassMethod(const QString& method) {
   bypass_method_ = method;
   Save();
+}
+
+fptn::gui::SNIManagerSPtr SettingsModel::SniManager() const {
+  return sni_manager_;
 }

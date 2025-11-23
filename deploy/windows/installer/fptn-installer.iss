@@ -55,6 +55,8 @@ Source: "depends/fptn-client-cli.exe"; DestDir: "{app}"; Flags: ignoreversion re
 Source: "depends/vc_redist.exe"; DestDir: "{tmp}"; AfterInstall: InstallVCRedist(); Flags: ignoreversion recursesubdirs createallsubdirs
 // ------- generate bat files -------
 Source: "depends/wintun.dll"; DestDir: "{app}"; AfterInstall: GenerateBatFile('{app}\fptn-client.exe','{app}\FptnClient.bat'); Flags: ignoreversion recursesubdirs createallsubdirs uninsneveruninstall
+// ------- copy SNI files -------
+Source: "depends/sni/*"; DestDir: "{app}\SNI"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}";
@@ -79,6 +81,7 @@ Name: "{commondesktop}\{#APP_NAME}"; Filename: "{app}\fptn-client.exe"; Tasks: d
 [InstallDelete]
 Type: filesandordirs; Name: "{app}\qt"
 Type: filesandordirs; Name: "{app}\bin"
+Type: filesandordirs; Name: "{app}\SNI"
 Type: filesandordirs; Name: "{app}\logs"
 Type: filesandordirs; Name: "{app}\plugins"
 Type: files; Name: "{app}\*"
@@ -86,6 +89,7 @@ Type: files; Name: "{app}\*"
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}\qt"
 Type: filesandordirs; Name: "{app}\bin"
+Type: filesandordirs; Name: "{app}\SNI"
 Type: filesandordirs; Name: "{app}\logs"
 Type: filesandordirs; Name: "{app}\plugins"
 Type: files; Name: "{app}\*"

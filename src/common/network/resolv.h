@@ -51,9 +51,9 @@ inline ResolveResult ResolveWithTimeout(boost::asio::io_context& ioc,
       return result;
     }
 
-    uint16_t port_num;
+    std::uint16_t port_num = 0;
     try {
-      port_num = static_cast<uint16_t>(std::stoi(port));
+      port_num = static_cast<std::uint16_t>(std::stoi(port));
     } catch (const std::exception& e) {
       result.error =
           boost::system::error_code(boost::system::errc::invalid_argument,

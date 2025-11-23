@@ -28,7 +28,6 @@
             <translation>Отключить</translation>
         </message>
 
-
         <message>
             <source>Upload speed</source>
             <translation>Скорость выгрузки</translation>
@@ -38,7 +37,6 @@
             <translation>Скорость зарузки</translation>
         </message>
         
-
         <message>
             <source>Unable to find the default gateway IP address. Please check your connection and make sure no other VPN is active. If the error persists, specify the gateway address in the FPTN settings using your router's IP address, and ensure that an active internet interface (adapter) is selected. If the issue remains unresolved, please contact the developer via Telegram @fptn_chat.</source>
             <translation>Не удалось найти IP-адрес по умолчанию для шлюза. Пожалуйста, проверьте ваше соединение и убедитесь, что у вас не активен другой VPN. Если ошибка сохраняется, укажите адрес шлюза в настройках FPTN, используя IP-адрес вашего маршрутизатора, и убедитесь, что выбран активный интернет-интерфейс (адаптер). Если проблема не устранена, обратитесь к разработчику через Telegram @fptn_chat.</translation>
@@ -221,7 +219,7 @@
             <source>FPTN_WEBSITE_DESCRIPTION</source>
             <translation>
             <![CDATA[
-                Наш сайт <a href="https://fptn.org">fptn.org</a></translation>
+                Наш сайт <a href="https://fptn.org">fptn.org</a>
             ]]>
             </translation>
         </message>
@@ -260,7 +258,6 @@
             <translation>FPTN Ошибка подключения</translation>
         </message>
 
-
         <message>
             <source>VPN Conflict Detected</source>
             <translation>Обнаружен конфликт VPN</translation>
@@ -293,6 +290,91 @@ This may cause network connectivity issues or prevent proper operation of FPTN.<
         <message>
             <source>Project Sponsors</source>
             <translation>Спонсоры проекта</translation>
+        </message>
+
+        <message>
+            <source>Autoscan SNI</source>
+            <translation>Автосканирование SNI</translation>
+        </message>
+        <message>
+            <source>All</source>
+            <translation>Все</translation>
+        </message>
+        <message>
+            <source>Start</source>
+            <translation>Начать</translation>
+        </message>
+        <message>
+            <source>Scan completed</source>
+            <translation>Сканирование завершено</translation>
+        </message>
+        <message>
+            <source>Working SNI found: %1</source>
+            <translation>Рабочий SNI найден: %1</translation>
+        </message>
+        <message>
+            <source>No working SNI found.</source>
+            <translation>Рабочий SNI не найден.</translation>
+        </message>
+        <message>
+            <source>Error</source>
+            <translation>Ошибка</translation>
+        </message>
+        <message>
+            <source>No SNI available for scanning.</source>
+            <translation>Нет доступных SNI для сканирования.</translation>
+        </message>
+        <message>
+            <source>No servers available for scanning.</source>
+            <translation>Нет доступных серверов для сканирования.</translation>
+        </message>
+        <message>
+            <source>TLS Handshake: %1</source>
+            <translation>TLS Handshake: %1</translation>
+        </message>
+        <message>
+            <source>HTTP Request: %1</source>
+            <translation>HTTP Запрос: %1</translation>
+        </message>
+        <message>
+            <source>Import SNI file</source>
+            <translation>Импорт SNI файла</translation>
+        </message>
+        <message>
+            <source>Select SNI file</source>
+            <translation>Выберите SNI файл</translation>
+        </message>
+        <message>
+            <source>SNI files (*.sni);;All files (*)</source>
+            <translation>SNI файлы (*.sni);;Все файлы (*)</translation>
+        </message>
+        <message>
+            <source>File exists</source>
+            <translation>Файл существует</translation>
+        </message>
+        <message>
+            <source>File "%1" already exists. Overwrite?</source>
+            <translation>Файл "%1" уже существует. Перезаписать?</translation>
+        </message>
+        <message>
+            <source>Success</source>
+            <translation>Успех</translation>
+        </message>
+        <message>
+            <source>SNI file imported successfully</source>
+            <translation>SNI файл успешно импортирован</translation>
+        </message>
+        <message>
+            <source>Failed to import SNI file</source>
+            <translation>Не удалось импортировать SNI файл</translation>
+        </message>
+        <message>
+            <source>Delete this file</source>
+            <translation>Удалить этот файл</translation>
+        </message>
+        <message>
+            <source>No SNI files imported</source>
+            <translation>Нет импортированных SNI файлов</translation>
         </message>
 
     </context>

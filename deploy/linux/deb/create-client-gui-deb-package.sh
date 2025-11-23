@@ -1,38 +1,42 @@
 #!/usr/bin/env bash
 
 print_usage() {
-    echo "Usage: $0 <fptn-client-path> <icon-path> <version>"
+    echo "Usage: $0 <fptn-client-path> <icon-path> <version> <sni-source-dir>"
     exit 1
 }
-if [ "$#" -ne 3 ]; then
+if [ "$#" -ne 4 ]; then
     print_usage
 fi
 
 CLIENT_GUI="$1"
 CLIENT_ICON="$2"
 VERSION="$3"
+SNI_SOURCE_DIR="$4"
 
 MAINTAINER="FPTN Project"
 OS_NAME=$(lsb_release -i | awk -F':\t' '{print $2}' | tr '[:upper:]' '[:lower:]')
 OS_VERSION=$(lsb_release -r | awk -F':\t' '{print $2}')
 CLIENT_TMP_DIR=$(mktemp -d -t fptn-client-XXXXXX)
 
-
-
 # create structure
 mkdir -p "$CLIENT_TMP_DIR/DEBIAN"
 mkdir -p "$CLIENT_TMP_DIR/usr/bin"
 mkdir -p "$CLIENT_TMP_DIR/opt/fptn/qt6"  # Qt directory
+mkdir -p "$CLIENT_TMP_DIR/opt/fptn/SNI"  # SNI directory
 mkdir -p "$CLIENT_TMP_DIR/usr/share/applications"  # Directory for .desktop file
 mkdir -p "$CLIENT_TMP_DIR/usr/share/icons/hicolor/512x512/apps"  # Directory for icon
-
-
 
 # copy program
 cp -v "$CLIENT_GUI" "$CLIENT_TMP_DIR/opt/fptn/fptn-client-gui"
 chmod 755 "$CLIENT_TMP_DIR/opt/fptn/fptn-client-gui"
 
-
+# copy SNI files
+if [ -d "$SNI_SOURCE_DIR" ]; then
+    echo "Copying SNI files from $SNI_SOURCE_DIR to $CLIENT_TMP_DIR/opt/fptn/SNI"
+    cp -r "$SNI_SOURCE_DIR"/* "$CLIENT_TMP_DIR/opt/fptn/SNI/"
+else
+    echo "Warning: SNI source directory not found: $SNI_SOURCE_DIR"
+fi
 
 # copy qt
 QT_LIBS_DIR=$CLIENT_TMP_DIR/opt/fptn/qt6/
@@ -44,8 +48,6 @@ find ~/.conan2 -path "*/Release/qtbase/lib/libQt6*.so*" -print0 | xargs -0 cp -a
 find ~/.conan2 -type d -path "*/Release/qtbase/plugins" | grep -E "/qt[0-9a-f]+" | while read -r dir; do
     cp -rv "$dir"/* "$QT_PLUGINS_DIR"
 done
-
-
 
 # Create wrapper script
 cat <<EOL > "$CLIENT_TMP_DIR/usr/bin/fptn-client"
@@ -111,8 +113,6 @@ exec pkexec env -u PKEXEC_UID "SUDO_USER=\$USER" "SUDO_UID=\$(id -u)" "SUDO_GID=
 EOL
 chmod 755 "$CLIENT_TMP_DIR/usr/bin/fptn-client"
 
-
-
 # Create .desktop file
 cp "$CLIENT_ICON" "$CLIENT_TMP_DIR/usr/share/icons/hicolor/512x512/apps/fptn-client.png"
 cat <<EOL > "$CLIENT_TMP_DIR/usr/share/applications/fptn-client.desktop"
@@ -125,8 +125,6 @@ Terminal=false
 Type=Application
 Categories=Network;Utility;
 EOL
-
-
 
 # Create control file for client package
 INSTALLED_SIZE=$(du -s "$CLIENT_TMP_DIR/usr" | cut -f1)
@@ -144,7 +142,6 @@ Section: admin
 Priority: optional
 Description: fptn client
 EOL
-
 
 # Create postinst file
 cat <<EOL > "$CLIENT_TMP_DIR/DEBIAN/postinst"
@@ -178,8 +175,6 @@ fi
 EOL
 chmod 755 "$CLIENT_TMP_DIR/DEBIAN/prerm"
 
-
-
 # Create postrm file
 cat <<EOL > "$CLIENT_TMP_DIR/DEBIAN/postrm"
 #!/bin/bash
@@ -194,17 +189,10 @@ update-desktop-database || true
 EOL
 chmod 755 "$CLIENT_TMP_DIR/DEBIAN/postrm"
 
-
-
 # Build the Debian package
 dpkg-deb --build "$CLIENT_TMP_DIR" "fptn-client-${VERSION}-${OS_NAME}${OS_VERSION}-$(dpkg --print-architecture).deb"
 
-
-
 # Clean up temporary directories
 rm -rf "$CLIENT_TMP_DIR"
-rm -rf "$QT_LIBS_DIR"
-
-
 
 echo "Client Debian package created successfully."
