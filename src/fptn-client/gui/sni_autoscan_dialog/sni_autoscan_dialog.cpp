@@ -31,7 +31,7 @@ SniAutoscanDialog::SniAutoscanDialog(SettingsModelPtr settings, QWidget* parent)
 SniAutoscanDialog::~SniAutoscanDialog() { StopScanning(); }
 
 void SniAutoscanDialog::SetupUi() {
-  setMinimumSize(600, 400);
+  setMinimumSize(650, 400);
   setWindowTitle(QObject::tr("Autoscan SNI"));
   setModal(true);
 
@@ -356,7 +356,7 @@ void SniAutoscanDialog::AddLogEntry(const QString& server,
                 : QString("<font color=\"red\">NO</font>");
 
     const QString log_entry = QString(R"(
-        <table style="width: 100%; font-family: monospace; table-layout: fixed; font-size: 8px;">
+        <table style="width: 100%; font-family: monospace; table-layout: fixed; font-size: 9px;">
             <tr>
                 <td width="25%" style="white-space: nowrap;">%1</td>
                 <td width="45%" style="white-space: nowrap;">%2</td>
