@@ -35,7 +35,6 @@ CommandLineConfig::CommandLineConfig(int argc, char* argv[])
   // Required arguments
   args_.add_argument("--server-crt").required().help("Path to server.crt file");
   args_.add_argument("--server-key").required().help("Path to server.key file");
-  args_.add_argument("--server-pub").required().help("Path to server.pub file");
   args_.add_argument("--out-network-interface")
       .required()
       .help("Network out interface");
@@ -131,10 +130,6 @@ std::string CommandLineConfig::ServerCrt() const {
 
 std::string CommandLineConfig::ServerKey() const {
   return args_.get<std::string>("--server-key");
-}
-
-std::string CommandLineConfig::ServerPub() const {
-  return args_.get<std::string>("--server-pub");
 }
 
 std::string CommandLineConfig::OutNetworkInterface() const {

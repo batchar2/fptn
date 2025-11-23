@@ -41,7 +41,6 @@ OUT_NETWORK_INTERFACE=
 # KEYS
 SERVER_KEY=
 SERVER_CRT=
-SERVER_PUB=
 
 PORT=443
 TUN_INTERFACE_NAME=fptn0
@@ -84,7 +83,6 @@ EnvironmentFile=/etc/fptn/server.conf
 ExecStart=/usr/bin/$(basename "$SERVER_BIN") \
   --server-key=\${SERVER_KEY} \
   --server-crt=\${SERVER_CRT} \
-  --server-pub=\${SERVER_PUB} \
   --out-network-interface=\${OUT_NETWORK_INTERFACE} \
   --server-port=\${PORT} \
   --enable-detect-probing=\${ENABLE_DETECT_PROBING} \
