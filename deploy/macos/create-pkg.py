@@ -15,6 +15,7 @@ from macos_pkg_builder import Packages
 
 APP_NAME = "FptnClient"
 SCRIPT_FOLDER = pathlib.Path(__file__).parent
+REPOSITORY_FOLDER = pathlib.Path(__file__).parent.parent.parent
 ICON = SCRIPT_FOLDER / "assets" / "FptnClient.icns"
 
 
@@ -65,6 +66,15 @@ def create_app(
         # save driver
         tun_driver_path = resources_path / "tun.kext"
         save_tunnelblick_tun_driver(tun_driver_path)
+
+        # Сopy SNI files from deploy/sni to Resources/SNI
+        sni_source = REPOSITORY_FOLDER / "deploy" / "sni"
+        sni_dest = resources_path / "SNI"
+        if sni_source.exists():
+            print(f"Copying SNI files from {sni_source} to {sni_dest}")
+            shutil.copytree(sni_source, sni_dest, dirs_exist_ok=True)
+        else:
+            print(f"Warning: SNI source folder not found: {sni_source}")
 
         # copy cli program
         binary_dest = macos_path / "fptn-client-cli"

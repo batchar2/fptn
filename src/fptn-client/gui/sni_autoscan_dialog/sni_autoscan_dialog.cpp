@@ -356,15 +356,15 @@ void SniAutoscanDialog::AddLogEntry(const QString& server,
                 : QString("<font color=\"red\">NO</font>");
 
     const QString log_entry = QString(R"(
-          <table style="width: 100%; font-family: monospace; table-layout: fixed;">
-              <tr>
-                  <td width="25%" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">%1</td>
-                  <td width="45%" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">%2</td>
-                  <td width="15%">Handshake: %3</td>
-                  <td width="15%" style="padding-left: 10px;">HTTP: %4</td>
-              </tr>
-          </table>
-      )").arg(server.toHtmlEscaped())
+        <table style="width: 100%; font-family: monospace; table-layout: fixed; font-size: 8px;">
+            <tr>
+                <td width="25%" style="white-space: nowrap;">%1</td>
+                <td width="45%" style="white-space: nowrap;">%2</td>
+                <td width="15%">Handshake: %3</td>
+                <td width="15%" style="padding-left: 10px;">HTTP: %4</td>
+            </tr>
+        </table>
+    )").arg(server.toHtmlEscaped())
         .arg(sni.toHtmlEscaped())
         .arg(handshake_status)
         .arg(http_status);
