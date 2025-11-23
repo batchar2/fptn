@@ -647,7 +647,7 @@ void SettingsWidget::UpdateSniFilesList() {
     auto* name_label = new QLabel(file_name);
     name_label->setStyleSheet("QLabel { font-weight: bold; }");
     name_label->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-
+    /*
     auto* delete_button = new QPushButton("X");
     delete_button->setFixedSize(24, 24);
     delete_button->setStyleSheet(R"(
@@ -672,10 +672,11 @@ void SettingsWidget::UpdateSniFilesList() {
       settings_->SniManager()->RemoveFile(file_name.toStdString());
       UpdateSniFilesList();
     });
-
+    */
     layout->addWidget(name_label);
+    /*
     layout->addWidget(delete_button);
-
+    */
     item_widget->setLayout(layout);
 
     auto* item = new QListWidgetItem(sni_files_list_widget_);
