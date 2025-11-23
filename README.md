@@ -70,41 +70,6 @@ FPTN can be seamlessly integrated with **NGINX**, allowing you to disguise the V
 This can be particularly useful in evading detection and bypassing restrictive network filters.
 By using NGINX to proxy WebSocket connections, you can effectively hide the VPN server behind the facade of a regular website.
 
-### FPTN Client Installation and Setup
-
-*🍏🍎For MacOS users, please refer to the [macOS installation guide](docs/macos/README.md) for detailed instructions, as macOS has additional security measures that may require special steps.*
-
-Download the FPTN client from [WebSite](http://batchar2.github.io/fptn/) or [GitHub](https://github.com/batchar2/fptn/releases). After downloading, install and run the client.
-
-The client is a compact application with an interface located in the routing tray.
-
-Simply click on the icon to open the context menu.
-
-<img style="max-height: 100px" class="img-center" src="docs/images/macos/en/client.png" alt="Application"/>
-
-Go to the "Settings" menu, where you need to add the servers. 
-To do this, obtain the access token, which contains the list of available servers. 
-Get the token by contacting our <a target="_blank" href="https://t.me/fptn_bot">Telegram bot</a>,
-
-<img style="max-height: 200px" class="img-center" src="docs/images/telegram_token_en.png" alt="Settings"/>
-
-Copy the token, click the "Add Token" button, paste it into the form, and save.
-
-<img style="max-height: 250px" class="img-center" src="docs/images/macos/en/settings-2.png" alt="Settings"/>
-
-After that, the available servers will appear in the list.
-
-<img style="max-height: 250px" class="img-center" src="docs/images/macos/en/settings-3.png" alt="Settings"/>
-
-Ease of use:
-
-<img style="max-height: 250px" class="img-center" src="docs/images/macos/en/running-client.png" alt="Settings"/>
-
-You can also easily turn your Raspberry Pi or Orange Pi into a WiFi access point and install the FPTN client on it.
-In this case, all devices connected to the WiFi will be able to access the internet, bypassing any restrictions.
-[Read more here](https://github.com/batchar2/fptn/blob/master/deploy/linux/wifi/README.md)
-
-<img style="max-height: 350px" class="img-center" src="docs/images/orangepi.jpg" alt="Settings"/>
 
 <details>
   <summary>FPTN Server Installation and Configuration</summary>
@@ -132,8 +97,6 @@ Generate the required keys using OpenSSL:
 ```bash
 openssl genrsa -out server.key 2048
 openssl req -new -x509 -key server.key -out server.crt -days 365
-openssl rsa -in server.key -pubout -out server.pub
-
 ```
 
 ##### Step 4: Configure the Server
@@ -148,7 +111,6 @@ OUT_NETWORK_INTERFACE=eth0
 # KEYS
 SERVER_KEY=server.key
 SERVER_CRT=server.crt
-SERVER_PUB=server.pub
 
 PORT=443
 TUN_INTERFACE_NAME=fptn0
@@ -160,7 +122,6 @@ Configuration File Fields
 - `OUT_NETWORK_INTERFACE` Specifies the network interface that the server will use for outgoing traffic (e.g., eth0 for Ethernet). Ensure this is set to the correct network interface on your routing.
 - `SERVER_KEY` The filename of the private key for the server. This key is used for encrypting and signing communications.
 - `SERVER_CRT` The filename of the server's SSL certificate. This certificate is used to establish a secure connection between the server and clients.
-- `SERVER_PUB` The filename of the public key derived from the private key. This is used by clients to verify the server's identity.
 - `PORT` The port number on which the server will listen for incoming connections (e.g., 443). Ensure this port is open and not in use by other services.
 - `TUN_INTERFACE_NAME` The name of the virtual network interface used by the VPN (e.g., fptn0). This interface is used for tunneling VPN traffic.
 - `LOG_FILE` The path to the log file where server logs will be written (e.g., /var/log/fptn-server.log). This file is useful for troubleshooting and monitoring server activity.
@@ -289,7 +250,7 @@ Use the following template:
 ```
 * Replace `YOUR_USER` and `YOUR_PASSWORD` with the `username` and `password` you created in `Step 5: Add User`.
 * Replace the `YOUR_SERVER_FINGERPRINT` value with your server’s certificate fingerprint. To get it, run the following command and copy the result:
-  
+
   ```bash
   openssl x509 -noout -fingerprint -md5 -in /etc/fptn/server.crt | cut -d'=' -f2 | tr -d ':' | tr 'A-F' 'a-f'
   ```
@@ -299,7 +260,7 @@ Use the following template:
 💡 You can use this file on macOS clients to connect.
 For other types of clients, you may need to create a `TOKEN` instead.
 
-##### Step 10 Token creation 
+##### Step 10 Token creation
 
 To create a token, encode the content from the file in Step 9 using Base64.
 Go to [Base64 Encode](https://www.base64encode.org), paste the content into the input field, and generate the encoded string. After encoding, remove any `=` characters at the end of the Base64 string — the result will be your token.
@@ -530,6 +491,42 @@ cppcheck --error-exitcode=1 --enable=all --language=c++ --disable=unusedFunction
 
 
 </details>
+
+### FPTN Client Installation and Setup
+
+*🍏🍎For MacOS users, please refer to the [macOS installation guide](docs/macos/README.md) for detailed instructions, as macOS has additional security measures that may require special steps.*
+
+Download the FPTN client from [WebSite](http://batchar2.github.io/fptn/) or [GitHub](https://github.com/batchar2/fptn/releases). After downloading, install and run the client.
+
+The client is a compact application with an interface located in the routing tray.
+
+Simply click on the icon to open the context menu.
+
+<img style="max-height: 100px" class="img-center" src="docs/images/macos/en/client.png" alt="Application"/>
+
+Go to the "Settings" menu, where you need to add the servers. 
+To do this, obtain the access token, which contains the list of available servers. 
+Get the token by contacting our <a target="_blank" href="https://t.me/fptn_bot">Telegram bot</a>,
+
+<img style="max-height: 200px" class="img-center" src="docs/images/telegram_token_en.png" alt="Settings"/>
+
+Copy the token, click the "Add Token" button, paste it into the form, and save.
+
+<img style="max-height: 250px" class="img-center" src="docs/images/macos/en/settings-2.png" alt="Settings"/>
+
+After that, the available servers will appear in the list.
+
+<img style="max-height: 250px" class="img-center" src="docs/images/macos/en/settings-3.png" alt="Settings"/>
+
+Ease of use:
+
+<img style="max-height: 250px" class="img-center" src="docs/images/macos/en/running-client.png" alt="Settings"/>
+
+You can also easily turn your Raspberry Pi or Orange Pi into a WiFi access point and install the FPTN client on it.
+In this case, all devices connected to the WiFi will be able to access the internet, bypassing any restrictions.
+[Read more here](https://github.com/batchar2/fptn/blob/master/deploy/linux/wifi/README.md)
+
+<img style="max-height: 350px" class="img-center" src="docs/images/orangepi.jpg" alt="Settings"/>
 
 <details>
   <summary>Using CLion IDE</summary>

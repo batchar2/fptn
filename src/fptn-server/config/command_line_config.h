@@ -26,7 +26,6 @@ class CommandLineConfig {
   /* options */
   [[nodiscard]] std::string ServerCrt() const;
   [[nodiscard]] std::string ServerKey() const;
-  [[nodiscard]] std::string ServerPub() const;
   [[nodiscard]] std::string OutNetworkInterface() const;
   [[nodiscard]] int ServerPort() const;
 

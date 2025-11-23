@@ -51,8 +51,7 @@ int main(int argc, char* argv[]) {
       return EXIT_FAILURE;
     }
     if (!std::filesystem::exists(config.ServerCrt()) ||
-        !std::filesystem::exists(config.ServerKey()) ||
-        !std::filesystem::exists(config.ServerPub())) {
+        !std::filesystem::exists(config.ServerKey())) {
       SPDLOG_ERROR("SSL certificate or key file does not exist!");
       return EXIT_FAILURE;
     }
@@ -87,7 +86,7 @@ int main(int argc, char* argv[]) {
     /* Init web server */
     auto token_manager =
         std::make_shared<fptn::common::jwt_token::TokenManager>(
-            config.ServerCrt(), config.ServerKey(), config.ServerPub());
+            config.ServerCrt(), config.ServerKey());
     /* Init user manager */
     auto user_manager = std::make_shared<fptn::user::UserManager>(
         config.UserFile(), config.UseRemoteServerAuth(),
