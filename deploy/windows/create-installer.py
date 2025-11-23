@@ -10,18 +10,17 @@ import subprocess
 
 import requests
 
-
 INNOSETUP_DEFAULT_PATH = r"C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 
-INSTALLER_DIR = pathlib.Path(__file__).parent.resolve() / "installer"
+REPOSITORY_FOLDER = pathlib.Path(__file__).parent.parent.parent
 
+INSTALLER_DIR = pathlib.Path(__file__).parent.resolve() / "installer"
 
 TMP_DIR = INSTALLER_DIR / "tmp"
 TMP_DIR.mkdir(parents=True, exist_ok=True)
 
 DEPENDS_DIR = INSTALLER_DIR / "depends"
 DEPENDS_DIR.mkdir(parents=True, exist_ok=True)
-
 
 DEPENDS_QT_DIR = DEPENDS_DIR / "qt"
 DEPENDS_QT_DIR.mkdir(parents=True, exist_ok=True)
@@ -182,12 +181,21 @@ if __name__ == "__main__":
         download_file("https://aka.ms/vs/17/release/vc_redist.x64.exe", DEPENDS_VC_REDIST_PATH)
     else:
         raise EnvironmentError("Unsuported system!")
+
     # copy wintun dll
     shutil.copy(args.wintun_dll, DEPENDS_WINTUN_DLL_PATH)
     # copy clients
-
     shutil.copy(args.fptn_client, APP_FPTN_CLIENT)
     shutil.copy(args.fptn_client_cli, APP_FPTN_CLIENT_CLI)
+
+    # copy SNI files from deploy/sni to depends/sni
+    sni_source = REPOSITORY_FOLDER / "deploy" / "sni"
+    sni_dest = DEPENDS_DIR / "sni"
+    if sni_source.exists():
+        print(f"Copying SNI files from {sni_source} to {sni_dest}")
+        shutil.copytree(sni_source, sni_dest, dirs_exist_ok=True)
+    else:
+        print(f"Warning: SNI source folder not found: {sni_source}")
 
     # prepare innosetup
     INNOSETUP_SCRIPT_PATH = INSTALLER_DIR / "fptn-installer.iss"

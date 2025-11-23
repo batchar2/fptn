@@ -7,8 +7,9 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "gui/settingsmodel/settingsmodel.h"
 
 #if _WIN32
+#include <Windows.h>   // NOLINT(build/include_order)
 #include <Ws2tcpip.h>  // NOLINT(build/include_order)
-#include <windows.h>   // NOLINT(build/include_order)
+#include <shlobj.h>    // NOLINT(build/include_order)
 #endif
 
 #include <memory>
@@ -60,10 +61,23 @@ SettingsModel::SettingsModel(const QMap<QString, QString>& languages,
       default_language_(default_language),
       selected_language_(default_language),
       client_autostart_(false) {
+#if _WIN32
+  char exe_path[MAX_PATH] = {};
+  if (SUCCEEDED(GetModuleFileName(nullptr, exe_path, MAX_PATH))) {
+    std::filesystem::path exe_dir =
+        std::filesystem::path(exe_path).parent_path();
+    std::string sni_folder = (exe_dir / "SNI").string();
+    sni_manager_ = std::make_shared<SNIManager>(sni_folder);
+  } else {
+    const auto settings_folder = GetSettingsFolderPath();
+    const std::string sni_folder = settings_folder.toStdString() + "/" + "SNI";
+    sni_manager_ = std::make_shared<SNIManager>(sni_folder);
+  }
+#else
   const auto settings_folder = GetSettingsFolderPath();
   const std::string sni_folder = settings_folder.toStdString() + "/" + "SNI";
   sni_manager_ = std::make_shared<SNIManager>(sni_folder);
-
+#endif
   Load(true);
 }
 
