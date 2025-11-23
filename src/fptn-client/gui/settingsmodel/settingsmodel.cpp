@@ -10,6 +10,9 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <Windows.h>   // NOLINT(build/include_order)
 #include <Ws2tcpip.h>  // NOLINT(build/include_order)
 #include <shlobj.h>    // NOLINT(build/include_order)
+#elif defined(__linux__)
+#include <linux/limits.h>  // NOLINT(build/include_order)
+#include <unistd.h>        // NOLINT(build/include_order)
 #endif
 
 #include <memory>
@@ -51,6 +54,7 @@ QVector<ServerConfig> ParseServers(const QJsonArray& servers_array) {
   }
   return servers;
 }
+
 };  // namespace
 
 SettingsModel::SettingsModel(const QMap<QString, QString>& languages,
@@ -64,6 +68,20 @@ SettingsModel::SettingsModel(const QMap<QString, QString>& languages,
 #if _WIN32
   char exe_path[MAX_PATH] = {};
   if (SUCCEEDED(GetModuleFileName(nullptr, exe_path, MAX_PATH))) {
+    std::filesystem::path exe_dir =
+        std::filesystem::path(exe_path).parent_path();
+    std::string sni_folder = (exe_dir / "SNI").string();
+    sni_manager_ = std::make_shared<SNIManager>(sni_folder);
+  } else {
+    const auto settings_folder = GetSettingsFolderPath();
+    const std::string sni_folder = settings_folder.toStdString() + "/" + "SNI";
+    sni_manager_ = std::make_shared<SNIManager>(sni_folder);
+  }
+#elif __linux__
+  char exe_path[PATH_MAX] = {};
+  ssize_t count = readlink("/proc/self/exe", exe_path, PATH_MAX);
+  if (count != -1) {
+    exe_path[count] = '\0';
     std::filesystem::path exe_dir =
         std::filesystem::path(exe_path).parent_path();
     std::string sni_folder = (exe_dir / "SNI").string();
