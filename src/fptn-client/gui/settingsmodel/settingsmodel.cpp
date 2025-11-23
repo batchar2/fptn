@@ -11,6 +11,8 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <windows.h>   // NOLINT(build/include_order)
 #endif
 
+#include <memory>
+#include <string>
 #include <utility>
 
 #include <boost/asio.hpp>
@@ -58,11 +60,21 @@ SettingsModel::SettingsModel(const QMap<QString, QString>& languages,
       default_language_(default_language),
       selected_language_(default_language),
       client_autostart_(false) {
+  const auto settings_folder = GetSettingsFolderPath();
+  const std::string sni_folder = settings_folder.toStdString() + "/" + "SNI";
+  sni_manager_ = std::make_shared<SNIManager>(sni_folder);
+
   Load(true);
 }
 
 // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
-QString SettingsModel::GetFilePath() const {
+QString SettingsModel::GetSettingsFilePath() const {
+  const QString directory = GetSettingsFolderPath();
+  return directory + "/fptn-settings.json";
+}
+
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+QString SettingsModel::GetSettingsFolderPath() const {
 #ifdef __APPLE__
   const QString directory =
       QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation);
@@ -74,14 +86,14 @@ QString SettingsModel::GetFilePath() const {
   if (!dir.exists()) {
     dir.mkpath(directory);
   }
-  return directory + "/fptn-settings.json";
+  return directory;
 }
 
 void SettingsModel::Load(bool dont_load_server) {
   // Load servers
   services_.clear();
 
-  const QString file_path = GetFilePath();
+  const QString file_path = GetSettingsFilePath();
   QFile file(file_path);
   if (!file.open(QIODevice::ReadOnly)) {
     SPDLOG_WARN("Failed to open file for reading: {}", file_path.toStdString());
@@ -202,7 +214,7 @@ bool SettingsModel::ExistsTranslation(const QString& language_code) const {
 }
 
 bool SettingsModel::Save() {
-  QString file_path = GetFilePath();
+  QString file_path = GetSettingsFilePath();
   QFile file(file_path);
   if (!file.open(QIODevice::WriteOnly)) {
     SPDLOG_ERROR(
@@ -385,4 +397,8 @@ QString SettingsModel::BypassMethod() const {
 void SettingsModel::SetBypassMethod(const QString& method) {
   bypass_method_ = method;
   Save();
+}
+
+fptn::gui::SNIManagerSPtr SettingsModel::SniManager() const {
+  return sni_manager_;
 }

@@ -26,10 +26,10 @@ class UserManager {
    * @brief Constructs a Manager object.
    *
    * @param userfile Path to the local user file for authentication.
-   * @param useRemoteServer Flag indicating whether to use remote server
+   * @param use_remote_server Flag indicating whether to use remote server
    * authentication.
-   * @param remoteServerIP IP address of the remote authentication server.
-   * @param remoteServerPort Port number of the remote authentication server.
+   * @param remote_server_ip IP address of the remote authentication server.
+   * @param remote_server_port Port number of the remote authentication server.
    */
   explicit UserManager(const std::string& userfile,
       bool use_remote_server,
@@ -44,14 +44,14 @@ class UserManager {
    *
    * @param username The username of the user.
    * @param password The password of the user.
-   * @param bandwidthBit The bandwidth limit in bits for the user. Set upon
+   * @param bandwidth_bit The bandwidth limit in bits for the user. Set upon
    * successful login.
    *
    * @return `true` if the login is successful, `false` otherwise.
    */
   bool Login(const std::string& username,
       const std::string& password,
-      int& bandwidthBit) const;
+      int& bandwidth_bit) const;
 
  private:
   /// Indicates whether to use remote server authentication.

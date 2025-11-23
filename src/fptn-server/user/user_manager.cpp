@@ -25,7 +25,7 @@ UserManager::UserManager(const std::string& userfile,
   if (use_remote_server_) {
     // remote user list
     http_api_client_ = std::make_unique<fptn::protocol::https::ApiClient>(
-        remote_server_ip_, remote_server_port, nullptr);
+        remote_server_ip_, remote_server_port);
   } else {
     // local user list
     common_manager_ =
@@ -35,8 +35,8 @@ UserManager::UserManager(const std::string& userfile,
 
 bool UserManager::Login(const std::string& username,
     const std::string& password,
-    int& bandwidthBit) const {
-  bandwidthBit = 0;  // reset
+    int& bandwidth_bit) const {
+  bandwidth_bit = 0;  // reset
   if (use_remote_server_) {
     SPDLOG_INFO(
         "Login request to {}:{}", remote_server_ip_, remote_server_port_);
@@ -50,7 +50,7 @@ bool UserManager::Login(const std::string& username,
       try {
         const auto msg = resp.Json();
         if (msg.contains("access_token") && msg.contains("bandwidth_bit")) {
-          bandwidthBit = msg["bandwidth_bit"].get<int>();
+          bandwidth_bit = msg["bandwidth_bit"].get<int>();
           return true;
         }
         SPDLOG_INFO(
@@ -66,7 +66,7 @@ bool UserManager::Login(const std::string& username,
           resp.code, resp.errmsg);
     }
   } else if (common_manager_->Authenticate(username, password)) {
-    bandwidthBit = common_manager_->GetUserBandwidthBit(username);
+    bandwidth_bit = common_manager_->GetUserBandwidthBit(username);
     return true;
   }
   return false;

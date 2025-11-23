@@ -6,8 +6,11 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include "fptn-protocol-lib/https/api_client/api_client.h"
 
+#include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <thread>
 #include <unordered_map>
@@ -111,6 +114,63 @@ void SetSocketTimeouts(
 #endif
 }
 
+template <typename TResult>
+TResult ExecuteWithTimeout(const std::function<TResult()>& operation,
+    int timeout,
+    const std::string& operation_name,
+    const std::string& handle,
+    const std::string& host,
+    const TResult& timeout_result) {
+  try {
+    // Shared state
+    struct SharedState {
+      std::mutex mutex;
+      std::condition_variable cv;
+      bool ready = false;
+      TResult result;
+      std::atomic<bool> cancelled{false};
+    };
+
+    const auto start_time = std::chrono::steady_clock::now();
+
+    auto state = std::make_shared<SharedState>();
+
+    // NOLINTNEXTLINE(bugprone-exception-escape)
+    std::weak_ptr<SharedState> weak_state = state;
+    std::thread([weak_state, operation]() {
+      TResult impl_result = operation();
+      // check state
+      if (auto state = weak_state.lock()) {
+        const std::scoped_lock<std::mutex> lock(state->mutex);
+        if (!state->cancelled) {
+          state->result = impl_result;
+          state->ready = true;
+          state->cv.notify_one();
+        }
+      }
+    }).detach();
+
+    std::unique_lock<std::mutex> lock(state->mutex);
+    if (!state->cv.wait_for(lock, std::chrono::seconds(timeout),
+            [state]() { return state->ready; })) {
+      const auto end_time = std::chrono::steady_clock::now();
+      const auto duration =
+          std::chrono::duration_cast<std::chrono::milliseconds>(
+              end_time - start_time);
+
+      state->cancelled = true;
+
+      SPDLOG_WARN("{} [{}] - Timeout after {} ms for server {}", operation_name,
+          handle, duration.count(), host);
+      return timeout_result;
+    }
+    return state->result;
+  } catch (...) {
+    SPDLOG_ERROR("Undefined error: {} {}", operation_name, handle);
+  }
+  return timeout_result;
+}
+
 };  // namespace
 
 namespace fptn::protocol::https {
@@ -147,6 +207,48 @@ ApiClient::ApiClient(std::string host,
       obfuscator_(std::move(obfuscator)) {}  // NOLINT
 
 Response ApiClient::Get(const std::string& handle, int timeout) const {
+  // NOLINTNEXTLINE(bugprone-exception-escape)
+  return ExecuteWithTimeout<Response>(
+      // NOLINTNEXTLINE(bugprone-exception-escape)
+      [this, handle, timeout]() {
+        const ApiClient cloned_client = Clone();
+        return cloned_client.GetImpl(handle, timeout);
+      },
+      timeout, "GET", handle, host_, Response{"", 608, "Operation timeout"});
+}
+
+Response ApiClient::Post(const std::string& handle,
+    const std::string& request,
+    const std::string& content_type,
+    int timeout) const {
+  // NOLINTNEXTLINE(bugprone-exception-escape)
+  return ExecuteWithTimeout<Response>(
+      // NOLINTNEXTLINE(bugprone-exception-escape)
+      [this, handle, request, content_type, timeout]() {
+        const ApiClient cloned_client = Clone();
+        return cloned_client.PostImpl(handle, request, content_type, timeout);
+      },
+      timeout, "POST", handle, host_, Response{"", 608, "Operation timeout"});
+}
+
+bool ApiClient::TestHandshake(int timeout) const {
+  // NOLINTNEXTLINE(bugprone-exception-escape)
+  return ExecuteWithTimeout<bool>(
+      // NOLINTNEXTLINE(bugprone-exception-escape)
+      [this, timeout]() {
+        const ApiClient cloned_client = Clone();
+        return cloned_client.TestHandshakeImpl(timeout);
+      },
+      timeout, "TestHandshake", "", host_, false);
+}
+
+ApiClient ApiClient::Clone() const {
+  ApiClient temp_client(
+      host_, port_, sni_, expected_md5_fingerprint_, obfuscator_);
+  return temp_client;
+}
+
+Response ApiClient::GetImpl(const std::string& handle, int timeout) const {
   std::string body;
   std::string error;
   int respcode = 400;
@@ -291,11 +393,10 @@ Response ApiClient::Get(const std::string& handle, int timeout) const {
         handle, host_, server_ip, duration.count(), respcode, error,
         body.size());
   }
-
   return {body, respcode, error};
 }
 
-Response ApiClient::Post(const std::string& handle,
+Response ApiClient::PostImpl(const std::string& handle,
     const std::string& request,
     const std::string& content_type,
     int timeout) const {
@@ -449,8 +550,144 @@ Response ApiClient::Post(const std::string& handle,
         handle, host_, server_ip, duration.count(), respcode, error,
         request.size(), body.size());
   }
-
   return {body, respcode, error};
+}
+
+bool ApiClient::TestHandshakeImpl(int timeout) const {
+  const auto start_time = std::chrono::steady_clock::now();
+  std::string server_ip;
+  SSL* ssl = nullptr;
+
+  try {
+    boost::asio::io_context ioc;
+    auto* ssl_ctx = utils::CreateNewSslCtx();
+    boost::asio::ssl::context ctx(ssl_ctx);
+
+    tcp_stream_type tcp_stream(ioc);
+    obfuscator_socket_type obfuscator_stream(
+        std::move(tcp_stream), obfuscator_);
+    ssl_stream_type stream(std::move(obfuscator_stream), ctx);
+
+    const std::string port_str = std::to_string(port_);
+    auto resolve_result = fptn::common::network::ResolveWithTimeout(
+        ioc, host_, port_str, timeout);
+
+    if (!resolve_result) {
+      SPDLOG_WARN("TestHandshake - DNS resolution failed for {}:{}: {}", host_,
+          port_, resolve_result.error.message());
+
+      const auto end_time = std::chrono::steady_clock::now();
+      const auto duration =
+          std::chrono::duration_cast<std::chrono::milliseconds>(
+              end_time - start_time);
+
+      SPDLOG_WARN(
+          "Handshake failed for server {} in {} ms - DNS resolution error",
+          host_, duration.count());
+      return false;
+    }
+
+    SPDLOG_INFO("TestHandshake - Connecting to server: {}:{}", host_, port_);
+
+    boost::beast::get_lowest_layer(stream).expires_after(
+        std::chrono::seconds(timeout));
+    stream.next_layer().next_layer().expires_after(
+        std::chrono::seconds(timeout));
+
+    auto connected_endpoint =
+        boost::beast::get_lowest_layer(stream).connect(resolve_result.results);
+    server_ip = connected_endpoint.address().to_string();
+
+    SPDLOG_INFO("TestHandshake - Successfully connected to {} (IP: {})", host_,
+        server_ip);
+
+    auto& socket = boost::beast::get_lowest_layer(stream).socket();
+    SetSocketTimeouts(socket, timeout);
+
+    utils::SetHandshakeSessionID(stream.native_handle());
+    utils::SetHandshakeSni(stream.native_handle(), sni_);
+
+    if (!expected_md5_fingerprint_.empty()) {
+      ssl = stream.native_handle();
+      std::string error;
+      utils::AttachCertificateVerificationCallback(
+          ssl, [this, &error](const std::string& md5_fingerprint) {
+            return onVerifyCertificate(md5_fingerprint, error);
+          });
+    } else {
+      ctx.set_verify_mode(boost::asio::ssl::verify_none);
+    }
+
+    // Perform TLS handshake
+    stream.handshake(boost::asio::ssl::stream_base::client);
+
+    // Clean shutdown
+    boost::system::error_code ec;
+    stream.shutdown(ec);
+
+    // Close connection
+    boost::beast::get_lowest_layer(stream).close();
+
+    const auto end_time = std::chrono::steady_clock::now();
+    const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+        end_time - start_time);
+
+    SPDLOG_INFO("Handshake successful for server {} (IP: {}) in {} ms", host_,
+        server_ip, duration.count());
+
+    if (ssl) {
+      utils::AttachCertificateVerificationCallbackDelete(ssl);
+    }
+    return true;
+  } catch (const boost::system::system_error& err) {
+    // Создаем копии строк перед использованием в логгере
+    std::string host_copy = host_;
+    std::string server_ip_copy = server_ip;
+    std::string error_msg;
+
+#ifdef _WIN32
+    error_msg = boost::nowide::narrow(boost::nowide::widen(err.what()));
+#else
+    error_msg = err.what();
+#endif
+
+    SPDLOG_WARN("Handshake failed for server {} (IP: {}): {}", host_copy,
+        server_ip_copy, error_msg);
+  } catch (const std::exception& e) {
+    // Создаем копии строк перед использованием в логгере
+    std::string host_copy = host_;
+    std::string server_ip_copy = server_ip;
+    std::string error_msg;
+
+#ifdef _WIN32
+    error_msg = boost::nowide::narrow(boost::nowide::widen(e.what()));
+#else
+    error_msg = e.what();
+#endif
+
+    SPDLOG_WARN("Handshake failed for server {} (IP: {}): {}", host_copy,
+        server_ip_copy, error_msg);
+  } catch (...) {
+    // Создаем копии строк перед использованием в логгере
+    std::string host_copy = host_;
+    std::string server_ip_copy = server_ip;
+
+    SPDLOG_WARN("Handshake failed for server {} (IP: {}): Unknown exception",
+        host_copy, server_ip_copy);
+  }
+
+  if (ssl) {
+    utils::AttachCertificateVerificationCallbackDelete(ssl);
+  }
+
+  const auto end_time = std::chrono::steady_clock::now();
+  const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+      end_time - start_time);
+
+  SPDLOG_WARN("Handshake failed for server {} (IP: {}) in {} ms", host_,
+      server_ip, duration.count());
+
+  return false;
 }
 
 bool ApiClient::onVerifyCertificate(

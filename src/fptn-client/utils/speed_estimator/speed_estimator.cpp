@@ -9,6 +9,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <algorithm>
 #include <atomic>
 #include <condition_variable>
+#include <future>
 #include <memory>
 #include <mutex>
 #include <random>
@@ -60,61 +61,63 @@ ServerInfo FindFastestServer(const std::string& sni,
   std::vector<ServerInfo> shuffled_servers = servers;
   std::random_device rd;
   std::mt19937 generator(rd());
-  std::shuffle(shuffled_servers.begin(), shuffled_servers.end(), generator);
+  std::ranges::shuffle(shuffled_servers, generator);
   const std::size_t half_size =
       std::max<std::size_t>(1, shuffled_servers.size() / 2);
   std::vector<ServerInfo> selected_servers(
       shuffled_servers.begin(), shuffled_servers.begin() + half_size);
 
-  // Simple shared state
-  struct SharedState {
-    std::mutex mutex;
-    std::condition_variable cv;
-    std::uint64_t min_time = kMaxTimeout;
-    std::size_t fastest_server_index = 0;
-    bool found = false;
-  };
+  // Create promises and futures for all requests
+  std::vector<std::promise<std::uint64_t>> promises(selected_servers.size());
+  std::vector<std::future<std::uint64_t>> futures;
+  futures.reserve(selected_servers.size());
 
-  auto state = std::make_shared<SharedState>();
+  for (auto& promise : promises) {
+    // cppcheck-suppress useStlAlgorithm
+    futures.push_back(promise.get_future());
+  }
 
   // Launch all requests
   for (std::size_t i = 0; i < selected_servers.size(); ++i) {
     // NOLINTNEXTLINE(bugprone-exception-escape)
-    std::thread([state, server = selected_servers[i], i, sni, obfuscator]() {
+    std::thread([&promise = promises[i], server = selected_servers[i], sni,
+                    obfuscator]() {
       try {
-        auto cloned_obfuscator =
+        const auto cloned_obfuscator =
             (obfuscator != nullptr ? obfuscator->Clone() : nullptr);
-        auto time = GetDownloadTimeMs(server, sni, kTimeoutSeconds,
+        const auto time_ms = GetDownloadTimeMs(server, sni, kTimeoutSeconds,
             server.md5_fingerprint, cloned_obfuscator);
-
-        const std::scoped_lock<std::mutex> lock(state->mutex);  // mutex
-        if (!state->found && time < state->min_time) {
-          state->min_time = time;
-          state->fastest_server_index = i;
-          if (time != kMaxTimeout) {
-            state->found = true;
-            state->cv.notify_one();
-          }
-        }
+        promise.set_value(time_ms);
       } catch (...) {  // NOLINT
-        // Ignore exceptions in background threads
+        // Set max timeout in case of exception
+        promise.set_value(kMaxTimeout);
       }
     }).detach();
   }
 
-  // Wait for result with timeout
-  std::unique_lock<std::mutex> lock(state->mutex);
-  if (!state->cv.wait_for(lock, std::chrono::seconds(kTimeoutSeconds),
-          [state]() { return state->found; })) {
-    // Timeout reached
-    state->found = true;  // Force exit
+  // Wait for all futures with timeout
+  std::vector<std::uint64_t> times;
+  times.reserve(futures.size());
+
+  const auto deadline = std::chrono::steady_clock::now() +
+                        std::chrono::seconds(kTimeoutSeconds + 2);
+
+  for (auto& future : futures) {
+    if (future.wait_until(deadline) == std::future_status::ready) {
+      times.push_back(future.get());
+    } else {
+      // Timeout for this future
+      times.push_back(kMaxTimeout);
+    }
   }
 
-  if (state->min_time == kMaxTimeout) {
+  // Find fastest server
+  const auto min_it = std::ranges::min_element(times);
+  if (min_it == times.end() || *min_it == kMaxTimeout) {
     throw std::runtime_error("All servers unavailable!");
   }
 
-  return selected_servers[state->fastest_server_index];
+  return selected_servers[std::distance(times.begin(), min_it)];
 }
 
 }  // namespace fptn::utils::speed_estimator

@@ -153,6 +153,9 @@ QMenu {
     border-radius: 4px;
     padding: 4px 8px;
 }
+QPushButton {
+    padding: 6px 12px;
+}
 QMenu::item {
     background-color: #ffffff;
     color: #000000;

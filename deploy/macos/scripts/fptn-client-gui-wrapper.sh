@@ -103,6 +103,45 @@ EOF
     [ "$response" = "Try Again" ] && return 1 || exit 1
 }
 
+copy_sni_files() {
+    local SNI_SRC="/Applications/FptnClient.app/Contents/Resources/SNI"
+    local USER_HOME="$HOME"
+    local SNI_USER_DIR="$USER_HOME/Library/Preferences/SNI"
+
+    # Check if SNI directory exists and has all files
+    local need_copy=false
+
+    if [ ! -d "$SNI_USER_DIR" ]; then
+        echo "SNI directory doesn't exist, need to copy files"
+        need_copy=true
+    else
+        # Check if any SNI files are missing in user directory
+        for file in "$SNI_SRC"/*; do
+            if [ -f "$file" ]; then
+                filename=$(basename "$file")
+                user_file="$SNI_USER_DIR/$filename"
+                if [ ! -f "$user_file" ]; then
+                    echo "File $filename missing in user directory, need to copy"
+                    need_copy=true
+                    break
+                fi
+            fi
+        done
+    fi
+
+    # Copy files if needed
+    if [ "$need_copy" = true ] && [ -d "$SNI_SRC" ]; then
+        echo "Copying SNI files to user directory..."
+        mkdir -p "$SNI_USER_DIR"
+        cp -R "$SNI_SRC/"* "$SNI_USER_DIR/"
+        echo "SNI files copied successfully to $SNI_USER_DIR"
+    elif [ ! -d "$SNI_SRC" ]; then
+        echo "Warning: SNI source folder not found: $SNI_SRC"
+    else
+        echo "SNI files are already up to date"
+    fi
+}
+
 # Install driver and related components
 install_driver() {
     local KEXT_SRC="/Applications/FptnClient.app/Contents/Resources/tun.kext"
@@ -164,6 +203,8 @@ if [ ! -d "/Library/Extensions/tun.kext" ] || ! kextstat | grep -q "tun"; then
         [ $? -eq 1 ] && exec "$0" || exit 1
     fi
 fi
+
+copy_sni_files
 
 # Set environment and launch application
 export QT_PLUGIN_PATH=/Applications/FptnClient.app/Contents/Frameworks/plugins

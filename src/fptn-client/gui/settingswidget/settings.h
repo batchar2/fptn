@@ -10,7 +10,9 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <QCloseEvent>
 #include <QComboBox>
 #include <QDialog>
+#include <QGridLayout>
 #include <QLabel>
+#include <QListWidget>
 #include <QPushButton>
 #include <QTableWidget>
 #include <QToolButton>
@@ -27,7 +29,10 @@ class SettingsWidget : public QDialog {
 
  protected:
   void closeEvent(QCloseEvent* event) override;
+
+ protected:
   void SetupUi();
+  void UpdateSniFilesList();
 
   // cppcheck-suppress unknownMacro
  private slots:
@@ -39,6 +44,11 @@ class SettingsWidget : public QDialog {
   void onAutostartChanged(bool checked);
   void onAutoGatewayChanged(bool checked);
   void onBypassMethodChanged(const QString& method);
+
+  // cppcheck-suppress unknownMacro
+ private slots:
+  void onImportSniFile();
+  void onAutoscanClicked();
 
  private:
   SettingsModelPtr settings_;
@@ -56,6 +66,8 @@ class SettingsWidget : public QDialog {
   QLabel* language_label_ = nullptr;
   QComboBox* language_combo_box_ = nullptr;
 
+  QGridLayout* grid_layout_ = nullptr;
+
   QComboBox* interface_combo_box_ = nullptr;
   QLabel* interface_label_ = nullptr;
 
@@ -66,8 +78,14 @@ class SettingsWidget : public QDialog {
   QLabel* bypass_method_label_ = nullptr;
   QComboBox* bypass_method_combo_box_ = nullptr;
 
+  QHBoxLayout* sni_buttons_layout_ = nullptr;
+
   QLabel* sni_label_ = nullptr;
   QLineEdit* sni_line_edit_ = nullptr;
+
+  QListWidget* sni_files_list_widget_ = nullptr;
+  QPushButton* sni_import_button_ = nullptr;
+  QPushButton* sni_autoscan_button_ = nullptr;
 
   QPushButton* load_new_token_button_ = nullptr;
 
@@ -77,7 +95,7 @@ class SettingsWidget : public QDialog {
 
   QLabel* project_info_label_ = nullptr;
   QLabel* website_link_label_ = nullptr;
-  QLabel* telegram_group_lLabel_ = nullptr;
+  QLabel* telegram_group_label_ = nullptr;
   QLabel* boosty_link_label_ = nullptr;
   QLabel* sponsors_label_ = nullptr;
   QLabel* sponsors_names_label_ = nullptr;

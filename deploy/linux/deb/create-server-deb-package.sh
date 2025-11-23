@@ -80,7 +80,7 @@ Description=FPTN Server Service
 After=network.target
 
 [Service]
-EnvironmentFile=-/etc/fptn/server.conf
+EnvironmentFile=/etc/fptn/server.conf
 ExecStart=/usr/bin/$(basename "$SERVER_BIN") \
   --server-key=\${SERVER_KEY} \
   --server-crt=\${SERVER_CRT} \

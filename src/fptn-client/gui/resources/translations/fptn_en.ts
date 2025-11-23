@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
-<TS version="2.1" language="ru_RU">
+<TS version="2.1" language="en_US">
     <context>
         <name>QObject</name>
         <message>
@@ -28,7 +28,6 @@
             <translation>Disconnect</translation>
         </message>
 
-
         <message>
             <source>Upload speed</source>
             <translation>Upload speed</translation>
@@ -38,7 +37,6 @@
             <translation>Download speed</translation>
         </message>
         
-
         <message>
             <source>Unable to find the default gateway IP address. Please check your connection and make sure no other VPN is active. If the error persists, specify the gateway address in the FPTN settings using your router's IP address, and ensure that an active internet interface (adapter) is selected. If the issue remains unresolved, please contact the developer via Telegram @fptn_chat.</source>
             <translation>Unable to find the default gateway IP address. Please check your connection and make sure no other VPN is active. If the error persists, specify the gateway address in the FPTN settings using your router's IP address, and ensure that an active internet interface (adapter) is selected. If the issue remains unresolved, please contact the developer via Telegram @fptn_chat.</translation>
@@ -221,7 +219,7 @@
             <source>FPTN_WEBSITE_DESCRIPTION</source>
             <translation>
             <![CDATA[
-                Our website <a href="https://fptn.org">fptn.org</a></translation>
+                Our website <a href="https://fptn.org">fptn.org</a>
             ]]>
             </translation>
         </message>
@@ -257,9 +255,8 @@
 
         <message>
             <source>FPTN Connection Error</source>
-            <translation>FPTN Сonnection Error</translation>
+            <translation>FPTN Connection Error</translation>
         </message>
-
 
         <message>
             <source>VPN Conflict Detected</source>
@@ -269,7 +266,7 @@
         <message>
             <source>A conflicting VPN connection is currently active on your system: %1
 This may cause network connectivity issues or prevent proper operation of FPTN.</source>
-            <translation> A conflicting VPN connection is currently active on your system: %1
+            <translation>A conflicting VPN connection is currently active on your system: %1
 This may cause network connectivity issues or prevent proper operation of FPTN.</translation>
         </message>
 
@@ -293,6 +290,91 @@ This may cause network connectivity issues or prevent proper operation of FPTN.<
         <message>
             <source>Project Sponsors</source>
             <translation>Project Sponsors</translation>
+        </message>
+
+        <message>
+            <source>Autoscan SNI</source>
+            <translation>Autoscan SNI</translation>
+        </message>
+        <message>
+            <source>All</source>
+            <translation>All</translation>
+        </message>
+        <message>
+            <source>Start</source>
+            <translation>Start</translation>
+        </message>
+        <message>
+            <source>Scan completed</source>
+            <translation>Scan completed</translation>
+        </message>
+        <message>
+            <source>Working SNI found: %1</source>
+            <translation>Working SNI found: %1</translation>
+        </message>
+        <message>
+            <source>No working SNI found.</source>
+            <translation>No working SNI found.</translation>
+        </message>
+        <message>
+            <source>Error</source>
+            <translation>Error</translation>
+        </message>
+        <message>
+            <source>No SNI available for scanning.</source>
+            <translation>No SNI available for scanning.</translation>
+        </message>
+        <message>
+            <source>No servers available for scanning.</source>
+            <translation>No servers available for scanning.</translation>
+        </message>
+        <message>
+            <source>TLS Handshake: %1</source>
+            <translation>TLS Handshake: %1</translation>
+        </message>
+        <message>
+            <source>HTTP Request: %1</source>
+            <translation>HTTP Request: %1</translation>
+        </message>
+        <message>
+            <source>Import SNI file</source>
+            <translation>Import SNI file</translation>
+        </message>
+        <message>
+            <source>Select SNI file</source>
+            <translation>Select SNI file</translation>
+        </message>
+        <message>
+            <source>SNI files (*.sni);;All files (*)</source>
+            <translation>SNI files (*.sni);;All files (*)</translation>
+        </message>
+        <message>
+            <source>File exists</source>
+            <translation>File exists</translation>
+        </message>
+        <message>
+            <source>File "%1" already exists. Overwrite?</source>
+            <translation>File "%1" already exists. Overwrite?</translation>
+        </message>
+        <message>
+            <source>Success</source>
+            <translation>Success</translation>
+        </message>
+        <message>
+            <source>SNI file imported successfully</source>
+            <translation>SNI file imported successfully</translation>
+        </message>
+        <message>
+            <source>Failed to import SNI file</source>
+            <translation>Failed to import SNI file</translation>
+        </message>
+        <message>
+            <source>Delete this file</source>
+            <translation>Delete this file</translation>
+        </message>
+        <message>
+            <source>No SNI files imported</source>
+            <translation>No SNI files imported</translation>
         </message>
 
     </context>

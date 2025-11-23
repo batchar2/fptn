@@ -8,66 +8,88 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include <memory>
 #include <string>
-#include <unordered_map>
 #include <utility>
 
 #include <nlohmann/json.hpp>
 
 #include "fptn-protocol-lib/https/obfuscator/methods/obfuscator_interface.h"
-#include "fptn-protocol-lib/https/obfuscator/tcp_stream/tcp_stream.h"
 
 namespace fptn::protocol::https {
 
 struct Response final {
-  const std::string body;
-  const int code;
-  const std::string errmsg;
+  std::string body;
+  int code;
+  std::string errmsg;
+
+  Response() : code(600) {}
 
   Response(std::string b, int c, std::string e)
       : body(std::move(b)), code(c), errmsg(std::move(e)) {}
 
+  Response(const Response& other)
+      : body(other.body), code(other.code), errmsg(other.errmsg) {}
+
+  Response& operator=(const Response& other) {
+    if (this != &other) {
+      this->~Response();
+      new (this) Response(other);
+    }
+    return *this;
+  }
+
+  Response(Response&& other) = delete;
+  Response& operator=(Response&& other) = delete;
+
   nlohmann::json Json() const { return nlohmann::json::parse(body); }
 };
 
-class ApiClient final {
+class ApiClient {
  public:
-  explicit ApiClient(const std::string& host,
+  ApiClient(const std::string& host,
       int port,
-      obfuscator::IObfuscatorSPtr obfuscator);
+      obfuscator::IObfuscatorSPtr obfuscator = nullptr);
 
-  explicit ApiClient(std::string host,
+  ApiClient(std::string host,
       int port,
       std::string sni,
-      obfuscator::IObfuscatorSPtr obfuscator);
+      obfuscator::IObfuscatorSPtr obfuscator = nullptr);
 
-  explicit ApiClient(std::string host,
+  ApiClient(std::string host,
       int port,
       std::string sni,
       std::string md5_fingerprint,
-      obfuscator::IObfuscatorSPtr obfuscator);
+      obfuscator::IObfuscatorSPtr obfuscator = nullptr);
 
-  ~ApiClient() = default;
-
-  Response Get(const std::string& handle, int timeout = 5) const;
-
+  Response Get(const std::string& handle, int timeout = 30) const;
   Response Post(const std::string& handle,
       const std::string& request,
-      const std::string& content_type,
-      int timeout = 5) const;
+      const std::string& content_type = "application/json",
+      int timeout = 30) const;
+  bool TestHandshake(int timeout = 30) const;
 
  protected:
+  ApiClient Clone() const;
+
+  Response GetImpl(const std::string& handle, int timeout) const;
+
+  Response PostImpl(const std::string& handle,
+      const std::string& request,
+      const std::string& content_type,
+      int timeout) const;
+
+  bool TestHandshakeImpl(int timeout) const;
+
   bool onVerifyCertificate(
       const std::string& md5_fingerprint, std::string& error) const;
 
  private:
-  const std::string host_;
-  const int port_;
-  const std::string sni_;
-  const std::string expected_md5_fingerprint_;
-  const obfuscator::IObfuscatorSPtr obfuscator_;
-
-  boost::asio::ssl::context ctx_{boost::asio::ssl::context::tls_client};
+  std::string host_;
+  int port_;
+  std::string sni_;
+  std::string expected_md5_fingerprint_;
+  obfuscator::IObfuscatorSPtr obfuscator_;
 };
 
 using HttpsClientPtr = std::unique_ptr<ApiClient>;
+
 }  // namespace fptn::protocol::https
