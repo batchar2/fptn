@@ -16,6 +16,11 @@ namespace fptn::protocol::https::utils {
 
 std::string GetSHA1Hash(std::uint32_t number);
 std::string GenerateFptnKey(std::uint32_t timestamp);
+
+bool SetDecoyHandshakeSessionID(SSL* ssl);
+bool IsDecoyHandshakeSessionID(
+    const std::uint8_t* session, std::size_t session_len);
+
 bool SetHandshakeSessionID(SSL* ssl);
 
 bool IsFptnClientSessionID(

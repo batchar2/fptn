@@ -27,7 +27,9 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 namespace fptn::protocol::https::utils {
 
+constexpr int kSessionLen = 32;
 constexpr std::size_t kFptnKeyLength = 4;
+constexpr int kDecoyHandshakeSessionIDShift = 10;
 
 std::string GetSHA1Hash(std::uint32_t number) {
   EVP_MD_CTX* mdctx = EVP_MD_CTX_new();
@@ -72,9 +74,47 @@ std::string GenerateFptnKey(std::uint32_t timestamp) {
       "Error generate Session ID");
 }
 
+bool SetDecoyHandshakeSessionID(SSL* ssl) {
+  // random
+  std::uint8_t session_id[kSessionLen] = {0};
+  if (::RAND_bytes(session_id, sizeof(session_id)) != 1) {
+    return false;
+  }
+
+  // copy timestamp
+  const auto timestamp = fptn::time::TimeProvider::Instance()->NowTimestamp();
+  const std::string key = GenerateFptnKey(timestamp);
+  std::memcpy(
+      &session_id[kDecoyHandshakeSessionIDShift], key.c_str(), key.size());
+  return 0 != ::SSL_set_tls_hello_custom_session_id(
+                  ssl, session_id, sizeof(session_id));
+}
+
+bool IsDecoyHandshakeSessionID(
+    const std::uint8_t* session, std::size_t session_len) {
+  (void)session_len;
+  char data[kFptnKeyLength] = {0};
+  std::memcpy(&data, &session[kDecoyHandshakeSessionIDShift], sizeof(data));
+  const std::string recv_key(data, sizeof(data));
+
+  const auto now_timestamp =
+      fptn::time::TimeProvider::Instance()->NowTimestamp();
+
+  constexpr std::uint32_t kTimeShiftSeconds = 10;  // ten seconds
+
+  const std::uint32_t timestamp = now_timestamp + (kTimeShiftSeconds / 2);
+
+  for (std::uint32_t shift = 0; shift <= kTimeShiftSeconds; shift++) {
+    const std::string key = GenerateFptnKey(timestamp - shift);
+    if (recv_key == key) {
+      return true;
+    }
+  }
+  return false;
+}
+
 bool SetHandshakeSessionID(SSL* ssl) {
   // random
-  constexpr int kSessionLen = 32;
   std::uint8_t session_id[kSessionLen] = {0};
   if (::RAND_bytes(session_id, sizeof(session_id)) != 1) {
     return false;
