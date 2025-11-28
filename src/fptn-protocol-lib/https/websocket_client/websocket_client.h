@@ -95,7 +95,7 @@ class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
   const fptn::common::network::IPv4Address tun_interface_address_ipv4_;
   const fptn::common::network::IPv6Address tun_interface_address_ipv6_;
 
-  const NewIPPacketCallback new_ip_pkt_callback_;
+  NewIPPacketCallback new_ip_pkt_callback_;
   const std::string sni_;
   const std::string access_token_;
   const std::string expected_md5_fingerprint_;
