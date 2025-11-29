@@ -42,7 +42,8 @@ class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
       std::string sni,
       std::string access_token,
       std::string expected_md5_fingerprint,
-      obfuscator::IObfuscatorSPtr obfuscator,
+      obfuscator::IObfuscatorSPtr obfuscator = nullptr,
+      bool enable_reality_mode = true,
       OnConnectedCallback on_connected_callback = nullptr);
 
   virtual ~WebsocketClient();
@@ -62,6 +63,8 @@ class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
   boost::asio::awaitable<void> RunReader();
   boost::asio::awaitable<void> RunSender();
   boost::asio::awaitable<bool> Connect();
+
+  boost::asio::awaitable<bool> PerformDecoyHandshake();
 
  private:
   const std::string kUrlWebSocket_ = "/fptn";
@@ -99,6 +102,7 @@ class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
   const std::string sni_;
   const std::string access_token_;
   const std::string expected_md5_fingerprint_;
+  const bool enable_reality_mode_;
   OnConnectedCallback on_connected_callback_;
 
   boost::asio::cancellation_signal cancel_signal_;

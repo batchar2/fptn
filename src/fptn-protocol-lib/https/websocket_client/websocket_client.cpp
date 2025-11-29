@@ -454,200 +454,108 @@ boost::asio::awaitable<void> WebsocketClient::RunSender() {
   was_connected_ = false;
   co_return;
 }
+
 boost::asio::awaitable<bool> WebsocketClient::PerformDecoyHandshake() {
   boost::system::error_code ec;
   try {
-    SPDLOG_INFO("Starting first (decoy) TLS handshake");
+    SPDLOG_INFO("Sending decoy TLS handshake");
 
-    auto local_ctx = std::make_shared<boost::asio::ssl::context>(
+    // Create temporary SSL context for decoy handshake
+    // Uses minimal TLS configuration with certificate verification disabled
+    auto temp_ctx = std::make_shared<boost::asio::ssl::context>(
         boost::asio::ssl::context::tls_client);
 
-    local_ctx->set_options(boost::asio::ssl::context::default_workarounds |
-                           boost::asio::ssl::context::no_sslv2 |
-                           boost::asio::ssl::context::no_sslv3);
-    local_ctx->set_verify_mode(boost::asio::ssl::verify_none);
+    temp_ctx->set_options(boost::asio::ssl::context::default_workarounds |
+                          boost::asio::ssl::context::no_sslv2 |
+                          boost::asio::ssl::context::no_sslv3);
+    temp_ctx->set_verify_mode(boost::asio::ssl::verify_none);
 
-    // ИСПРАВЛЕНИЕ: используем правильный тип сокета
-    // Получаем ссылку на существующий TCP сокет
-    auto& lowest_layer = boost::beast::get_lowest_layer(ws_);
+    // Extract the underlying TCP socket from the main WebSocket connection
+    auto& tcp_layer = boost::beast::get_lowest_layer(ws_);
 
-    // Создаем временный SSL поток на том же исполнителе
+    // Create temporary SSL stream using the SAME TCP connection
+    // This allows us to perform a fake handshake without breaking the
+    // connection
     auto temp_ssl_stream = std::make_unique<ssl_stream_type>(
-        obfuscator_socket_type(boost::asio::make_strand(ioc_), nullptr),
-        *local_ctx);
+        obfuscator_socket_type(tcp_layer.get_executor(), nullptr), *temp_ctx);
 
-    // Передаем владение сокетом во временный поток
-    // Для этого нужно сначала закрыть сокет в основном потоке
-    lowest_layer.release_socket();
+    // Transfer socket ownership to temporary stream
+    // Save the original socket before releasing it
+    auto original_socket = tcp_layer.release_socket();
 
-    // Настраиваем SSL
+    // Move the socket to the temporary SSL stream
+    auto& temp_tcp_layer = boost::beast::get_lowest_layer(*temp_ssl_stream);
+    temp_tcp_layer.socket() = std::move(original_socket);
+
+    // Configure SSL for decoy handshake
+    // Set SNI and generate fake session ID to mimic legitimate client behavior
     auto* ssl = temp_ssl_stream->native_handle();
     https::utils::SetHandshakeSni(ssl, sni_);
     https::utils::SetDecoyHandshakeSessionID(ssl);
 
+    SPDLOG_DEBUG("Performing decoy TLS handshake to {}", sni_);
+
+    // Perform the decoy TLS handshake with timeout
     boost::beast::get_lowest_layer(*temp_ssl_stream)
         .expires_after(std::chrono::seconds(10));
 
-    SPDLOG_DEBUG("Performing decoy TLS handshake...");
     co_await temp_ssl_stream->async_handshake(
         boost::asio::ssl::stream_base::client,
         boost::asio::redirect_error(boost::asio::use_awaitable, ec));
-
     if (ec) {
-      SPDLOG_WARN("Decoy TLS handshake failed: {}, but continuing anyway",
-          ec.message());
-      ec.clear();
-    } else {
-      SPDLOG_INFO("Decoy TLS handshake completed successfully");
+      SPDLOG_WARN("Decoy TLS handshake failed: {}", ec.message());
+      co_return false;
     }
 
+    // Gracefully close temporary SSL stream WITHOUT breaking TCP connection
     try {
-      ::SSL_set_quiet_shutdown(temp_ssl_stream->native_handle(), 1);
-      boost::system::error_code shutdown_ec;
-      temp_ssl_stream->shutdown(shutdown_ec);
-      if (shutdown_ec) {
-        SPDLOG_DEBUG("SSL shutdown warning: {}", shutdown_ec.message());
+      ::SSL_set_quiet_shutdown(ssl, 1);
+      boost::beast::get_lowest_layer(*temp_ssl_stream)
+          .expires_after(std::chrono::seconds(3));
+      co_await temp_ssl_stream->async_shutdown(
+          boost::asio::redirect_error(boost::asio::use_awaitable, ec));
+      if (ec && ec != boost::asio::ssl::error::stream_truncated) {
+        SPDLOG_DEBUG("Decoy SSL shutdown warning: {}", ec.message());
       }
     } catch (const std::exception& e) {
-      SPDLOG_DEBUG("Exception during temp SSL cleanup: {}", e.what());
+      SPDLOG_DEBUG("Exception during decoy SSL shutdown: {}", e.what());
     }
 
-    // Возвращаем сокет обратно в основной поток
-    // Для этого нужно получить native handle из временного потока
-    // и присвоить его обратно в lowest_layer
-    auto& temp_socket = boost::beast::get_lowest_layer(*temp_ssl_stream).socket();
-    (void)temp_socket;
-    // lowest_layer.assign(boost::asio::ip::tcp::v4(), temp_socket.native_handle());
-
+    // CRITICAL: Return socket ownership back to the main WebSocket stream
+    auto temp_socket =
+        boost::beast::get_lowest_layer(*temp_ssl_stream).release_socket();
     temp_ssl_stream.reset();
+    tcp_layer.socket() = std::move(temp_socket);
 
+    // Reset TCP socket state for the real handshake
+    try {
+      if (tcp_layer.socket().is_open()) {
+        tcp_layer.socket().non_blocking(true, ec);
+        if (ec) {
+          SPDLOG_DEBUG("Reset non-blocking mode: {}", ec.message());
+        }
+      } else {
+        SPDLOG_ERROR("TCP connection lost after decoy handshake");
+        co_return false;
+      }
+    } catch (const std::exception& e) {
+      SPDLOG_ERROR("Failed to reset TCP socket: {}", e.what());
+      co_return false;
+    }
+
+    // Brief delay to ensure clean state transition
     co_await boost::asio::steady_timer(
         co_await boost::asio::this_coro::executor,
-        std::chrono::milliseconds(50))
+        std::chrono::milliseconds(100))
         .async_wait(boost::asio::use_awaitable);
 
-    SPDLOG_INFO("Decoy TLS handshake finished, socket remains open");
-    co_return true;
+    SPDLOG_INFO("Decoy handshake completed, ready for real handshake");
 
+    co_return true;
   } catch (const std::exception& e) {
-    SPDLOG_ERROR("Decoy TLS handshake exception: {}", e.what());
-    co_return true;
+    SPDLOG_ERROR("PerformDecoyHandshake exception: {}", e.what());
   }
+  co_return false;
 }
-
-// boost::asio::awaitable<bool> WebsocketClient::PerformDecoyHandshake() {
-//   boost::system::error_code ec;
-//   try {
-//     SPDLOG_INFO("Starting decoy TLS handshake");
-//
-//     // Сохраняем оригинальный контекст
-//     auto original_ctx = std::move(ctx_);
-//
-//     // Создаем временный контекст для decoy handshake
-//     ctx_ = https::utils::CreateNewSslCtx();
-//     auto* ssl = ws_.next_layer().native_handle();
-//
-//     // Настраиваем SSL для decoy handshake
-//     https::utils::SetHandshakeSni(ssl, sni_);
-//     https::utils::SetDecoyHandshakeSessionID(ssl);
-//
-//     boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::seconds(10));
-//
-//     SPDLOG_DEBUG("Performing decoy TLS handshake...");
-//     co_await ws_.next_layer().async_handshake(
-//         boost::asio::ssl::stream_base::client,
-//         boost::asio::redirect_error(boost::asio::use_awaitable, ec));
-//
-//     if (ec) {
-//       SPDLOG_WARN("Decoy TLS handshake failed: {}, but continuing anyway",
-//           ec.message());
-//       ec.clear();
-//     } else {
-//       SPDLOG_INFO("Decoy TLS handshake completed successfully");
-//
-//       // Soft shutdown decoy connection
-//       ::SSL_set_quiet_shutdown(ssl, 1);
-//       boost::system::error_code shutdown_ec;
-//       ws_.next_layer().shutdown(shutdown_ec);
-//     }
-//
-//     // Восстанавливаем оригинальный контекст для настоящего handshake
-//     ctx_ = std::move(original_ctx);
-//
-//     SPDLOG_INFO("Decoy TLS handshake finished");
-//     co_return true;
-//
-//   } catch (const std::exception& e) {
-//     SPDLOG_ERROR("Decoy TLS handshake exception: {}", e.what());
-//     co_return true;
-//   }
-// }
-
-//
-// boost::asio::awaitable<bool> WebsocketClient::PerformDecoyHandshake() {
-//   boost::system::error_code ec;
-//   try {
-//     SPDLOG_INFO("Starting first (decoy) TLS handshake");
-//
-//     auto local_ctx = std::make_shared<boost::asio::ssl::context>(
-//         boost::asio::ssl::context::tls_client);
-//
-//     local_ctx->set_options(boost::asio::ssl::context::default_workarounds |
-//                            boost::asio::ssl::context::no_sslv2 |
-//                            boost::asio::ssl::context::no_sslv3);
-//     local_ctx->set_verify_mode(boost::asio::ssl::verify_none);
-//
-//     auto temp_ssl_stream = std::make_unique<ssl_stream_type>(ssl_stream_type(
-//         obfuscator_socket_type(boost::asio::make_strand(ioc_), nullptr),
-//         *local_ctx));
-//
-//     auto* ssl = temp_ssl_stream->native_handle();
-//     https::utils::SetHandshakeSni(ssl, sni_);
-//     https::utils::SetDecoyHandshakeSessionID(ssl);
-//
-//     boost::beast::get_lowest_layer(*temp_ssl_stream)
-//         .expires_after(std::chrono::seconds(10));
-//
-//     SPDLOG_DEBUG("Performing decoy TLS handshake...");
-//     co_await temp_ssl_stream->async_handshake(
-//         boost::asio::ssl::stream_base::client,
-//         boost::asio::redirect_error(boost::asio::use_awaitable, ec));
-//
-//     if (ec) {
-//       SPDLOG_WARN("Decoy TLS handshake failed: {}, but continuing anyway",
-//           ec.message());
-//       ec.clear();  // очищаем ошибку - продолжаем в любом случае
-//     } else {
-//       SPDLOG_INFO("Decoy TLS handshake completed successfully");
-//     }
-//
-//     try {
-//       ::SSL_set_quiet_shutdown(temp_ssl_stream->native_handle(), 1);
-//       boost::system::error_code shutdown_ec;
-//       temp_ssl_stream->shutdown(shutdown_ec);
-//       if (shutdown_ec) {
-//         SPDLOG_DEBUG("SSL shutdown warning: {}", shutdown_ec.message());
-//       }
-//     } catch (const std::exception& e) {
-//       SPDLOG_DEBUG("Exception during temp SSL cleanup: {}", e.what());
-//     }
-//
-//     // Уничтожаем временный stream и контекст - сокет остается открытым
-//     temp_ssl_stream.reset();
-//
-//     co_await boost::asio::steady_timer(
-//         co_await boost::asio::this_coro::executor,
-//         std::chrono::milliseconds(50))
-//         .async_wait(boost::asio::use_awaitable);
-//
-//     SPDLOG_INFO("Fake TLS handshake finished, socket remains open");
-//     co_return true;
-//
-//   } catch (const std::exception& e) {
-//     SPDLOG_ERROR("First TLS handshake exception: {}", e.what());
-//     // Продолжаем в любом случае - это всего лишь приманка
-//     co_return true;
-//   }
-// }
 
 }  // namespace fptn::protocol::https
