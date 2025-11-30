@@ -70,6 +70,7 @@ Session::Session(std::uint16_t port,
     boost::asio::ip::tcp::socket&& socket,
     boost::asio::ssl::context& ctx,
     const ApiHandleMap& api_handles,
+    HandshakeCacheManagerSPtr handshake_cache_manager,
     WebSocketOpenConnectionCallback ws_open_callback,
     WebSocketNewIPPacketCallback ws_new_ippacket_callback,
     WebSocketCloseConnectionCallback ws_close_callback)
@@ -80,6 +81,7 @@ Session::Session(std::uint16_t port,
       strand_(boost::asio::make_strand(ws_.get_executor())),
       write_channel_(strand_, 128),
       api_handles_(api_handles),
+      handshake_cache_manager_(std::move(handshake_cache_manager)),
       ws_open_callback_(std::move(ws_open_callback)),
       ws_new_ippacket_callback_(std::move(ws_new_ippacket_callback)),
       ws_close_callback_(std::move(ws_close_callback)),
@@ -157,13 +159,53 @@ boost::asio::awaitable<void> Session::Run() {
       co_await HandleProxy(probing_result.sni, port_);
       Close();
       co_return;
-    } else {
-      SPDLOG_INFO(
-          "SESSION ID correct. Continue setup connection (client_id={})",
-          client_id_);
     }
+    SPDLOG_INFO("SESSION ID correct. Continue setup connection (client_id={})",
+        client_id_);
   }
 
+  // Check for Reality Mode handshake (only when no obfuscator is detected)
+  if (obfuscator_opt.value() == nullptr) {
+    SPDLOG_INFO(
+        "Checking for Reality Mode handshake (client_id={})", client_id_);
+    const auto result = co_await IsRealityHandshake();
+    if (result.should_close) {
+      SPDLOG_WARN(
+          "Reality Mode handshake check failed (client_id={})", client_id_);
+      Close();
+      co_return;
+    }
+
+    // Process Reality Mode connection if detected
+    if (result.is_reality_mode) {
+      SPDLOG_INFO("Processing Reality Mode connection sni={} (client_id={}) ",
+          result.sni, client_id_);
+
+      // Prevent recursive proxy attempts for Reality Mode
+      const auto self_proxy = co_await IsSniSelfProxyAttempt(result.sni);
+      if (self_proxy) {
+        SPDLOG_WARN(
+            "Detected recursive proxy attempt in Reality Mode! "
+            "Client: {}, SNI: {}, Redirecting to default SNI",
+            client_id_, result.sni);
+        Close();
+        co_return;
+      }
+
+      const bool reality_success = co_await HandleRealityMode(result.sni);
+      if (!reality_success) {
+        SPDLOG_WARN("Reality mode handshake failed (client_id={})", client_id_);
+        Close();
+        co_return;
+      }
+      // For Reality Mode we use TLS obfuscator after fake handshake
+      // This provides additional encryption layer for the real connection
+      ws_.next_layer().next_layer().set_obfuscator(
+          std::make_shared<protocol::https::obfuscator::TlsObfuscator>());
+    } else {
+      SPDLOG_INFO("It's not a reality mode. Continue");
+    }
+  }
   // SSL handshake
   boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::seconds(10));
   co_await ws_.next_layer().async_handshake(
@@ -294,8 +336,12 @@ boost::asio::awaitable<Session::ProbingResult> Session::DetectProbing() {
     std::memcpy(session_id, hello->getSessionID(), session_len);
 
     // Check Session ID
-    if (!protocol::https::utils::IsFptnClientSessionID(
-            session_id, session_len)) {
+    const bool is_fptn_session_id =
+        protocol::https::utils::IsFptnClientSessionID(session_id, session_len);
+    const bool is_decoy_session_id =
+        protocol::https::utils::IsDecoyHandshakeSessionID(
+            session_id, session_len);
+    if (!is_fptn_session_id && !is_decoy_session_id) {
       SPDLOG_ERROR(
           "Session ID does not match FPTN client format (client_id={})",
           client_id_);
@@ -356,6 +402,131 @@ boost::asio::awaitable<bool> Session::IsSniSelfProxyAttempt(
     co_return true;
   }
 
+  co_return false;
+}
+
+boost::asio::awaitable<Session::RealityResult> Session::IsRealityHandshake() {
+  try {
+    auto& tcp_socket = boost::beast::get_lowest_layer(ws_).socket();
+
+    // Peek data without consuming it
+    std::array<std::uint8_t, 16384> buffer{};
+    const std::size_t bytes_read =
+        co_await tcp_socket.async_receive(boost::asio::buffer(buffer),
+            boost::asio::socket_base::message_peek, boost::asio::use_awaitable);
+
+    if (!bytes_read) {
+      co_return RealityResult{
+          .is_reality_mode = false, .sni = "", .should_close = true};
+    }
+
+    // Check if it's SSL/TLS handshake
+    if (!pcpp::SSLLayer::IsSSLMessage(
+            0, 0, buffer.data(), buffer.size(), true)) {
+      co_return RealityResult{
+          .is_reality_mode = false, .sni = "", .should_close = true};
+    }
+
+    // Parse SSL handshake
+    pcpp::SSLLayer* ssl_layer = pcpp::SSLLayer::createSSLMessage(
+        buffer.data(), buffer.size(), nullptr, nullptr);
+    if (!ssl_layer) {
+      co_return RealityResult{
+          .is_reality_mode = false, .sni = "", .should_close = true};
+    }
+
+    auto* handshake = dynamic_cast<pcpp::SSLHandshakeLayer*>(ssl_layer);
+    if (!handshake) {
+      co_return RealityResult{
+          .is_reality_mode = false, .sni = "", .should_close = true};
+    }
+
+    auto* hello =
+        handshake->getHandshakeMessageOfType<pcpp::SSLClientHelloMessage>();
+    if (!hello) {
+      co_return RealityResult{
+          .is_reality_mode = false, .sni = "", .should_close = true};
+    }
+
+    // Get SNI
+    std::string sni = FPTN_DEFAULT_SNI;
+    auto* sni_ext =
+        hello->getExtensionOfType<pcpp::SSLServerNameIndicationExtension>();
+    if (sni_ext) {
+      std::string tls_sni = sni_ext->getHostName();
+      if (!tls_sni.empty()) {
+        sni = std::move(tls_sni);
+      }
+    }
+
+    // Check if this is a reality mode handshake by examining session ID
+    constexpr std::size_t kSessionLen = 32;
+    std::size_t session_len = std::min(
+        static_cast<std::uint8_t>(kSessionLen), hello->getSessionIDLength());
+
+    if (session_len == kSessionLen) {
+      std::uint8_t session_id[kSessionLen] = {0};
+      std::memcpy(session_id, hello->getSessionID(), session_len);
+
+      // Check if it's a decoy handshake (reality mode)
+      if (protocol::https::utils::IsDecoyHandshakeSessionID(
+              session_id, session_len)) {
+        co_return RealityResult{
+            .is_reality_mode = true, .sni = sni, .should_close = false};
+      }
+      co_return RealityResult{
+          .is_reality_mode = false, .sni = sni, .should_close = false};
+    }
+  } catch (const std::exception& e) {
+    SPDLOG_ERROR("IsRealityHandshake exception (client_id={}): {}", client_id_,
+        e.what());
+  }
+  co_return RealityResult{
+      .is_reality_mode = true, .sni = "", .should_close = true};
+}
+
+boost::asio::awaitable<bool> Session::HandleRealityMode(
+    const std::string& sni) {
+  try {
+    auto& tcp_socket = boost::beast::get_lowest_layer(ws_).socket();
+
+    std::array<std::uint8_t, 16384> buffer{};
+    const std::size_t bytes_read = co_await tcp_socket.async_receive(
+        boost::asio::buffer(buffer), boost::asio::use_awaitable);
+
+    if (!bytes_read || !handshake_cache_manager_) {
+      co_return false;
+    }
+
+    const std::vector<std::uint8_t> client_handshake(
+        buffer.begin(), buffer.begin() + bytes_read);
+    auto handshake_response = co_await handshake_cache_manager_->GetHandshake(
+        sni, client_handshake, std::chrono::seconds(5));
+
+    if (!handshake_response.has_value() || handshake_response->empty()) {
+      co_return false;
+    }
+
+    const auto handshake_data = std::move(handshake_response.value());
+    const auto write_size = co_await boost::asio::async_write(tcp_socket,
+        boost::asio::buffer(handshake_data), boost::asio::use_awaitable);
+
+    co_await boost::asio::steady_timer(
+        co_await boost::asio::this_coro::executor,
+        std::chrono::milliseconds(50))
+        .async_wait(boost::asio::use_awaitable);
+
+    SPDLOG_INFO("Handshake response size: {}", write_size);
+
+    // common::network::DrainSocket(tcp_socket);
+    SPDLOG_INFO(
+        "Reality mode completed, ready for real handshake (client_id={})",
+        client_id_);
+    co_return true;
+  } catch (const std::exception& e) {
+    SPDLOG_ERROR(
+        "HandleRealityMode exception (client_id={}): {}", client_id_, e.what());
+  }
   co_return false;
 }
 

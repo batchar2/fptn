@@ -1,3 +1,4 @@
+
 /*=============================================================================
 Copyright (c) 2024-2025 Stas Skokov
 
@@ -25,6 +26,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include "fptn-protocol-lib/https/obfuscator/tcp_stream/tcp_stream.h"
 #include "web/api/handle.h"
+#include "web/handshake/handshake_cache_manager.h"
 
 namespace fptn::web {
 
@@ -37,6 +39,7 @@ class Session : public std::enable_shared_from_this<Session> {
       boost::asio::ip::tcp::socket&& socket,
       boost::asio::ssl::context& ctx,
       const ApiHandleMap& api_handles,
+      HandshakeCacheManagerSPtr handshake_cache_manager,
       WebSocketOpenConnectionCallback ws_open_callback,
       WebSocketNewIPPacketCallback ws_new_ippacket_callback,
       WebSocketCloseConnectionCallback ws_close_callback);
@@ -63,6 +66,16 @@ class Session : public std::enable_shared_from_this<Session> {
  protected:
   boost::asio::awaitable<bool> IsSniSelfProxyAttempt(
       const std::string& sni) const;
+
+  struct RealityResult {
+    bool is_reality_mode;
+    std::string sni;
+    bool should_close;
+  };
+
+  boost::asio::awaitable<RealityResult> IsRealityHandshake();
+  boost::asio::awaitable<bool> HandleRealityMode(const std::string& sni);
+
   boost::asio::awaitable<bool> HandleProxy(const std::string& sni, int port);
 
   boost::asio::awaitable<IObfuscator> DetectObfuscator();
@@ -99,6 +112,9 @@ class Session : public std::enable_shared_from_this<Session> {
       write_channel_;
 
   const ApiHandleMap& api_handles_;
+
+  HandshakeCacheManagerSPtr handshake_cache_manager_;
+
   const WebSocketOpenConnectionCallback ws_open_callback_;
   const WebSocketNewIPPacketCallback ws_new_ippacket_callback_;
   const WebSocketCloseConnectionCallback ws_close_callback_;

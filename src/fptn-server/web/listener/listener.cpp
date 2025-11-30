@@ -26,6 +26,7 @@ Listener::Listener(std::uint16_t port,
     bool enable_detect_probing,
     boost::asio::io_context& ioc,
     fptn::common::jwt_token::TokenManagerSPtr token_manager,
+    HandshakeCacheManagerSPtr handshake_cache_manager,
     WebSocketOpenConnectionCallback ws_open_callback,
     WebSocketNewIPPacketCallback ws_new_ippacket_callback,
     WebSocketCloseConnectionCallback ws_close_callback)
@@ -35,6 +36,7 @@ Listener::Listener(std::uint16_t port,
       ctx_(boost::asio::ssl::context::tlsv13_server),
       acceptor_(ioc_),
       token_manager_(std::move(token_manager)),
+      handshake_cache_manager_(std::move(handshake_cache_manager)),
       ws_open_callback_(std::move(ws_open_callback)),
       ws_new_ippacket_callback_(std::move(ws_new_ippacket_callback)),
       ws_close_callback_(std::move(ws_close_callback)),
@@ -48,8 +50,7 @@ Listener::Listener(std::uint16_t port,
   ctx_.use_certificate_chain_file(token_manager_->ServerCrtPath());
   ctx_.use_private_key_file(
       token_manager_->ServerKeyPath(), boost::asio::ssl::context::pem);
-  ctx_.set_verify_mode(boost::asio::ssl::verify_none);  // For development only!
-                                                        // Avoid in production
+  ctx_.set_verify_mode(boost::asio::ssl::verify_none);
 }
 
 void Listener::AddApiHandle(const std::string& url,
@@ -79,7 +80,7 @@ boost::asio::awaitable<void> Listener::Run() {
           socket, boost::asio::redirect_error(boost::asio::use_awaitable, ec));
       if (!ec) {
         auto session = std::make_shared<Session>(port_, enable_detect_probing_,
-            std::move(socket), ctx_, api_handles_, ws_open_callback_,
+            std::move(socket), ctx_, api_handles_, handshake_cache_manager_, ws_open_callback_,
             ws_new_ippacket_callback_, ws_close_callback_);
         // run coroutine
         boost::asio::co_spawn(

@@ -22,6 +22,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "common/jwt_token/token_manager.h"
 #include "common/network/ip_packet.h"
 
+#include "handshake/handshake_cache_manager.h"
 #include "listener/listener.h"
 #include "nat/table.h"
 #include "user/user_manager.h"
@@ -97,6 +98,8 @@ class Server final {
   fptn::common::data::ChannelAsyncPtr to_client_;
 
   ListenerSPtr listener_;
+
+  HandshakeCacheManagerSPtr handshake_cache_manager_;
 
   std::vector<std::thread> ioc_threads_;
   std::unordered_map<fptn::ClientID, SessionSPtr> sessions_;

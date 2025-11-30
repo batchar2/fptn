@@ -52,8 +52,11 @@ Server::Server(std::uint16_t port,
   using std::placeholders::_6;
   using std::placeholders::_7;
 
+  handshake_cache_manager_ = std::make_shared<HandshakeCacheManager>(ioc_);
+
   listener_ = std::make_shared<Listener>(port_, enable_detect_probing_, ioc_,
       token_manager,
+      handshake_cache_manager_,
       // NOLINTNEXTLINE(modernize-avoid-bind)
       std::bind(
           &Server::HandleWsOpenConnection, this, _1, _2, _3, _4, _5, _6, _7),
@@ -116,8 +119,8 @@ boost::asio::awaitable<void> Server::RunSender() {
     if (optpacket && running_) {
       SessionSPtr session;
 
-      {  // mutex
-        const std::unique_lock<std::mutex> lock(mutex_);
+      {
+        const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
         auto it = sessions_.find(optpacket->get()->ClientId());
         if (it != sessions_.end()) {

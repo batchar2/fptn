@@ -34,6 +34,10 @@ std::string ChromeCiphers();
 
 std::string GetCertificateMD5Fingerprint(const X509* cert);
 
+
+std::vector<std::uint8_t> GenerateDecoyTlsHandshake(const std::string& sni);
+
+
 // Callbacks
 using CertificateVerificationCallback = std::function<bool(const std::string&)>;
 void AttachCertificateVerificationCallback(

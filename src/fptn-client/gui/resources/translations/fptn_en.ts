@@ -279,6 +279,10 @@ This may cause network connectivity issues or prevent proper operation of FPTN.<
             <translation>Domain spoofing (SNI)</translation>
         </message>
         <message>
+            <source>SNI-REALITY</source>
+            <translation>Advanced domain spoofing (SNI + REALITY) </translation>
+        </message>
+        <message>
             <source>OBFUSCATION</source>
             <translation>Traffic masking (obfuscation)</translation>
         </message>

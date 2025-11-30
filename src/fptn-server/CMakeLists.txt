@@ -49,6 +49,8 @@ add_executable(
   web/session/session.cpp
   web/server.h
   web/server.cpp
+  web/handshake/handshake_cache_manager.h
+  web/handshake/handshake_cache_manager.cpp
   filter/manager.h
   filter/manager.cpp
   filter/filters/base_filter.h

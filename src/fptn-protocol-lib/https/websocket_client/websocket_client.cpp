@@ -12,7 +12,10 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
+#include "common/network/utils.h"
+
 #include "fptn-protocol-lib/https/api_client/api_client.h"
+#include "https/obfuscator/methods/tls/tls_obfuscator.h"
 
 namespace fptn::protocol::https {
 
@@ -300,18 +303,15 @@ boost::asio::awaitable<bool> WebsocketClient::Connect() {
     // obfuscation for the real encrypted tunnel This dual-handshake approach
     // makes traffic analysis significantly more difficult
     if (enable_reality_mode_) {
-      const bool decoy_ok = co_await PerformDecoyHandshake();
-      if (!decoy_ok) {
+      const bool status = co_await PerformFakeHandshake();
+      if (!status) {
         co_return false;
       }
-      if (!obfuscator_) {
-        SPDLOG_ERROR("Obfuscator must be enabled for reality mode!");
-        co_return false;
-      }
-    }
-
-    // Set obfuscator
-    if (obfuscator_ != nullptr) {
+      // For Reality Mode we use TLS obfuscator after fake handshake
+      // This provides additional encryption layer for the real connection
+      ws_.next_layer().next_layer().set_obfuscator(
+          std::make_shared<protocol::https::obfuscator::TlsObfuscator>());
+    } else if (obfuscator_ != nullptr) {  // Set obfuscator
       ws_.next_layer().next_layer().set_obfuscator(obfuscator_);
     }
 
@@ -342,8 +342,8 @@ boost::asio::awaitable<bool> WebsocketClient::Connect() {
             retry_count);
         co_return false;
       }
-      ws_.next_layer().next_layer().set_obfuscator(nullptr);
     }
+    ws_.next_layer().next_layer().set_obfuscator(nullptr);
     SPDLOG_INFO("SSL handshake completed");
 
     // WebSocket options
@@ -455,105 +455,51 @@ boost::asio::awaitable<void> WebsocketClient::RunSender() {
   co_return;
 }
 
-boost::asio::awaitable<bool> WebsocketClient::PerformDecoyHandshake() {
+boost::asio::awaitable<bool> WebsocketClient::PerformFakeHandshake() {
   boost::system::error_code ec;
   try {
-    SPDLOG_INFO("Sending decoy TLS handshake");
+    SPDLOG_INFO("Generating and sending fake TLS handshake to {}", sni_);
+    const auto handshake_data = utils::GenerateDecoyTlsHandshake(sni_);
+    if (handshake_data.empty()) {
+      SPDLOG_WARN("Failed to generate handshake data for SNI: {}", sni_);
+      co_return false;
+    }
 
-    // Create temporary SSL context for decoy handshake
-    // Uses minimal TLS configuration with certificate verification disabled
-    auto temp_ctx = std::make_shared<boost::asio::ssl::context>(
-        boost::asio::ssl::context::tls_client);
+    SPDLOG_INFO(
+        "Sending {} bytes of handshake data over TCP", handshake_data.size());
 
-    temp_ctx->set_options(boost::asio::ssl::context::default_workarounds |
-                          boost::asio::ssl::context::no_sslv2 |
-                          boost::asio::ssl::context::no_sslv3);
-    temp_ctx->set_verify_mode(boost::asio::ssl::verify_none);
-
-    // Extract the underlying TCP socket from the main WebSocket connection
     auto& tcp_layer = boost::beast::get_lowest_layer(ws_);
+    auto& tcp_socket = tcp_layer.socket();
 
-    // Create temporary SSL stream using the SAME TCP connection
-    // This allows us to perform a fake handshake without breaking the
-    // connection
-    auto temp_ssl_stream = std::make_unique<ssl_stream_type>(
-        obfuscator_socket_type(tcp_layer.get_executor(), nullptr), *temp_ctx);
-
-    // Transfer socket ownership to temporary stream
-    // Save the original socket before releasing it
-    auto original_socket = tcp_layer.release_socket();
-
-    // Move the socket to the temporary SSL stream
-    auto& temp_tcp_layer = boost::beast::get_lowest_layer(*temp_ssl_stream);
-    temp_tcp_layer.socket() = std::move(original_socket);
-
-    // Configure SSL for decoy handshake
-    // Set SNI and generate fake session ID to mimic legitimate client behavior
-    auto* ssl = temp_ssl_stream->native_handle();
-    https::utils::SetHandshakeSni(ssl, sni_);
-    https::utils::SetDecoyHandshakeSessionID(ssl);
-
-    SPDLOG_DEBUG("Performing decoy TLS handshake to {}", sni_);
-
-    // Perform the decoy TLS handshake with timeout
-    boost::beast::get_lowest_layer(*temp_ssl_stream)
-        .expires_after(std::chrono::seconds(10));
-
-    co_await temp_ssl_stream->async_handshake(
-        boost::asio::ssl::stream_base::client,
+    const std::size_t bytes_sent = co_await boost::asio::async_write(tcp_socket,
+        boost::asio::buffer(handshake_data),
         boost::asio::redirect_error(boost::asio::use_awaitable, ec));
+
     if (ec) {
-      SPDLOG_WARN("Decoy TLS handshake failed: {}", ec.message());
+      SPDLOG_ERROR("Failed to send fake handshake: {}", ec.message());
       co_return false;
     }
 
-    // Gracefully close temporary SSL stream WITHOUT breaking TCP connection
-    try {
-      ::SSL_set_quiet_shutdown(ssl, 1);
-      boost::beast::get_lowest_layer(*temp_ssl_stream)
-          .expires_after(std::chrono::seconds(3));
-      co_await temp_ssl_stream->async_shutdown(
-          boost::asio::redirect_error(boost::asio::use_awaitable, ec));
-      if (ec && ec != boost::asio::ssl::error::stream_truncated) {
-        SPDLOG_DEBUG("Decoy SSL shutdown warning: {}", ec.message());
+    SPDLOG_INFO("Successfully sent {} bytes of handshake data", bytes_sent);
+
+    do {
+      std::array<std::uint8_t, 16384> buffer{};
+      const std::size_t bytes_read = co_await tcp_socket.async_receive(
+          boost::asio::buffer(buffer), boost::asio::use_awaitable);
+      if (ec && ec != boost::asio::error::eof) {
+        SPDLOG_WARN("Read during fake handshake failed: {}", ec.message());
       }
-    } catch (const std::exception& e) {
-      SPDLOG_DEBUG("Exception during decoy SSL shutdown: {}", e.what());
-    }
-
-    // CRITICAL: Return socket ownership back to the main WebSocket stream
-    auto temp_socket =
-        boost::beast::get_lowest_layer(*temp_ssl_stream).release_socket();
-    temp_ssl_stream.reset();
-    tcp_layer.socket() = std::move(temp_socket);
-
-    // Reset TCP socket state for the real handshake
-    try {
-      if (tcp_layer.socket().is_open()) {
-        tcp_layer.socket().non_blocking(true, ec);
-        if (ec) {
-          SPDLOG_DEBUG("Reset non-blocking mode: {}", ec.message());
-        }
-      } else {
-        SPDLOG_ERROR("TCP connection lost after decoy handshake");
-        co_return false;
+      if (bytes_read) {
+        break;
       }
-    } catch (const std::exception& e) {
-      SPDLOG_ERROR("Failed to reset TCP socket: {}", e.what());
-      co_return false;
-    }
+    } while (true);
 
-    // Brief delay to ensure clean state transition
-    co_await boost::asio::steady_timer(
-        co_await boost::asio::this_coro::executor,
-        std::chrono::milliseconds(100))
-        .async_wait(boost::asio::use_awaitable);
+    common::network::DrainSocket(tcp_socket);
 
-    SPDLOG_INFO("Decoy handshake completed, ready for real handshake");
-
+    SPDLOG_INFO("Fake handshake completed successfully");
     co_return true;
   } catch (const std::exception& e) {
-    SPDLOG_ERROR("PerformDecoyHandshake exception: {}", e.what());
+    SPDLOG_ERROR("PerformFakeHandshake exception: {}", e.what());
   }
   co_return false;
 }
