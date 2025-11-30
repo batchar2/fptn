@@ -271,6 +271,57 @@ std::string GetCertificateMD5Fingerprint(const X509* cert) {
   return ss.str();
 }
 
+std::vector<std::uint8_t> GenerateDecoyTlsHandshake(const std::string& sni) {
+  std::vector<std::uint8_t> handshake_data;
+  try {
+    SSL_CTX* ssl_ctx = CreateNewSslCtx();
+    SSL* ssl = ::SSL_new(ssl_ctx);
+
+    BIO* bio_out = ::BIO_new(BIO_s_mem());
+    BIO* bio_in = ::BIO_new(BIO_s_mem());
+    ::SSL_set_bio(ssl, bio_in, bio_out);
+
+    SetHandshakeSni(ssl, sni);
+    SetDecoyHandshakeSessionID(ssl);
+
+    ::SSL_set_connect_state(ssl);
+
+    int handshake_result;
+    int retry_count = 0;
+    constexpr int kMaxRetries = 10;
+
+    do {
+      handshake_result = ::SSL_do_handshake(ssl);
+
+      char* bio_data = nullptr;
+      auto bio_length = ::BIO_get_mem_data(bio_out, &bio_data);
+
+      if (bio_data && bio_length > 0) {
+        handshake_data.insert(
+            handshake_data.end(), bio_data, bio_data + bio_length);
+        BIO_reset(bio_out);
+      }
+      retry_count++;
+    } while (handshake_result <= 0 &&
+             SSL_get_error(ssl, handshake_result) == SSL_ERROR_WANT_WRITE &&
+             retry_count < kMaxRetries);
+
+    if (handshake_data.empty()) {
+      SPDLOG_WARN("No handshake data was generated for SNI: {}", sni);
+    } else {
+      SPDLOG_INFO(
+          "Successfully generated {} bytes of TLS handshake for SNI: {}",
+          handshake_data.size(), sni);
+    }
+    ::SSL_free(ssl);
+    ::SSL_CTX_free(ssl_ctx);
+  } catch (const std::exception& e) {
+    SPDLOG_ERROR(
+        "GenerateTlsHandshake exception for SNI {}: {}", sni, e.what());
+  }
+  return handshake_data;
+}
+
 // MAYBE IT WILL REFACTOR
 namespace {
 std::unordered_map<SSL*, CertificateVerificationCallback*> attach_callbacks;

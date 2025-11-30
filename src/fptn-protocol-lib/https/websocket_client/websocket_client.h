@@ -64,7 +64,7 @@ class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
   boost::asio::awaitable<void> RunSender();
   boost::asio::awaitable<bool> Connect();
 
-  boost::asio::awaitable<bool> PerformDecoyHandshake();
+  boost::asio::awaitable<bool> PerformFakeHandshake();
 
  private:
   const std::string kUrlWebSocket_ = "/fptn";

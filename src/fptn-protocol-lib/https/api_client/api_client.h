@@ -10,6 +10,8 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <string>
 #include <utility>
 
+#include <boost/asio/io_context.hpp>
+#include <boost/asio/ip/tcp.hpp>
 #include <nlohmann/json.hpp>
 
 #include "fptn-protocol-lib/https/obfuscator/methods/obfuscator_interface.h"
@@ -47,18 +49,21 @@ class ApiClient {
  public:
   ApiClient(const std::string& host,
       int port,
-      obfuscator::IObfuscatorSPtr obfuscator = nullptr);
+      obfuscator::IObfuscatorSPtr obfuscator = nullptr,
+      bool enable_reality_mode = true);
 
   ApiClient(std::string host,
       int port,
       std::string sni,
-      obfuscator::IObfuscatorSPtr obfuscator = nullptr);
+      obfuscator::IObfuscatorSPtr obfuscator = nullptr,
+      bool enable_fake_handshake = true);
 
   ApiClient(std::string host,
       int port,
       std::string sni,
       std::string md5_fingerprint,
-      obfuscator::IObfuscatorSPtr obfuscator = nullptr);
+      obfuscator::IObfuscatorSPtr obfuscator = nullptr,
+      bool enable_fake_handshake = true);
 
   Response Get(const std::string& handle, int timeout = 30) const;
   Response Post(const std::string& handle,
@@ -79,15 +84,19 @@ class ApiClient {
 
   bool TestHandshakeImpl(int timeout) const;
 
+  bool PerformFakeHandshake(
+      boost::asio::io_context& ioc, boost::asio::ip::tcp::socket& socket) const;
+
   bool onVerifyCertificate(
       const std::string& md5_fingerprint, std::string& error) const;
 
  private:
-  std::string host_;
-  int port_;
-  std::string sni_;
-  std::string expected_md5_fingerprint_;
-  obfuscator::IObfuscatorSPtr obfuscator_;
+  const std::string host_;
+  const int port_;
+  const std::string sni_;
+  const std::string expected_md5_fingerprint_;
+  const obfuscator::IObfuscatorSPtr obfuscator_;
+  const bool enable_reality_mode_;
 };
 
 using HttpsClientPtr = std::unique_ptr<ApiClient>;

@@ -9,6 +9,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <iostream>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -20,6 +21,8 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <fmt/format.h>     // NOLINT(build/include_order)
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 #include <zlib.h>           // NOLINT(build/include_order)
+
+#include "https/obfuscator/methods/tls/tls_obfuscator.h"
 
 #ifdef _WIN32
 #pragma warning(push)
@@ -114,6 +117,69 @@ void SetSocketTimeouts(
 #endif
 }
 
+using Headers = std::unordered_map<std::string, std::string>;
+
+Headers RealBrowserHeaders(const std::string& host) {
+  /* Just to ensure that FPTN is as similar to a web browser as possible. */
+#ifdef __linux__  // chromium ubuntu arm
+  return {{"Host", host},
+      {"User-Agent",
+          "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like "
+          "Gecko) Chrome/134.0.0.0 Safari/537.36"},
+      {"Accept-Language", "en-US,en;q=0.9"},
+      {"Accept",
+          "text/html,application/xhtml+xml,application/xml;q=0.9,image/"
+          "avif,image/webp,image/apng,*/*;q=0.8,application/"
+          "signed-exchange;v=b3;q=0.7"},
+      {"Referer", "https://www.google.com/"},
+      {"Accept-Encoding", "gzip, deflate, br, zstd"},
+      {"Sec-Ch-Ua", R"("Not:A-Brand";v="24", "Chromium";v="134")"},
+      {"Sec-Ch-Ua-Mobile", "?0"}, {"Sec-Ch-Ua-Platform", R"("Linux")"},
+      {"Upgrade-Insecure-Requests", "1"}, {"Sec-Fetch-Site", "cross-site"},
+      {"Sec-Fetch-Mode", "navigate"}, {"Sec-Fetch-User", "?1"},
+      {"Sec-Fetch-Dest", "document"}, {"Priority", "u=0, i"}};
+#elif __APPLE__
+  // apple silicon chrome
+  return {{"Host", host},
+      {"sec-ch-ua",
+          R"("Chromium";v="128", "Not;A=Brand";v="24", "Google Chrome";v="128")"},
+      {"sec-ch-ua-platform", "\"macOS\""}, {"sec-ch-ua-mobile", "?0"},
+      {"upgrade-insecure-requests", "1"},
+      {"User-Agent",
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+          "AppleWebKit/537.36 "
+          "(KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"},
+      {"Accept",
+          "text/html,application/xhtml+xml,application/xml;q=0.9,image/"
+          "avif,image/webp,image/apng,*/*;q=0.8,application/"
+          "signed-exchange;v=b3;q=0.7"},
+      {"sec-fetch-site", "none"}, {"sec-fetch-mode", "no-cors"},
+      {"sec-fetch-dest", "empty"}, {"Referer", "https://www.google.com/"},
+      {"Accept-Encoding", "gzip, deflate, br"},
+      {"Accept-Language", "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7"},
+      {"priority", "u=4, i"}};
+#elif _WIN32
+  // chrome windows amd64
+  return {{"Host", host},
+      {"sec-ch-ua",
+          R"("Chromium";v="128", "Not;A=Brand";v="24", "Google Chrome";v="128")"},
+      {"sec-ch-ua-mobile", "?0"}, {"sec-ch-ua-platform", "\"Windows\""},
+      {"upgrade-insecure-requests", "1"},
+      {"User-Agent",
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+          "(KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"},
+      {"Accept",
+          "text/html,application/xhtml+xml,application/xml;q=0.9,image/"
+          "avif,image/webp,image/apng,*/*;q=0.8,application/"
+          "signed-exchange;v=b3;q=0.7"},
+      {"sec-fetch-site", "cross-site"}, {"sec-fetch-mode", "navigate"},
+      {"sec-fetch-user", "?1"}, {"sec-fetch-dest", "document"},
+      {"Referer", "https://www.google.com/"},
+      {"Accept-Encoding", "gzip, deflate, br, zstd"},
+      {"Accept-Language", "en-US,en;q=0.9,ru;q=0.8"}, {"priority", "u=0, i"}};
+#endif
+}
+
 template <typename TResult>
 TResult ExecuteWithTimeout(const std::function<TResult()>& operation,
     int timeout,
@@ -179,32 +245,39 @@ using tcp_stream_type = boost::beast::tcp_stream;
 using obfuscator_socket_type = obfuscator::TcpStream<tcp_stream_type>;
 using ssl_stream_type = boost::beast::ssl_stream<obfuscator_socket_type>;
 
-ApiClient::ApiClient(
-    const std::string& host, int port, obfuscator::IObfuscatorSPtr obfuscator)
+ApiClient::ApiClient(const std::string& host,
+    int port,
+    obfuscator::IObfuscatorSPtr obfuscator,
+    bool enable_reality_mode)
     : host_(host),
       port_(port),
       sni_(host),
-      obfuscator_(std::move(obfuscator)) {}  // NOLINT
+      obfuscator_(std::move(obfuscator)),
+      enable_reality_mode_(enable_reality_mode) {}  // NOLINT
 
 ApiClient::ApiClient(std::string host,
     int port,
     std::string sni,
-    obfuscator::IObfuscatorSPtr obfuscator)
+    obfuscator::IObfuscatorSPtr obfuscator,
+    bool enable_fake_handshake)
     : host_(std::move(host)),
       port_(port),
       sni_(std::move(sni)),
-      obfuscator_(std::move(obfuscator)) {}  // NOLINT
+      obfuscator_(std::move(obfuscator)),
+      enable_reality_mode_(enable_fake_handshake) {}  // NOLINT
 
 ApiClient::ApiClient(std::string host,
     int port,
     std::string sni,
     std::string md5_fingerprint,
-    obfuscator::IObfuscatorSPtr obfuscator)
+    obfuscator::IObfuscatorSPtr obfuscator,
+    bool enable_fake_handshake)
     : host_(std::move(host)),
       port_(port),
       sni_(std::move(sni)),
       expected_md5_fingerprint_(std::move(md5_fingerprint)),
-      obfuscator_(std::move(obfuscator)) {}  // NOLINT
+      obfuscator_(std::move(obfuscator)),
+      enable_reality_mode_(enable_fake_handshake) {}  // NOLINT
 
 Response ApiClient::Get(const std::string& handle, int timeout) const {
   // NOLINTNEXTLINE(bugprone-exception-escape)
@@ -243,9 +316,58 @@ bool ApiClient::TestHandshake(int timeout) const {
 }
 
 ApiClient ApiClient::Clone() const {
-  ApiClient temp_client(
-      host_, port_, sni_, expected_md5_fingerprint_, obfuscator_);
+  ApiClient temp_client(host_, port_, sni_, expected_md5_fingerprint_,
+      obfuscator_, enable_reality_mode_);
   return temp_client;
+}
+
+bool ApiClient::PerformFakeHandshake(
+    boost::asio::io_context& ioc, boost::asio::ip::tcp::socket& socket) const {
+  (void)ioc;
+  boost::system::error_code ec;
+  try {
+    SPDLOG_INFO("Generating and sending fake TLS handshake to {}", sni_);
+
+    const auto handshake_data = utils::GenerateDecoyTlsHandshake(sni_);
+    if (handshake_data.empty()) {
+      SPDLOG_WARN("Failed to generate handshake data for SNI: {}", sni_);
+      return false;
+    }
+
+    SPDLOG_INFO(
+        "Sending {} bytes of handshake data over TCP", handshake_data.size());
+
+    const std::size_t bytes_sent =
+        boost::asio::write(socket, boost::asio::buffer(handshake_data));
+
+    SPDLOG_INFO("Successfully sent {} bytes of handshake data", bytes_sent);
+
+    std::vector<std::uint8_t> server_response(16384);
+    do {
+      const std::size_t bytes_read =
+          socket.read_some(boost::asio::buffer(server_response), ec);
+      if (bytes_read) {
+        SPDLOG_INFO("Received {}", bytes_read);
+        break;
+      }
+      if (ec || !bytes_read) {
+        SPDLOG_INFO("Received error: {}", ec.what());
+        break;
+      }
+    } while (true);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+    if (!ec) {
+      SPDLOG_INFO("Received {} bytes server response (ignored)",
+          server_response.size());
+    }
+    SPDLOG_INFO("Fake handshake completed successfully");
+    return true;
+  } catch (const std::exception& e) {
+    SPDLOG_ERROR("PerformFakeHandshake exception: {}", e.what());
+  }
+  return false;
 }
 
 Response ApiClient::GetImpl(const std::string& handle, int timeout) const {
@@ -253,11 +375,12 @@ Response ApiClient::GetImpl(const std::string& handle, int timeout) const {
   std::string error;
   int respcode = 400;
 
+  std::cerr << "========================" << std::endl;
+
   const auto start_time = std::chrono::steady_clock::now();
 
   SSL* ssl = nullptr;
   std::string server_ip;
-
   try {
     boost::asio::io_context ioc;
 
@@ -266,7 +389,7 @@ Response ApiClient::GetImpl(const std::string& handle, int timeout) const {
 
     tcp_stream_type tcp_stream(ioc);
     obfuscator_socket_type obfuscator_stream(
-        std::move(tcp_stream), obfuscator_);
+        std::move(tcp_stream), enable_reality_mode_ ? nullptr : obfuscator_);
     ssl_stream_type stream(std::move(obfuscator_stream), ctx);
 
     const std::string port_str = std::to_string(port_);
@@ -296,9 +419,23 @@ Response ApiClient::GetImpl(const std::string& handle, int timeout) const {
       auto& socket = boost::beast::get_lowest_layer(stream).socket();
       SetSocketTimeouts(socket, timeout);
 
+      // Perform fake handshake if enabled
+      if (enable_reality_mode_) {
+        const bool perform_status = PerformFakeHandshake(ioc, socket);
+        if (!perform_status) {
+          SPDLOG_WARN(
+              "GET [{}] - Fake handshake failed, continuing with real "
+              "handshake",
+              handle);
+        }
+        // For Reality Mode we use TLS obfuscator after fake handshake
+        // This provides additional encryption layer for the real connection
+        stream.next_layer().set_obfuscator(
+            std::make_shared<protocol::https::obfuscator::TlsObfuscator>());
+      }
+
       utils::SetHandshakeSessionID(stream.native_handle());
       utils::SetHandshakeSni(stream.native_handle(), sni_);
-
       if (!expected_md5_fingerprint_.empty()) {
         ssl = stream.native_handle();
         utils::AttachCertificateVerificationCallback(
@@ -309,6 +446,7 @@ Response ApiClient::GetImpl(const std::string& handle, int timeout) const {
         ctx.set_verify_mode(boost::asio::ssl::verify_none);
       }
 
+      std::cerr << "SEND HANDSHAKE>" << std::endl;
       stream.handshake(boost::asio::ssl::stream_base::client);
 
       if (obfuscator_ != nullptr) {
@@ -324,11 +462,18 @@ Response ApiClient::GetImpl(const std::string& handle, int timeout) const {
               "attempts for server: {}",
               handle, retry_count, host_);
         }
-        stream.next_layer().set_obfuscator(nullptr);
       }
+      stream.next_layer().set_obfuscator(nullptr);
 
       boost::beast::http::request<boost::beast::http::string_body> req{
           boost::beast::http::verb::get, handle, 11};
+
+      // set http headers
+      const auto headers = RealBrowserHeaders(sni_);
+      for (const auto& [key, value] : headers) {
+        req.set(key, value);
+      }
+
       boost::beast::http::write(stream, req);
 
       boost::beast::flat_buffer buffer;
@@ -404,6 +549,8 @@ Response ApiClient::PostImpl(const std::string& handle,
   std::string error;
   int respcode = 400;
 
+  std::cerr << "========================" << std::endl;
+
   const auto start_time = std::chrono::steady_clock::now();
 
   SSL* ssl = nullptr;
@@ -416,7 +563,7 @@ Response ApiClient::PostImpl(const std::string& handle,
 
     tcp_stream_type tcp_stream(ioc);
     obfuscator_socket_type obfuscator_stream(
-        std::move(tcp_stream), obfuscator_);
+        std::move(tcp_stream), enable_reality_mode_ ? nullptr : obfuscator_);
     ssl_stream_type stream(std::move(obfuscator_stream), ctx);
 
     const std::string port_str = std::to_string(port_);
@@ -446,9 +593,23 @@ Response ApiClient::PostImpl(const std::string& handle,
       auto& socket = boost::beast::get_lowest_layer(stream).socket();
       SetSocketTimeouts(socket, timeout);
 
+      // Perform fake handshake if enabled
+      if (enable_reality_mode_) {
+        const bool perform_status = PerformFakeHandshake(ioc, socket);
+        if (!perform_status) {
+          SPDLOG_WARN(
+              "GET [{}] - Fake handshake failed, continuing with real "
+              "handshake",
+              handle);
+        }
+        // For Reality Mode we use TLS obfuscator after fake handshake
+        // This provides additional encryption layer for the real connection
+        stream.next_layer().set_obfuscator(
+            std::make_shared<protocol::https::obfuscator::TlsObfuscator>());
+      }
+
       utils::SetHandshakeSessionID(stream.native_handle());
       utils::SetHandshakeSni(stream.native_handle(), sni_);
-
       if (!expected_md5_fingerprint_.empty()) {
         ssl = stream.native_handle();
         utils::AttachCertificateVerificationCallback(
@@ -474,15 +635,23 @@ Response ApiClient::PostImpl(const std::string& handle,
               "attempts for server: {}",
               handle, retry_count, host_);
         }
-        stream.next_layer().set_obfuscator(nullptr);
       }
+      stream.next_layer().set_obfuscator(nullptr);
 
       boost::beast::http::request<boost::beast::http::string_body> req{
           boost::beast::http::verb::post, handle, 11};
       req.set(boost::beast::http::field::host, host_);
+      req.set(boost::beast::http::field::accept, "*/*");
       req.set(boost::beast::http::field::content_type, content_type);
       req.set(boost::beast::http::field::content_length,
           std::to_string(request.size()));
+
+      // set http headers
+      const auto headers = RealBrowserHeaders(sni_);
+      for (const auto& [key, value] : headers) {
+        req.set(key, value);
+      }
+
       req.body() = request;
       req.prepare_payload();
 
@@ -604,6 +773,16 @@ bool ApiClient::TestHandshakeImpl(int timeout) const {
     auto& socket = boost::beast::get_lowest_layer(stream).socket();
     SetSocketTimeouts(socket, timeout);
 
+    // Perform fake handshake if enabled
+    if (enable_reality_mode_) {
+      SPDLOG_INFO("TestHandshake - Performing fake handshake");
+      if (!PerformFakeHandshake(ioc, socket)) {
+        SPDLOG_WARN(
+            "TestHandshake - Fake handshake failed, continuing with real "
+            "handshake");
+      }
+    }
+
     utils::SetHandshakeSessionID(stream.native_handle());
     utils::SetHandshakeSni(stream.native_handle(), sni_);
 
@@ -640,7 +819,6 @@ bool ApiClient::TestHandshakeImpl(int timeout) const {
     }
     return true;
   } catch (const boost::system::system_error& err) {
-    // Создаем копии строк перед использованием в логгере
     std::string host_copy = host_;
     std::string server_ip_copy = server_ip;
     std::string error_msg;
