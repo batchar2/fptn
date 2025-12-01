@@ -7,6 +7,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "fptn-protocol-lib/https/obfuscator/methods/tls/tls_obfuscator.h"
 
 #include <cstring>
+#include <iostream>
 #include <memory>
 #include <random>
 #include <vector>
@@ -94,6 +95,7 @@ void ApplyXorTransform(
 namespace fptn::protocol::https::obfuscator {
 
 bool TlsObfuscator::AddData(const std::uint8_t* data, std::size_t size) {
+  std::cerr << "AddData> " << size << std::endl;
   if (data && size > 0) {
     // Limit total buffer size to 64KB to prevent memory exhaustion
     if (input_buffer_.size() + size > kMmaxBufferSize) {
@@ -194,6 +196,7 @@ PreparedData TlsObfuscator::Deobfuscate() {
         input_buffer_.begin(), input_buffer_.begin() + search_offset);
   }
   if (!output.empty()) {
+    std::cerr << "Deobfuscate> " << output.size() << std::endl;
     return output;
   }
   return std::nullopt;

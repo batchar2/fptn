@@ -279,6 +279,10 @@ This may cause network connectivity issues or prevent proper operation of FPTN.<
             <translation>Подмена домена (SNI)</translation>
         </message>
         <message>
+            <source>SNI-REALITY</source>
+            <translation>Продвинутая подмена домена (SNI + REALITY)</translation>
+        </message>
+        <message>
             <source>OBFUSCATION</source>
             <translation>Маскировка трафика (обфускация)</translation>
         </message>

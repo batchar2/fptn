@@ -9,6 +9,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 #include <boost/asio/ssl/detail/openssl_types.hpp>
 #include <boost/asio/ssl/error.hpp>
@@ -27,7 +28,9 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 namespace fptn::protocol::https::utils {
 
+constexpr int kSessionLen = 32;
 constexpr std::size_t kFptnKeyLength = 4;
+constexpr int kDecoyHandshakeSessionIDShift = 10;
 
 std::string GetSHA1Hash(std::uint32_t number) {
   EVP_MD_CTX* mdctx = EVP_MD_CTX_new();
@@ -72,9 +75,47 @@ std::string GenerateFptnKey(std::uint32_t timestamp) {
       "Error generate Session ID");
 }
 
+bool SetDecoyHandshakeSessionID(SSL* ssl) {
+  // random
+  std::uint8_t session_id[kSessionLen] = {0};
+  if (::RAND_bytes(session_id, sizeof(session_id)) != 1) {
+    return false;
+  }
+
+  // copy timestamp
+  const auto timestamp = fptn::time::TimeProvider::Instance()->NowTimestamp();
+  const std::string key = GenerateFptnKey(timestamp);
+  std::memcpy(
+      &session_id[kDecoyHandshakeSessionIDShift], key.c_str(), key.size());
+  return 0 != ::SSL_set_tls_hello_custom_session_id(
+                  ssl, session_id, sizeof(session_id));
+}
+
+bool IsDecoyHandshakeSessionID(
+    const std::uint8_t* session, std::size_t session_len) {
+  (void)session_len;
+  char data[kFptnKeyLength] = {0};
+  std::memcpy(&data, &session[kDecoyHandshakeSessionIDShift], sizeof(data));
+  const std::string recv_key(data, sizeof(data));
+
+  const auto now_timestamp =
+      fptn::time::TimeProvider::Instance()->NowTimestamp();
+
+  constexpr std::uint32_t kTimeShiftSeconds = 10;  // ten seconds
+
+  const std::uint32_t timestamp = now_timestamp + (kTimeShiftSeconds / 2);
+
+  for (std::uint32_t shift = 0; shift <= kTimeShiftSeconds; shift++) {
+    const std::string key = GenerateFptnKey(timestamp - shift);
+    if (recv_key == key) {
+      return true;
+    }
+  }
+  return false;
+}
+
 bool SetHandshakeSessionID(SSL* ssl) {
   // random
-  constexpr int kSessionLen = 32;
   std::uint8_t session_id[kSessionLen] = {0};
   if (::RAND_bytes(session_id, sizeof(session_id)) != 1) {
     return false;
@@ -229,6 +270,57 @@ std::string GetCertificateMD5Fingerprint(const X509* cert) {
        << static_cast<int>(md[i]);
   }
   return ss.str();
+}
+
+std::vector<std::uint8_t> GenerateDecoyTlsHandshake(const std::string& sni) {
+  std::vector<std::uint8_t> handshake_data;
+  try {
+    SSL_CTX* ssl_ctx = CreateNewSslCtx();
+    SSL* ssl = ::SSL_new(ssl_ctx);
+
+    BIO* bio_out = ::BIO_new(BIO_s_mem());
+    BIO* bio_in = ::BIO_new(BIO_s_mem());
+    ::SSL_set_bio(ssl, bio_in, bio_out);
+
+    SetHandshakeSni(ssl, sni);
+    SetDecoyHandshakeSessionID(ssl);
+
+    ::SSL_set_connect_state(ssl);
+
+    int handshake_result;
+    int retry_count = 0;
+    constexpr int kMaxRetries = 10;
+
+    do {
+      handshake_result = ::SSL_do_handshake(ssl);
+
+      char* bio_data = nullptr;
+      auto bio_length = ::BIO_get_mem_data(bio_out, &bio_data);
+
+      if (bio_data && bio_length > 0) {
+        handshake_data.insert(
+            handshake_data.end(), bio_data, bio_data + bio_length);
+        BIO_reset(bio_out);
+      }
+      retry_count++;
+    } while (handshake_result <= 0 &&
+             SSL_get_error(ssl, handshake_result) == SSL_ERROR_WANT_WRITE &&
+             retry_count < kMaxRetries);
+
+    if (handshake_data.empty()) {
+      SPDLOG_WARN("No handshake data was generated for SNI: {}", sni);
+    } else {
+      SPDLOG_INFO(
+          "Successfully generated {} bytes of TLS handshake for SNI: {}",
+          handshake_data.size(), sni);
+    }
+    ::SSL_free(ssl);
+    ::SSL_CTX_free(ssl_ctx);
+  } catch (const std::exception& e) {
+    SPDLOG_ERROR(
+        "GenerateTlsHandshake exception for SNI {}: {}", sni, e.what());
+  }
+  return handshake_data;
 }
 
 // MAYBE IT WILL REFACTOR

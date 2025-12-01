@@ -12,7 +12,10 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
+#include "common/network/utils.h"
+
 #include "fptn-protocol-lib/https/api_client/api_client.h"
+#include "fptn-protocol-lib/https/obfuscator/methods/tls/tls_obfuscator.h"
 
 namespace fptn::protocol::https {
 
@@ -25,6 +28,7 @@ WebsocketClient::WebsocketClient(fptn::common::network::IPv4Address server_ip,
     std::string access_token,
     std::string expected_md5_fingerprint,
     obfuscator::IObfuscatorSPtr obfuscator,
+    bool enable_reality_mode,
     OnConnectedCallback on_connected_callback)
     : ctx_(https::utils::CreateNewSslCtx()),
       resolver_(boost::asio::make_strand(ioc_)),
@@ -42,6 +46,7 @@ WebsocketClient::WebsocketClient(fptn::common::network::IPv4Address server_ip,
       sni_(std::move(sni)),
       access_token_(std::move(access_token)),
       expected_md5_fingerprint_(std::move(expected_md5_fingerprint)),
+      enable_reality_mode_(enable_reality_mode),
       on_connected_callback_(std::move(on_connected_callback)) {
   auto* ssl = ws_.next_layer().native_handle();
   https::utils::SetHandshakeSni(ssl, sni_);
@@ -268,8 +273,21 @@ boost::asio::awaitable<bool> WebsocketClient::Connect() {
     boost::beast::get_lowest_layer(ws_).socket().set_option(
         boost::asio::ip::tcp::no_delay(true));
 
-    // Set obfuscator
-    if (obfuscator_ != nullptr) {
+    // Reality Mode: Enhanced stealth connection protocol
+    // First, establishes a genuine TLS handshake as a decoy to bypass deep
+    // packet inspection Then resets the connection state and activates
+    // obfuscation for the real encrypted tunnel This dual-handshake approach
+    // makes traffic analysis significantly more difficult
+    if (enable_reality_mode_) {
+      const bool status = co_await PerformFakeHandshake();
+      if (!status) {
+        co_return false;
+      }
+      // For Reality Mode we use TLS obfuscator after fake handshake
+      // This provides additional encryption layer for the real connection
+      ws_.next_layer().next_layer().set_obfuscator(
+          std::make_shared<protocol::https::obfuscator::TlsObfuscator>());
+    } else if (obfuscator_ != nullptr) {  // Set obfuscator
       ws_.next_layer().next_layer().set_obfuscator(obfuscator_);
     }
 
@@ -300,8 +318,8 @@ boost::asio::awaitable<bool> WebsocketClient::Connect() {
             retry_count);
         co_return false;
       }
-      ws_.next_layer().next_layer().set_obfuscator(nullptr);
     }
+    ws_.next_layer().next_layer().set_obfuscator(nullptr);
     SPDLOG_INFO("SSL handshake completed");
 
     // WebSocket options
@@ -407,6 +425,55 @@ boost::asio::awaitable<void> WebsocketClient::RunSender() {
 
   Stop();
   co_return;
+}
+
+boost::asio::awaitable<bool> WebsocketClient::PerformFakeHandshake() {
+  boost::system::error_code ec;
+  try {
+    SPDLOG_INFO("Generating and sending fake TLS handshake to {}", sni_);
+    const auto handshake_data = utils::GenerateDecoyTlsHandshake(sni_);
+    if (handshake_data.empty()) {
+      SPDLOG_WARN("Failed to generate handshake data for SNI: {}", sni_);
+      co_return false;
+    }
+
+    SPDLOG_INFO(
+        "Sending {} bytes of handshake data over TCP", handshake_data.size());
+
+    auto& tcp_layer = boost::beast::get_lowest_layer(ws_);
+    auto& tcp_socket = tcp_layer.socket();
+
+    const std::size_t bytes_sent = co_await boost::asio::async_write(tcp_socket,
+        boost::asio::buffer(handshake_data),
+        boost::asio::redirect_error(boost::asio::use_awaitable, ec));
+
+    if (ec) {
+      SPDLOG_ERROR("Failed to send fake handshake: {}", ec.message());
+      co_return false;
+    }
+
+    SPDLOG_INFO("Successfully sent {} bytes of handshake data", bytes_sent);
+
+    do {
+      std::array<std::uint8_t, 16384> buffer{};
+      const std::size_t bytes_read = co_await tcp_socket.async_receive(
+          boost::asio::buffer(buffer), boost::asio::use_awaitable);
+      if (ec && ec != boost::asio::error::eof) {
+        SPDLOG_WARN("Read during fake handshake failed: {}", ec.message());
+      }
+      if (bytes_read) {
+        break;
+      }
+    } while (true);
+
+    common::network::DrainSocket(tcp_socket);
+
+    SPDLOG_INFO("Fake handshake completed successfully");
+    co_return true;
+  } catch (const std::exception& e) {
+    SPDLOG_ERROR("PerformFakeHandshake exception: {}", e.what());
+  }
+  co_return false;
 }
 
 }  // namespace fptn::protocol::https

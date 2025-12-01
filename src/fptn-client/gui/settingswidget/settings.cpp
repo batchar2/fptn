@@ -151,6 +151,7 @@ void SettingsWidget::SetupUi() {
   bypass_method_combo_box_ = new QComboBox(this);
   bypass_method_combo_box_->addItem(QObject::tr("SNI"), "SNI");
   bypass_method_combo_box_->addItem(QObject::tr("OBFUSCATION"), "OBFUSCATION");
+  bypass_method_combo_box_->addItem(QObject::tr("SNI-REALITY"), "SNI-REALITY");
   bypass_method_combo_box_->setSizePolicy(
       QSizePolicy::Expanding, QSizePolicy::Fixed);
   if (settings_->BypassMethod() == "OBFUSCATION") {

@@ -9,6 +9,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <cstdint>
 #include <functional>
 #include <string>
+#include <vector>
 
 #include <openssl/ssl.h>  // NOLINT(build/include_order)
 
@@ -16,6 +17,11 @@ namespace fptn::protocol::https::utils {
 
 std::string GetSHA1Hash(std::uint32_t number);
 std::string GenerateFptnKey(std::uint32_t timestamp);
+
+bool SetDecoyHandshakeSessionID(SSL* ssl);
+bool IsDecoyHandshakeSessionID(
+    const std::uint8_t* session, std::size_t session_len);
+
 bool SetHandshakeSessionID(SSL* ssl);
 
 bool IsFptnClientSessionID(
@@ -28,6 +34,8 @@ SSL_CTX* CreateNewSslCtx();
 std::string ChromeCiphers();
 
 std::string GetCertificateMD5Fingerprint(const X509* cert);
+
+std::vector<std::uint8_t> GenerateDecoyTlsHandshake(const std::string& sni);
 
 // Callbacks
 using CertificateVerificationCallback = std::function<bool(const std::string&)>;
