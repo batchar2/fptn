@@ -435,6 +435,8 @@ boost::asio::awaitable<Session::RealityResult> Session::IsRealityHandshake() {
           .is_reality_mode = false, .sni = "", .should_close = true};
     }
 
+    // Check handshake
+    // https://github.com/wiresock/ndisapi/blob/master/examples/cpp/pcapplusplus/pcapplusplus.cpp#L40
     auto* handshake = dynamic_cast<pcpp::SSLHandshakeLayer*>(ssl_layer);
     if (!handshake) {
       co_return RealityResult{
@@ -442,6 +444,7 @@ boost::asio::awaitable<Session::RealityResult> Session::IsRealityHandshake() {
     }
 
     auto* hello =
+        // cppcheck-suppress nullPointerRedundantCheck
         handshake->getHandshakeMessageOfType<pcpp::SSLClientHelloMessage>();
     if (!hello) {
       co_return RealityResult{
@@ -451,6 +454,7 @@ boost::asio::awaitable<Session::RealityResult> Session::IsRealityHandshake() {
     // Get SNI
     std::string sni = FPTN_DEFAULT_SNI;
     auto* sni_ext =
+        // cppcheck-suppress nullPointerRedundantCheck
         hello->getExtensionOfType<pcpp::SSLServerNameIndicationExtension>();
     if (sni_ext) {
       std::string tls_sni = sni_ext->getHostName();

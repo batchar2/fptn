@@ -84,8 +84,7 @@ class ApiClient {
 
   bool TestHandshakeImpl(int timeout) const;
 
-  bool PerformFakeHandshake(
-      boost::asio::io_context& ioc, boost::asio::ip::tcp::socket& socket) const;
+  bool PerformFakeHandshake(boost::asio::ip::tcp::socket& socket) const;
 
   bool onVerifyCertificate(
       const std::string& md5_fingerprint, std::string& error) const;

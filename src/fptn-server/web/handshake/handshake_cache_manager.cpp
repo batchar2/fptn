@@ -14,9 +14,9 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <boost/asio.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/beast.hpp>
-#include <pcapplusplus/SSLHandshake.h>
-#include <pcapplusplus/SSLLayer.h>
-#include <spdlog/spdlog.h>
+#include <pcapplusplus/SSLHandshake.h>  // NOLINT(build/include_order)
+#include <pcapplusplus/SSLLayer.h>      // NOLINT(build/include_order)
+#include <spdlog/spdlog.h>              // NOLINT(build/include_order)
 
 #include "common/network/resolv.h"
 
@@ -24,7 +24,6 @@ namespace {
 
 std::optional<std::string> GetClientCacheKey(const std::string& sni,
     const std::vector<std::uint8_t>& client_handshake_data) {
-  std::string cache_key;
   try {
     const bool is_ssl = pcpp::SSLLayer::IsSSLMessage(0, 0,
         const_cast<std::uint8_t*>(client_handshake_data.data()),
@@ -36,6 +35,7 @@ std::optional<std::string> GetClientCacheKey(const std::string& sni,
           client_handshake_data.size(), nullptr, nullptr);
 
       if (ssl_layer) {
+        std::string cache_key;
         auto* handshake = dynamic_cast<pcpp::SSLHandshakeLayer*>(ssl_layer);
         if (handshake) {
           auto* hello =

@@ -4,8 +4,9 @@ Copyright (c) 2024-2025 Stas Skokov
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
 
-#include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
+
+#include <gtest/gtest.h>  // NOLINT(build/include_order)
 
 #include "fptn-protocol-lib/https/api_client/api_client.h"
 
@@ -32,16 +33,11 @@ TEST(ApiClientTest, GitHubReleasesConnection) {
 */
 
 TEST(ApiClientTest, GitHubHandshakeTest) {
-    fptn::protocol::https::ApiClient client(
-        "api.github.com",
-        443,
-        "api.github.com",
-        nullptr,
-        false
-    );
+  fptn::protocol::https::ApiClient client(
+      "api.github.com", 443, "api.github.com", nullptr, false);
 
-    bool handshake_success = client.TestHandshake(10);
-    EXPECT_TRUE(handshake_success);
+  bool handshake_success = client.TestHandshake(10);
+  EXPECT_TRUE(handshake_success);
 }
 
 /*
