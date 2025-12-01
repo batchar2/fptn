@@ -22,8 +22,6 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 #include <zlib.h>           // NOLINT(build/include_order)
 
-#include "https/obfuscator/methods/tls/tls_obfuscator.h"
-
 #ifdef _WIN32
 #pragma warning(push)
 #pragma warning(disable : 4996)
@@ -47,6 +45,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include "common/network/resolv.h"
 
+#include "fptn-protocol-lib/https/obfuscator/methods/tls/tls_obfuscator.h"
 #include "fptn-protocol-lib/https/obfuscator/tcp_stream/tcp_stream.h"
 #include "fptn-protocol-lib/https/utils/tls/tls.h"
 
@@ -177,6 +176,8 @@ Headers RealBrowserHeaders(const std::string& host) {
       {"Referer", "https://www.google.com/"},
       {"Accept-Encoding", "gzip, deflate, br, zstd"},
       {"Accept-Language", "en-US,en;q=0.9,ru;q=0.8"}, {"priority", "u=0, i"}};
+#else
+#error Undefined platform
 #endif
 }
 
@@ -322,8 +323,7 @@ ApiClient ApiClient::Clone() const {
 }
 
 bool ApiClient::PerformFakeHandshake(
-    boost::asio::io_context& ioc, boost::asio::ip::tcp::socket& socket) const {
-  (void)ioc;
+    boost::asio::ip::tcp::socket& socket) const {
   boost::system::error_code ec;
   try {
     SPDLOG_INFO("Generating and sending fake TLS handshake to {}", sni_);
@@ -346,11 +346,11 @@ bool ApiClient::PerformFakeHandshake(
     do {
       const std::size_t bytes_read =
           socket.read_some(boost::asio::buffer(server_response), ec);
-      if (bytes_read) {
+      if (bytes_read != 0) {
         SPDLOG_INFO("Received {}", bytes_read);
         break;
       }
-      if (ec || !bytes_read) {
+      if (ec) {
         SPDLOG_INFO("Received error: {}", ec.what());
         break;
       }
@@ -421,7 +421,7 @@ Response ApiClient::GetImpl(const std::string& handle, int timeout) const {
 
       // Perform fake handshake if enabled
       if (enable_reality_mode_) {
-        const bool perform_status = PerformFakeHandshake(ioc, socket);
+        const bool perform_status = PerformFakeHandshake(socket);
         if (!perform_status) {
           SPDLOG_WARN(
               "GET [{}] - Fake handshake failed, continuing with real "
@@ -595,7 +595,7 @@ Response ApiClient::PostImpl(const std::string& handle,
 
       // Perform fake handshake if enabled
       if (enable_reality_mode_) {
-        const bool perform_status = PerformFakeHandshake(ioc, socket);
+        const bool perform_status = PerformFakeHandshake(socket);
         if (!perform_status) {
           SPDLOG_WARN(
               "GET [{}] - Fake handshake failed, continuing with real "
@@ -776,7 +776,7 @@ bool ApiClient::TestHandshakeImpl(int timeout) const {
     // Perform fake handshake if enabled
     if (enable_reality_mode_) {
       SPDLOG_INFO("TestHandshake - Performing fake handshake");
-      if (!PerformFakeHandshake(ioc, socket)) {
+      if (!PerformFakeHandshake(socket)) {
         SPDLOG_WARN(
             "TestHandshake - Fake handshake failed, continuing with real "
             "handshake");

@@ -18,16 +18,18 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 namespace fptn::web {
 
-using HandshakeResponse = std::optional<std::vector<std::uint8_t>>;
+using HandshakeResponse = std::shared_ptr<std::vector<std::uint8_t>>;
+// using OptionalHandshakeResponse = std::optional<HandshakeResponse>;
 
-class HandshakeCacheManager {
+class HandshakeCacheManager final {
  public:
   explicit HandshakeCacheManager(boost::asio::io_context& ioc,
       std::chrono::seconds cache_ttl = std::chrono::seconds(60));
 
   boost::asio::awaitable<HandshakeResponse> GetHandshake(const std::string& sni,
-      const std::vector<std::uint8_t>& client_handshake_data,
-      const std::chrono::seconds& timeout = std::chrono::seconds(5));
+      const std::uint8_t* buffer_ptr,
+      const std::size_t size,
+      const std::chrono::seconds& timeout);
 
  protected:
   boost::asio::awaitable<HandshakeResponse> FetchRealHandshake(
@@ -39,7 +41,7 @@ class HandshakeCacheManager {
 
  private:
   struct CacheEntry {
-    std::vector<std::uint8_t> data;
+    HandshakeResponse data;
     std::chrono::steady_clock::time_point timestamp;
   };
 

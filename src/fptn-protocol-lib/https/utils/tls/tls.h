@@ -9,6 +9,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <cstdint>
 #include <functional>
 #include <string>
+#include <vector>
 
 #include <openssl/ssl.h>  // NOLINT(build/include_order)
 
@@ -34,9 +35,7 @@ std::string ChromeCiphers();
 
 std::string GetCertificateMD5Fingerprint(const X509* cert);
 
-
 std::vector<std::uint8_t> GenerateDecoyTlsHandshake(const std::string& sni);
-
 
 // Callbacks
 using CertificateVerificationCallback = std::function<bool(const std::string&)>;

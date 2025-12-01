@@ -435,6 +435,8 @@ boost::asio::awaitable<Session::RealityResult> Session::IsRealityHandshake() {
           .is_reality_mode = false, .sni = "", .should_close = true};
     }
 
+    // Check handshake
+    // https://github.com/wiresock/ndisapi/blob/master/examples/cpp/pcapplusplus/pcapplusplus.cpp#L40
     auto* handshake = dynamic_cast<pcpp::SSLHandshakeLayer*>(ssl_layer);
     if (!handshake) {
       co_return RealityResult{
@@ -442,6 +444,7 @@ boost::asio::awaitable<Session::RealityResult> Session::IsRealityHandshake() {
     }
 
     auto* hello =
+        // cppcheck-suppress nullPointerRedundantCheck
         handshake->getHandshakeMessageOfType<pcpp::SSLClientHelloMessage>();
     if (!hello) {
       co_return RealityResult{
@@ -451,6 +454,7 @@ boost::asio::awaitable<Session::RealityResult> Session::IsRealityHandshake() {
     // Get SNI
     std::string sni = FPTN_DEFAULT_SNI;
     auto* sni_ext =
+        // cppcheck-suppress nullPointerRedundantCheck
         hello->getExtensionOfType<pcpp::SSLServerNameIndicationExtension>();
     if (sni_ext) {
       std::string tls_sni = sni_ext->getHostName();
@@ -485,47 +489,81 @@ boost::asio::awaitable<Session::RealityResult> Session::IsRealityHandshake() {
       .is_reality_mode = true, .sni = "", .should_close = true};
 }
 
+// boost::asio::awaitable<bool> Session::HandleRealityMode(
+//     const std::string& sni) {
+//   try {
+//     auto& tcp_socket = boost::beast::get_lowest_layer(ws_).socket();
+//
+//     std::vector<std::uint8_t> buffer(16384, '\0');
+//     const std::size_t bytes_read = co_await tcp_socket.async_receive(
+//         boost::asio::buffer(buffer), boost::asio::use_awaitable);
+//     if (!bytes_read || !handshake_cache_manager_) {
+//       co_return false;
+//     }
+//     buffer.resize(bytes_read);
+//
+//     const auto handshake_answer =
+//         co_await handshake_cache_manager_->GetHandshake(
+//             sni, buffer.data(), bytes_read, std::chrono::seconds(5));
+//
+//     if (!handshake_answer) {
+//       co_return false;
+//     }
+//
+//     const std::size_t bytes_wrote =
+//         co_await boost::asio::async_write(tcp_socket,
+//             boost::asio::buffer(*handshake_answer), boost::asio::use_awaitable);
+//
+//     SPDLOG_INFO("Handshake response size: {}", bytes_wrote);
+//
+//     SPDLOG_INFO(
+//         "Reality mode completed, ready for real handshake (client_id={})",
+//         client_id_);
+//     co_return true;
+//   } catch (const std::exception& e) {
+//     SPDLOG_ERROR(
+//         "HandleRealityMode exception (client_id={}): {}", client_id_, e.what());
+//   }
+//   co_return false;
+// }
+
+
 boost::asio::awaitable<bool> Session::HandleRealityMode(
     const std::string& sni) {
   try {
     auto& tcp_socket = boost::beast::get_lowest_layer(ws_).socket();
 
-    std::array<std::uint8_t, 16384> buffer{};
+    std::string buffer(16384, '\0');
     const std::size_t bytes_read = co_await tcp_socket.async_receive(
         boost::asio::buffer(buffer), boost::asio::use_awaitable);
-
     if (!bytes_read || !handshake_cache_manager_) {
       co_return false;
     }
 
-    const std::vector<std::uint8_t> client_handshake(
-        buffer.begin(), buffer.begin() + bytes_read);
-    auto handshake_response = co_await handshake_cache_manager_->GetHandshake(
-        sni, client_handshake, std::chrono::seconds(5));
+    const auto handshake_answer =
+        co_await handshake_cache_manager_->GetHandshake(sni,
+            reinterpret_cast<const std::uint8_t*>(buffer.data()), bytes_read,
+            std::chrono::seconds(5));
 
-    if (!handshake_response.has_value() || handshake_response->empty()) {
+    if (!handshake_answer) {
       co_return false;
     }
 
-    const auto handshake_data = std::move(handshake_response.value());
-    const auto write_size = co_await boost::asio::async_write(tcp_socket,
-        boost::asio::buffer(handshake_data), boost::asio::use_awaitable);
+    const std::size_t bytes_wrote =
+        co_await boost::asio::async_write(tcp_socket,
+            boost::asio::buffer(*handshake_answer),
+            boost::asio::use_awaitable);
 
-    co_await boost::asio::steady_timer(
-        co_await boost::asio::this_coro::executor,
-        std::chrono::milliseconds(50))
-        .async_wait(boost::asio::use_awaitable);
+    SPDLOG_INFO("Handshake response size: {}", bytes_wrote);
 
-    SPDLOG_INFO("Handshake response size: {}", write_size);
-
-    // common::network::DrainSocket(tcp_socket);
     SPDLOG_INFO(
         "Reality mode completed, ready for real handshake (client_id={})",
         client_id_);
     co_return true;
   } catch (const std::exception& e) {
     SPDLOG_ERROR(
-        "HandleRealityMode exception (client_id={}): {}", client_id_, e.what());
+        "HandleRealityMode exception (client_id={}): {}", client_id_,
+        e.what());
   }
   co_return false;
 }
@@ -640,11 +678,11 @@ boost::asio::awaitable<void> Session::RunReader() {
       if (ec) {
         break;
       }
-      if (buffer.size() > 0) {
+      if (buffer.size() > 0 && running_ && ws_.is_open()) {
         std::string raw_data = boost::beast::buffers_to_string(buffer.data());
         std::string raw_ip =
             fptn::protocol::protobuf::GetProtoPayload(std::move(raw_data));
-        if (!raw_ip.empty()) {
+        if (!raw_ip.empty() && running_ && ws_.is_open()) {
           auto packet = fptn::common::network::IPPacket::Parse(
               std::move(raw_ip), client_id_);
           if (packet != nullptr && ws_new_ippacket_callback_) {
@@ -670,14 +708,14 @@ boost::asio::awaitable<void> Session::RunSender() {
           boost::asio::bind_cancellation_slot(cancel_signal_.slot(),
               boost::asio::as_tuple(boost::asio::use_awaitable)));
 
-      if (!running_ || !ws_.is_open() || ec) {
-        break;
-      }
-      if (packet != nullptr) {
+      // if (!shared_from_this() || !running_ || !ws_.is_open() || ec) {
+      //   break;
+      // }
+
+      if (running_ && ws_.is_open() && !ec && packet != nullptr) {
         std::string msg =
             fptn::protocol::protobuf::CreateProtoPayload(std::move(packet));
         if (!msg.empty()) {
-          // co_await strand_.post(boost::asio::use_awaitable);
           co_await ws_.async_write(
               boost::asio::buffer(msg), boost::asio::use_awaitable);
         }
@@ -855,8 +893,8 @@ void Session::Close() {
   SPDLOG_INFO("Close session {}", client_id_);
 
   running_ = false;
-  boost::system::error_code ec;
 
+  boost::system::error_code ec;
   try {
     cancel_signal_.emit(boost::asio::cancellation_type::all);
     write_channel_.close();

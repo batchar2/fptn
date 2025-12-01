@@ -39,9 +39,6 @@ inline ResolveResult ResolveWithTimeout(boost::asio::io_context& ioc,
   ResolveResult result;
 
   if (IsIpAddress(host)) {
-    SPDLOG_INFO(
-        "DNS resolution - Using IP address directly: {}:{}", host, port);
-
     boost::system::error_code ec;
     auto address = boost::asio::ip::make_address(host, ec);
     if (ec) {
@@ -69,9 +66,6 @@ inline ResolveResult ResolveWithTimeout(boost::asio::io_context& ioc,
     return result;
   }
 
-  SPDLOG_INFO("DNS resolution - Starting for {}:{} with timeout {}s", host,
-      port, timeout_seconds);
-
   boost::asio::deadline_timer timer(ioc);
   timer.expires_from_now(boost::posix_time::seconds(timeout_seconds));
 
@@ -84,7 +78,6 @@ inline ResolveResult ResolveWithTimeout(boost::asio::io_context& ioc,
           result.error = ec;
           if (!ec) {
             result.results = results_;
-            SPDLOG_INFO("DNS resolution - Success for {}:{}", host, port);
           } else {
             SPDLOG_ERROR("DNS resolution - Failed for {}:{}: {}", host, port,
                 ec.message());
