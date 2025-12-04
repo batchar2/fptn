@@ -6,6 +6,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #pragma once
 
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
@@ -140,7 +141,7 @@ class CommonUserManager final {
     if (file.is_open()) {
       for (const auto& user_entry : users_) {
         const auto& username = user_entry.first;
-        const auto& [hash_password, max_speed] = user_entry.second; // NOLINT
+        const auto& [hash_password, max_speed] = user_entry.second;  // NOLINT
         file << username << " " << hash_password << " " << max_speed << "\n";
       }
     } else {
