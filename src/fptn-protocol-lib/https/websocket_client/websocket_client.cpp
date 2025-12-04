@@ -102,105 +102,124 @@ void WebsocketClient::Run() {
 }
 
 bool WebsocketClient::Stop() {
-  try {
-    if (!running_) {
+  if (!running_) {
+    return false;
+  }
+
+  {
+    const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+    // cppcheck-suppress identicalConditionAfterEarlyExit
+    if (!running_) {  // Double-check after acquiring lock
       return false;
     }
+    SPDLOG_INFO("Marked client as stopped and disconnected");
 
-    {
-      const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+    running_ = false;
+    was_connected_ = false;
 
-      // cppcheck-suppress identicalConditionAfterEarlyExit
-      if (!running_) {  // Double-check after acquiring lock
-        return false;
-      }
-      running_ = false;
-      was_connected_ = false;
-    }
-
-    auto stop_promise = std::make_shared<std::promise<void>>();
-    auto stop_future = stop_promise->get_future();
-
-    auto self = shared_from_this();
-    boost::asio::post(strand_, [self, stop_promise]() noexcept {
-      try {
-        boost::system::error_code ec;
-
-        // Send signal
-        self->cancel_signal_.emit(boost::asio::cancellation_type::all);
-
-        // Close WebSocket
-        if (self->ws_.is_open()) {
-          self->ws_.close(boost::beast::websocket::close_code::normal, ec);
-        }
-
-        // Close SSL
-        try {
-          SPDLOG_DEBUG("Shutting down SSL layer...");
-          auto& ssl = self->ws_.next_layer();
-          if (ssl.native_handle()) {
-            ::SSL_set_quiet_shutdown(ssl.native_handle(), 1);
-            ::SSL_shutdown(ssl.native_handle());
-          }
-          ssl.shutdown(ec);
-        } catch (const boost::system::system_error& err) {
-          SPDLOG_ERROR("Exception during SSL shutdown: {}", err.what());
-        } catch (const std::exception& e) {
-          SPDLOG_ERROR(
-              "Unexpected exception during SSL shutdown: {}", e.what());
-        } catch (...) {
-          SPDLOG_ERROR("Unknown exception occurred during SSL shutdown");
-        }
-
-        // Close TCP
-        try {
-          auto& tcp = boost::beast::get_lowest_layer(self->ws_);
-          if (tcp.socket().is_open()) {
-            tcp.socket().shutdown(
-                boost::asio::ip::tcp::socket::shutdown_both, ec);
-            try {
-              tcp.close();
-            } catch (const std::exception& e) {
-              SPDLOG_ERROR("Exception during TCP shutdown: {}", e.what());
-            }
-          }
-        } catch (const boost::system::system_error& err) {
-          SPDLOG_ERROR("Exception during TCP shutdown: {}", err.what());
-        } catch (...) {
-          SPDLOG_ERROR("Unknown exception during TCP shutdown");
-        }
-        SPDLOG_INFO("WebsocketClient shutdown completed");
-      } catch (...) {
-        SPDLOG_ERROR("Unexpected exception during shutdown");
-      }
-      stop_promise->set_value();
-    });
-
-    if (stop_future.wait_for(std::chrono::seconds(5)) ==
-        std::future_status::timeout) {
-      SPDLOG_WARN("WebsocketClient stop timeout, forcing shutdown");
-    }
-
-    // Stop io_context
-    try {
-      SPDLOG_DEBUG("Stopping io_context...");
-      ioc_.stop();
-      SPDLOG_DEBUG("io_context stopped");
-    } catch (const boost::system::system_error& err) {
-      SPDLOG_ERROR("Exception while stopping io_context: {}", err.what());
-    } catch (...) {
-      SPDLOG_ERROR("Unknown exception while stopping io_context");
-    }
-
-    SPDLOG_INFO("WebsocketClient fully stopped");
-
-    return true;
-  } catch (const std::exception& e) {
-    SPDLOG_CRITICAL("Exception in Stop(): {}", e.what());
-  } catch (...) {
-    SPDLOG_CRITICAL("Unknown exception in Stop()");
+    new_ip_pkt_callback_ = nullptr;
+    on_connected_callback_ = nullptr;
   }
-  return false;
+
+  boost::system::error_code ec;
+
+  try {
+    cancel_signal_.emit(boost::asio::cancellation_type::all);
+  } catch (const std::exception&) {
+    SPDLOG_DEBUG("Exception during cancellation");
+  }
+
+  try {
+    write_channel_.close();
+  } catch (const std::exception&) {
+    SPDLOG_DEBUG("Exception closing write channel");
+  }
+
+  try {
+    resolver_.cancel();
+  } catch (const std::exception&) {
+    SPDLOG_DEBUG("Exception cancelling resolver");
+  }
+
+  // Close WebSocket by triggering a timeout
+  try {
+    boost::beast::get_lowest_layer(ws_).expires_after(
+        std::chrono::microseconds(1));
+  } catch (const std::exception&) {
+    SPDLOG_DEBUG("Failed to set WebSocket expiration timer");
+  } catch (...) {
+    SPDLOG_DEBUG("Unknown error while setting WebSocket expiration timer");
+  }
+
+  // Close WebSocket explicitly
+  try {
+    if (ws_.is_open()) {
+      ws_.close(boost::beast::websocket::close_code::normal, ec);
+      if (ec && ec != boost::beast::websocket::error::closed) {
+        SPDLOG_DEBUG("WebSocket close warning: {}", ec.message());
+      }
+    }
+  } catch (const std::exception&) {
+    SPDLOG_DEBUG("Exception during WebSocket close");
+  }
+
+  // Close SSL
+  try {
+    SPDLOG_DEBUG("Shutting down SSL layer...");
+    auto& ssl = ws_.next_layer();
+    if (ssl.native_handle()) {
+      // More robust SSL shutdown
+      ::SSL_set_quiet_shutdown(ssl.native_handle(), 1);
+      ::SSL_shutdown(ssl.native_handle());
+    }
+    ssl.shutdown(ec);
+  } catch (const boost::system::system_error& err) {
+    SPDLOG_ERROR("Exception during SSL shutdown: {}", err.what());
+  } catch (const std::exception& e) {
+    SPDLOG_ERROR("Unexpected exception during SSL shutdown: {}", e.what());
+  } catch (...) {
+    SPDLOG_ERROR("Unknown exception occurred during SSL shutdown");
+  }
+
+  // Close TCP connection
+  try {
+    SPDLOG_DEBUG("Shutting down TCP socket...");
+    auto& tcp = boost::beast::get_lowest_layer(ws_);
+    if (tcp.socket().is_open()) {
+      tcp.socket().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
+      if (ec && ec != boost::asio::error::not_connected) {
+        SPDLOG_WARN("TCP socket shutdown error: {}", ec.message());
+      } else {
+        SPDLOG_DEBUG("TCP socket shutdown successfully");
+      }
+
+      tcp.socket().close(ec);
+      if (ec) {
+        SPDLOG_WARN("TCP socket close error: {}", ec.message());
+      } else {
+        SPDLOG_DEBUG("TCP socket closed successfully");
+      }
+    }
+  } catch (const boost::system::system_error& err) {
+    SPDLOG_ERROR("Exception during TCP shutdown: {}", err.what());
+  } catch (...) {
+    SPDLOG_ERROR("Unknown exception during TCP shutdown");
+  }
+
+  // Stop io_context
+  try {
+    SPDLOG_DEBUG("Stopping io_context...");
+    ioc_.stop();
+    SPDLOG_DEBUG("io_context stopped");
+  } catch (const boost::system::system_error& err) {
+    SPDLOG_ERROR("Exception while stopping io_context: {}", err.what());
+  } catch (...) {
+    SPDLOG_ERROR("Unknown exception while stopping io_context");
+  }
+
+  SPDLOG_INFO("WebSocket client stopped successfully");
+  return true;
 }
 
 bool WebsocketClient::Send(fptn::common::network::IPPacketPtr packet) {
@@ -370,8 +389,7 @@ boost::asio::awaitable<void> WebsocketClient::RunReader() {
   } catch (const std::exception& e) {
     SPDLOG_ERROR("RunReader exception: {}", e.what());
   }
-
-  Stop();
+  was_connected_ = false;
   co_return;
 }
 
@@ -404,8 +422,7 @@ boost::asio::awaitable<void> WebsocketClient::RunSender() {
   } catch (const std::exception& e) {
     SPDLOG_ERROR("RunSender exception: {}", e.what());
   }
-
-  Stop();
+  was_connected_ = false;
   co_return;
 }
 
