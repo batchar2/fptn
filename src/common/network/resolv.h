@@ -70,14 +70,14 @@ inline ResolveResult ResolveWithTimeout(boost::asio::io_context& ioc,
   timer.expires_from_now(boost::posix_time::seconds(timeout_seconds));
 
   bool operation_completed = false;
-
-  resolver.async_resolve(host, port,
+  // FIXME IPv4 only!
+  resolver.async_resolve(boost::asio::ip::tcp::v4(), host, port,
       [&](const boost::system::error_code& ec,
-          boost::asio::ip::tcp::resolver::results_type results_) {
+          boost::asio::ip::tcp::resolver::results_type results) {
         if (!operation_completed) {
           result.error = ec;
           if (!ec) {
-            result.results = results_;
+            result.results = std::move(results);
           } else {
             SPDLOG_ERROR("DNS resolution - Failed for {}:{}: {}", host, port,
                 ec.message());

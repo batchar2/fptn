@@ -46,7 +46,6 @@ std::string GetClientCacheKey(const std::string& sni,
             cache_key = sni + ":" + fingerprint.toMD5();
           }
         }
-        delete ssl_layer;
         if (!cache_key.empty()) {
           return cache_key;
         }
@@ -85,51 +84,41 @@ HandshakeResponse HandshakeCacheManager::CheckCache(
 boost::asio::awaitable<HandshakeResponse> HandshakeCacheManager::GetHandshake(
     const std::string& sni,
     const std::uint8_t* buffer_ptr,
-    const std::size_t size,
+    std::size_t size,
     const std::chrono::seconds& timeout) {
+  // doesnt work
   std::vector<std::uint8_t> client_handshake_data(
       buffer_ptr, buffer_ptr + size);
+  const auto cache_key = GetClientCacheKey(sni, client_handshake_data);
 
-  GetClientCacheKey(sni, client_handshake_data);
-  // co_return std::make_shared<std::vector<std::uint8_t>>(
-  //     client_handshake_data.begin(), client_handshake_data.end());
+  if (cache_key.empty()) {
+    SPDLOG_WARN(
+        "Failed to generate cache key for SNI: {}, using fallback", sni);
+    co_return nullptr;
+  }
 
+  SPDLOG_INFO("fingerprint key: {}) ", cache_key);
+  const auto cached_response = CheckCache(cache_key);
+  if (cached_response) {
+    SPDLOG_INFO(
+        "Cache hit for SNI: {} (TLS fingerprint key: {})", sni, cache_key);
+    co_return cached_response;
+  }
 
-  // const auto cache_key = GetClientCacheKey(sni, client_handshake_data);
-  //
-  // if (cache_key.empty()) {
-  //   SPDLOG_WARN(
-  //       "Failed to generate cache key for SNI: {}, using fallback", sni);
-  //   co_return nullptr;
-  // }
-  //
-  // SPDLOG_INFO("fingerprint key: {}) ", cache_key);
-  //
-  // const auto cached_response = CheckCache(cache_key);
-  // if (cached_response) {
-  //   SPDLOG_INFO(
-  //       "Cache hit for SNI: {} (TLS fingerprint key: {})", sni, cache_key);
-  //   // co_return cached_response;
-  // }
-  //
-  // const auto response =
-  //     co_await FetchRealHandshake(sni, client_handshake_data, timeout);
-  // if (response) {
-  //   const std::unique_lock<std::mutex> lock(mutex_);  // mutex
-  //
-  //   cache_[cache_key] = CacheEntry{
-  //       .data = response, .timestamp = std::chrono::steady_clock::now()};
-  //   SPDLOG_INFO(
-  //       "Cached handshake response for SNI: {} (TLS fingerprint key: {}), "
-  //       "size: {} bytes",
-  //       sni, cache_key, response->size());
-  //   // co_return response;
-  // }
-  //
-  // SPDLOG_WARN("Failed to fetch handshake from real server for SNI: {}", sni);
-  // // co_return HandshakeResponse();
-
-  co_return client_handshake_data;
+  const auto response =
+      co_await FetchRealHandshake(sni, client_handshake_data, timeout);
+  if (response) {
+    const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+    cache_[cache_key] = CacheEntry{
+        .data = response, .timestamp = std::chrono::steady_clock::now()};
+    SPDLOG_INFO(
+        "Cached handshake response for SNI: {} (TLS fingerprint key: {}), "
+        "size: {} bytes",
+        sni, cache_key, response->size());
+    co_return response;
+  }
+  SPDLOG_WARN("Failed to fetch handshake from real server for SNI: {}", sni);
+  co_return HandshakeResponse();
 }
 
 boost::asio::awaitable<HandshakeResponse>
@@ -143,8 +132,8 @@ HandshakeCacheManager::FetchRealHandshake(const std::string& sni,
   try {
     // DNS resolution
     boost::asio::io_context resolve_ioc;
-    auto resolve_result = fptn::common::network::ResolveWithTimeout(
-        resolve_ioc, sni, "443", static_cast<int>(timeout.count()));
+    const auto resolve_result = fptn::common::network::ResolveWithTimeout(
+        resolve_ioc, sni, "443", timeout.count());
 
     if (!resolve_result.success()) {
       SPDLOG_ERROR(
@@ -155,43 +144,31 @@ HandshakeCacheManager::FetchRealHandshake(const std::string& sni,
     // Connect to real server
     co_await boost::asio::async_connect(
         target_socket, resolve_result.results, boost::asio::use_awaitable);
-
     // Send client handshake
     co_await boost::asio::async_write(target_socket,
         boost::asio::buffer(client_handshake_data), boost::asio::use_awaitable);
-
     co_await boost::asio::steady_timer(ioc_, std::chrono::milliseconds(200))
         .async_wait(boost::asio::use_awaitable);
 
     constexpr std::size_t kMaxSize = 16384;
     std::array<std::uint8_t, kMaxSize> buffer{};
-    std::size_t total_bytes = 0;
+    const std::size_t bytes_read =
+        co_await target_socket.async_read_some(boost::asio::buffer(buffer),
+            boost::asio::redirect_error(boost::asio::use_awaitable, ec));
 
-    while (total_bytes < kMaxSize) {
-      const std::size_t bytes_read =
-          co_await target_socket.async_read_some(boost::asio::buffer(buffer),
-              boost::asio::redirect_error(boost::asio::use_awaitable, ec));
-
-      if (ec || !bytes_read) {
-        SPDLOG_INFO("EC> {} {}", ec.what(), bytes_read);
-        break;
-      }
-
+    if (bytes_read) {
       full_response->insert(
           full_response->end(), buffer.begin(), buffer.begin() + bytes_read);
-      total_bytes += bytes_read;
     }
-    SPDLOG_INFO("Received {} bytes from {}", total_bytes, sni);
+    SPDLOG_INFO("Received {} bytes from {}", bytes_read, sni);
   } catch (const std::exception& e) {
     SPDLOG_ERROR("Error fetching handshake from {}: {}", sni, e.what());
   }
-
   target_socket.close(ec);
 
   if (!full_response->empty()) {
     co_return full_response;
   }
-
   co_return nullptr;
 }
 

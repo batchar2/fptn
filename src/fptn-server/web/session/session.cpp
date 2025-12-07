@@ -489,61 +489,23 @@ boost::asio::awaitable<Session::RealityResult> Session::IsRealityHandshake() {
       .is_reality_mode = true, .sni = "", .should_close = true};
 }
 
-// boost::asio::awaitable<bool> Session::HandleRealityMode(
-//     const std::string& sni) {
-//   try {
-//     auto& tcp_socket = boost::beast::get_lowest_layer(ws_).socket();
-//
-//     std::vector<std::uint8_t> buffer(16384, '\0');
-//     const std::size_t bytes_read = co_await tcp_socket.async_receive(
-//         boost::asio::buffer(buffer), boost::asio::use_awaitable);
-//     if (!bytes_read || !handshake_cache_manager_) {
-//       co_return false;
-//     }
-//     buffer.resize(bytes_read);
-//
-//     const auto handshake_answer =
-//         co_await handshake_cache_manager_->GetHandshake(
-//             sni, buffer.data(), bytes_read, std::chrono::seconds(5));
-//
-//     if (!handshake_answer) {
-//       co_return false;
-//     }
-//
-//     const std::size_t bytes_wrote =
-//         co_await boost::asio::async_write(tcp_socket,
-//             boost::asio::buffer(*handshake_answer), boost::asio::use_awaitable);
-//
-//     SPDLOG_INFO("Handshake response size: {}", bytes_wrote);
-//
-//     SPDLOG_INFO(
-//         "Reality mode completed, ready for real handshake (client_id={})",
-//         client_id_);
-//     co_return true;
-//   } catch (const std::exception& e) {
-//     SPDLOG_ERROR(
-//         "HandleRealityMode exception (client_id={}): {}", client_id_, e.what());
-//   }
-//   co_return false;
-// }
-
-
 boost::asio::awaitable<bool> Session::HandleRealityMode(
     const std::string& sni) {
   try {
     auto& tcp_socket = boost::beast::get_lowest_layer(ws_).socket();
 
-    std::string buffer(16384, '\0');
+    std::vector<std::uint8_t> buffer(16384, '\0');
+    // std::string buffer(16384, '\0');
     const std::size_t bytes_read = co_await tcp_socket.async_receive(
         boost::asio::buffer(buffer), boost::asio::use_awaitable);
     if (!bytes_read || !handshake_cache_manager_) {
       co_return false;
     }
+    buffer.resize(bytes_read);
 
     const auto handshake_answer =
-        co_await handshake_cache_manager_->GetHandshake(sni,
-            reinterpret_cast<const std::uint8_t*>(buffer.data()), bytes_read,
-            std::chrono::seconds(5));
+        co_await handshake_cache_manager_->GetHandshake(
+            sni, buffer.data(), bytes_read, std::chrono::seconds(3));
 
     if (!handshake_answer) {
       co_return false;
@@ -551,19 +513,20 @@ boost::asio::awaitable<bool> Session::HandleRealityMode(
 
     const std::size_t bytes_wrote =
         co_await boost::asio::async_write(tcp_socket,
-            boost::asio::buffer(*handshake_answer),
-            boost::asio::use_awaitable);
-
-    SPDLOG_INFO("Handshake response size: {}", bytes_wrote);
+            boost::asio::buffer(*handshake_answer), boost::asio::use_awaitable);
 
     SPDLOG_INFO(
-        "Reality mode completed, ready for real handshake (client_id={})",
+        "!!!!!!!!!!!!! Handshake Complited. request_size = {} response_size: "
+        "{}",
+        bytes_read, bytes_wrote);
+
+    SPDLOG_INFO(
+        " Reality mode completed, ready for real handshake (client_id={})",
         client_id_);
     co_return true;
   } catch (const std::exception& e) {
     SPDLOG_ERROR(
-        "HandleRealityMode exception (client_id={}): {}", client_id_,
-        e.what());
+        "HandleRealityMode exception (client_id={}): {}", client_id_, e.what());
   }
   co_return false;
 }
@@ -707,11 +670,6 @@ boost::asio::awaitable<void> Session::RunSender() {
       auto [ec, packet] = co_await write_channel_.async_receive(
           boost::asio::bind_cancellation_slot(cancel_signal_.slot(),
               boost::asio::as_tuple(boost::asio::use_awaitable)));
-
-      // if (!shared_from_this() || !running_ || !ws_.is_open() || ec) {
-      //   break;
-      // }
-
       if (running_ && ws_.is_open() && !ec && packet != nullptr) {
         std::string msg =
             fptn::protocol::protobuf::CreateProtoPayload(std::move(packet));
