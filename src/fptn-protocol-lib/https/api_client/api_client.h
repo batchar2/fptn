@@ -14,7 +14,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <boost/asio/ip/tcp.hpp>
 #include <nlohmann/json.hpp>
 
-#include "fptn-protocol-lib/https/obfuscator/methods/obfuscator_interface.h"
+#include "fptn-protocol-lib/https/censorship_strategy.h"
 
 namespace fptn::protocol::https {
 
@@ -49,21 +49,18 @@ class ApiClient {
  public:
   ApiClient(const std::string& host,
       int port,
-      obfuscator::IObfuscatorSPtr obfuscator = nullptr,
-      bool enable_reality_mode = true);
+      CensorshipStrategy censorship_strategy);
 
   ApiClient(std::string host,
       int port,
       std::string sni,
-      obfuscator::IObfuscatorSPtr obfuscator = nullptr,
-      bool enable_fake_handshake = true);
+      CensorshipStrategy censorship_strategy);
 
   ApiClient(std::string host,
       int port,
       std::string sni,
       std::string md5_fingerprint,
-      obfuscator::IObfuscatorSPtr obfuscator = nullptr,
-      bool enable_fake_handshake = true);
+      CensorshipStrategy censorship_strategy);
 
   Response Get(const std::string& handle, int timeout = 30) const;
   Response Post(const std::string& handle,
@@ -94,8 +91,7 @@ class ApiClient {
   const int port_;
   const std::string sni_;
   const std::string expected_md5_fingerprint_;
-  const obfuscator::IObfuscatorSPtr obfuscator_;
-  const bool enable_reality_mode_;
+  const CensorshipStrategy censorship_strategy_;
 };
 
 using HttpsClientPtr = std::unique_ptr<ApiClient>;

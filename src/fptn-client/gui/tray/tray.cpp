@@ -722,17 +722,21 @@ bool TrayApp::startVpn(QString& err_msg) {
   const std::string sni = !settings_->SNI().isEmpty()
                               ? settings_->SNI().toStdString()
                               : FPTN_DEFAULT_SNI;
-  // OBFUSCATOR
-  fptn::protocol::https::obfuscator::IObfuscatorSPtr obfuscator = nullptr;
+  fptn::protocol::https::CensorshipStrategy censorship_strategy =
+      fptn::protocol::https::CensorshipStrategy::kSni;
   if (settings_->BypassMethod() == "OBFUSCATION") {
     SPDLOG_INFO("Using obfuscation to bypass censorship");
-    obfuscator =
-        std::make_shared<fptn::protocol::https::obfuscator::TlsObfuscator>();
+    censorship_strategy =
+        fptn::protocol::https::CensorshipStrategy::kTlsObfuscator;
+  } else if (settings_->BypassMethod() == "SNI-REALITY") {
+    SPDLOG_INFO("Using reality mode to bypass censorship");
+    censorship_strategy =
+        fptn::protocol::https::CensorshipStrategy::kSniRealityMode;
   } else {
     SPDLOG_INFO("Using SNI spoofing to bypass censorship");
   }
-  fptn::config::ConfigFile config(sni, obfuscator);  // SET SNI
-  if (smart_connect_) {                              // find the best server
+  fptn::config::ConfigFile config(sni, censorship_strategy);  // SET SNI
+  if (smart_connect_) {  // find the best server
     for (const auto& service : settings_->Services()) {
       for (const auto& s : service.servers) {
         fptn::utils::speed_estimator::ServerInfo cfg_server;
@@ -778,7 +782,7 @@ bool TrayApp::startVpn(QString& err_msg) {
   auto http_client = std::make_unique<fptn::vpn::http::Client>(server_ip,
       selected_server_.port, tun_interface_address_ipv4,
       tun_interface_address_ipv6, sni, selected_server_.md5_fingerprint,
-      obfuscator, nullptr);
+      censorship_strategy);
   // login
   bool login_status =
       http_client->Login(selected_server_.username, selected_server_.password);

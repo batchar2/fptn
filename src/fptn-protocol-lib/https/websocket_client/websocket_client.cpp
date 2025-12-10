@@ -27,14 +27,13 @@ WebsocketClient::WebsocketClient(fptn::common::network::IPv4Address server_ip,
     std::string sni,
     std::string access_token,
     std::string expected_md5_fingerprint,
-    obfuscator::IObfuscatorSPtr obfuscator,
-    bool enable_reality_mode,
+    CensorshipStrategy censorship_strategy,
     OnConnectedCallback on_connected_callback)
     : ctx_(https::utils::CreateNewSslCtx()),
       resolver_(boost::asio::make_strand(ioc_)),
-      obfuscator_(std::move(obfuscator)),
+      censorship_strategy_(censorship_strategy),
       ws_(ssl_stream_type(
-          obfuscator_socket_type(boost::asio::make_strand(ioc_), obfuscator_),
+          obfuscator_socket_type(boost::asio::make_strand(ioc_), nullptr),
           ctx_)),
       strand_(boost::asio::make_strand(ioc_)),
       write_channel_(strand_, kMaxSizeOutQueue_),
@@ -46,11 +45,23 @@ WebsocketClient::WebsocketClient(fptn::common::network::IPv4Address server_ip,
       sni_(std::move(sni)),
       access_token_(std::move(access_token)),
       expected_md5_fingerprint_(std::move(expected_md5_fingerprint)),
-      enable_reality_mode_(enable_reality_mode),
       on_connected_callback_(std::move(on_connected_callback)) {
   auto* ssl = ws_.next_layer().native_handle();
   https::utils::SetHandshakeSni(ssl, sni_);
   https::utils::SetHandshakeSessionID(ssl);
+
+  if (censorship_strategy_ == CensorshipStrategy::kSni) {
+    obfuscator_ = nullptr;
+  }
+  if (censorship_strategy_ == CensorshipStrategy::kTlsObfuscator) {
+    obfuscator_ =
+        std::make_shared<fptn::protocol::https::obfuscator::TlsObfuscator>();
+    ws_.next_layer().next_layer().set_obfuscator(obfuscator_);
+  }
+
+  if (censorship_strategy_ == CensorshipStrategy::kSniRealityMode) {
+    obfuscator_ = nullptr;
+  }
 
   https::utils::AttachCertificateVerificationCallback(
       ssl, [this](const std::string& md5_fingerprint) mutable {
@@ -302,7 +313,7 @@ boost::asio::awaitable<bool> WebsocketClient::Connect() {
     // packet inspection Then resets the connection state and activates
     // obfuscation for the real encrypted tunnel This dual-handshake approach
     // makes traffic analysis significantly more difficult
-    if (enable_reality_mode_) {
+    if (censorship_strategy_ == CensorshipStrategy::kSniRealityMode) {
       const bool status = co_await PerformFakeHandshake();
       if (!status) {
         co_return false;

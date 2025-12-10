@@ -32,10 +32,11 @@ std::uint64_t GetDownloadTimeMs(const ServerInfo& server,
     const std::string& sni,
     int timeout,
     const std::string& md5_fingerprint,
-    const fptn::protocol::https::obfuscator::IObfuscatorSPtr& obfuscator) {
+    fptn::protocol::https::CensorshipStrategy censorship_strategy) {
   try {
     auto const start = std::chrono::high_resolution_clock::now();
-    ApiClient cli(server.host, server.port, sni, md5_fingerprint, obfuscator);
+    ApiClient cli(
+        server.host, server.port, sni, md5_fingerprint, censorship_strategy);
     auto const resp = cli.Get("/api/v1/test/file.bin", timeout);
     if (resp.code == 200) {
       auto const end = std::chrono::high_resolution_clock::now();
@@ -54,7 +55,7 @@ std::uint64_t GetDownloadTimeMs(const ServerInfo& server,
 
 ServerInfo FindFastestServer(const std::string& sni,
     const std::vector<ServerInfo>& servers,
-    const fptn::protocol::https::obfuscator::IObfuscatorSPtr& obfuscator) {
+    fptn::protocol::https::CensorshipStrategy censorship_strategy) {
   constexpr int kTimeoutSeconds = 30;
 
   // randomly select half of the servers
@@ -81,12 +82,10 @@ ServerInfo FindFastestServer(const std::string& sni,
   for (std::size_t i = 0; i < selected_servers.size(); ++i) {
     // NOLINTNEXTLINE(bugprone-exception-escape)
     std::thread([&promise = promises[i], server = selected_servers[i], sni,
-                    obfuscator]() {
+                    censorship_strategy]() {
       try {
-        const auto cloned_obfuscator =
-            (obfuscator != nullptr ? obfuscator->Clone() : nullptr);
         const auto time_ms = GetDownloadTimeMs(server, sni, kTimeoutSeconds,
-            server.md5_fingerprint, cloned_obfuscator);
+            server.md5_fingerprint, censorship_strategy);
         promise.set_value(time_ms);
       } catch (...) {  // NOLINT
         // Set max timeout in case of exception

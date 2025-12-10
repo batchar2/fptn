@@ -9,7 +9,6 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
-#include <iostream>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -246,39 +245,32 @@ using tcp_stream_type = boost::beast::tcp_stream;
 using obfuscator_socket_type = obfuscator::TcpStream<tcp_stream_type>;
 using ssl_stream_type = boost::beast::ssl_stream<obfuscator_socket_type>;
 
-ApiClient::ApiClient(const std::string& host,
-    int port,
-    obfuscator::IObfuscatorSPtr obfuscator,
-    bool enable_reality_mode)
+ApiClient::ApiClient(
+    const std::string& host, int port, CensorshipStrategy censorship_strategy)
     : host_(host),
       port_(port),
       sni_(host),
-      obfuscator_(std::move(obfuscator)),
-      enable_reality_mode_(enable_reality_mode) {}  // NOLINT
+      censorship_strategy_(censorship_strategy) {}  // NOLINT
 
 ApiClient::ApiClient(std::string host,
     int port,
     std::string sni,
-    obfuscator::IObfuscatorSPtr obfuscator,
-    bool enable_fake_handshake)
+    CensorshipStrategy censorship_strategy)
     : host_(std::move(host)),
       port_(port),
       sni_(std::move(sni)),
-      obfuscator_(std::move(obfuscator)),
-      enable_reality_mode_(enable_fake_handshake) {}  // NOLINT
+      censorship_strategy_(censorship_strategy) {}  // NOLINT
 
 ApiClient::ApiClient(std::string host,
     int port,
     std::string sni,
     std::string md5_fingerprint,
-    obfuscator::IObfuscatorSPtr obfuscator,
-    bool enable_fake_handshake)
+    CensorshipStrategy censorship_strategy)
     : host_(std::move(host)),
       port_(port),
       sni_(std::move(sni)),
       expected_md5_fingerprint_(std::move(md5_fingerprint)),
-      obfuscator_(std::move(obfuscator)),
-      enable_reality_mode_(enable_fake_handshake) {}  // NOLINT
+      censorship_strategy_(censorship_strategy) {}  // NOLINT
 
 Response ApiClient::Get(const std::string& handle, int timeout) const {
   // NOLINTNEXTLINE(bugprone-exception-escape)
@@ -317,8 +309,8 @@ bool ApiClient::TestHandshake(int timeout) const {
 }
 
 ApiClient ApiClient::Clone() const {
-  ApiClient temp_client(host_, port_, sni_, expected_md5_fingerprint_,
-      obfuscator_, enable_reality_mode_);
+  ApiClient temp_client(
+      host_, port_, sni_, expected_md5_fingerprint_, censorship_strategy_);
   return temp_client;
 }
 
@@ -375,8 +367,6 @@ Response ApiClient::GetImpl(const std::string& handle, int timeout) const {
   std::string error;
   int respcode = 400;
 
-  std::cerr << "========================" << std::endl;
-
   const auto start_time = std::chrono::steady_clock::now();
 
   SSL* ssl = nullptr;
@@ -387,9 +377,14 @@ Response ApiClient::GetImpl(const std::string& handle, int timeout) const {
     auto* ssl_ctx = fptn::protocol::https::utils::CreateNewSslCtx();
     boost::asio::ssl::context ctx(ssl_ctx);
 
+    fptn::protocol::https::obfuscator::IObfuscatorSPtr obfuscator = nullptr;
+    if (censorship_strategy_ == CensorshipStrategy::kTlsObfuscator) {
+      obfuscator =
+          std::make_shared<fptn::protocol::https::obfuscator::TlsObfuscator>();
+    }
+
     tcp_stream_type tcp_stream(ioc);
-    obfuscator_socket_type obfuscator_stream(
-        std::move(tcp_stream), enable_reality_mode_ ? nullptr : obfuscator_);
+    obfuscator_socket_type obfuscator_stream(std::move(tcp_stream), obfuscator);
     ssl_stream_type stream(std::move(obfuscator_stream), ctx);
 
     const std::string port_str = std::to_string(port_);
@@ -420,7 +415,7 @@ Response ApiClient::GetImpl(const std::string& handle, int timeout) const {
       SetSocketTimeouts(socket, timeout);
 
       // Perform fake handshake if enabled
-      if (enable_reality_mode_) {
+      if (censorship_strategy_ == CensorshipStrategy::kTlsObfuscator) {
         const bool perform_status = PerformFakeHandshake(socket);
         if (!perform_status) {
           SPDLOG_WARN(
@@ -446,16 +441,15 @@ Response ApiClient::GetImpl(const std::string& handle, int timeout) const {
         ctx.set_verify_mode(boost::asio::ssl::verify_none);
       }
 
-      std::cerr << "SEND HANDSHAKE>" << std::endl;
       stream.handshake(boost::asio::ssl::stream_base::client);
 
-      if (obfuscator_ != nullptr) {
+      if (obfuscator != nullptr) {
         constexpr int kMaxRetries = 5;
         int retry_count = 0;
         do {
           std::this_thread::sleep_for(std::chrono::milliseconds(200));
           retry_count += 1;
-        } while (obfuscator_->HasPendingData() && retry_count < kMaxRetries);
+        } while (obfuscator->HasPendingData() && retry_count < kMaxRetries);
         if (retry_count >= kMaxRetries) {
           SPDLOG_WARN(
               "GET [{}] - Failed to clear obfuscator pending data within {} "
@@ -549,8 +543,6 @@ Response ApiClient::PostImpl(const std::string& handle,
   std::string error;
   int respcode = 400;
 
-  std::cerr << "========================" << std::endl;
-
   const auto start_time = std::chrono::steady_clock::now();
 
   SSL* ssl = nullptr;
@@ -561,9 +553,14 @@ Response ApiClient::PostImpl(const std::string& handle,
     auto* ssl_ctx = utils::CreateNewSslCtx();
     boost::asio::ssl::context ctx(ssl_ctx);
 
+    fptn::protocol::https::obfuscator::IObfuscatorSPtr obfuscator = nullptr;
+    if (censorship_strategy_ == CensorshipStrategy::kTlsObfuscator) {
+      obfuscator =
+          std::make_shared<fptn::protocol::https::obfuscator::TlsObfuscator>();
+    }
+
     tcp_stream_type tcp_stream(ioc);
-    obfuscator_socket_type obfuscator_stream(
-        std::move(tcp_stream), enable_reality_mode_ ? nullptr : obfuscator_);
+    obfuscator_socket_type obfuscator_stream(std::move(tcp_stream), obfuscator);
     ssl_stream_type stream(std::move(obfuscator_stream), ctx);
 
     const std::string port_str = std::to_string(port_);
@@ -594,7 +591,7 @@ Response ApiClient::PostImpl(const std::string& handle,
       SetSocketTimeouts(socket, timeout);
 
       // Perform fake handshake if enabled
-      if (enable_reality_mode_) {
+      if (censorship_strategy_ == CensorshipStrategy::kSniRealityMode) {
         const bool perform_status = PerformFakeHandshake(socket);
         if (!perform_status) {
           SPDLOG_WARN(
@@ -622,13 +619,13 @@ Response ApiClient::PostImpl(const std::string& handle,
 
       stream.handshake(boost::asio::ssl::stream_base::client);
 
-      if (obfuscator_ != nullptr) {
+      if (obfuscator != nullptr) {
         constexpr int kMaxRetries = 5;
         int retry_count = 0;
         do {
           std::this_thread::sleep_for(std::chrono::milliseconds(200));
           retry_count += 1;
-        } while (obfuscator_->HasPendingData() && retry_count < kMaxRetries);
+        } while (obfuscator->HasPendingData() && retry_count < kMaxRetries);
         if (retry_count >= kMaxRetries) {
           SPDLOG_WARN(
               "POST [{}] - Failed to clear obfuscator pending data within {} "
@@ -732,9 +729,14 @@ bool ApiClient::TestHandshakeImpl(int timeout) const {
     auto* ssl_ctx = utils::CreateNewSslCtx();
     boost::asio::ssl::context ctx(ssl_ctx);
 
+    fptn::protocol::https::obfuscator::IObfuscatorSPtr obfuscator = nullptr;
+    if (censorship_strategy_ == CensorshipStrategy::kTlsObfuscator) {
+      obfuscator =
+          std::make_shared<fptn::protocol::https::obfuscator::TlsObfuscator>();
+    }
+
     tcp_stream_type tcp_stream(ioc);
-    obfuscator_socket_type obfuscator_stream(
-        std::move(tcp_stream), obfuscator_);
+    obfuscator_socket_type obfuscator_stream(std::move(tcp_stream), obfuscator);
     ssl_stream_type stream(std::move(obfuscator_stream), ctx);
 
     const std::string port_str = std::to_string(port_);
@@ -774,7 +776,7 @@ bool ApiClient::TestHandshakeImpl(int timeout) const {
     SetSocketTimeouts(socket, timeout);
 
     // Perform fake handshake if enabled
-    if (enable_reality_mode_) {
+    if (censorship_strategy_ == CensorshipStrategy::kSniRealityMode) {
       SPDLOG_INFO("TestHandshake - Performing fake handshake");
       if (!PerformFakeHandshake(socket)) {
         SPDLOG_WARN(

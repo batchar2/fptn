@@ -20,16 +20,18 @@ using fptn::config::ConfigFile;
 using fptn::utils::speed_estimator::ServerInfo;
 
 ConfigFile::ConfigFile(std::string sni,
-    fptn::protocol::https::obfuscator::IObfuscatorSPtr obfuscator)
-    : sni_(std::move(sni)), version_(0), obfuscator_(std::move(obfuscator)) {}
+    fptn::protocol::https::CensorshipStrategy censorship_strategy)
+    : sni_(std::move(sni)),
+      censorship_strategy_(censorship_strategy),
+      version_(0) {}
 
 ConfigFile::ConfigFile(std::string token,
     std::string sni,
-    fptn::protocol::https::obfuscator::IObfuscatorSPtr obfuscator)
+    fptn::protocol::https::CensorshipStrategy censorship_strategy)
     : token_(std::move(token)),
       sni_(std::move(sni)),
-      version_(0),
-      obfuscator_(std::move(obfuscator)) {}
+      censorship_strategy_(censorship_strategy),
+      version_(0) {}
 
 bool ConfigFile::AddServer(const ServerInfo& s) {
   servers_.push_back(s);
@@ -68,7 +70,7 @@ bool ConfigFile::Parse() {
 
 ServerInfo ConfigFile::FindFastestServer() const {
   return fptn::utils::speed_estimator::FindFastestServer(
-      sni_, servers_, obfuscator_);
+      sni_, servers_, censorship_strategy_);
 }
 
 std::uint64_t ConfigFile::GetDownloadTimeMs(const ServerInfo& server,
@@ -76,7 +78,7 @@ std::uint64_t ConfigFile::GetDownloadTimeMs(const ServerInfo& server,
     int timeout,
     const std::string& md5_fingerprint) {
   return fptn::utils::speed_estimator::GetDownloadTimeMs(
-      server, sni, timeout, md5_fingerprint, obfuscator_);
+      server, sni, timeout, md5_fingerprint, censorship_strategy_);
 }
 
 int ConfigFile::GetVersion() const noexcept { return version_; }
