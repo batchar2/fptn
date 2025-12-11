@@ -516,13 +516,9 @@ boost::asio::awaitable<bool> Session::HandleRealityMode(
             boost::asio::buffer(*handshake_answer), boost::asio::use_awaitable);
 
     SPDLOG_INFO(
-        "!!!!!!!!!!!!! Handshake Complited. request_size = {} response_size: "
-        "{}",
-        bytes_read, bytes_wrote);
-
-    SPDLOG_INFO(
-        " Reality mode completed, ready for real handshake (client_id={})",
-        client_id_);
+        "Reality mode completed, ready for real handshake (client_id={}) "
+        "request_size = {} response_size: {}",
+        client_id_, bytes_read, bytes_wrote);
     co_return true;
   } catch (const std::exception& e) {
     SPDLOG_ERROR(
