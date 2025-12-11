@@ -28,8 +28,8 @@ class Manager final {
   bool Start() noexcept;
 
  private:
-  void RunToClient() noexcept;
-  void RunFromClient() noexcept;
+  void RunToClient() const noexcept;
+  void RunFromClient() const noexcept;
   void RunCollectStatistics() noexcept;
 
  private:
