@@ -68,8 +68,6 @@ PROMETHEUS_SECRET_ACCESS_KEY=
 
 # Maximum number of active sessions allowed per VPN user
 MAX_ACTIVE_SESSIONS_PER_USER=3
-
-LOG_FILE=/var/log/fptn-server.log
 EOL
 
 # Create systemd service file for server
