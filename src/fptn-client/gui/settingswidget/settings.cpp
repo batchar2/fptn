@@ -290,7 +290,7 @@ void SettingsWidget::SetupUi() {
   sponsors_label_->setAlignment(Qt::AlignLeft);
   about_layout->addWidget(sponsors_label_);
 
-  QString sponsors_list =
+  const QString sponsors_list =
       "  - Brebor<br>"
       "  - miklefox<br>"
       "  - usrbb<br>"
@@ -299,8 +299,15 @@ void SettingsWidget::SetupUi() {
       "  - slimefrozik<br>"
       "  - HooLigaN<br>"
       "  - Dima<br>"
-      "  - Kori";
-
+      "  - Kori<br>"
+      "  - DrowASD<br>"
+      "  - GΣG 5952<br>"
+      "  - NikVas<br>"
+      "  - Сергей<br>"
+      "  - Frizgy<br>"
+      "  - Tired Smi1e<br>"
+      "  - Teya Aster<br>"
+      "  - loftynite<br>";
   sponsors_names_label_ = new QLabel(sponsors_list, this);
   sponsors_names_label_->setAlignment(Qt::AlignLeft);
   sponsors_names_label_->setTextInteractionFlags(Qt::TextSelectableByMouse);
