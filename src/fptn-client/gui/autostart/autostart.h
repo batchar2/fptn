@@ -39,8 +39,8 @@ inline std::string getLinuxDesktopEntryPath() {
 }
 #elif _WIN32
 inline std::string getWindowsFullPath() {
-  char fptn_path[MAX_PATH] = {};
-  if (!SUCCEEDED(GetModuleFileName(nullptr, fptn_path, MAX_PATH))) {
+  wchar_t fptn_path[MAX_PATH] = {};
+  if (GetModuleFileNameW(nullptr, fptn_path, MAX_PATH) == 0) {
     const DWORD code = GetLastError();
     SPDLOG_ERROR("Failed to retrieve the path. Error code: {}", code);
     return {};
@@ -52,15 +52,28 @@ inline std::string getWindowsFullPath() {
 }
 
 inline std::string getWindowsStartupFolder() {
-  char path[MAX_PATH] = {};
-  if (!SUCCEEDED(SHGetFolderPath(nullptr, CSIDL_STARTUP, nullptr, 0, path))) {
-    // if (SUCCEEDED(SHGetFolderPathA(NULL, CSIDL_STARTUP, NULL, 0, path))) {
+  wchar_t path[MAX_PATH] = {};
+  if (!SUCCEEDED(SHGetFolderPathW(nullptr, CSIDL_STARTUP, nullptr, 0, path))) {
     const DWORD code = GetLastError();
     SPDLOG_ERROR(
         "Failed to retrieve the startup folder path. Error code: {}", code);
     return {};
   }
-  return path;
+
+  // Convert wide string to UTF-8 using Windows API
+  int utf8_size =
+      WideCharToMultiByte(CP_UTF8, 0, path, -1, nullptr, 0, nullptr, nullptr);
+  if (utf8_size == 0) {
+    const DWORD code = GetLastError();
+    SPDLOG_ERROR("Failed to convert path to UTF-8. Error code: {}", code);
+    return {};
+  }
+
+  std::string utf8_path(utf8_size, '\0');
+  WideCharToMultiByte(
+      CP_UTF8, 0, path, -1, &utf8_path[0], utf8_size, nullptr, nullptr);
+  utf8_path.resize(utf8_size - 1);  // Remove null terminator
+  return utf8_path;
 }
 #endif
 
@@ -166,21 +179,21 @@ inline bool enable() {
   // if (!fptn::common::system::command::run(command)) {
   //     SPDLOG_ERROR("Error running command: {}", command);
   //     return false;
-  // }
-  // SET SHORTCUT
-  // const std::filesystem::path shortcutPath =
-  // std::filesystem::path(windowsStartupFolder) / "FptnClient.lnk"; const
-  // std::string powershellCommand = fmt::format(
-  //     R"(powershell -Command "$ws = New-Object -ComObject WScript.Shell; $s =
-  //     $ws.CreateShortcut('{}'); $s.TargetPath = '{}'; $s.Save();")",
-  //     shortcutPath.u8string(), fptn_path
-  // );
-  // if (!fptn::common::system::command::run(powershellCommand)) {
-  //     SPDLOG_ERROR("Failed to create shortcut: {}", powershellCommand);
-  //     return false;
-  // }
-  // SPDLOG_INFO("Shortcut created successfully at: {}",
-  // shortcutPath.u8string());
+// }
+// SET SHORTCUT
+// const std::filesystem::path shortcutPath =
+// std::filesystem::path(windowsStartupFolder) / "FptnClient.lnk"; const
+// std::string powershellCommand = fmt::format(
+//     R"(powershell -Command "$ws = New-Object -ComObject WScript.Shell; $s =
+//     $ws.CreateShortcut('{}'); $s.TargetPath = '{}'; $s.Save();")",
+//     shortcutPath.u8string(), fptn_path
+// );
+// if (!fptn::common::system::command::run(powershellCommand)) {
+//     SPDLOG_ERROR("Failed to create shortcut: {}", powershellCommand);
+//     return false;
+// }
+// SPDLOG_INFO("Shortcut created successfully at: {}",
+// shortcutPath.u8string());
 #endif
   SPDLOG_INFO("Autostart successfully enabled");
   return true;
