@@ -415,7 +415,7 @@ Response ApiClient::GetImpl(const std::string& handle, int timeout) const {
       SetSocketTimeouts(socket, timeout);
 
       // Perform fake handshake if enabled
-      if (censorship_strategy_ == CensorshipStrategy::kTlsObfuscator) {
+      if (censorship_strategy_ == CensorshipStrategy::kSniRealityMode) {
         const bool perform_status = PerformFakeHandshake(socket);
         if (!perform_status) {
           SPDLOG_WARN(
