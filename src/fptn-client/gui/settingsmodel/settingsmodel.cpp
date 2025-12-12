@@ -66,8 +66,8 @@ SettingsModel::SettingsModel(const QMap<QString, QString>& languages,
       selected_language_(default_language),
       client_autostart_(false) {
 #if _WIN32
-  char exe_path[MAX_PATH] = {};
-  if (SUCCEEDED(GetModuleFileName(nullptr, exe_path, MAX_PATH))) {
+  wchar_t exe_path[MAX_PATH] = {};
+  if (GetModuleFileNameW(nullptr, exe_path, MAX_PATH) != 0) {
     std::filesystem::path exe_dir =
         std::filesystem::path(exe_path).parent_path();
     std::string sni_folder = (exe_dir / "SNI").string();
