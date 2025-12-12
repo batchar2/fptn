@@ -11,6 +11,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #endif
 
 #include <memory>
+#include <set>
 #include <string>
 #include <utility>
 
@@ -37,6 +38,9 @@ int main(int argc, char* argv[]) {
   }
 #endif
   try {
+    const std::set<std::string> bypass_methods = {
+        "sni", "obfuscation", "sni-reality"};
+
     using fptn::protocol::https::obfuscator::GetObfuscatorByName;
     using fptn::protocol::https::obfuscator::GetObfuscatorNames;
 
@@ -67,12 +71,16 @@ int main(int argc, char* argv[]) {
         .help(
             "Domain name for SNI in TLS handshake (used to obfuscate VPN "
             "traffic)");
+    // Method to bypass censorship
     args.add_argument("--bypass-method")
-        .default_value("none")
-        .help("Censorship bypass method method: sni, obfuscation, sni-reality")
-        .action([](const std::string& v) {
-          if (v != "sni" && v != "obfuscation" && v != "sni-reality") {
-            throw std::runtime_error("Unknown bypass-method: '" + v + "' ");
+        .default_value("sni")
+        .help(fmt::format(
+            "Method to bypass censorship: {}", fmt::join(bypass_methods, ", ")))
+        .action([&bypass_methods](const std::string& v) {
+          if (!bypass_methods.contains(v)) {
+            throw std::runtime_error(
+                fmt::format("Invalid bypass method '{}'. Choose from: {}", v,
+                    fmt::join(bypass_methods, ", ")));
           }
           return v;
         });
@@ -169,10 +177,9 @@ int main(int argc, char* argv[]) {
         "TUN INTERFACE IPv4: {}\n"
         "TUN INTERFACE IPv6: {}\n"
         "BYPASS-METHOD:      {}\n",
-        FPTN_VERSION, sni,
-        using_gateway_ip.ToString(), out_network_interface_name,
-        selected_server.name, selected_server.host, selected_server.port,
-        tun_interface_address_ipv4.ToString(),
+        FPTN_VERSION, sni, using_gateway_ip.ToString(),
+        out_network_interface_name, selected_server.name, selected_server.host,
+        selected_server.port, tun_interface_address_ipv4.ToString(),
         tun_interface_address_ipv6.ToString(), bypass_method);
 
     /* auth & dns */

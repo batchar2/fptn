@@ -106,22 +106,44 @@ Open the server configuration file /etc/fptn/server.conf and set it up as follow
 ```bash
 # Configuration for fptn server
 
-OUT_NETWORK_INTERFACE=eth0
+OUT_NETWORK_INTERFACE=
 
 # KEYS
-SERVER_KEY=server.key
-SERVER_CRT=server.crt
+SERVER_KEY=
+SERVER_CRT=
 
 PORT=443
 TUN_INTERFACE_NAME=fptn0
 
-LOG_FILE=/var/log/fptn-server.log
+# Enable detection of probing attempts (experimental; accepted values: true or false)
+ENABLE_DETECT_PROBING=false
+
+# true or false
+DISABLE_BITTORRENT=true
+
+# Set the USE_REMOTE_SERVER_AUTH variable to true if you need to
+# redirect requests to a master FPTN server for authorization.
+# This is used for cluster operations.
+USE_REMOTE_SERVER_AUTH=false
+# Specify the remote FPTN server's host address for authorization.
+# This should be the IP address or domain name of the server.
+REMOTE_SERVER_AUTH_HOST=
+# Specify the port of the remote FPTN server for authorization.
+# The default is port 443 for secure HTTPS connections.
+REMOTE_SERVER_AUTH_PORT=443
+
+# Set a secret key to allow Prometheus to access the server's statistics.
+# This key must be alphanumeric (letters and numbers only) and must not include spaces or special characters.
+PROMETHEUS_SECRET_ACCESS_KEY=
+
+# Maximum number of active sessions allowed per VPN user
+MAX_ACTIVE_SESSIONS_PER_USER=3
 ```
 
 Configuration File Fields
 - `OUT_NETWORK_INTERFACE` Specifies the network interface that the server will use for outgoing traffic (e.g., eth0 for Ethernet). Ensure this is set to the correct network interface on your routing.
-- `SERVER_KEY` The filename of the private key for the server. This key is used for encrypting and signing communications.
-- `SERVER_CRT` The filename of the server's SSL certificate. This certificate is used to establish a secure connection between the server and clients.
+- `SERVER_KEY` The filename of the server's private key, located in the `/etc/fptn` directory. This key is used for encrypting and signing communications between the server and clients.
+- `SERVER_CRT` The filename of the server's SSL certificate, located in the `/etc/fptn` directory. This certificate is used to establish a secure TLS connection between the server and clients.
 - `PORT` The port number on which the server will listen for incoming connections (e.g., 443). Ensure this port is open and not in use by other services.
 - `TUN_INTERFACE_NAME` The name of the virtual network interface used by the VPN (e.g., fptn0). This interface is used for tunneling VPN traffic.
 - `LOG_FILE` The path to the log file where server logs will be written (e.g., /var/log/fptn-server.log). This file is useful for troubleshooting and monitoring server activity.
