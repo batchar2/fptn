@@ -180,8 +180,7 @@ TrayApp::TrayApp(const SettingsModelPtr& settings, QObject* parent)
   tray_icon_->show();
 
   // check update
-  update_version_future_ =
-      std::async(std::launch::async, fptn::gui::autoupdate::Check);
+  CheckForUpdatesAsync();
 
   try {
     settings_->Load(false);  // use this to show notification about change
@@ -205,6 +204,45 @@ TrayApp::TrayApp(const SettingsModelPtr& settings, QObject* parent)
     ShowWarning(QObject::tr("VPN Conflict Detected"), message);
   }
 #endif
+}
+
+void TrayApp::CheckForUpdatesAsync() {
+  (void)QtConcurrent::run([this]() {
+    try {
+      SPDLOG_DEBUG("Checking for updates in background thread");
+
+      const auto update_result = fptn::gui::autoupdate::Check();
+      const bool is_available = update_result.first;
+      const std::string version_name = update_result.second;
+
+      SPDLOG_INFO("Update check completed: available={}, version={}",
+          is_available, version_name);
+      if (is_available && !version_name.empty()) {
+        QMetaObject::invokeMethod(
+            this,
+            // NOLINTNEXTLINE(bugprone-exception-escape)
+            [this, version_name]() noexcept {
+              try {
+                auto_available_version_ = QString::fromStdString(version_name);
+                auto_update_action_->setText(
+                    QObject::tr("New version available") + " " +
+                    auto_available_version_);
+                auto_update_action_->setVisible(true);
+                RetranslateUi();
+              } catch (...) {
+                SPDLOG_WARN("Failed to update UI with new version info");
+              }
+            },
+            Qt::QueuedConnection);
+      } else {
+        SPDLOG_DEBUG("No updates available or version name is empty");
+      }
+    } catch (const std::exception& e) {
+      SPDLOG_WARN("Failed to check for updates: {}", e.what());
+    } catch (...) {
+      SPDLOG_WARN("Unknown error during update check");
+    }
+  });
 }
 
 void TrayApp::UpdateTrayMenu() {
@@ -561,18 +599,6 @@ void TrayApp::handleTimer() {
         QObject::tr("The VPN connection was unexpectedly closed."));
     SPDLOG_INFO("FPTN Connection Error");
     emit disconnecting();
-  }
-
-  // show update message
-  if (update_version_future_.valid()) {
-    const auto update_result = update_version_future_.get();
-    const bool is_new_version = update_result.first;
-    const std::string version_name = update_result.second;
-    if (is_new_version) {
-      auto_available_version_ = QString::fromStdString(version_name);
-      auto_update_action_->setVisible(true);
-      RetranslateUi();
-    }
   }
 }
 

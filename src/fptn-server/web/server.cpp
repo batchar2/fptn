@@ -140,6 +140,8 @@ bool Server::Stop() {
     running_ = false;
     SPDLOG_INFO("Server stop");
 
+    listener_->Stop();
+
     for (auto& session : sessions_) {
       if (session.second) {
         session.second->Close();
@@ -242,6 +244,10 @@ bool Server::HandleWsOpenConnection(fptn::ClientID client_id,
     const SessionSPtr& session,
     const std::string& url,
     const std::string& access_token) {
+  if (!running_) {
+    SPDLOG_ERROR("Server is not running");
+    return false;
+  }
   if (url != kUrlWebSocket_) {
     SPDLOG_ERROR("Wrong URL \"{}\"", url);
     return false;
