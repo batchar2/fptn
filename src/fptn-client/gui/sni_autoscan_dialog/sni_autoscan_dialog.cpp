@@ -246,7 +246,8 @@ void SniAutoscanDialog::WorkerThread(int thread_id) {
 
       constexpr int kHandshakeTimeout = 2;
       fptn::protocol::https::ApiClient client(server.host.toStdString(),
-          server.port, sni, server.md5_fingerprint.toStdString(), nullptr);
+          server.port, sni, server.md5_fingerprint.toStdString(),
+          protocol::https::CensorshipStrategy::kSni);
 
       handshake_ok = client.TestHandshake(kHandshakeTimeout);
       if (handshake_ok) {
@@ -364,10 +365,11 @@ void SniAutoscanDialog::AddLogEntry(const QString& server,
                 <td width="15%" style="padding-left: 10px;">HTTP: %4</td>
             </tr>
         </table>
-    )").arg(server.toHtmlEscaped())
-        .arg(sni.toHtmlEscaped())
-        .arg(handshake_status)
-        .arg(http_status);
+    )")
+                                  .arg(server.toHtmlEscaped())
+                                  .arg(sni.toHtmlEscaped())
+                                  .arg(handshake_status)
+                                  .arg(http_status);
 
     {
       const std::unique_lock<std::mutex> lock(mutex_);

@@ -10,6 +10,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <string>
 #include <utility>
 
+#include <boost/process/v1/io.hpp>
 #include <fmt/format.h>  // NOLINT(build/include_order)
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
@@ -17,6 +18,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "common/network/ip_address.h"
 
 #include "fptn-protocol-lib/https/api_client/api_client.h"
+#include "fptn-protocol-lib/https/obfuscator/methods/tls/tls_obfuscator.h"
 #include "routing/iptables.h"
 
 using fptn::common::network::IPv4Address;
@@ -30,7 +32,7 @@ Client::Client(IPv4Address server_ip,
     IPv6Address tun_interface_address_ipv6,
     std::string sni,
     std::string md5_fingerprint,
-    fptn::protocol::https::obfuscator::IObfuscatorSPtr obfuscator,
+    fptn::protocol::https::CensorshipStrategy censorship_strategy,
     NewIPPacketCallback new_ip_pkt_callback)
     : running_(false),
       server_ip_(std::move(server_ip)),
@@ -39,15 +41,16 @@ Client::Client(IPv4Address server_ip,
       tun_interface_address_ipv6_(std::move(tun_interface_address_ipv6)),
       sni_(std::move(sni)),
       md5_fingerprint_(std::move(md5_fingerprint)),
-      obfuscator_(std::move(obfuscator)),
+      censorship_strategy_(censorship_strategy),
       new_ip_pkt_callback_(std::move(new_ip_pkt_callback)),
       reconnection_attempts_(kMaxReconnectionAttempts_) {}
 
 bool Client::Login(const std::string& username, const std::string& password) {
   const std::string request = fmt::format(
       R"({{ "username": "{}", "password": "{}" }})", username, password);
+
   const std::string ip = server_ip_.ToString();
-  ApiClient cli(ip, server_port_, sni_, md5_fingerprint_, obfuscator_);
+  ApiClient cli(ip, server_port_, sni_, md5_fingerprint_, censorship_strategy_);
 
   const auto resp = cli.Post("/api/v1/login", request, "application/json");
   if (resp.code == 200) {
@@ -82,7 +85,8 @@ std::pair<IPv4Address, IPv6Address> Client::GetDns() {
       server_ip_.ToString(), server_port_);
 
   const std::string ip = server_ip_.ToString();
-  ApiClient cli(ip, server_port_, sni_, md5_fingerprint_, obfuscator_);
+  ApiClient cli(ip, server_port_, sni_, md5_fingerprint_, censorship_strategy_);
+
   const auto resp = cli.Get("/api/v1/dns");
   if (resp.code == 200) {
     try {
@@ -152,7 +156,7 @@ void Client::Run() {
         ws_ = std::make_shared<fptn::protocol::https::WebsocketClient>(
             server_ip_, server_port_, tun_interface_address_ipv4_,
             tun_interface_address_ipv6_, new_ip_pkt_callback_, sni_,
-            access_token_, md5_fingerprint_, obfuscator_);
+            access_token_, md5_fingerprint_, censorship_strategy_);
       }
     }
 

@@ -151,10 +151,13 @@ void SettingsWidget::SetupUi() {
   bypass_method_combo_box_ = new QComboBox(this);
   bypass_method_combo_box_->addItem(QObject::tr("SNI"), "SNI");
   bypass_method_combo_box_->addItem(QObject::tr("OBFUSCATION"), "OBFUSCATION");
+  bypass_method_combo_box_->addItem(QObject::tr("SNI-REALITY"), "SNI-REALITY");
   bypass_method_combo_box_->setSizePolicy(
       QSizePolicy::Expanding, QSizePolicy::Fixed);
   if (settings_->BypassMethod() == "OBFUSCATION") {
     bypass_method_combo_box_->setCurrentText(QObject::tr("OBFUSCATION"));
+  } else if (settings_->BypassMethod() == "SNI-REALITY") {
+    bypass_method_combo_box_->setCurrentText(QObject::tr("SNI-REALITY"));
   } else {
     bypass_method_combo_box_->setCurrentText(QObject::tr("SNI"));
   }
@@ -375,9 +378,14 @@ void SettingsWidget::onExit() {
   settings_->SetLanguage(language_combo_box_->currentText());
   settings_->SetGatewayIp(gateway_line_edit_->text());
   settings_->SetSNI(sni_line_edit_->text());
+
   if (bypass_method_combo_box_->currentText() == QObject::tr("OBFUSCATION") ||
       bypass_method_combo_box_->currentText() == "OBFUSCATION") {
     settings_->SetBypassMethod("OBFUSCATION");
+  } else if (bypass_method_combo_box_->currentText() ==
+                 QObject::tr("SNI-REALITY") ||
+             bypass_method_combo_box_->currentText() == "SNI-REALITY") {
+    settings_->SetBypassMethod("SNI-REALITY");
   } else {
     settings_->SetBypassMethod("SNI");
   }
@@ -600,25 +608,24 @@ void SettingsWidget::onAutoGatewayChanged(bool checked) {
 
 void SettingsWidget::onBypassMethodChanged(const QString& method) {
   const bool is_sni_mode = (method == QObject::tr("SNI") || method == "SNI");
+  const bool is_reality_mode =
+      method == QObject::tr("SNI-REALITY") || method == "SNI-REALITY";
 
   // Show/hide SNI field
-  sni_label_->setVisible(is_sni_mode);
-  sni_line_edit_->setVisible(is_sni_mode);
+  sni_label_->setVisible(is_sni_mode || is_reality_mode);
+  sni_line_edit_->setVisible(is_sni_mode || is_reality_mode);
 
   // Show/hide SNI files section based on mode
   sni_files_list_widget_->setVisible(is_sni_mode);
   sni_autoscan_button_->setVisible(is_sni_mode);
   sni_import_button_->setVisible(is_sni_mode);
 
-  // Убираем строки из GridLayout когда они скрыты
-  if (is_sni_mode) {
-    // Восстанавливаем строки когда SNI режим
+  if (is_sni_mode || is_reality_mode) {
     grid_layout_->addWidget(sni_label_, 5, 0, Qt::AlignLeft | Qt::AlignVCenter);
     grid_layout_->addWidget(sni_line_edit_, 5, 1, 1, 2);
     grid_layout_->addLayout(sni_buttons_layout_, 7, 0);
     grid_layout_->addWidget(sni_files_list_widget_, 7, 1, 1, 2);
   } else {
-    // Убираем строки когда OBFUSCATION режим
     grid_layout_->removeWidget(sni_label_);
     grid_layout_->removeWidget(sni_line_edit_);
     grid_layout_->removeItem(sni_buttons_layout_);
@@ -627,6 +634,8 @@ void SettingsWidget::onBypassMethodChanged(const QString& method) {
 
   if (method == QObject::tr("OBFUSCATION") || method == "OBFUSCATION") {
     settings_->SetBypassMethod("OBFUSCATION");
+  } else if (method == QObject::tr("SNI-REALITY") || method == "SNI-REALITY") {
+    settings_->SetBypassMethod("SNI-REALITY");
   } else {
     settings_->SetBypassMethod("SNI");
   }
@@ -647,36 +656,9 @@ void SettingsWidget::UpdateSniFilesList() {
     auto* name_label = new QLabel(file_name);
     name_label->setStyleSheet("QLabel { font-weight: bold; }");
     name_label->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-    /*
-    auto* delete_button = new QPushButton("X");
-    delete_button->setFixedSize(24, 24);
-    delete_button->setStyleSheet(R"(
-        QPushButton {
-            background-color: #444444;
-            color: white;
-            border: none;
-            border-radius: 12px;
-            font-weight: bold;
-            padding: 0px;
-        }
-        QPushButton:hover {
-            background-color: #cc0000;
-        }
-        QPushButton:pressed {
-            background-color: #990000;
-        }
-    )");
-    delete_button->setToolTip(QObject::tr("Delete this file"));
 
-    connect(delete_button, &QPushButton::clicked, [this, file_name]() {
-      settings_->SniManager()->RemoveFile(file_name.toStdString());
-      UpdateSniFilesList();
-    });
-    */
     layout->addWidget(name_label);
-    /*
-    layout->addWidget(delete_button);
-    */
+
     item_widget->setLayout(layout);
 
     auto* item = new QListWidgetItem(sni_files_list_widget_);

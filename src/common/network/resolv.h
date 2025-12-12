@@ -39,9 +39,6 @@ inline ResolveResult ResolveWithTimeout(boost::asio::io_context& ioc,
   ResolveResult result;
 
   if (IsIpAddress(host)) {
-    SPDLOG_INFO(
-        "DNS resolution - Using IP address directly: {}:{}", host, port);
-
     boost::system::error_code ec;
     auto address = boost::asio::ip::make_address(host, ec);
     if (ec) {
@@ -69,22 +66,18 @@ inline ResolveResult ResolveWithTimeout(boost::asio::io_context& ioc,
     return result;
   }
 
-  SPDLOG_INFO("DNS resolution - Starting for {}:{} with timeout {}s", host,
-      port, timeout_seconds);
-
   boost::asio::deadline_timer timer(ioc);
   timer.expires_from_now(boost::posix_time::seconds(timeout_seconds));
 
   bool operation_completed = false;
-
-  resolver.async_resolve(host, port,
+  // FIXME IPv4 only!
+  resolver.async_resolve(boost::asio::ip::tcp::v4(), host, port,
       [&](const boost::system::error_code& ec,
-          boost::asio::ip::tcp::resolver::results_type results_) {
+          boost::asio::ip::tcp::resolver::results_type results) {
         if (!operation_completed) {
           result.error = ec;
           if (!ec) {
-            result.results = results_;
-            SPDLOG_INFO("DNS resolution - Success for {}:{}", host, port);
+            result.results = std::move(results);
           } else {
             SPDLOG_ERROR("DNS resolution - Failed for {}:{}: {}", host, port,
                 ec.message());

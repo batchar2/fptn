@@ -11,6 +11,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #endif
 
 #include <memory>
+#include <set>
 #include <string>
 #include <utility>
 
@@ -37,6 +38,9 @@ int main(int argc, char* argv[]) {
   }
 #endif
   try {
+    const std::set<std::string> bypass_methods = {
+        "sni", "obfuscation", "sni-reality"};
+
     using fptn::protocol::https::obfuscator::GetObfuscatorByName;
     using fptn::protocol::https::obfuscator::GetObfuscatorNames;
 
@@ -67,15 +71,18 @@ int main(int argc, char* argv[]) {
         .help(
             "Domain name for SNI in TLS handshake (used to obfuscate VPN "
             "traffic)");
-    args.add_argument("--obfuscator")
-        .default_value("none")
-        .help("Traffic obfuscation method: " +
-              fmt::format("{}", fmt::join(GetObfuscatorNames(), ", ")))
-        .action([](const std::string& value) {
-          if (!GetObfuscatorByName(value)) {
-            throw std::runtime_error("Unknown obfuscator: '" + value + "' ");
+    // Method to bypass censorship
+    args.add_argument("--bypass-method")
+        .default_value("sni")
+        .help(fmt::format(
+            "Method to bypass censorship: {}", fmt::join(bypass_methods, ", ")))
+        .action([&bypass_methods](const std::string& v) {
+          if (!bypass_methods.contains(v)) {
+            throw std::runtime_error(
+                fmt::format("Invalid bypass method '{}'. Choose from: {}", v,
+                    fmt::join(bypass_methods, ", ")));
           }
-          return value;
+          return v;
         });
     // parse cmd arguments
     try {
@@ -129,12 +136,21 @@ int main(int argc, char* argv[]) {
       return EXIT_FAILURE;
     }
 
-    const auto obfuscator_name = args.get<std::string>("--obfuscator");
-    auto obfuscator = GetObfuscatorByName(obfuscator_name);
+    const auto bypass_method = args.get<std::string>("--bypass-method");
+    fptn::protocol::https::CensorshipStrategy censorship_strategy =
+        fptn::protocol::https::CensorshipStrategy::kSni;
+    if (bypass_method == "obfuscation") {
+      censorship_strategy =
+          fptn::protocol::https::CensorshipStrategy::kTlsObfuscator;
+    } else if (bypass_method == "sni-reality") {
+      censorship_strategy =
+          fptn::protocol::https::CensorshipStrategy::kSniRealityMode;
+    }
 
     /* check config */
     const auto access_token = args.get<std::string>("--access-token");
-    fptn::config::ConfigFile config(access_token, sni, obfuscator.value());
+
+    fptn::config::ConfigFile config(access_token, sni, censorship_strategy);
     fptn::utils::speed_estimator::ServerInfo selected_server;
     try {
       config.Parse();
@@ -159,18 +175,18 @@ int main(int argc, char* argv[]) {
         "VPN SERVER IP:      {}\n"
         "VPN SERVER PORT:    {}\n"
         "TUN INTERFACE IPv4: {}\n"
-        "TUN INTERFACE IPv6: {}\n",
-        "OBFUSCATOR:         {}\n" FPTN_VERSION, sni,
-        using_gateway_ip.ToString(), out_network_interface_name,
-        selected_server.name, selected_server.host, selected_server.port,
-        tun_interface_address_ipv4.ToString(),
-        tun_interface_address_ipv6.ToString(), obfuscator_name);
+        "TUN INTERFACE IPv6: {}\n"
+        "BYPASS-METHOD:      {}\n",
+        FPTN_VERSION, sni, using_gateway_ip.ToString(),
+        out_network_interface_name, selected_server.name, selected_server.host,
+        selected_server.port, tun_interface_address_ipv4.ToString(),
+        tun_interface_address_ipv6.ToString(), bypass_method);
 
     /* auth & dns */
     auto http_client = std::make_unique<fptn::vpn::http::Client>(server_ip,
         selected_server.port, tun_interface_address_ipv4,
         tun_interface_address_ipv6, sni, selected_server.md5_fingerprint,
-        obfuscator.value());
+        censorship_strategy);
     const bool status =
         http_client->Login(config.GetUsername(), config.GetPassword());
     if (!status) {

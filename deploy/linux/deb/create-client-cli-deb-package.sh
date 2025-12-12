@@ -30,24 +30,37 @@ cp "$CLIENT_CLI" "$CLIENT_TMP_DIR/usr/bin/"
 chmod 755 "$CLIENT_TMP_DIR/usr/bin/$(basename "$CLIENT_CLI")"
 
 # Create client configuration file
+# Create client configuration file
 cat <<EOL > "$CLIENT_TMP_DIR/etc/fptn-client/client.conf"
-# Configuration for FPTN client (required)
+# FPTN Client Configuration
+# =========================
+
+# Required: Authentication token for server access
+# Get this token from your FPTN server administrator
 ACCESS_TOKEN=
 
-# Required: Fake VPN domain name for SNI
+# Required: Domain name used for SNI (Server Name Indication)
+# This should be a popular, non-blocked domain in your region
+# Example: rutube.ru, youtube.com, cloudflare.com
 SNI=rutube.ru
 
-# Optional: Specify the network interface
+# Optional: Bind to specific network interface
+# Leave empty to use default interface. Examples: eth0, wlan0, tun0
 NETWORK_INTERFACE=
+
 # Optional: Specify the gateway IP (e.g., router IP)
 GATEWAY_IP=
 
-# Obfuscator for bypassing DPI. Supported values: none, tls
-# - none : no obfuscation
-# - tls  : wrap/obfuscate TLS handshake to avoid simple DPI
-OBFUSCATOR=none
+# Censorship Bypass Settings
+# Optional: Method to bypass censorship mechanisms
+# Available options: sni, obfuscation, sni-reality
+# - sni:         Domain spoofing (SNI) [default]
+# - obfuscation: Traffic masking (obfuscation)
+# - sni-reality: Advanced domain spoofing (SNI + REALITY)
+BYPASS_METHOD=sni
 
 EOL
+
 
 # Create systemd service file for client
 cat <<EOL > "$CLIENT_TMP_DIR/lib/systemd/system/fptn-client.service"
@@ -57,7 +70,7 @@ After=network.target
 
 [Service]
 EnvironmentFile=/etc/fptn-client/client.conf
-ExecStart=/usr/bin/$(basename "$CLIENT_CLI") --access-token=\${ACCESS_TOKEN} --out-network-interface=\${NETWORK_INTERFACE} --gateway-ip=\${GATEWAY_IP} --sni=\${SNI} --obfuscator=\${OBFUSCATOR}
+ExecStart=/usr/bin/$(basename "$CLIENT_CLI") --access-token=\${ACCESS_TOKEN} --out-network-interface=\${NETWORK_INTERFACE} --gateway-ip=\${GATEWAY_IP} --sni=\${SNI} --bypass-method=\${BYPASS_METHOD}
 Restart=always
 RestartSec=5
 User=root

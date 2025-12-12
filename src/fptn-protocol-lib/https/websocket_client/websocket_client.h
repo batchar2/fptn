@@ -22,6 +22,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "common/network/ip_address.h"
 #include "common/network/ip_packet.h"
 
+#include "fptn-protocol-lib/https/censorship_strategy.h"
 #include "fptn-protocol-lib/https/obfuscator/tcp_stream/tcp_stream.h"
 #include "fptn-protocol-lib/https/utils/tls/tls.h"
 #include "fptn-protocol-lib/protobuf/protocol.h"
@@ -42,7 +43,7 @@ class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
       std::string sni,
       std::string access_token,
       std::string expected_md5_fingerprint,
-      obfuscator::IObfuscatorSPtr obfuscator = nullptr,
+      CensorshipStrategy censorship_strategy,
       OnConnectedCallback on_connected_callback = nullptr);
 
   virtual ~WebsocketClient();
@@ -63,6 +64,8 @@ class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
   boost::asio::awaitable<void> RunSender();
   boost::asio::awaitable<bool> Connect();
 
+  boost::asio::awaitable<bool> PerformFakeHandshake();
+
  private:
   const std::string kUrlWebSocket_ = "/fptn";
   const std::size_t kMaxSizeOutQueue_ = 128;
@@ -75,13 +78,14 @@ class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
   boost::asio::ssl::context ctx_;
   boost::asio::ip::tcp::resolver resolver_;
 
+  const CensorshipStrategy censorship_strategy_;
+
   // TCP -> obfuscator -> SSL -> WebSocket
   using tcp_stream_type = boost::beast::tcp_stream;
   using obfuscator_socket_type = obfuscator::TcpStream<tcp_stream_type>;
   using ssl_stream_type = boost::beast::ssl_stream<obfuscator_socket_type>;
   using websocket_type = boost::beast::websocket::stream<ssl_stream_type>;
 
-  obfuscator::IObfuscatorSPtr obfuscator_;
   websocket_type ws_;
 
   boost::asio::strand<boost::asio::io_context::executor_type> strand_;
@@ -96,12 +100,16 @@ class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
   const fptn::common::network::IPv6Address tun_interface_address_ipv6_;
 
   NewIPPacketCallback new_ip_pkt_callback_;
+
   const std::string sni_;
   const std::string access_token_;
   const std::string expected_md5_fingerprint_;
+
   OnConnectedCallback on_connected_callback_;
 
   boost::asio::cancellation_signal cancel_signal_;
+
+  obfuscator::IObfuscatorSPtr obfuscator_;
 };
 
 using WebsocketClientSPtr = std::shared_ptr<WebsocketClient>;

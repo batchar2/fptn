@@ -9,6 +9,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 #include <boost/asio/ssl/detail/openssl_types.hpp>
 #include <boost/asio/ssl/error.hpp>
@@ -27,7 +28,9 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 namespace fptn::protocol::https::utils {
 
+constexpr int kSessionLen = 32;
 constexpr std::size_t kFptnKeyLength = 4;
+constexpr int kDecoyHandshakeSessionIDShift = 10;
 
 std::string GetSHA1Hash(std::uint32_t number) {
   EVP_MD_CTX* mdctx = EVP_MD_CTX_new();
@@ -72,9 +75,47 @@ std::string GenerateFptnKey(std::uint32_t timestamp) {
       "Error generate Session ID");
 }
 
+bool SetDecoyHandshakeSessionID(SSL* ssl) {
+  // random
+  std::uint8_t session_id[kSessionLen] = {0};
+  if (::RAND_bytes(session_id, sizeof(session_id)) != 1) {
+    return false;
+  }
+
+  // copy timestamp
+  const auto timestamp = fptn::time::TimeProvider::Instance()->NowTimestamp();
+  const std::string key = GenerateFptnKey(timestamp);
+  std::memcpy(
+      &session_id[kDecoyHandshakeSessionIDShift], key.c_str(), key.size());
+  return 0 != ::SSL_set_tls_hello_custom_session_id(
+                  ssl, session_id, sizeof(session_id));
+}
+
+bool IsDecoyHandshakeSessionID(
+    const std::uint8_t* session, std::size_t session_len) {
+  (void)session_len;
+  char data[kFptnKeyLength] = {0};
+  std::memcpy(&data, &session[kDecoyHandshakeSessionIDShift], sizeof(data));
+  const std::string recv_key(data, sizeof(data));
+
+  const auto now_timestamp =
+      fptn::time::TimeProvider::Instance()->NowTimestamp();
+
+  constexpr std::uint32_t kTimeShiftSeconds = 10;  // ten seconds
+
+  const std::uint32_t timestamp = now_timestamp + (kTimeShiftSeconds / 2);
+
+  for (std::uint32_t shift = 0; shift <= kTimeShiftSeconds; shift++) {
+    const std::string key = GenerateFptnKey(timestamp - shift);
+    if (recv_key == key) {
+      return true;
+    }
+  }
+  return false;
+}
+
 bool SetHandshakeSessionID(SSL* ssl) {
   // random
-  constexpr int kSessionLen = 32;
   std::uint8_t session_id[kSessionLen] = {0};
   if (::RAND_bytes(session_id, sizeof(session_id)) != 1) {
     return false;
@@ -119,81 +160,82 @@ bool SetHandshakeSni(SSL* ssl, const std::string& sni) {
             boost::asio::error::get_ssl_category()),
         fmt::format(R"(Failed to set SNI "{}")", sni));
   }
-
   // Add Chrome-like padding (to match packet size)
   SSL_set_options(ssl, SSL_OP_LEGACY_SERVER_CONNECT);
-
-  SSL_set_enable_ech_grease(ssl, 1);
   return true;
 }
 
 SSL_CTX* CreateNewSslCtx() {
   SSL_CTX* handle = ::SSL_CTX_new(::TLS_client_method());
-  // Set TLS version range (TLS 1.2-1.3)
+  if (!handle) {
+    throw boost::beast::system_error(
+        boost::beast::error_code(static_cast<int>(::ERR_get_error()),
+            boost::asio::error::get_ssl_category()),
+        "Failed to create SSL context");
+  }
+
   if (0 == ::SSL_CTX_set_min_proto_version(handle, TLS1_2_VERSION)) {
+    ::SSL_CTX_free(handle);
     throw boost::beast::system_error(
         boost::beast::error_code(static_cast<int>(::ERR_get_error()),
             boost::asio::error::get_ssl_category()),
-        fmt::format(R"(Failed to set min version)"));
+        "Failed to set min TLS version");
   }
+
   if (0 == ::SSL_CTX_set_max_proto_version(handle, TLS1_3_VERSION)) {
+    ::SSL_CTX_free(handle);
     throw boost::beast::system_error(
         boost::beast::error_code(static_cast<int>(::ERR_get_error()),
             boost::asio::error::get_ssl_category()),
-        fmt::format(R"(Failed to set max version)"));
-  }
-  // Disable older versions (redundant with min/max versions)
-  ::SSL_CTX_set_options(handle, SSL_OP_NO_TLSv1 | SSL_OP_NO_TLSv1_1);
-  // Set ciphers
-  const std::string ciphers_list = ChromeCiphers();
-  if (0 == ::SSL_CTX_set_cipher_list(handle, ciphers_list.c_str())) {
-    throw boost::beast::system_error(
-        boost::beast::error_code(static_cast<int>(::ERR_get_error()),
-            boost::asio::error::get_ssl_category()),
-        fmt::format(R"(Failed to set ciphers)"));
-  }
-  // Set groups (Chrome's preferred order)
-  if (1 != SSL_CTX_set1_groups_list(handle, "P-256:X25519:P-384:P-521")) {
-    throw boost::beast::system_error(
-        boost::beast::error_code(static_cast<int>(::ERR_get_error()),
-            boost::asio::error::get_ssl_category()),
-        fmt::format(R"(Failed to groups list)"));
+        "Failed to set max TLS version");
   }
 
-  // set alpn
-  static unsigned char alpn[] = {
-      0x02, 'h', '2',                               // h2
-      0x08, 'h', 't', 't', 'p', '/', '1', '.', '1'  // http/1.1
-  };
-  if (0 != ::SSL_CTX_set_alpn_protos(handle, alpn, sizeof(alpn))) {
-    throw boost::beast::system_error(
-        boost::beast::error_code(static_cast<int>(::ERR_get_error()),
-            boost::asio::error::get_ssl_category()),
-        fmt::format(R"(Failed to set ALPN)"));
-  }
-
-  // Set signature algorithms (Chrome's preferences)
-  const std::string sigalgs_list =
-      "ECDSA+SHA256:RSA-PSS+SHA256:RSA+SHA256:ECDSA+SHA384:RSA-PSS+SHA384:"
-      "RSA+"
-      "SHA384:RSA-PSS+SHA512:RSA+SHA512";
-  if (1 != SSL_CTX_set1_sigalgs_list(handle, sigalgs_list.c_str())) {
-    throw boost::beast::system_error(
-        boost::beast::error_code(static_cast<int>(::ERR_get_error()),
-            boost::asio::error::get_ssl_category()),
-        fmt::format(R"(Failed to sigalgs list)"));
-  }
-
-  // Additional Chrome-like settings
-  SSL_CTX_set_mode(handle, SSL_MODE_RELEASE_BUFFERS);
-  // https://github.com/thatsacrylic/chromium/blob/7cfb85cef096c94f4d4255a712b05a53f87333f9/net/socket/ssl_client_socket_impl.cc#L308
-  SSL_CTX_set_session_cache_mode(
-      handle, SSL_SESS_CACHE_CLIENT | SSL_SESS_CACHE_NO_INTERNAL);
   SSL_CTX_set_grease_enabled(handle, 1);
   SSL_CTX_enable_ocsp_stapling(handle);
+  SSL_CTX_enable_signed_cert_timestamps(handle);
 
-  SSL_CTX_set_session_cache_mode(handle, SSL_SESS_CACHE_OFF);
+  // Set ciphers ТОЧНО КАК В RUST КОДЕ
+  const std::string ciphers_list = ChromeCiphers();
+  if (0 == ::SSL_CTX_set_cipher_list(handle, ciphers_list.c_str())) {
+    ::SSL_CTX_free(handle);
+    throw boost::beast::system_error(
+        boost::beast::error_code(static_cast<int>(::ERR_get_error()),
+            boost::asio::error::get_ssl_category()),
+        "Failed to set ciphers");
+  }
 
+  const char* groups = "X25519MLKEM768:X25519:secp256r1:secp384r1";
+  SSL_CTX_set1_groups_list(handle, groups);
+
+  static unsigned char alpn[] = {
+      0x02, 'h', '2', 0x08, 'h', 't', 't', 'p', '/', '1', '.', '1'};
+  if (0 != ::SSL_CTX_set_alpn_protos(handle, alpn, sizeof(alpn))) {
+    ::SSL_CTX_free(handle);
+    throw boost::beast::system_error(
+        boost::beast::error_code(static_cast<int>(::ERR_get_error()),
+            boost::asio::error::get_ssl_category()),
+        "Failed to set ALPN");
+  }
+
+  const std::string sigalgs_list =
+      "ecdsa_secp256r1_sha256:"
+      "rsa_pss_rsae_sha256:"
+      "rsa_pkcs1_sha256:"
+      "ecdsa_secp384r1_sha384:"
+      "rsa_pss_rsae_sha384:"
+      "rsa_pkcs1_sha384:"
+      "rsa_pss_rsae_sha512:"
+      "rsa_pkcs1_sha512";
+
+  if (1 != SSL_CTX_set1_sigalgs_list(handle, sigalgs_list.c_str())) {
+    ::SSL_CTX_free(handle);
+    throw boost::beast::system_error(
+        boost::beast::error_code(static_cast<int>(::ERR_get_error()),
+            boost::asio::error::get_ssl_category()),
+        "Failed to set signature algorithms");
+  }
+
+  SSL_CTX_set_mode(handle, SSL_MODE_RELEASE_BUFFERS);
   return handle;
 }
 
@@ -229,6 +271,57 @@ std::string GetCertificateMD5Fingerprint(const X509* cert) {
        << static_cast<int>(md[i]);
   }
   return ss.str();
+}
+
+std::vector<std::uint8_t> GenerateDecoyTlsHandshake(const std::string& sni) {
+  std::vector<std::uint8_t> handshake_data;
+  try {
+    SSL_CTX* ssl_ctx = CreateNewSslCtx();
+    SSL* ssl = ::SSL_new(ssl_ctx);
+
+    BIO* bio_out = ::BIO_new(BIO_s_mem());
+    BIO* bio_in = ::BIO_new(BIO_s_mem());
+    ::SSL_set_bio(ssl, bio_in, bio_out);
+
+    SetHandshakeSni(ssl, sni);
+    SetDecoyHandshakeSessionID(ssl);
+
+    ::SSL_set_connect_state(ssl);
+
+    int handshake_result;
+    int retry_count = 0;
+    constexpr int kMaxRetries = 10;
+
+    do {
+      handshake_result = ::SSL_do_handshake(ssl);
+
+      char* bio_data = nullptr;
+      auto bio_length = ::BIO_get_mem_data(bio_out, &bio_data);
+
+      if (bio_data && bio_length > 0) {
+        handshake_data.insert(
+            handshake_data.end(), bio_data, bio_data + bio_length);
+        BIO_reset(bio_out);
+      }
+      retry_count++;
+    } while (handshake_result <= 0 &&
+             SSL_get_error(ssl, handshake_result) == SSL_ERROR_WANT_WRITE &&
+             retry_count < kMaxRetries);
+
+    if (handshake_data.empty()) {
+      SPDLOG_WARN("No handshake data was generated for SNI: {}", sni);
+    } else {
+      SPDLOG_INFO(
+          "Successfully generated {} bytes of TLS handshake for SNI: {}",
+          handshake_data.size(), sni);
+    }
+    ::SSL_free(ssl);
+    ::SSL_CTX_free(ssl_ctx);
+  } catch (const std::exception& e) {
+    SPDLOG_ERROR(
+        "GenerateTlsHandshake exception for SNI {}: {}", sni, e.what());
+  }
+  return handshake_data;
 }
 
 // MAYBE IT WILL REFACTOR

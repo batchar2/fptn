@@ -16,6 +16,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "common/network/ip_address.h"
 #include "common/network/ip_packet.h"
 
+#include "fptn-protocol-lib/https/censorship_strategy.h"
 #include "fptn-protocol-lib/https/websocket_client/websocket_client.h"
 
 namespace fptn::vpn::http {
@@ -35,7 +36,7 @@ class Client final {
       IPv6Address tun_interface_address_ipv6,
       std::string sni,
       std::string md5_fingerprint,
-      fptn::protocol::https::obfuscator::IObfuscatorSPtr obfuscator,
+      fptn::protocol::https::CensorshipStrategy censorship_strategy,
       NewIPPacketCallback new_ip_pkt_callback = nullptr);
   bool Login(const std::string& username, const std::string& password);
   std::pair<IPv4Address, IPv6Address> GetDns();
@@ -65,7 +66,7 @@ class Client final {
   const std::string sni_;
   const std::string md5_fingerprint_;
 
-  const fptn::protocol::https::obfuscator::IObfuscatorSPtr obfuscator_;
+  fptn::protocol::https::CensorshipStrategy censorship_strategy_;
 
   NewIPPacketCallback new_ip_pkt_callback_;
 

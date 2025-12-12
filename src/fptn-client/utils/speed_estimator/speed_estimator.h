@@ -11,6 +11,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <vector>
 
 #include "fptn-client/utils/speed_estimator/server_info.h"
+#include "fptn-protocol-lib/https/censorship_strategy.h"
 #include "fptn-protocol-lib/https/obfuscator/methods/obfuscator_interface.h"
 
 namespace fptn::utils::speed_estimator {
@@ -19,10 +20,10 @@ std::uint64_t GetDownloadTimeMs(const ServerInfo& server,
     const std::string& sni,
     int timeout,
     const std::string& md5_fingerprint,
-    const fptn::protocol::https::obfuscator::IObfuscatorSPtr& obfuscator);
+    fptn::protocol::https::CensorshipStrategy censorship_strategy);
 
 ServerInfo FindFastestServer(const std::string& sni,
     const std::vector<ServerInfo>& servers,
-    const fptn::protocol::https::obfuscator::IObfuscatorSPtr& obfuscator);
+    fptn::protocol::https::CensorshipStrategy censorship_strategy);
 
 };  // namespace fptn::utils::speed_estimator
