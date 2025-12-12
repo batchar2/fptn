@@ -52,28 +52,32 @@ inline int compare(const std::string& version1, const std::string& version2) {
 inline std::pair<bool, std::string> Check() {
   const auto url = fmt::format("/repos/{}/{}/releases/latest",
       FPTN_GITHUB_USERNAME, FPTN_GITHUB_REPOSITORY);
-  httplib::SSLClient cli("api.github.com", 443);
-  {
-    cli.enable_server_certificate_verification(false);  // NEED TO FIX
-    cli.set_connection_timeout(5, 0);                   // 5 seconds
-    cli.set_read_timeout(5, 0);                         // 5 seconds
-    cli.set_write_timeout(5, 0);                        // 5 seconds
-  }
-  if (auto resp = cli.Get(url)) {
-    try {
-      const auto msg = nlohmann::json::parse(resp->body);
-      if (msg.contains("draft") && msg.contains("name")) {
-        const bool draft = msg["draft"];
-        const std::string version_name = msg["name"];
-        if (!draft && version::compare(FPTN_VERSION, version_name) == -1) {
-          return {true, version_name};
-        }
-        return {false, version_name};
-      }
-    } catch (const nlohmann::json::parse_error& e) {
-      SPDLOG_ERROR("autoupdate:check Error parsing JSON response: {}  {}",
-          e.what(), resp->body);
+  try {
+    httplib::SSLClient cli("api.github.com", 443);
+    {
+      cli.enable_server_certificate_verification(false);  // NEED TO FIX
+      cli.set_connection_timeout(5, 0);                   // 5 seconds
+      cli.set_read_timeout(5, 0);                         // 5 seconds
+      cli.set_write_timeout(5, 0);                        // 5 seconds
     }
+    if (auto resp = cli.Get(url)) {
+      try {
+        const auto msg = nlohmann::json::parse(resp->body);
+        if (msg.contains("draft") && msg.contains("name")) {
+          const bool draft = msg["draft"];
+          const std::string version_name = msg["name"];
+          if (!draft && version::compare(FPTN_VERSION, version_name) == -1) {
+            return {true, version_name};
+          }
+          return {false, version_name};
+        }
+      } catch (const nlohmann::json::parse_error& e) {
+        SPDLOG_ERROR("autoupdate:check Error parsing JSON response: {}  {}",
+            e.what(), resp->body);
+      }
+    }
+  } catch (...) {
+    SPDLOG_ERROR("unhandled exception");
   }
   return {false, {}};
 }

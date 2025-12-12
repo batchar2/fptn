@@ -123,20 +123,33 @@ bool WebsocketClient::Stop() {
   }
 
   boost::system::error_code ec;
-
   try {
+    SPDLOG_INFO("Emit cancel signal");
     cancel_signal_.emit(boost::asio::cancellation_type::all);
   } catch (const std::exception&) {
     SPDLOG_DEBUG("Exception during cancellation");
   }
 
+  // Stop io_context
   try {
+    SPDLOG_DEBUG("Stopping io_context...");
+    ioc_.stop();
+    SPDLOG_DEBUG("io_context stopped");
+  } catch (const boost::system::system_error& err) {
+    SPDLOG_ERROR("Exception while stopping io_context: {}", err.what());
+  } catch (...) {
+    SPDLOG_ERROR("Unknown exception while stopping io_context");
+  }
+
+  try {
+    SPDLOG_INFO("Closing write_channel");
     write_channel_.close();
   } catch (const std::exception&) {
     SPDLOG_DEBUG("Exception closing write channel");
   }
 
   try {
+    SPDLOG_INFO("Closing resolver");
     resolver_.cancel();
   } catch (const std::exception&) {
     SPDLOG_DEBUG("Exception cancelling resolver");
@@ -154,6 +167,7 @@ bool WebsocketClient::Stop() {
 
   // Close WebSocket explicitly
   try {
+    SPDLOG_INFO("Waiting for client to be disconnected");
     if (ws_.is_open()) {
       ws_.close(boost::beast::websocket::close_code::normal, ec);
       if (ec && ec != boost::beast::websocket::error::closed) {
@@ -166,7 +180,7 @@ bool WebsocketClient::Stop() {
 
   // Close SSL
   try {
-    SPDLOG_DEBUG("Shutting down SSL layer...");
+    SPDLOG_INFO("Shutting down SSL layer...");
     auto& ssl = ws_.next_layer();
     if (ssl.native_handle()) {
       // More robust SSL shutdown
@@ -207,17 +221,6 @@ bool WebsocketClient::Stop() {
     SPDLOG_ERROR("Unknown exception during TCP shutdown");
   }
 
-  // Stop io_context
-  try {
-    SPDLOG_DEBUG("Stopping io_context...");
-    ioc_.stop();
-    SPDLOG_DEBUG("io_context stopped");
-  } catch (const boost::system::system_error& err) {
-    SPDLOG_ERROR("Exception while stopping io_context: {}", err.what());
-  } catch (...) {
-    SPDLOG_ERROR("Unknown exception while stopping io_context");
-  }
-
   SPDLOG_INFO("WebSocket client stopped successfully");
   return true;
 }
@@ -256,6 +259,8 @@ boost::asio::awaitable<bool> WebsocketClient::RunInternal() {
   } catch (const std::exception& e) {
     SPDLOG_ERROR("RunInternal exception: {}", e.what());
     running_ = false;
+  } catch (...) {
+    SPDLOG_ERROR("Unknown exception while running");
   }
   co_return false;
 }
@@ -355,6 +360,8 @@ boost::asio::awaitable<bool> WebsocketClient::Connect() {
     co_return true;
   } catch (const std::exception& e) {
     SPDLOG_ERROR("Connect exception: {}", e.what());
+  } catch (...) {
+    SPDLOG_ERROR("Unknown exception");
   }
   co_return false;
 }
@@ -388,6 +395,8 @@ boost::asio::awaitable<void> WebsocketClient::RunReader() {
     }
   } catch (const std::exception& e) {
     SPDLOG_ERROR("RunReader exception: {}", e.what());
+  } catch (...) {
+    SPDLOG_ERROR("RunReader unknown exception");
   }
   was_connected_ = false;
   co_return;
@@ -421,6 +430,8 @@ boost::asio::awaitable<void> WebsocketClient::RunSender() {
     }
   } catch (const std::exception& e) {
     SPDLOG_ERROR("RunSender exception: {}", e.what());
+  } catch (...) {
+    SPDLOG_ERROR("RunSender unknown exception");
   }
   was_connected_ = false;
   co_return;

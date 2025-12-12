@@ -79,6 +79,8 @@ class TrayApp : public QWidget {
   bool startVpn(QString& err_msg);
   bool stopVpn();
 
+  void CheckForUpdatesAsync();
+
  private:
   mutable std::mutex mutex_;
 
@@ -115,7 +117,6 @@ class TrayApp : public QWidget {
   fptn::vpn::VpnClientPtr vpn_client_;
   fptn::routing::IPTablesPtr ip_tables_;
 
-  std::future<std::pair<bool, std::string>> update_version_future_;
   // connecting
   std::atomic<bool> connecting_in_progress_{false};
   // std::future<bool> connecting_;
