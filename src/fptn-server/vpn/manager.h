@@ -9,6 +9,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <atomic>
 #include <memory>
 #include <thread>
+#include <vector>
 
 #include "filter/manager.h"
 #include "nat/table.h"
@@ -22,12 +23,13 @@ class Manager final {
       fptn::network::VirtualInterfacePtr network_interface,
       fptn::nat::TableSPtr nat,
       fptn::filter::ManagerSPtr filter,
-      fptn::statistic::MetricsSPtr prometheus);
+      fptn::statistic::MetricsSPtr prometheus,
+      std::size_t thread_pool_size = 4);
   ~Manager();
-  bool Stop() noexcept;
-  bool Start() noexcept;
+  bool Stop();
+  bool Start();
 
- private:
+ protected:
   void RunToClient() const noexcept;
   void RunFromClient() const noexcept;
   void RunCollectStatistics() noexcept;
@@ -40,9 +42,10 @@ class Manager final {
   const fptn::nat::TableSPtr nat_;
   const fptn::filter::ManagerSPtr filter_;
   const fptn::statistic::MetricsSPtr prometheus_;
+  const std::size_t thread_pool_size_;
 
-  std::thread read_to_client_thread_;
-  std::thread read_from_client_thread_;
+  std::vector<std::thread> read_to_client_threads_;
+  std::vector<std::thread> read_from_client_threads_;
   std::thread collect_statistics_;
 };
 
