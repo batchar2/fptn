@@ -120,39 +120,27 @@ bool WebsocketClient::Stop() {
     return false;
   }
 
-  {
-    const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
-    // cppcheck-suppress identicalConditionAfterEarlyExit
-    if (!running_) {  // Double-check after acquiring lock
-      return false;
-    }
-    SPDLOG_INFO("Marked client as stopped and disconnected");
-
-    running_ = false;
-    was_connected_ = false;
-
-    new_ip_pkt_callback_ = nullptr;
-    on_connected_callback_ = nullptr;
+  // cppcheck-suppress identicalConditionAfterEarlyExit
+  if (!running_) {  // Double-check after acquiring lock
+    return false;
   }
+  SPDLOG_INFO("Marked client as stopped and disconnected");
+
+  running_ = false;
+  was_connected_ = false;
+
+  new_ip_pkt_callback_ = nullptr;
+  on_connected_callback_ = nullptr;
 
   boost::system::error_code ec;
+
   try {
     SPDLOG_INFO("Emit cancel signal");
     cancel_signal_.emit(boost::asio::cancellation_type::all);
   } catch (const std::exception&) {
     SPDLOG_DEBUG("Exception during cancellation");
-  }
-
-  // Stop io_context
-  try {
-    SPDLOG_DEBUG("Stopping io_context...");
-    ioc_.stop();
-    SPDLOG_DEBUG("io_context stopped");
-  } catch (const boost::system::system_error& err) {
-    SPDLOG_ERROR("Exception while stopping io_context: {}", err.what());
-  } catch (...) {
-    SPDLOG_ERROR("Unknown exception while stopping io_context");
   }
 
   try {
@@ -169,27 +157,40 @@ bool WebsocketClient::Stop() {
     SPDLOG_DEBUG("Exception cancelling resolver");
   }
 
-  // Close WebSocket by triggering a timeout
+  // Close TCP connection
   try {
-    boost::beast::get_lowest_layer(ws_).expires_after(
-        std::chrono::microseconds(1));
-  } catch (const std::exception&) {
-    SPDLOG_DEBUG("Failed to set WebSocket expiration timer");
-  } catch (...) {
-    SPDLOG_DEBUG("Unknown error while setting WebSocket expiration timer");
-  }
+    SPDLOG_INFO("Shutting down TCP socket...");
+    auto& tcp = boost::beast::get_lowest_layer(ws_);
+    if (tcp.socket().is_open()) {
+      tcp.socket().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
+      if (ec && ec != boost::asio::error::not_connected) {
+        SPDLOG_WARN("TCP socket shutdown error: {}", ec.message());
+      } else {
+        SPDLOG_INFO("TCP socket shutdown successfully");
+      }
 
-  // Close WebSocket explicitly
-  try {
-    SPDLOG_INFO("Waiting for client to be disconnected");
-    if (ws_.is_open()) {
-      ws_.close(boost::beast::websocket::close_code::normal, ec);
-      if (ec && ec != boost::beast::websocket::error::closed) {
-        SPDLOG_DEBUG("WebSocket close warning: {}", ec.message());
+      tcp.socket().close(ec);
+      if (ec) {
+        SPDLOG_WARN("TCP socket close error: {}", ec.message());
+      } else {
+        SPDLOG_INFO("TCP socket closed successfully");
       }
     }
-  } catch (const std::exception&) {
-    SPDLOG_DEBUG("Exception during WebSocket close");
+  } catch (const boost::system::system_error& err) {
+    SPDLOG_ERROR("Exception during TCP shutdown: {}", err.what());
+  } catch (...) {
+    SPDLOG_ERROR("Unknown exception during TCP shutdown");
+  }
+
+  // Stop io_context
+  try {
+    SPDLOG_INFO("Stopping io_context...");
+    ioc_.stop();
+    SPDLOG_INFO("io_context stopped");
+  } catch (const boost::system::system_error& err) {
+    SPDLOG_ERROR("Exception while stopping io_context: {}", err.what());
+  } catch (...) {
+    SPDLOG_ERROR("Unknown exception while stopping io_context");
   }
 
   // Close SSL
@@ -208,31 +209,6 @@ bool WebsocketClient::Stop() {
     SPDLOG_ERROR("Unexpected exception during SSL shutdown: {}", e.what());
   } catch (...) {
     SPDLOG_ERROR("Unknown exception occurred during SSL shutdown");
-  }
-
-  // Close TCP connection
-  try {
-    SPDLOG_DEBUG("Shutting down TCP socket...");
-    auto& tcp = boost::beast::get_lowest_layer(ws_);
-    if (tcp.socket().is_open()) {
-      tcp.socket().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
-      if (ec && ec != boost::asio::error::not_connected) {
-        SPDLOG_WARN("TCP socket shutdown error: {}", ec.message());
-      } else {
-        SPDLOG_DEBUG("TCP socket shutdown successfully");
-      }
-
-      tcp.socket().close(ec);
-      if (ec) {
-        SPDLOG_WARN("TCP socket close error: {}", ec.message());
-      } else {
-        SPDLOG_DEBUG("TCP socket closed successfully");
-      }
-    }
-  } catch (const boost::system::system_error& err) {
-    SPDLOG_ERROR("Exception during TCP shutdown: {}", err.what());
-  } catch (...) {
-    SPDLOG_ERROR("Unknown exception during TCP shutdown");
   }
 
   SPDLOG_INFO("WebSocket client stopped successfully");
