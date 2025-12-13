@@ -65,7 +65,7 @@ WebsocketClient::WebsocketClient(fptn::common::network::IPv4Address server_ip,
 
   https::utils::AttachCertificateVerificationCallback(
       ssl, [this](const std::string& md5_fingerprint) mutable {
-        if (!expected_md5_fingerprint_.empty()) {
+        if (expected_md5_fingerprint_.empty()) {
           return true;
         }
         if (md5_fingerprint == expected_md5_fingerprint_) {
