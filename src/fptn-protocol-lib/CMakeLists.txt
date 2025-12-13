@@ -25,11 +25,10 @@ endif()
 find_package(absl REQUIRED)
 find_package(protobuf REQUIRED)
 find_package(OpenSSL REQUIRED)
-# find_package(argparse REQUIRED)
 find_package(spdlog REQUIRED)
 find_package(fmt REQUIRED)
 
-find_package(Boost REQUIRED COMPONENTS random filesystem)
+find_package(Boost REQUIRED COMPONENTS random filesystem nowide)
 find_package(ZLIB REQUIRED)
 find_package(nlohmann_json REQUIRED)
 
@@ -143,7 +142,6 @@ foreach(target "${PROJECT_NAME}_static")
     Boost::boost
     Boost::nowide
     Boost::random
-    Boost::filesystem
     OpenSSL::SSL
     OpenSSL::Crypto
     nlohmann_json::nlohmann_json
