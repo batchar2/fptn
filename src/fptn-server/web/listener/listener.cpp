@@ -89,16 +89,17 @@ boost::asio::awaitable<void> Listener::Run() {
               co_await session->Run();
             },
             boost::asio::detached);
-      } else {
+      } else if (running_) {
         SPDLOG_ERROR("Error onAccept: {}", ec.message());
-
         // Add delay after exception
         boost::asio::steady_timer timer(ioc_);
         timer.expires_after(std::chrono::milliseconds(300));
         co_await timer.async_wait(boost::asio::use_awaitable);
       }
     } catch (boost::system::system_error& err) {
-      SPDLOG_ERROR("Listener::run error: {}", err.what());
+      if (running_) {
+        SPDLOG_ERROR("Listener::run error: {}", err.what());
+      }
       co_return;
     }
   }
@@ -107,6 +108,7 @@ boost::asio::awaitable<void> Listener::Run() {
 
 bool Listener::Stop() {
   try {
+    running_ = false;
     acceptor_.close();
   } catch (boost::system::system_error& err) {
     SPDLOG_ERROR("Listener::stop error: {}", err.what());
