@@ -14,51 +14,66 @@ Manager::Manager(fptn::web::ServerPtr web_server,
     fptn::network::VirtualInterfacePtr network_interface,
     fptn::nat::TableSPtr nat,
     fptn::filter::ManagerSPtr filter,
-    fptn::statistic::MetricsSPtr prometheus)
+    fptn::statistic::MetricsSPtr prometheus,
+    std::size_t thread_pool_size)
     : web_server_(std::move(web_server)),
       network_interface_(std::move(network_interface)),
       nat_(std::move(nat)),
       filter_(std::move(filter)),
-      prometheus_(std::move(prometheus)) {}
+      prometheus_(std::move(prometheus)),
+      thread_pool_size_(thread_pool_size > 0 ? thread_pool_size : 1) {
+  read_to_client_threads_.reserve(thread_pool_size_);
+  read_from_client_threads_.reserve(thread_pool_size_);
+}
 
 Manager::~Manager() { Stop(); }
 
-bool Manager::Stop() noexcept {
+bool Manager::Stop() {
   running_ = false;
 
   network_interface_->Stop();
   web_server_->Stop();
 
-  if (read_to_client_thread_.joinable()) {
-    read_to_client_thread_.join();
+  for (auto& thread : read_to_client_threads_) {
+    if (thread.joinable()) {
+      thread.join();
+    }
   }
-  if (read_from_client_thread_.joinable()) {
-    read_from_client_thread_.join();
+  read_to_client_threads_.clear();
+
+  for (auto& thread : read_from_client_threads_) {
+    if (thread.joinable()) {
+      thread.join();
+    }
   }
+  read_from_client_threads_.clear();
+
   if (collect_statistics_.joinable()) {
     collect_statistics_.join();
   }
   return true;
 }
 
-bool Manager::Start() noexcept {
+bool Manager::Start() {
   running_ = true;
   web_server_->Start();
   network_interface_->Start();
 
-  read_to_client_thread_ = std::thread(&Manager::RunToClient, this);
-  const bool to_status = read_to_client_thread_.joinable();
+  for (size_t i = 0; i < thread_pool_size_; ++i) {
+    read_to_client_threads_.emplace_back(&Manager::RunToClient, this);
+  }
 
-  read_from_client_thread_ = std::thread(&Manager::RunFromClient, this);
-  const bool from_status = read_from_client_thread_.joinable();
+  for (size_t i = 0; i < thread_pool_size_; ++i) {
+    read_from_client_threads_.emplace_back(&Manager::RunFromClient, this);
+  }
 
   collect_statistics_ = std::thread(&Manager::RunCollectStatistics, this);
   const bool collect_statistic_status = collect_statistics_.joinable();
-  return (to_status && from_status && collect_statistic_status);
+  return collect_statistic_status;
 }
 
 void Manager::RunToClient() const noexcept {
-  constexpr std::chrono::milliseconds kTimeout{10};
+  constexpr std::chrono::milliseconds kTimeout{100};
 
   while (running_) {
     auto packet = network_interface_->WaitForPacket(kTimeout);
@@ -93,7 +108,7 @@ void Manager::RunToClient() const noexcept {
 }
 
 void Manager::RunFromClient() const noexcept {
-  constexpr std::chrono::milliseconds kTimeout{10};
+  constexpr std::chrono::milliseconds kTimeout{100};
 
   while (running_) {
     auto packet = web_server_->WaitForPacket(kTimeout);

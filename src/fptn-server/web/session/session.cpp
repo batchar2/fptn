@@ -166,8 +166,6 @@ boost::asio::awaitable<void> Session::Run() {
 
   // Check for Reality Mode handshake (only when no obfuscator is detected)
   if (obfuscator_opt.value() == nullptr) {
-    SPDLOG_INFO(
-        "Checking for Reality Mode handshake (client_id={})", client_id_);
     const auto result = co_await IsRealityHandshake();
     if (result.should_close) {
       SPDLOG_WARN(
