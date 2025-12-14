@@ -362,7 +362,6 @@ void SettingsWidget::SetupUi() {
         }
     )");
     delete_button->setToolTip(QObject::tr("Delete"));
-
     connect(delete_button, &QPushButton::clicked,
         [this, i]() { onRemoveServer(i); });
 
@@ -449,9 +448,25 @@ void SettingsWidget::onLoadNewConfig() {
         item->setData(Qt::DisplayRole, servers_text_list);
         server_table_->setItem(new_row, 2, item);
 
-        auto* delete_button = new QPushButton(QObject::tr("Delete"), this);
-        connect(delete_button, &QPushButton::clicked,
-            [this, new_row]() { onRemoveServer(new_row); });
+        auto* delete_button = new QPushButton(QObject::tr("X"), this);
+        delete_button->setFixedSize(24, 24);
+        delete_button->setStyleSheet(R"(
+            QPushButton {
+                background-color: #444444;
+                color: white;
+                border: none;
+                border-radius: 12px;
+                font-weight: bold;
+                padding: 0px;
+            }
+            QPushButton:hover {
+                background-color: #cc0000;
+            }
+            QPushButton:pressed {
+                background-color: #990000;
+            }
+        )");
+        delete_button->setToolTip(QObject::tr("Delete"));
 
         auto* button_container = new QWidget();
         auto* button_layout = new QHBoxLayout(button_container);
