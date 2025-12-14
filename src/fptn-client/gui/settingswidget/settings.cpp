@@ -542,11 +542,16 @@ void SettingsWidget::onLanguageChanged(const QString&) {
     bypass_method_combo_box_->addItem("SNI", "SNI");
     bypass_method_combo_box_->addItem(
         QObject::tr("OBFUSCATION"), "OBFUSCATION");
+    bypass_method_combo_box_->addItem(
+        QObject::tr("SNI-REALITY"), "SNI-REALITY");
 
     if (current_method == "SNI" || current_method == QObject::tr("SNI")) {
       bypass_method_combo_box_->setCurrentText(QObject::tr("SNI"));
-    } else {
+    } else if (current_method == "OBFUSCATION" ||
+               current_method == QObject::tr("OBFUSCATION")) {
       bypass_method_combo_box_->setCurrentText(QObject::tr("OBFUSCATION"));
+    } else {
+      bypass_method_combo_box_->setCurrentText(QObject::tr("SNI-REALITY"));
     }
   }
 
