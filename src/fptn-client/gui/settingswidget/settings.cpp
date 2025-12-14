@@ -307,7 +307,8 @@ void SettingsWidget::SetupUi() {
       "  - Frizgy<br>"
       "  - Tired Smi1e<br>"
       "  - Teya Aster<br>"
-      "  - loftynite<br>";
+      "  - loftynite<br>"
+      "  - vlz78<br>";
   sponsors_names_label_ = new QLabel(sponsors_list, this);
   sponsors_names_label_->setAlignment(Qt::AlignLeft);
   sponsors_names_label_->setTextInteractionFlags(Qt::TextSelectableByMouse);
