@@ -15,6 +15,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <boost/asio/detached.hpp>
 #include <boost/asio/experimental/concurrent_channel.hpp>
 #include <boost/asio/ssl.hpp>
+#include <boost/asio/steady_timer.hpp>
 #include <boost/beast.hpp>
 #include <boost/beast/ssl.hpp>
 #include <boost/beast/websocket.hpp>
@@ -66,6 +67,8 @@ class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
 
   boost::asio::awaitable<bool> PerformFakeHandshake();
 
+  void StartWatchdog();
+
  private:
   const std::string kUrlWebSocket_ = "/fptn";
   const std::size_t kMaxSizeOutQueue_ = 128;
@@ -89,6 +92,9 @@ class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
   websocket_type ws_;
 
   boost::asio::strand<boost::asio::io_context::executor_type> strand_;
+
+  boost::asio::steady_timer watchdog_timer_;
+
   boost::asio::experimental::concurrent_channel<void(
       boost::system::error_code, fptn::common::network::IPPacketPtr)>
       write_channel_;

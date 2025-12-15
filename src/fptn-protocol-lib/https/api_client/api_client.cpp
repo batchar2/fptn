@@ -216,7 +216,7 @@ TResult ExecuteWithTimeout(const std::function<TResult()>& operation,
       }
     }).detach();
 
-    std::unique_lock<std::mutex> lock(state->mutex);
+    std::unique_lock<std::mutex> lock(state->mutex);  // mutex
     if (!state->cv.wait_for(lock, std::chrono::seconds(timeout),
             [state]() { return state->ready; })) {
       const auto end_time = std::chrono::steady_clock::now();

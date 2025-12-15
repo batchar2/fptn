@@ -56,7 +56,7 @@ std::uint64_t GetDownloadTimeMs(const ServerInfo& server,
 ServerInfo FindFastestServer(const std::string& sni,
     const std::vector<ServerInfo>& servers,
     fptn::protocol::https::CensorshipStrategy censorship_strategy) {
-  constexpr int kTimeoutSeconds = 30;
+  constexpr int kTimeoutSeconds = 10;
 
   // randomly select half of the servers
   std::vector<ServerInfo> shuffled_servers = servers;
