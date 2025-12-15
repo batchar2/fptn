@@ -117,13 +117,12 @@ void SetSocketTimeouts(
 
 using Headers = std::unordered_map<std::string, std::string>;
 
-Headers RealBrowserHeaders(const std::string& host) {
+Headers RealBrowserHeaders() {
   /* Just to ensure that FPTN is as similar to a web browser as possible. */
 #ifdef __linux__  // chromium ubuntu arm
-  return {{"Host", host},
-      {"User-Agent",
-          "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like "
-          "Gecko) Chrome/134.0.0.0 Safari/537.36"},
+  return {{"User-Agent",
+              "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like "
+              "Gecko) Chrome/134.0.0.0 Safari/537.36"},
       {"Accept-Language", "en-US,en;q=0.9"},
       {"Accept",
           "text/html,application/xhtml+xml,application/xml;q=0.9,image/"
@@ -138,7 +137,7 @@ Headers RealBrowserHeaders(const std::string& host) {
       {"Sec-Fetch-Dest", "document"}, {"Priority", "u=0, i"}};
 #elif __APPLE__
   // apple silicon chrome
-  return {{"Host", host},
+  return {
       {"sec-ch-ua",
           R"("Chromium";v="128", "Not;A=Brand";v="24", "Google Chrome";v="128")"},
       {"sec-ch-ua-platform", "\"macOS\""}, {"sec-ch-ua-mobile", "?0"},
@@ -158,7 +157,7 @@ Headers RealBrowserHeaders(const std::string& host) {
       {"priority", "u=4, i"}};
 #elif _WIN32
   // chrome windows amd64
-  return {{"Host", host},
+  return {
       {"sec-ch-ua",
           R"("Chromium";v="128", "Not;A=Brand";v="24", "Google Chrome";v="128")"},
       {"sec-ch-ua-mobile", "?0"}, {"sec-ch-ua-platform", "\"Windows\""},
@@ -348,7 +347,7 @@ bool ApiClient::PerformFakeHandshake(
       }
     } while (true);
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
     if (!ec) {
       SPDLOG_INFO("Received {} bytes server response (ignored)",
@@ -463,7 +462,7 @@ Response ApiClient::GetImpl(const std::string& handle, int timeout) const {
           boost::beast::http::verb::get, handle, 11};
 
       // set http headers
-      const auto headers = RealBrowserHeaders(sni_);
+      const auto headers = RealBrowserHeaders();
       for (const auto& [key, value] : headers) {
         req.set(key, value);
       }
@@ -644,7 +643,7 @@ Response ApiClient::PostImpl(const std::string& handle,
           std::to_string(request.size()));
 
       // set http headers
-      const auto headers = RealBrowserHeaders(sni_);
+      const auto headers = RealBrowserHeaders();
       for (const auto& [key, value] : headers) {
         req.set(key, value);
       }
