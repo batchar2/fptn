@@ -34,6 +34,7 @@ WebsocketClient::WebsocketClient(fptn::common::network::IPv4Address server_ip,
           obfuscator_socket_type(boost::asio::make_strand(ioc_), nullptr),
           ctx_)),
       strand_(boost::asio::make_strand(ioc_)),
+      watchdog_timer_(strand_),
       write_channel_(strand_, kMaxSizeOutQueue_),
       server_ip_(std::move(server_ip)),
       server_port_str_(std::to_string(server_port)),
@@ -237,7 +238,10 @@ boost::asio::awaitable<bool> WebsocketClient::RunInternal() {
       co_return false;
     }
 
-    boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::hours(6));
+    boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::hours(24));
+
+    // Start timer
+    StartWatchdog();
 
     // Start reader and sender
     auto self = shared_from_this();
@@ -479,8 +483,6 @@ boost::asio::awaitable<bool> WebsocketClient::PerformFakeHandshake() {
       }
     } while (true);
 
-    // common::network::DrainSocket(tcp_socket);
-
     // timeout
     co_await boost::asio::steady_timer{
         co_await boost::asio::this_coro::executor,
@@ -493,6 +495,22 @@ boost::asio::awaitable<bool> WebsocketClient::PerformFakeHandshake() {
     SPDLOG_ERROR("PerformFakeHandshake exception: {}", e.what());
   }
   co_return false;
+}
+
+void WebsocketClient::StartWatchdog() {
+  constexpr std::chrono::milliseconds kTimeout(300);
+  watchdog_timer_.expires_after(kTimeout);
+  watchdog_timer_.async_wait(
+      [self = shared_from_this()](const boost::system::error_code& ec) {
+        if (!ec && self->running_) {
+          if (!self->was_connected_.load() && self->running_) {
+            SPDLOG_INFO("Watchdog detected disconnected state, calling Stop()");
+            self->Stop();
+          } else {
+            self->StartWatchdog();
+          }
+        }
+      });
 }
 
 }  // namespace fptn::protocol::https
