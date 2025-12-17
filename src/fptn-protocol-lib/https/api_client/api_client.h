@@ -67,7 +67,7 @@ class ApiClient {
       const std::string& request,
       const std::string& content_type = "application/json",
       int timeout = 10) const;
-  bool TestHandshake(int timeout = 30) const;
+  bool TestHandshake(int timeout = 10) const;
 
  protected:
   ApiClient Clone() const;
