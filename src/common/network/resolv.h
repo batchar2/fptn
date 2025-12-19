@@ -6,12 +6,13 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #pragma once
 
+#include <chrono>
 #include <string>
 #include <utility>
 
-#include <boost/asio/deadline_timer.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/steady_timer.hpp>
 #include <boost/system/error_code.hpp>
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
@@ -66,8 +67,8 @@ inline ResolveResult ResolveWithTimeout(boost::asio::io_context& ioc,
     return result;
   }
 
-  boost::asio::deadline_timer timer(ioc);
-  timer.expires_from_now(boost::posix_time::seconds(timeout_seconds));
+  boost::asio::steady_timer timer(ioc);
+  timer.expires_after(std::chrono::seconds(timeout_seconds));
 
   bool operation_completed = false;
   // FIXME IPv4 only!
