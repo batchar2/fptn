@@ -841,83 +841,90 @@ void Session::Close() {
   }
 
   SPDLOG_INFO("Close session {}", client_id_);
-
   running_ = false;
 
-  boost::system::error_code ec;
   try {
     cancel_signal_.emit(boost::asio::cancellation_type::all);
     write_channel_.close();
   } catch (const std::exception& err) {
-    SPDLOG_ERROR(
+    SPDLOG_WARN(
         "Failed to cancel session or close write_channel: {}", err.what());
   } catch (...) {
-    SPDLOG_ERROR(
-        "Session::shutdown unknown fatal error (client_id={})", client_id_);
+    SPDLOG_WARN(
+        "Session::Close unknown fatal error (client_id={})", client_id_);
   }
 
-  // Close WebSocket
-  if (ws_.is_open()) {
-    try {
-      boost::beast::get_lowest_layer(ws_).expires_after(
-          std::chrono::microseconds(1));
-    } catch (const std::exception& err) {
-      SPDLOG_ERROR(
-          "Session::Close (client_id={}): Failed to set socket timeout using "
-          "expires_after: {}",
-          client_id_, err.what());
-    } catch (...) {
-      SPDLOG_ERROR(
-          "Session::Close (client_id={}): Unknown error occurred while setting "
-          "socket timeout with expires_after",
-          client_id_);
-    }
-  }
-
+  // Set socket linger option for fast close
   try {
-    if (ws_.is_open()) {
-      ws_.close(boost::beast::websocket::close_code::normal, ec);
+    auto& tcp_socket = boost::beast::get_lowest_layer(ws_).socket();
+    if (tcp_socket.is_open()) {
+      tcp_socket.set_option(boost::asio::socket_base::linger(true, 0));
     }
   } catch (const std::exception& err) {
-    SPDLOG_ERROR(
-        "Session::Close (client_id={}): Exception during async_close: {}",
+    SPDLOG_WARN(
+        "Session::Close exception setting linger option (client_id={}): {}",
         client_id_, err.what());
   } catch (...) {
-    SPDLOG_ERROR(
-        "Session::Close (client_id={}): Unknown error during async_close",
+    SPDLOG_WARN(
+        "Session::Close unknown error setting linger option (client_id={})",
         client_id_);
   }
 
-  // Close SSL
-  if (ws_.next_layer().native_handle()) {
-    try {
-      ::SSL_set_quiet_shutdown(ws_.next_layer().native_handle(), 1);
-      ::SSL_shutdown(ws_.next_layer().native_handle());
-      ws_.next_layer().shutdown(ec);
-    } catch (const std::exception& err) {
-      SPDLOG_ERROR(
-          "Session::Close (client_id={}): Exception during SSL_shutdown: {}",
-          client_id_, err.what());
-    } catch (...) {
-      SPDLOG_ERROR(
-          "Session::Close (client_id={}): Unknown error during SSL_shutdown",
-          client_id_);
+  // Close TCP socket first
+  try {
+    auto& tcp_layer = boost::beast::get_lowest_layer(ws_);
+    if (tcp_layer.socket().is_open()) {
+      boost::system::error_code ec;
+      tcp_layer.expires_after(std::chrono::milliseconds(50));
+
+      tcp_layer.socket().shutdown(
+          boost::asio::ip::tcp::socket::shutdown_both, ec);
+      tcp_layer.socket().close(ec);
     }
+  } catch (const std::exception& err) {
+    SPDLOG_WARN("Session::Close TCP socket error (client_id={}): {}",
+        client_id_, err.what());
+  } catch (...) {
+    SPDLOG_WARN(
+        "Session::Close TCP socket unknown error (client_id={})", client_id_);
   }
 
-  if (boost::beast::get_lowest_layer(ws_).socket().is_open()) {
-    boost::beast::get_lowest_layer(ws_).socket().close(ec);
+  // Close WebSocket
+  try {
+    if (ws_.is_open()) {
+      boost::system::error_code ec;
+      ws_.close(boost::beast::websocket::close_code::normal, ec);
+    }
+  } catch (const std::exception& err) {
+    SPDLOG_WARN("Session::Close WebSocket error (client_id={}): {}", client_id_,
+        err.what());
+  } catch (...) {
+    SPDLOG_WARN(
+        "Session::Close WebSocket unknown error (client_id={})", client_id_);
+  }
+
+  // Close SSL
+  try {
+    auto& ssl_layer = ws_.next_layer();
+    if (ssl_layer.native_handle()) {
+      ::SSL_set_quiet_shutdown(ssl_layer.native_handle(), 1);
+    }
+  } catch (const std::exception& err) {
+    SPDLOG_ERROR("Session::Close SSL shutdown exception (client_id={}): {}",
+        client_id_, err.what());
+  } catch (...) {
+    SPDLOG_ERROR(
+        "Session::Close SSL shutdown unknown error (client_id={})", client_id_);
   }
 
   if (ws_close_callback_ && ws_session_was_opened_) {
     try {
       ws_close_callback_(client_id_);
     } catch (const std::exception& e) {
-      SPDLOG_ERROR(
-          "WebSocket close callback threw exception (client_id={}): {}",
+      SPDLOG_WARN("WebSocket close callback threw exception (client_id={}): {}",
           client_id_, e.what());
     } catch (...) {
-      SPDLOG_ERROR(
+      SPDLOG_WARN(
           "WebSocket close callback threw unknown exception (client_id={})",
           client_id_);
     }
