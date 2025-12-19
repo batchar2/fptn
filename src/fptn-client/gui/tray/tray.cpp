@@ -762,7 +762,7 @@ bool TrayApp::startVpn(QString& err_msg) {
   } else {
     // check connection to selected server
     const std::uint64_t time = config.GetDownloadTimeMs(
-        selected_server_, sni, 5, selected_server_.md5_fingerprint);
+        selected_server_, sni, 15, selected_server_.md5_fingerprint);
     if (time == UINT64_MAX) {
       err_msg = QString(
           QObject::tr("The server is unavailable. Please select another server "
@@ -827,7 +827,7 @@ bool TrayApp::startVpn(QString& err_msg) {
 
   // Wait for the WebSocket tunnel to establish
   vpn_client_->Start();
-  constexpr auto kTimeout = std::chrono::seconds(5);
+  constexpr auto kTimeout = std::chrono::seconds(10);
   const auto start = std::chrono::steady_clock::now();
   while (!vpn_client_->IsStarted()) {
     if (std::chrono::steady_clock::now() - start > kTimeout) {

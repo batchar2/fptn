@@ -304,6 +304,12 @@ boost::asio::awaitable<bool> WebsocketClient::Connect() {
       ws_.next_layer().next_layer().set_obfuscator(obfuscator_);
     }
 
+    // timeout
+    co_await boost::asio::steady_timer{
+        co_await boost::asio::this_coro::executor,
+        std::chrono::milliseconds(100)}
+        .async_wait(boost::asio::use_awaitable);
+
     // SSL handshake
     boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::seconds(10));
     co_await ws_.next_layer().async_handshake(
@@ -482,12 +488,6 @@ boost::asio::awaitable<bool> WebsocketClient::PerformFakeHandshake() {
         break;
       }
     } while (true);
-
-    // timeout
-    co_await boost::asio::steady_timer{
-        co_await boost::asio::this_coro::executor,
-        std::chrono::milliseconds(100)}
-        .async_wait(boost::asio::use_awaitable);
 
     SPDLOG_INFO("Fake handshake completed successfully");
     co_return true;
