@@ -782,8 +782,7 @@ boost::asio::awaitable<bool> Session::HandleWebSocket(
         request) {
   boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::hours(12));
 
-  if (request.find("Authorization") != request.end() &&
-      request.find("ClientIP") != request.end()) {
+  if (request.contains("Authorization") && request.contains("ClientIP")) {
     std::string token = request["Authorization"];
     boost::replace_first(token, "Bearer ", "");
 
@@ -805,9 +804,8 @@ boost::asio::awaitable<bool> Session::HandleWebSocket(
       const common::network::IPv4Address client_vpn_ipv4(client_vpn_ipv4_str);
 
       const std::string client_vpn_ipv6_str =
-          (request.find("ClientIPv6") != request.end()
-                  ? request["ClientIPv6"]
-                  : FPTN_CLIENT_DEFAULT_ADDRESS_IP6);
+          (request.contains("ClientIPv6") ? request["ClientIPv6"]
+                                          : FPTN_CLIENT_DEFAULT_ADDRESS_IP6);
       const common::network::IPv6Address client_vpn_ipv6(client_vpn_ipv6_str);
 
       const bool status =
