@@ -16,12 +16,14 @@ using fptn::vpn::VpnClient;
 VpnClient::VpnClient(fptn::vpn::http::ClientPtr http_client,
     fptn::common::network::TunInterfacePtr virtual_net_interface,
     fptn::common::network::IPv4Address dns_server_ipv4,
-    fptn::common::network::IPv6Address dns_server_ipv6)
+    fptn::common::network::IPv6Address dns_server_ipv6,
+    fptn::split::TunnelingPtr tunneling)
     : running_(false),
       http_client_(std::move(http_client)),
       virtual_net_interface_(std::move(virtual_net_interface)),
       dns_server_ipv4_(std::move(dns_server_ipv4)),
-      dns_server_ipv6_(std::move(dns_server_ipv6)) {}
+      dns_server_ipv6_(std::move(dns_server_ipv6)),
+      tunneling_(std::move(tunneling)) {}
 
 VpnClient::~VpnClient() { Stop(); }
 
@@ -142,6 +144,11 @@ void VpnClient::HandlePacketFromWebSocket(
   }
 
   const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+  // tunneling
+  if (running_ && tunneling_) {
+    packet = tunneling_->HandlePacket(std::move(packet));
+  }
 
   if (running_ && virtual_net_interface_) {
     virtual_net_interface_->Send(std::move(packet));

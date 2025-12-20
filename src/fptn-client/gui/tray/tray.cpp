@@ -11,6 +11,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <string>
 #include <tuple>
 #include <utility>
+#include <vector>
 
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
@@ -822,8 +823,16 @@ bool TrayApp::startVpn(QString& err_msg) {
           });
 
   // setup vpn client
+  auto split_route_manager = std::make_unique<fptn::split::RouteManager>(
+      network_interface, gateway_ip);
+  std::vector<std::string> domain_rules = {
+      "*.ru", "*.vk.com", "*vk.com", "yandex.com", "*.yandex.com"};
+  auto tunneling = std::make_unique<fptn::split::Tunneling>(
+      domain_rules, std::move(split_route_manager));
+
   vpn_client_ = std::make_unique<fptn::vpn::VpnClient>(std::move(http_client),
-      std::move(virtual_network_interface), dns_server_ipv4, dns_server_ipv6);
+      std::move(virtual_network_interface), dns_server_ipv4, dns_server_ipv6,
+      std::move(tunneling));
 
   // Wait for the WebSocket tunnel to establish
   vpn_client_->Start();

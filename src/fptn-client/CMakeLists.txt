@@ -33,6 +33,10 @@ add_executable(
   routing/iptables.cpp
   config/config_file.cpp
   config/config_file.h
+  split/tunneling.cpp
+  split/tunneling.h
+  split/route/route_manager.h
+  split/route/route_manager.cpp
   utils/speed_estimator/speed_estimator.cpp
   utils/speed_estimator/speed_estimator.h
   utils/speed_estimator/server_info.h)
@@ -134,6 +138,10 @@ WarningsAsErrors: ''
     gui/style/style.cpp
     gui/autostart/autostart.h
     gui/autoupdate/autoupdate.h
+    split/tunneling.cpp
+    split/tunneling.h
+    split/route/route_manager.h
+    split/route/route_manager.cpp
     utils/windows/vpn_conflict.h
     utils/macos/admin.h
     utils/speed_estimator/speed_estimator.cpp

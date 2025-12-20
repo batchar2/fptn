@@ -48,6 +48,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #undef TCPOPT_CCECHO
 #endif  // TCPOPT_CCECHO
 
+#include <pcapplusplus/DnsLayer.h>  // NOLINT(build/include_order)
 #include <pcapplusplus/TcpLayer.h>  // NOLINT(build/include_order)
 #include <pcapplusplus/UdpLayer.h>  // NOLINT(build/include_order)
 
@@ -180,6 +181,89 @@ class IPPacket {
     }
   }
 
+  bool IsDns() const {
+    const auto* udp = parsed_packet_.getLayerOfType<pcpp::UdpLayer>();
+    if (udp && (udp->getDstPort() == 53 || udp->getSrcPort() == 53)) {
+      return GetDnsLayer() != nullptr;
+    }
+
+    const auto* tcp = parsed_packet_.getLayerOfType<pcpp::TcpLayer>();
+    if (tcp && (tcp->getDstPort() == 53 || tcp->getSrcPort() == 53)) {
+      return GetDnsLayer() != nullptr;
+    }
+    return false;
+  }
+
+  std::optional<std::string> GetDnsDomain() const {
+    const auto* dns_layer = GetDnsLayer();
+    if (dns_layer) {
+      const auto* query = dns_layer->getFirstQuery();
+      if (query) {
+        return query->getName();
+      }
+    }
+    return std::nullopt;
+  }
+
+  std::vector<fptn::common::network::IPv4Address> GetDnsIPv4Addresses() const {
+    const auto* dns_layer = GetDnsLayer();
+    if (!dns_layer) {
+      return {};
+    }
+
+    if (dns_layer->getDnsHeader()->queryOrResponse != 1) {
+      return {};
+    }
+
+    std::vector<fptn::common::network::IPv4Address> ipv4_addresses;
+    auto* answer = dns_layer->getFirstAnswer();
+    while (answer != nullptr) {
+      if (answer->getDnsType() == pcpp::DNS_TYPE_A) {
+        try {
+          std::string ip =
+              answer->getData()->castAs<pcpp::IPv4Address>()->toString();
+          if (!ip.empty()) {
+            ipv4_addresses.emplace_back(std::move(ip));
+          }
+        } catch (const std::exception& e) {
+          SPDLOG_WARN("Failed to parse IPv4 from DNS answer: {}", e.what());
+        }
+      }
+      answer = dns_layer->getNextAnswer(answer);
+    }
+    return ipv4_addresses;
+  }
+
+  std::vector<fptn::common::network::IPv6Address> GetDnsIPv6Addresses() const {
+    const auto* dns_layer = GetDnsLayer();
+    if (!dns_layer) {
+      return {};
+    }
+
+    if (dns_layer->getDnsHeader()->queryOrResponse != 1) {
+      return {};
+    }
+
+    std::vector<fptn::common::network::IPv6Address> ipv6_addresses;
+    auto* answer = dns_layer->getFirstAnswer();
+    while (answer != nullptr) {
+      if (answer->getDnsType() == pcpp::DNS_TYPE_AAAA) {
+        try {
+          // Преобразуем данные в IPv6 адрес
+          std::string ip =
+              answer->getData()->castAs<pcpp::IPv6Address>()->toString();
+          if (!ip.empty()) {
+            ipv6_addresses.emplace_back(ip);
+          }
+        } catch (const std::exception& e) {
+          SPDLOG_DEBUG("Failed to parse IPv6 from DNS answer: {}", e.what());
+        }
+      }
+      answer = dns_layer->getNextAnswer(answer);
+    }
+    return ipv6_addresses;
+  }
+
   fptn::ClientID ClientId() const noexcept { return client_id_; }
 
   pcpp::Packet& Pkt() noexcept { return parsed_packet_; }
@@ -188,6 +272,25 @@ class IPPacket {
 
   const pcpp::RawPacket* GetRawPacket() const noexcept {
     return parsed_packet_.getRawPacket();
+  }
+
+ protected:
+  pcpp::DnsLayer* GetDnsLayer() const {
+    try {
+      auto* udp_layer = parsed_packet_.getLayerOfType<pcpp::UdpLayer>();
+      if (udp_layer) {
+        return parsed_packet_.getLayerOfType<pcpp::DnsLayer>();
+      }
+
+      auto* tcp_layer = parsed_packet_.getLayerOfType<pcpp::TcpLayer>();
+      if (tcp_layer && tcp_layer->getLayerPayloadSize() >= 2) {
+        // DNS over TCP - тоже можно получить слой
+        return parsed_packet_.getLayerOfType<pcpp::DnsLayer>();
+      }
+    } catch (...) {
+      // ignore
+    }
+    return nullptr;
   }
 
  public:
