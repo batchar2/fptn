@@ -29,27 +29,31 @@ mkdir -p "$CLIENT_TMP_DIR/lib/systemd/system"
 cp "$CLIENT_CLI" "$CLIENT_TMP_DIR/usr/bin/"
 chmod 755 "$CLIENT_TMP_DIR/usr/bin/$(basename "$CLIENT_CLI")"
 
-# Create client configuration file
+
 # Create client configuration file
 cat <<EOL > "$CLIENT_TMP_DIR/etc/fptn-client/client.conf"
 # FPTN Client Configuration
 # =========================
 
+
 # Required: Authentication token for server access
-# Get this token from your FPTN server administrator
 ACCESS_TOKEN=
+
 
 # Required: Domain name used for SNI (Server Name Indication)
 # This should be a popular, non-blocked domain in your region
 # Example: rutube.ru, youtube.com, cloudflare.com
 SNI=rutube.ru
 
+
 # Optional: Bind to specific network interface
 # Leave empty to use default interface. Examples: eth0, wlan0, tun0
 NETWORK_INTERFACE=
 
+
 # Optional: Specify the gateway IP (e.g., router IP)
 GATEWAY_IP=
+
 
 # Censorship Bypass Settings
 # Optional: Method to bypass censorship mechanisms
@@ -58,6 +62,51 @@ GATEWAY_IP=
 # - obfuscation: Traffic masking (obfuscation)
 # - sni-reality: Advanced domain spoofing (SNI + REALITY)
 BYPASS_METHOD=sni
+
+
+# Blacklist domains - always blocked regardless of other settings
+# Completely block access to the main domain AND all its subdomains
+# Format: domain:<domain_name>[,domain:<domain_name>...]
+# Example: domain:ria.ru blocks ria.ru and all *.ria.ru sites
+BLACKLIST_DOMAINS=domain:solovev-live.ru,domain:ria.ru,domain:tass.ru,domain:1tv.ru,domain:ntv.ru,domain:rt.com
+
+
+# Networks that always bypass VPN (highest priority)
+# Traffic to these networks never uses VPN, regardless of other settings
+# Format: CIDR notation, comma-separated
+# Default: Private networks (10.0.0.0/8,172.16.0.0/12,192.168.0.0/16) bypass VPN
+EXCLUDE_TUNNEL_NETWORKS=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
+
+
+# Networks that always use VPN (highest priority)
+# Traffic to these networks always uses VPN, regardless of other settings
+# Format: CIDR notation, comma-separated
+# Empty by default - no networks forced through VPN
+INCLUDE_TUNNEL_NETWORKS=
+
+
+# Split Tunneling Settings
+# Enable split tunneling feature
+# When enabled, traffic routing is controlled by TUNNEL_MODE and domain/network lists
+# true:  Enable split tunneling - configure routing with TUNNEL_MODE below
+# false: Disable split tunneling - all traffic goes through VPN tunnel
+ENABLE_SPLIT_TUNNEL=true
+
+
+# Split tunneling mode - defines traffic routing strategy
+# exclude: Route specified domains/networks directly, all other traffic through VPN
+#          Use case: Local/trusted sites bypass VPN for better performance
+# include: Route only specified domains/networks through VPN, all other traffic directly
+#          Use case: Protect only sensitive/blocked sites with VPN
+SPLIT_TUNNEL_MODE=exclude
+
+
+# Domains for split tunneling - traffic classification based on TUNNEL_MODE
+# Format: domain:<domain_name>[,domain:<domain_name>...]
+# With TUNNEL_MODE=exclude: These domains bypass VPN tunnel
+# With TUNNEL_MODE=include: Only these domains use VPN tunnel
+# Examples for Russia: Local sites (.ru, .su) bypass VPN, foreign sites use VPN
+SPLIT_TUNNEL_DOMAINS=domain:ru,domain:su,domain:рф,domain:vk.com,domain:yandex.com,domain:userapi.com,domain:yandex.net,domain:clstorage.net
 
 EOL
 
@@ -70,7 +119,17 @@ After=network.target
 
 [Service]
 EnvironmentFile=/etc/fptn-client/client.conf
-ExecStart=/usr/bin/$(basename "$CLIENT_CLI") --access-token=\${ACCESS_TOKEN} --out-network-interface=\${NETWORK_INTERFACE} --gateway-ip=\${GATEWAY_IP} --sni=\${SNI} --bypass-method=\${BYPASS_METHOD}
+ExecStart=/usr/bin/$(basename "$CLIENT_CLI") \
+    --access-token=\${ACCESS_TOKEN} \
+    --out-network-interface=\${NETWORK_INTERFACE} \
+    --gateway-ip=\${GATEWAY_IP} \
+    --sni=\${SNI} \
+    --bypass-method=\${BYPASS_METHOD} \
+    --blacklist-domains="\${BLACKLIST_DOMAINS}" \
+    --enable-split-tunnel=\${ENABLE_SPLIT_TUNNEL} \
+    --split-tunnel-domains="\${SPLIT_TUNNEL_DOMAINS}" \
+    --exclude-tunnel-networks="\${EXCLUDE_TUNNEL_NETWORKS}" \
+    --include-tunnel-networks="\${INCLUDE_TUNNEL_NETWORKS}"
 Restart=always
 RestartSec=5
 User=root

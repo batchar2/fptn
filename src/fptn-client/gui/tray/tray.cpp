@@ -808,7 +808,7 @@ bool TrayApp::startVpn(QString& err_msg) {
   }
 
   // setup ip tables
-  ip_tables_ = std::make_unique<fptn::routing::IPTables>(network_interface,
+  ip_tables_ = std::make_unique<fptn::routing::RouteManager>(network_interface,
       tun_interface_name, server_ip, dns_server_ipv4, dns_server_ipv6,
       gateway_ip, tun_interface_address_ipv4, tun_interface_address_ipv6);
 

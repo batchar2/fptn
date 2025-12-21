@@ -36,6 +36,9 @@ if (FPTN_BUILD_ONLY_FPTN_LIB)
   # build fptnlib without pcappp
   set(FPTN_IP_ADDRESS_WITHOUT_PCAP ON)
   add_compile_definitions(FPTN_IP_ADDRESS_WITHOUT_PCAP)
+else()
+  set(FPTN_WITH_LIBIDN2 ON)
+  add_compile_definitions(FPTN_WITH_LIBIDN2)
 endif()
 
 add_compile_definitions(FPTN_VERSION=\"${FPTN_VERSION}\")

@@ -68,8 +68,6 @@ WebsocketClient::WebsocketClient(fptn::common::network::IPv4Address server_ip,
           return true;
         }
         if (md5_fingerprint == expected_md5_fingerprint_) {
-          SPDLOG_INFO("Certificate verified successfully (MD5 matched: {}).",
-              md5_fingerprint);
           return true;
         }
         SPDLOG_ERROR("Certificate MD5 mismatch. Expected: {}, got: {}.",
@@ -399,7 +397,6 @@ boost::asio::awaitable<void> WebsocketClient::RunReader() {
         std::string data = boost::beast::buffers_to_string(buffer.data());
         std::string raw = protobuf::GetProtoPayload(std::move(data));
         auto packet = fptn::common::network::IPPacket::Parse(std::move(raw));
-
         if (running_ && packet && new_ip_pkt_callback_) {
           new_ip_pkt_callback_(std::move(packet));
         }

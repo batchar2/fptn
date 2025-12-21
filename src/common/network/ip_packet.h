@@ -12,6 +12,8 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <utility>
 #include <vector>
 
+#include "common/utils/utils.h"
+
 #if _WIN32
 #pragma warning(disable : 4996)
 #endif
@@ -58,9 +60,15 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #endif
 
+#ifdef FPTN_WITH_LIBIDN2
+#include <idn2.h>
+// #include <libidn2/idn2.h>  // NOLINT(build/include_order)
+#endif
+
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
 #include "common/client_id.h"
+#include "common/network/ip_address.h"
 
 namespace fptn::common::network {
 
@@ -75,6 +83,32 @@ inline bool CheckIPv4(const std::string& buffer) {
 inline bool CheckIPv6(const std::string& buffer) {
   return (static_cast<uint8_t>(buffer[0]) >> 4) == 6;
 }
+
+#ifdef FPTN_WITH_LIBIDN2
+
+inline bool IsPunycode(const std::string& str) {
+  return str.find("xn--") != std::string::npos;
+}
+
+inline std::string ConvertDomainToUnicode(const std::string& domain) {
+  if (domain.empty()) {
+    return domain;
+  }
+
+  char* result = nullptr;
+  const int ret = idn2_to_unicode_8z8z(domain.c_str(), &result, 0);
+
+  if (ret == IDN2_OK && result != nullptr) {
+    std::string unicode_result = result;
+    free(result);
+    return unicode_result;
+  }
+  if (result != nullptr) {
+    free(result);
+  }
+  return domain;
+}
+#endif
 
 class IPPacket {
  public:
@@ -199,7 +233,13 @@ class IPPacket {
     if (dns_layer) {
       const auto* query = dns_layer->getFirstQuery();
       if (query) {
-        return query->getName();
+        const std::string domain_name = query->getName();
+#ifdef FPTN_WITH_LIBIDN2
+        if (IsPunycode(domain_name)) {
+          return ConvertDomainToUnicode(domain_name);
+        }
+#endif
+        return domain_name;
       }
     }
     return std::nullopt;

@@ -5,7 +5,6 @@ from conan import ConanFile
 from conan.tools.cmake import CMakeToolchain, CMake
 from conan.tools.files import copy
 
-
 # CI will replace this automatically
 FPTN_VERSION = "0.0.0"
 
@@ -21,6 +20,7 @@ class FPTN(ConanFile):
         "jwt-cpp/0.7.1",
         "nlohmann_json/3.12.0",
         "protobuf/5.29.3",
+        "re2/20251105",
         "spdlog/1.16.0",
         "zlib/1.3.1",
     )
@@ -64,16 +64,17 @@ class FPTN(ConanFile):
         "boost/*:without_json": False,
         "boost/*:without_random": False,
         "boost/*:without_iostreams": False,
+        "boost/*:without_chrono": False,
         "boost/*:without_regex": False,
         "boost/*:without_zlib": False,
         "boost/*:without_nowide": False,
+        "boost/*:without_locale": False,
+        "boost/*:without_thread": False,
         "boost/*:without_python": True,
-        "boost/*:without_chrono": True,
         "boost/*:without_contract": True,
         "boost/*:without_fiber": True,
         "boost/*:without_graph": True,
         "boost/*:without_graph_parallel": True,
-        "boost/*:without_locale": True,
         "boost/*:without_log": True,
         "boost/*:without_math": True,
         "boost/*:without_mpi": True,
@@ -81,7 +82,6 @@ class FPTN(ConanFile):
         "boost/*:without_serialization": True,
         "boost/*:without_stacktrace": True,
         "boost/*:without_test": True,
-        "boost/*:without_thread": True,
         "boost/*:without_url": True,
         "boost/*:without_type_erasure": True,
         "boost/*:without_wave": True,
@@ -123,6 +123,7 @@ class FPTN(ConanFile):
             # pcap++ does not support iOS and Android.
             # Since libfptn is built as a detached part of the whole project,
             #   we don't use pcap++ in that case.
+            self.requires("libidn2/2.3.8")
             self.requires("pcapplusplus/25.05")
             self.requires("prometheus-cpp/1.3.0")
 

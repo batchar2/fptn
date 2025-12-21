@@ -23,7 +23,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <fmt/format.h>     // NOLINT(build/include_order)
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
-using fptn::routing::IPTables;
+using fptn::routing::RouteManager;
 
 namespace {
 bool RunCommand(const std::string& command) noexcept {
@@ -81,13 +81,13 @@ bool SetMaxFileDescriptors() {
 
 }  // namespace
 
-IPTables::IPTables(
+RouteManager::RouteManager(
     std::string out_net_interface_name, std::string tun_net_interface_name)
     : out_net_interface_name_(std::move(out_net_interface_name)),
       tun_net_interface_name_(std::move(tun_net_interface_name)),
       running_(false) {}
 
-IPTables::~IPTables() {
+RouteManager::~RouteManager() {
   try {
     Clean();
   } catch (const std::exception& ex) {
@@ -97,7 +97,7 @@ IPTables::~IPTables() {
   }
 }
 
-bool IPTables::Apply() {  // NOLINT(bugprone-exception-escape)
+bool RouteManager::Apply() {  // NOLINT(bugprone-exception-escape)
   const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
 #ifdef __linux__
@@ -164,7 +164,7 @@ bool IPTables::Apply() {  // NOLINT(bugprone-exception-escape)
 }
 
 // NOLINT(bugprone-exception-escape)
-bool IPTables::Clean() {
+bool RouteManager::Clean() {
   const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
   if (!running_) {

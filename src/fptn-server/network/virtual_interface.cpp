@@ -15,7 +15,7 @@ using fptn::network::VirtualInterface;
 
 VirtualInterface::VirtualInterface(
     fptn::common::network::TunInterface::Config config,
-    fptn::routing::IPTablesPtr iptables)
+    fptn::routing::RouteManagerPtr iptables)
     : running_(false), iptables_(std::move(iptables)) {
   // NOLINTNEXTLINE(modernize-avoid-bind)
   auto callback = std::bind(

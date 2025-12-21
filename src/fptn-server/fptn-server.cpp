@@ -66,7 +66,7 @@ int main(int argc, char* argv[]) {
     }
 
     /* Init iptables */
-    auto iptables = std::make_unique<fptn::routing::IPTables>(
+    auto iptables = std::make_unique<fptn::routing::RouteManager>(
         config.OutNetworkInterface(), config.TunInterfaceName());
     /* Init virtual network interface */
 
