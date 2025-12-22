@@ -6,6 +6,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #pragma once
 
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -32,6 +33,9 @@ class ConfigFile final {
       const std::string& md5_fingerprint);
 
   bool AddServer(const fptn::utils::speed_estimator::ServerInfo& s);
+
+  std::optional<fptn::utils::speed_estimator::ServerInfo> GetServer(
+      const std::string& server_name) const;
 
   int GetVersion() const noexcept;
   const std::string& GetServiceName() const noexcept;

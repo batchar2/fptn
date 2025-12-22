@@ -22,6 +22,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <QLineEdit>         // NOLINT(build/include_order)
 #include <QMessageBox>       // NOLINT(build/include_order)
 #include <QPushButton>       // NOLINT(build/include_order)
+#include <QScrollArea>       // NOLINT(build/include_order)
 #include <QSystemTrayIcon>   // NOLINT(build/include_order)
 #include <QTableWidgetItem>  // NOLINT(build/include_order)
 
@@ -49,6 +50,17 @@ QString CleanDomain(const QString& domain) {
   }
   return cleaned;
 }
+
+QString VectorToText(const QVector<QString>& items) { return items.join('\n'); }
+
+QVector<QString> TextToVector(const QString& text) {
+  QVector<QString> result;
+  const auto lines = text.split('\n', Qt::SkipEmptyParts);
+  for (const auto& line : lines) {
+    result.append(line.trimmed());
+  }
+  return result;
+}
 }  // namespace
 
 using fptn::gui::SettingsWidget;
@@ -70,22 +82,18 @@ void SettingsWidget::SetupUi() {
   tab_widget_ = new QTabWidget(this);
   tab_widget_->setContextMenuPolicy(Qt::ActionsContextMenu);
 
-  // Settings tab
   settings_tab_ = new QWidget();
   auto* settings_layout = new QVBoxLayout(settings_tab_);
   settings_layout->setContentsMargins(10, 10, 10, 10);
 
-  // Grid Layout for settings
   grid_layout_ = new QGridLayout();
   grid_layout_->setContentsMargins(0, 0, 0, 0);
   grid_layout_->setHorizontalSpacing(10);
   grid_layout_->setVerticalSpacing(10);
 
-  // Adjust column stretching
-  grid_layout_->setColumnStretch(0, 1);  // Label column
-  grid_layout_->setColumnStretch(1, 4);  // Field column
+  grid_layout_->setColumnStretch(0, 1);
+  grid_layout_->setColumnStretch(1, 4);
 
-  // AUTOSTART (show only for Linux)
 #ifdef __linux__
   autostart_label_ = new QLabel(QObject::tr("Autostart"), this);
   autostart_checkbox_ = new QCheckBox(" ", this);
@@ -96,7 +104,6 @@ void SettingsWidget::SetupUi() {
   grid_layout_->addWidget(autostart_checkbox_, 0, 1, Qt::AlignLeft);
 #endif
 
-  // LANGUAGE
   language_label_ = new QLabel(QObject::tr("Language"), this);
   language_combo_box_ = new QComboBox(this);
   language_combo_box_->addItems(settings_->GetLanguages());
@@ -106,9 +113,8 @@ void SettingsWidget::SetupUi() {
   grid_layout_->addWidget(language_label_, 1, 0, Qt::AlignLeft);
   grid_layout_->addWidget(language_combo_box_, 1, 1, Qt::AlignLeft);
 
-  // INTERFACE
   interface_label_ =
-      new QLabel(QObject::tr("Network Interface (adapter)") + ":  ", this);
+      new QLabel(QObject::tr("Network Interface (adapter)"), this);
   interface_combo_box_ = new QComboBox(this);
   interface_combo_box_->addItems(settings_->GetNetworkInterfaces());
   interface_combo_box_->setCurrentText(settings_->UsingNetworkInterface());
@@ -117,9 +123,8 @@ void SettingsWidget::SetupUi() {
   grid_layout_->addWidget(interface_label_, 2, 0, Qt::AlignLeft);
   grid_layout_->addWidget(interface_combo_box_, 2, 1, Qt::AlignLeft);
 
-  // GATEWAY
   gateway_label_ = new QLabel(
-      QObject::tr("Gateway IP Address (typically your router's address)") + ":",
+      QObject::tr("Gateway IP Address (typically your router's address)"),
       this);
   gateway_auto_checkbox_ = new QCheckBox(QObject::tr("Auto"), this);
   gateway_line_edit_ = new QLineEdit(this);
@@ -145,18 +150,22 @@ void SettingsWidget::SetupUi() {
   grid_layout_->addLayout(gateway_layout, 3, 1, 1, 2);
   settings_layout->addLayout(grid_layout_);
 
-  // Bypass blocking method
   bypass_method_label_ =
       new QLabel(QObject::tr("Bypass blocking method"), this);
   bypass_method_combo_box_ = new QComboBox(this);
-  bypass_method_combo_box_->addItem(QObject::tr("SNI"), "SNI");
-  bypass_method_combo_box_->addItem(QObject::tr("OBFUSCATION"), "OBFUSCATION");
-  bypass_method_combo_box_->addItem(QObject::tr("SNI-REALITY"), "SNI-REALITY");
+  bypass_method_combo_box_->addItem(
+      QObject::tr("SNI"), SettingsModel::kSplitTunnelModeExclude);
+  bypass_method_combo_box_->addItem(
+      QObject::tr("OBFUSCATION"), SettingsModel::kBypassMethodObfuscation);
+  bypass_method_combo_box_->addItem(
+      QObject::tr("SNI-REALITY"), SettingsModel::kBypassMethodSniReality);
   bypass_method_combo_box_->setSizePolicy(
       QSizePolicy::Expanding, QSizePolicy::Fixed);
-  if (settings_->BypassMethod() == "OBFUSCATION") {
+
+  if (settings_->BypassMethod() == SettingsModel::kBypassMethodObfuscation) {
     bypass_method_combo_box_->setCurrentText(QObject::tr("OBFUSCATION"));
-  } else if (settings_->BypassMethod() == "SNI-REALITY") {
+  } else if (settings_->BypassMethod() ==
+             SettingsModel::kBypassMethodSniReality) {
     bypass_method_combo_box_->setCurrentText(QObject::tr("SNI-REALITY"));
   } else {
     bypass_method_combo_box_->setCurrentText(QObject::tr("SNI"));
@@ -167,8 +176,15 @@ void SettingsWidget::SetupUi() {
   grid_layout_->addWidget(bypass_method_label_, 4, 0, Qt::AlignLeft);
   grid_layout_->addWidget(bypass_method_combo_box_, 4, 1, 1, 2);
 
-  sni_label_ =
-      new QLabel(QObject::tr("Fake domain to bypass blocking") + ": ", this);
+  sni_label_ = new QLabel(this);
+  if (settings_->BypassMethod() == SettingsModel::kBypassMethodSniReality) {
+    sni_label_->setText(
+        QObject::tr("Fake domain to bypass blocking (MUST ACTUALLY EXIST!)"));
+  } else {
+    sni_label_->setText(QObject::tr("Fake domain to bypass blocking"));
+  }
+
+  sni_label_->setWordWrap(true);
   sni_line_edit_ = new QLineEdit(this);
   sni_line_edit_->setText(settings_->SNI());
   sni_label_->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
@@ -191,7 +207,6 @@ void SettingsWidget::SetupUi() {
   grid_layout_->addWidget(sni_label_, 5, 0, Qt::AlignLeft | Qt::AlignVCenter);
   grid_layout_->addWidget(sni_line_edit_, 5, 1, 1, 2);
 
-  // SNI Files - placed right under SNI field
   sni_files_list_widget_ = new QListWidget(this);
   sni_files_list_widget_->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
   sni_files_list_widget_->setMaximumHeight(80);
@@ -215,7 +230,6 @@ void SettingsWidget::SetupUi() {
   settings_layout->addLayout(grid_layout_);
   settings_layout->addStretch(0);
 
-  // Server Table
   server_table_ = new QTableWidget(0, 4, this);
   server_table_->setHorizontalHeaderLabels({QObject::tr("Name"),
       QObject::tr("User"), QObject::tr("Servers"), QObject::tr("Action")});
@@ -229,55 +243,343 @@ void SettingsWidget::SetupUi() {
 
   settings_layout->addWidget(server_table_, 1);
 
-  // Buttons
-  auto* button_layout = new QHBoxLayout();
-  button_layout->addStretch();
-
-  load_new_token_button_ =
-      new QPushButton("  " + QObject::tr("Add token") + "  ", this);
-  connect(load_new_token_button_, &QPushButton::clicked, this,
-      &SettingsWidget::onLoadNewConfig);
-  button_layout->addWidget(load_new_token_button_);
-
-  exit_button_ = new QPushButton("  " + QObject::tr("Close") + "  ", this);
-  connect(exit_button_, &QPushButton::clicked, this, &SettingsWidget::onExit);
-  button_layout->addWidget(exit_button_);
-
-  settings_layout->addLayout(button_layout);
-
   tab_widget_->addTab(settings_tab_, QObject::tr("Settings"));
 
-  // About tab
+  routing_tab_ = new QWidget();
+  auto* routing_layout = new QVBoxLayout(routing_tab_);
+  routing_layout->setContentsMargins(10, 10, 10, 10);
+  routing_layout->setSpacing(10);
+
+  routing_grid_layout_ = new QGridLayout();
+  routing_grid_layout_->setContentsMargins(0, 0, 0, 0);
+  routing_grid_layout_->setHorizontalSpacing(10);
+  routing_grid_layout_->setVerticalSpacing(10);
+  routing_grid_layout_->setColumnStretch(0, 1);
+  routing_grid_layout_->setColumnStretch(1, 3);
+
+  int current_row = 0;
+
+  // Routing
+#ifdef _WIN32
+  constexpr char kInfoLabelStyle[] = "color: #888888; font-size: 7pt;";
+#elif defined(__APPLE__)
+  constexpr char kInfoLabelStyle[] = "color: #888888; font-size: 9pt;";
+#elif defined(__linux__)
+  constexpr char kInfoLabelStyle[] = "color: #888888; font-size: 8pt;";
+#endif
+
+  blacklist_domains_label_ = new QLabel(QObject::tr("Blacklist domains"), this);
+  blacklist_domains_info_label_ = new QLabel(
+      QObject::tr("Completely block access to the main domain AND all its "
+                  "subdomains. Format: domain:example.com (one per line)"),
+      this);
+  blacklist_domains_info_label_->setWordWrap(true);
+  blacklist_domains_info_label_->setStyleSheet(kInfoLabelStyle);
+
+  blacklist_domains_info_label_->setSizePolicy(
+      QSizePolicy::Expanding, QSizePolicy::Preferred);
+
+  auto* blacklist_label_container = new QWidget(this);
+  auto* blacklist_label_layout = new QVBoxLayout(blacklist_label_container);
+  blacklist_label_layout->setContentsMargins(0, 0, 0, 0);
+  blacklist_label_layout->setSpacing(5);
+  blacklist_label_layout->addWidget(
+      blacklist_domains_label_, 0, Qt::AlignLeft | Qt::AlignTop);
+  blacklist_label_layout->addWidget(
+      blacklist_domains_info_label_, 0, Qt::AlignLeft | Qt::AlignTop);
+  blacklist_label_layout->addStretch(1);
+
+  blacklist_domains_text_edit_ = new QTextEdit(this);
+  blacklist_domains_text_edit_->setPlainText(
+      VectorToText(settings_->BlacklistDomains()));
+  blacklist_domains_text_edit_->setSizePolicy(
+      QSizePolicy::Expanding, QSizePolicy::Preferred);
+  blacklist_domains_text_edit_->setMaximumHeight(150);
+  connect(
+      blacklist_domains_text_edit_, &QTextEdit::textChanged, this, [this]() {
+        settings_->SetBlacklistDomains(
+            TextToVector(blacklist_domains_text_edit_->toPlainText()));
+      });
+
+  routing_grid_layout_->addWidget(
+      blacklist_label_container, current_row, 0, Qt::AlignLeft | Qt::AlignTop);
+  routing_grid_layout_->addWidget(blacklist_domains_text_edit_, current_row, 1);
+  current_row++;
+
+  exclude_tunnel_networks_label_ =
+      new QLabel(QObject::tr("Exclude tunnel networks"), this);
+  exclude_tunnel_networks_info_label_ = new QLabel(
+      QObject::tr("Networks that always bypass VPN tunnel. "
+                  "Traffic to these networks goes directly, never through VPN"),
+      this);
+  exclude_tunnel_networks_info_label_->setWordWrap(true);
+
+  exclude_tunnel_networks_info_label_->setStyleSheet(kInfoLabelStyle);
+
+  exclude_tunnel_networks_info_label_->setSizePolicy(
+      QSizePolicy::Expanding, QSizePolicy::Preferred);
+
+  auto* exclude_label_container = new QWidget(this);
+  auto* exclude_label_layout = new QVBoxLayout(exclude_label_container);
+  exclude_label_layout->setContentsMargins(0, 0, 0, 0);
+  exclude_label_layout->setSpacing(5);
+  exclude_label_layout->addWidget(
+      exclude_tunnel_networks_label_, 0, Qt::AlignLeft | Qt::AlignTop);
+  exclude_label_layout->addWidget(
+      exclude_tunnel_networks_info_label_, 0, Qt::AlignLeft | Qt::AlignTop);
+  exclude_label_layout->addStretch(1);
+
+  exclude_tunnel_networks_text_edit_ = new QTextEdit(this);
+  exclude_tunnel_networks_text_edit_->setPlainText(
+      VectorToText(settings_->ExcludeTunnelNetworks()));
+  exclude_tunnel_networks_text_edit_->setSizePolicy(
+      QSizePolicy::Expanding, QSizePolicy::Expanding);
+  connect(exclude_tunnel_networks_text_edit_, &QTextEdit::textChanged, this,
+      [this]() {
+        settings_->SetExcludeTunnelNetworks(
+            TextToVector(exclude_tunnel_networks_text_edit_->toPlainText()));
+      });
+
+  routing_grid_layout_->addWidget(
+      exclude_label_container, current_row, 0, Qt::AlignLeft | Qt::AlignTop);
+  routing_grid_layout_->addWidget(
+      exclude_tunnel_networks_text_edit_, current_row, 1);
+  current_row++;
+
+  include_tunnel_networks_label_ =
+      new QLabel(QObject::tr("Include tunnel networks"), this);
+  include_tunnel_networks_info_label_ = new QLabel(
+      QObject::tr("Networks that always use VPN tunnel. "
+                  "Traffic to these networks always goes through VPN"),
+      this);
+  include_tunnel_networks_info_label_->setWordWrap(true);
+  include_tunnel_networks_info_label_->setStyleSheet(kInfoLabelStyle);
+
+  include_tunnel_networks_info_label_->setSizePolicy(
+      QSizePolicy::Expanding, QSizePolicy::Preferred);
+
+  auto* include_label_container = new QWidget(this);
+  auto* include_label_layout = new QVBoxLayout(include_label_container);
+  include_label_layout->setContentsMargins(0, 0, 0, 0);
+  include_label_layout->setSpacing(5);
+  include_label_layout->addWidget(
+      include_tunnel_networks_label_, 0, Qt::AlignLeft | Qt::AlignTop);
+  include_label_layout->addWidget(
+      include_tunnel_networks_info_label_, 0, Qt::AlignLeft | Qt::AlignTop);
+  include_label_layout->addStretch(1);
+
+  include_tunnel_networks_text_edit_ = new QTextEdit(this);
+  include_tunnel_networks_text_edit_->setPlainText(
+      VectorToText(settings_->IncludeTunnelNetworks()));
+  include_tunnel_networks_text_edit_->setSizePolicy(
+      QSizePolicy::Expanding, QSizePolicy::Expanding);
+  include_tunnel_networks_text_edit_->setPlaceholderText(
+      QObject::tr("192.168.99.0/24"));
+  connect(include_tunnel_networks_text_edit_, &QTextEdit::textChanged, this,
+      [this]() {
+        settings_->SetIncludeTunnelNetworks(
+            TextToVector(include_tunnel_networks_text_edit_->toPlainText()));
+      });
+
+  routing_grid_layout_->addWidget(
+      include_label_container, current_row, 0, Qt::AlignLeft | Qt::AlignTop);
+  routing_grid_layout_->addWidget(
+      include_tunnel_networks_text_edit_, current_row, 1);
+  current_row++;
+
+  enable_split_tunnel_label_ =
+      new QLabel(QObject::tr("Enable split tunnel"), this);
+  enable_split_tunnel_info_label_ =
+      new QLabel(QObject::tr("When enabled, you can configure which sites use "
+                             "VPN and which go directly."),
+          this);
+  enable_split_tunnel_info_label_->setWordWrap(true);
+  enable_split_tunnel_info_label_->setStyleSheet(kInfoLabelStyle);
+
+  enable_split_tunnel_info_label_->setSizePolicy(
+      QSizePolicy::Expanding, QSizePolicy::Preferred);
+
+  auto* enable_split_label_container = new QWidget(this);
+  auto* enable_split_label_layout =
+      new QVBoxLayout(enable_split_label_container);
+  enable_split_label_layout->setContentsMargins(0, 0, 0, 0);
+  enable_split_label_layout->setSpacing(5);
+  enable_split_label_layout->addWidget(
+      enable_split_tunnel_label_, 0, Qt::AlignLeft | Qt::AlignTop);
+  enable_split_label_layout->addWidget(
+      enable_split_tunnel_info_label_, 0, Qt::AlignLeft | Qt::AlignTop);
+  enable_split_label_layout->addStretch(1);
+
+  enable_split_tunnel_checkbox_ = new QCheckBox(" ", this);
+  enable_split_tunnel_checkbox_->setChecked(settings_->EnableSplitTunnel());
+  connect(enable_split_tunnel_checkbox_, &QCheckBox::toggled, this,
+      [this](bool checked) {
+        split_tunnel_mode_label_->setVisible(checked);
+        split_tunnel_mode_info_label_->setVisible(checked);
+        split_tunnel_mode_combo_box_->setVisible(checked);
+        split_tunnel_domains_label_->setVisible(checked);
+        split_tunnel_domains_info_label_->setVisible(checked);
+        split_tunnel_domains_text_edit_->setVisible(checked);
+        settings_->SetEnableSplitTunnel(checked);
+      });
+
+  routing_grid_layout_->addWidget(enable_split_label_container, current_row, 0,
+      Qt::AlignLeft | Qt::AlignTop);
+  routing_grid_layout_->addWidget(enable_split_tunnel_checkbox_, current_row, 1,
+      Qt::AlignLeft | Qt::AlignTop);
+  current_row++;
+
+  split_tunnel_mode_label_ = new QLabel(QObject::tr("Split tunnel mode"), this);
+  split_tunnel_mode_info_label_ = new QLabel(
+      QObject::tr("Defines traffic routing strategy for split tunneling."),
+      this);
+  split_tunnel_mode_info_label_->setWordWrap(true);
+  split_tunnel_mode_info_label_->setStyleSheet(kInfoLabelStyle);
+
+  split_tunnel_mode_info_label_->setSizePolicy(
+      QSizePolicy::Expanding, QSizePolicy::Preferred);
+  split_tunnel_mode_info_label_->setFixedHeight(50);
+
+  auto* split_mode_label_container = new QWidget(this);
+  auto* split_mode_label_layout = new QVBoxLayout(split_mode_label_container);
+  split_mode_label_layout->setContentsMargins(0, 0, 0, 0);
+  split_mode_label_layout->setSpacing(5);
+  split_mode_label_layout->addWidget(
+      split_tunnel_mode_label_, 0, Qt::AlignLeft | Qt::AlignTop);
+  split_mode_label_layout->addWidget(
+      split_tunnel_mode_info_label_, 0, Qt::AlignLeft | Qt::AlignTop);
+  split_mode_label_layout->addStretch(1);
+
+  split_tunnel_mode_combo_box_ = new QComboBox(this);
+  split_tunnel_mode_combo_box_->addItem(
+      QObject::tr("Exclude"), SettingsModel::kSplitTunnelModeExclude);
+  split_tunnel_mode_combo_box_->addItem(
+      QObject::tr("Include"), SettingsModel::kSplitTunnelModeInclude);
+  split_tunnel_mode_combo_box_->setCurrentText(
+      settings_->SplitTunnelMode() == SettingsModel::kSplitTunnelModeInclude
+          ? QObject::tr("Include")
+          : QObject::tr("Exclude"));
+
+  connect(split_tunnel_mode_combo_box_, &QComboBox::currentTextChanged, this,
+      [this](const QString& mode) {
+        if (mode == QObject::tr("Include") ||
+            mode == SettingsModel::kSplitTunnelModeInclude) {
+          settings_->SetSplitTunnelMode(SettingsModel::kSplitTunnelModeInclude);
+          split_tunnel_domains_label_->setText(
+              QObject::tr("Domains to route through VPN"));
+          split_tunnel_domains_info_label_->setText(
+              QObject::tr("List domains that should use VPN tunnel. "
+                          "Only these domains will go through VPN, "
+                          "all other traffic bypasses VPN"));
+        } else {
+          settings_->SetSplitTunnelMode(SettingsModel::kSplitTunnelModeExclude);
+          split_tunnel_domains_label_->setText(
+              QObject::tr("Domains to bypass VPN"));
+
+          split_tunnel_domains_info_label_->setText(
+              QObject::tr("List domains that should bypass VPN tunnel. "
+                          "These domains will go directly, "
+                          "all other traffic uses VPN"));
+        }
+      });
+
+  routing_grid_layout_->addWidget(
+      split_mode_label_container, current_row, 0, Qt::AlignLeft | Qt::AlignTop);
+  routing_grid_layout_->addWidget(split_tunnel_mode_combo_box_, current_row, 1,
+      Qt::AlignLeft | Qt::AlignTop);
+  current_row++;
+
+  split_tunnel_domains_label_ = new QLabel(this);
+  if (settings_->SplitTunnelMode() == SettingsModel::kSplitTunnelModeInclude) {
+    split_tunnel_domains_label_->setText(
+        QObject::tr("Domains to route through VPN"));
+  } else {
+    split_tunnel_domains_label_->setText(QObject::tr("Domains to bypass VPN"));
+  }
+
+  split_tunnel_domains_info_label_ = new QLabel(this);
+  if (settings_->SplitTunnelMode() == SettingsModel::kSplitTunnelModeInclude) {
+    split_tunnel_domains_info_label_->setText(QObject::tr(
+        "List websites that should use VPN tunnel. Only these domains will go "
+        "through VPN, all other traffic bypasses VPN"));
+  } else {
+    split_tunnel_domains_info_label_->setText(
+        QObject::tr("List websites that should bypass VPN tunnel. These "
+                    "domains will go directly, all other traffic uses VPN"));
+  }
+  split_tunnel_domains_info_label_->setWordWrap(true);
+  split_tunnel_domains_info_label_->setStyleSheet(kInfoLabelStyle);
+
+  split_tunnel_domains_info_label_->setSizePolicy(
+      QSizePolicy::Expanding, QSizePolicy::Preferred);
+
+  auto* split_domains_label_container = new QWidget(this);
+  auto* split_domains_label_layout =
+      new QVBoxLayout(split_domains_label_container);
+  split_domains_label_layout->setContentsMargins(0, 0, 0, 0);
+  split_domains_label_layout->setSpacing(5);
+  split_domains_label_layout->addWidget(
+      split_tunnel_domains_label_, 0, Qt::AlignLeft | Qt::AlignTop);
+  split_domains_label_layout->addWidget(
+      split_tunnel_domains_info_label_, 0, Qt::AlignLeft | Qt::AlignTop);
+  split_domains_label_layout->addStretch(1);
+
+  split_tunnel_domains_text_edit_ = new QTextEdit(this);
+  split_tunnel_domains_text_edit_->setPlainText(
+      VectorToText(settings_->SplitTunnelDomains()));
+  split_tunnel_domains_text_edit_->setSizePolicy(
+      QSizePolicy::Expanding, QSizePolicy::Expanding);
+  split_tunnel_domains_text_edit_->setPlaceholderText(
+      QObject::tr("domain:com\ndomain:another.com\ndomain:sub.domainname.com"));
+  connect(
+      split_tunnel_domains_text_edit_, &QTextEdit::textChanged, this, [this]() {
+        settings_->SetSplitTunnelDomains(
+            TextToVector(split_tunnel_domains_text_edit_->toPlainText()));
+      });
+
+  routing_grid_layout_->addWidget(split_domains_label_container, current_row, 0,
+      Qt::AlignLeft | Qt::AlignTop);
+  routing_grid_layout_->addWidget(
+      split_tunnel_domains_text_edit_, current_row, 1);
+  current_row++;
+
+  bool split_enabled = settings_->EnableSplitTunnel();
+  split_tunnel_mode_label_->setVisible(split_enabled);
+  split_tunnel_mode_info_label_->setVisible(split_enabled);
+  split_tunnel_mode_combo_box_->setVisible(split_enabled);
+  split_tunnel_domains_label_->setVisible(split_enabled);
+  split_tunnel_domains_info_label_->setVisible(split_enabled);
+  split_tunnel_domains_text_edit_->setVisible(split_enabled);
+
+  routing_layout->addLayout(routing_grid_layout_);
+  routing_layout->addStretch();
+
+  tab_widget_->addTab(routing_tab_, QObject::tr("Routing"));
+
   about_tab_ = new QWidget();
   auto* about_layout = new QVBoxLayout(about_tab_);
   about_layout->setContentsMargins(10, 10, 10, 10);
   about_layout->setSpacing(10);
-  // FPTN label
   auto* fptn_label = new QLabel("FPTN", this);
   fptn_label->setAlignment(Qt::AlignCenter);
   about_layout->addWidget(fptn_label);
-  // Version Label - centered horizontally
   version_label_ = new QLabel(
       QString(QObject::tr("Version") + ": %1").arg(FPTN_VERSION), this);
   version_label_->setAlignment(Qt::AlignCenter);
   about_layout->addWidget(version_label_);
-  // Project Information - justified
   project_info_label_ = new QLabel(QObject::tr("FPTN_DESCRIPTION"), this);
   project_info_label_->setWordWrap(true);
   project_info_label_->setAlignment(Qt::AlignJustify);
   about_layout->addWidget(project_info_label_);
-  // Add a link (optional)
   website_link_label_ =
       new QLabel(QObject::tr("FPTN_WEBSITE_DESCRIPTION"), this);
   website_link_label_->setOpenExternalLinks(true);
   about_layout->addWidget(website_link_label_);
-  // Add group information (optional)
   telegram_group_label_ =
       new QLabel(QObject::tr("FPTN_TELEGRAM_DESCRIPTION"), this);
   telegram_group_label_->setOpenExternalLinks(true);
   about_layout->addWidget(telegram_group_label_);
 
-  // Sponsors section
   boosty_link_label_ =
       new QLabel(QObject::tr("Support the project on") +
                      " <a href=\"https://boosty.to/fptn\">Boosty</a>",
@@ -286,10 +588,9 @@ void SettingsWidget::SetupUi() {
   boosty_link_label_->setAlignment(Qt::AlignLeft);
   about_layout->addWidget(boosty_link_label_);
 
-  sponsors_label_ = new QLabel(QObject::tr("Project Sponsors") + ":", this);
+  sponsors_label_ = new QLabel(QObject::tr("Project Sponsors"), this);
   sponsors_label_->setAlignment(Qt::AlignLeft);
   about_layout->addWidget(sponsors_label_);
-
   const QString sponsors_list =
       "  - Brebor<br>"
       "  - miklefox<br>"
@@ -308,25 +609,47 @@ void SettingsWidget::SetupUi() {
       "  - Tired Smi1e<br>"
       "  - Teya Aster<br>"
       "  - loftynite<br>"
-      "  - vlz78<br>";
+      "  - vlz78<br>"
+      "  - Erranted<br>";
+
   sponsors_names_label_ = new QLabel(sponsors_list, this);
   sponsors_names_label_->setAlignment(Qt::AlignLeft);
   sponsors_names_label_->setTextInteractionFlags(Qt::TextSelectableByMouse);
-  about_layout->addWidget(sponsors_names_label_);
+  sponsors_names_label_->setWordWrap(true);
 
-  // stretch
+  auto* scroll_area = new QScrollArea(this);
+  scroll_area->setWidget(sponsors_names_label_);
+  scroll_area->setWidgetResizable(true);
+  scroll_area->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+  scroll_area->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+  scroll_area->setFrameShape(QFrame::NoFrame);
+
+  about_layout->addWidget(scroll_area);
+
   about_layout->addStretch(1);
-  // Add About Tab to TabWidget
   tab_widget_->addTab(about_tab_, QObject::tr("About"));
 
-  // Main Layout
   auto* main_layout = new QVBoxLayout(this);
-  main_layout->setContentsMargins(0, 0, 0, 0);
+  main_layout->setContentsMargins(5, 5, 5, 5);
   main_layout->addWidget(tab_widget_);
-  setMinimumSize(600, 400);
+
+  auto* button_layout = new QHBoxLayout();
+  button_layout->addStretch();
+
+  load_new_token_button_ =
+      new QPushButton("  " + QObject::tr("Add token") + "  ", this);
+  connect(load_new_token_button_, &QPushButton::clicked, this,
+      &SettingsWidget::onLoadNewConfig);
+  button_layout->addWidget(load_new_token_button_);
+
+  exit_button_ = new QPushButton("  " + QObject::tr("Close") + "  ", this);
+  connect(exit_button_, &QPushButton::clicked, this, &SettingsWidget::onExit);
+  button_layout->addWidget(exit_button_);
+
+  main_layout->addLayout(button_layout);
+
   setLayout(main_layout);
 
-  // Populate server table with data
   const QVector<ServiceConfig>& services = settings_->Services();
   server_table_->setRowCount(services.size());
   for (int i = 0; i < services.size(); ++i) {
@@ -374,10 +697,16 @@ void SettingsWidget::SetupUi() {
     server_table_->setCellWidget(i, 3, button_container);
   }
 
-  // show current method
   onBypassMethodChanged(bypass_method_combo_box_->currentText());
 
   UpdateSniFilesList();
+
+  setMinimumSize(400, 400);
+  // setMaximumSize(800, 600);
+  resize(650, 600);
+  if (tab_widget_) {
+    tab_widget_->setCurrentIndex(0);
+  }
 }
 
 void SettingsWidget::onExit() {
@@ -387,14 +716,16 @@ void SettingsWidget::onExit() {
   settings_->SetSNI(sni_line_edit_->text());
 
   if (bypass_method_combo_box_->currentText() == QObject::tr("OBFUSCATION") ||
-      bypass_method_combo_box_->currentText() == "OBFUSCATION") {
-    settings_->SetBypassMethod("OBFUSCATION");
+      bypass_method_combo_box_->currentText() ==
+          SettingsModel::kBypassMethodObfuscation) {
+    settings_->SetBypassMethod(SettingsModel::kBypassMethodObfuscation);
   } else if (bypass_method_combo_box_->currentText() ==
                  QObject::tr("SNI-REALITY") ||
-             bypass_method_combo_box_->currentText() == "SNI-REALITY") {
-    settings_->SetBypassMethod("SNI-REALITY");
+             bypass_method_combo_box_->currentText() ==
+                 SettingsModel::kBypassMethodSniReality) {
+    settings_->SetBypassMethod(SettingsModel::kBypassMethodSniReality);
   } else {
-    settings_->SetBypassMethod("SNI");
+    settings_->SetBypassMethod(SettingsModel::kBypassMethodSni);
   }
   if (!settings_->Save()) {
     QMessageBox::critical(this, QObject::tr("Save Failed"),
@@ -514,19 +845,18 @@ void SettingsWidget::onLanguageChanged(const QString&) {
   setWindowTitle(QObject::tr("Settings"));
   if (tab_widget_) {
     tab_widget_->setTabText(0, QObject::tr("Settings"));
-    tab_widget_->setTabText(1, QObject::tr("About"));
+    tab_widget_->setTabText(1, QObject::tr("Routing"));
+    tab_widget_->setTabText(2, QObject::tr("About"));
   }
   if (language_label_) {
     language_label_->setText(QObject::tr("Language"));
   }
   if (interface_label_) {
-    interface_label_->setText(
-        QObject::tr("Network Interface (adapter)") + ":  ");
+    interface_label_->setText(QObject::tr("Network Interface (adapter)"));
   }
   if (gateway_label_) {
     gateway_label_->setText(
-        QObject::tr("Gateway IP Address (typically your router's address)") +
-        ":");
+        QObject::tr("Gateway IP Address (typically your router's address)"));
   }
   if (server_table_) {
     server_table_->setHorizontalHeaderLabels({QObject::tr("Name"),
@@ -552,18 +882,20 @@ void SettingsWidget::onLanguageChanged(const QString&) {
   if (bypass_method_label_) {
     bypass_method_label_->setText(QObject::tr("Bypass blocking method"));
   }
+  const QString current_method = bypass_method_combo_box_->currentText();
   if (bypass_method_combo_box_) {
-    QString current_method = bypass_method_combo_box_->currentText();
     bypass_method_combo_box_->clear();
-    bypass_method_combo_box_->addItem("SNI", "SNI");
     bypass_method_combo_box_->addItem(
-        QObject::tr("OBFUSCATION"), "OBFUSCATION");
+        QObject::tr("SNI"), SettingsModel::kSplitTunnelModeExclude);
     bypass_method_combo_box_->addItem(
-        QObject::tr("SNI-REALITY"), "SNI-REALITY");
+        QObject::tr("OBFUSCATION"), SettingsModel::kBypassMethodObfuscation);
+    bypass_method_combo_box_->addItem(
+        QObject::tr("SNI-REALITY"), SettingsModel::kBypassMethodSniReality);
 
-    if (current_method == "SNI" || current_method == QObject::tr("SNI")) {
+    if (current_method == SettingsModel::kBypassMethodSni ||
+        current_method == QObject::tr("SNI")) {
       bypass_method_combo_box_->setCurrentText(QObject::tr("SNI"));
-    } else if (current_method == "OBFUSCATION" ||
+    } else if (current_method == SettingsModel::kBypassMethodObfuscation ||
                current_method == QObject::tr("OBFUSCATION")) {
       bypass_method_combo_box_->setCurrentText(QObject::tr("OBFUSCATION"));
     } else {
@@ -572,13 +904,105 @@ void SettingsWidget::onLanguageChanged(const QString&) {
   }
 
   if (sni_label_) {
-    sni_label_->setText(QObject::tr("Fake domain to bypass blocking") + ": ");
+    if (settings_->BypassMethod() == SettingsModel::kBypassMethodSniReality) {
+      sni_label_->setText(
+          QObject::tr("Fake domain to bypass blocking (MUST ACTUALLY EXIST!)"));
+    } else {
+      sni_label_->setText(QObject::tr("Fake domain to bypass blocking"));
+    }
   }
   if (sni_autoscan_button_) {
-    sni_autoscan_button_->setText(QObject::tr("Autoscan SNI"));
+    sni_autoscan_button_->setText(QObject::tr("Autoscan sni"));
   }
   if (sni_import_button_) {
     sni_import_button_->setText(QObject::tr("Import SNI file"));
+  }
+
+  // Routing tab
+  if (blacklist_domains_label_) {
+    blacklist_domains_label_->setText(QObject::tr("Blacklist domains"));
+  }
+  if (blacklist_domains_info_label_) {
+    blacklist_domains_info_label_->setText(
+        QObject::tr("Completely block access to the main domain AND all its "
+                    "subdomains. Format: domain:example.com (one per line)"));
+  }
+  if (blacklist_domains_text_edit_) {
+    blacklist_domains_text_edit_->setPlaceholderText(
+        QObject::tr("domain:example.com\ndomain:another.com"));
+  }
+
+  if (exclude_tunnel_networks_label_) {
+    exclude_tunnel_networks_label_->setText(
+        QObject::tr("Exclude tunnel networks"));
+  }
+  if (exclude_tunnel_networks_info_label_) {
+    exclude_tunnel_networks_info_label_->setText(QObject::tr(
+        "Networks that always bypass VPN tunnel. "
+        "Traffic to these networks goes directly, never through VPN"));
+  }
+
+  if (include_tunnel_networks_label_) {
+    include_tunnel_networks_label_->setText(
+        QObject::tr("Include tunnel networks"));
+  }
+  if (include_tunnel_networks_info_label_) {
+    include_tunnel_networks_info_label_->setText(
+        QObject::tr("Networks that always use VPN tunnel. "
+                    "Traffic to these networks always goes through VPN"));
+  }
+
+  if (enable_split_tunnel_label_) {
+    enable_split_tunnel_label_->setText(QObject::tr("Enable split tunnel"));
+  }
+  if (enable_split_tunnel_info_label_) {
+    enable_split_tunnel_info_label_->setText(
+        QObject::tr("When enabled, you can configure which sites use VPN and "
+                    "which go directly."));
+  }
+
+  if (split_tunnel_mode_label_) {
+    split_tunnel_mode_label_->setText(QObject::tr("Split tunnel mode"));
+  }
+  if (split_tunnel_mode_info_label_) {
+    split_tunnel_mode_info_label_->setText(
+        QObject::tr("Defines traffic routing strategy for split tunneling."));
+  }
+  if (split_tunnel_mode_combo_box_) {
+    QString current_mode = split_tunnel_mode_combo_box_->currentText();
+    split_tunnel_mode_combo_box_->clear();
+    split_tunnel_mode_combo_box_->addItem(
+        QObject::tr("Exclude"), SettingsModel::kSplitTunnelModeExclude);
+    split_tunnel_mode_combo_box_->addItem(
+        QObject::tr("Include"), SettingsModel::kSplitTunnelModeInclude);
+
+    if (current_mode == QObject::tr("Include") ||
+        current_mode == SettingsModel::kSplitTunnelModeInclude) {
+      split_tunnel_mode_combo_box_->setCurrentText(QObject::tr("Include"));
+    } else {
+      split_tunnel_mode_combo_box_->setCurrentText(QObject::tr("Exclude"));
+    }
+  }
+
+  if (split_tunnel_domains_label_ && split_tunnel_domains_info_label_) {
+    if (settings_->SplitTunnelMode() ==
+        SettingsModel::kSplitTunnelModeInclude) {
+      split_tunnel_domains_label_->setText(
+          QObject::tr("Domains to route through VPN"));
+      split_tunnel_domains_info_label_->setText(QObject::tr(
+          "List domains that should use VPN tunnel. Only these domains will "
+          "go through VPN, all other traffic bypasses VPN"));
+    } else {
+      split_tunnel_domains_label_->setText(
+          QObject::tr("Domains to bypass VPN"));
+      split_tunnel_domains_info_label_->setText(
+          QObject::tr("List domains that should bypass VPN tunnel. These "
+                      "domains will go directly, all other traffic uses VPN"));
+    }
+  }
+  if (split_tunnel_domains_text_edit_) {
+    split_tunnel_domains_text_edit_->setPlaceholderText(QObject::tr(
+        "domain:com\ndomain:another.com\ndomain:sub.domainname.com"));
   }
 
   // about
@@ -602,7 +1026,7 @@ void SettingsWidget::onLanguageChanged(const QString&) {
         " <a href=\"https://boosty.to/fptn\">Boosty</a>");
   }
   if (sponsors_label_) {
-    sponsors_label_->setText(QObject::tr("Project Sponsors") + ":");
+    sponsors_label_->setText(QObject::tr("Project Sponsors"));
   }
 }
 
@@ -635,7 +1059,8 @@ void SettingsWidget::onAutoGatewayChanged(bool checked) {
 }
 
 void SettingsWidget::onBypassMethodChanged(const QString& method) {
-  const bool is_sni_mode = (method == QObject::tr("SNI") || method == "SNI");
+  const bool is_sni_mode = (method == QObject::tr("SNI") ||
+                            method == SettingsModel::kBypassMethodSni);
   const bool is_reality_mode =
       method == QObject::tr("SNI-REALITY") || method == "SNI-REALITY";
 
@@ -660,12 +1085,14 @@ void SettingsWidget::onBypassMethodChanged(const QString& method) {
     grid_layout_->removeWidget(sni_files_list_widget_);
   }
 
-  if (method == QObject::tr("OBFUSCATION") || method == "OBFUSCATION") {
-    settings_->SetBypassMethod("OBFUSCATION");
-  } else if (method == QObject::tr("SNI-REALITY") || method == "SNI-REALITY") {
-    settings_->SetBypassMethod("SNI-REALITY");
+  if (method == QObject::tr("OBFUSCATION") ||
+      method == SettingsModel::kBypassMethodObfuscation) {
+    settings_->SetBypassMethod(SettingsModel::kBypassMethodObfuscation);
+  } else if (method == QObject::tr("SNI-REALITY") ||
+             method == SettingsModel::kBypassMethodSniReality) {
+    settings_->SetBypassMethod(SettingsModel::kBypassMethodSniReality);
   } else {
-    settings_->SetBypassMethod("SNI");
+    settings_->SetBypassMethod(SettingsModel::kBypassMethodSni);
   }
 }
 

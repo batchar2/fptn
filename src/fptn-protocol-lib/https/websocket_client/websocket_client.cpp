@@ -9,6 +9,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
@@ -26,8 +27,11 @@ WebsocketClient::WebsocketClient(fptn::common::network::IPv4Address server_ip,
     std::string access_token,
     std::string expected_md5_fingerprint,
     CensorshipStrategy censorship_strategy,
-    OnConnectedCallback on_connected_callback)
-    : ctx_(https::utils::CreateNewSslCtx()),
+    OnConnectedCallback on_connected_callback,
+    int thread_number)
+    : ioc_(thread_number),
+      thread_number_(thread_number),
+      ctx_(https::utils::CreateNewSslCtx()),
       resolver_(boost::asio::make_strand(ioc_)),
       censorship_strategy_(censorship_strategy),
       ws_(ssl_stream_type(
@@ -98,19 +102,16 @@ void WebsocketClient::Run() {
 
   SPDLOG_INFO("Connecting to {}:{}", server_ip_.ToString(), server_port_str_);
 
-  if (obfuscator_) {
-    obfuscator_->Reset();
-  }
-
   boost::asio::co_spawn(
       ioc_,
       [self = shared_from_this()]() -> boost::asio::awaitable<void> {
-        const bool status = co_await self->RunInternal();
-        if (!status) {
-          self->Stop();
-        }
+        co_await self->RunInternal();
       },
       boost::asio::detached);
+  ioc_threads_.reserve(thread_number_);
+  for (int i = 0; i < thread_number_; ++i) {
+    ioc_threads_.emplace_back([this]() { ioc_.run(); });
+  }
   ioc_.run();
 }
 
@@ -136,43 +137,75 @@ bool WebsocketClient::Stop() {
   boost::system::error_code ec;
 
   try {
+    if (was_inited_) {
+      watchdog_timer_.cancel();
+    }
+  } catch (const boost::system::system_error&) {
+    SPDLOG_WARN("Cancellation timer error: {}", ec.what());
+  }
+
+  // Stop io_context
+  try {
+    SPDLOG_INFO("Stopping io_context...");
+    ioc_.stop();
+    for (auto& th : ioc_threads_) {
+      if (th.joinable()) {
+        th.join();
+      }
+    }
+    SPDLOG_INFO("io_context stopped");
+  } catch (const boost::system::system_error& err) {
+    SPDLOG_ERROR("Exception while stopping io_context: {}", err.what());
+  } catch (...) {
+    SPDLOG_ERROR("Unknown exception while stopping io_context");
+  }
+
+  try {
     SPDLOG_INFO("Emit cancel signal");
-    cancel_signal_.emit(boost::asio::cancellation_type::all);
+    if (was_inited_) {
+      cancel_signal_.emit(boost::asio::cancellation_type::all);
+    }
   } catch (const std::exception&) {
     SPDLOG_DEBUG("Exception during cancellation");
   }
 
   try {
     SPDLOG_INFO("Closing write_channel");
-    write_channel_.close();
+    if (was_inited_) {
+      write_channel_.close();
+    }
   } catch (const std::exception&) {
     SPDLOG_DEBUG("Exception closing write channel");
   }
 
   try {
     SPDLOG_INFO("Closing resolver");
-    resolver_.cancel();
+    if (was_inited_) {
+      resolver_.cancel();
+    }
   } catch (const std::exception&) {
     SPDLOG_DEBUG("Exception cancelling resolver");
   }
 
   // Close TCP connection
   try {
-    SPDLOG_INFO("Shutting down TCP socket...");
-    auto& tcp = boost::beast::get_lowest_layer(ws_);
-    if (tcp.socket().is_open()) {
-      tcp.socket().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
-      if (ec && ec != boost::asio::error::not_connected) {
-        SPDLOG_WARN("TCP socket shutdown error: {}", ec.message());
-      } else {
-        SPDLOG_INFO("TCP socket shutdown successfully");
-      }
+    if (was_inited_) {
+      SPDLOG_INFO("Shutting down TCP socket...");
+      auto& tcp = boost::beast::get_lowest_layer(ws_);
+      if (tcp.socket().is_open()) {
+        tcp.socket().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
+        if (ec && ec != boost::asio::error::not_connected) {
+          SPDLOG_WARN("TCP socket shutdown error: {}", ec.message());
+        } else {
+          SPDLOG_INFO("TCP socket shutdown successfully");
+        }
 
-      tcp.socket().close(ec);
-      if (ec) {
-        SPDLOG_WARN("TCP socket close error: {}", ec.message());
-      } else {
-        SPDLOG_INFO("TCP socket closed successfully");
+        tcp.socket().close(ec);
+        if (ec) {
+          SPDLOG_WARN("TCP socket close error: {}", ec.message());
+        } else {
+          SPDLOG_INFO("TCP socket closed successfully");
+        }
       }
     }
   } catch (const boost::system::system_error& err) {
@@ -181,27 +214,18 @@ bool WebsocketClient::Stop() {
     SPDLOG_ERROR("Unknown exception during TCP shutdown");
   }
 
-  // Stop io_context
-  try {
-    SPDLOG_INFO("Stopping io_context...");
-    ioc_.stop();
-    SPDLOG_INFO("io_context stopped");
-  } catch (const boost::system::system_error& err) {
-    SPDLOG_ERROR("Exception while stopping io_context: {}", err.what());
-  } catch (...) {
-    SPDLOG_ERROR("Unknown exception while stopping io_context");
-  }
-
   // Close SSL
   try {
-    SPDLOG_INFO("Shutting down SSL layer...");
-    auto& ssl = ws_.next_layer();
-    if (ssl.native_handle()) {
-      // More robust SSL shutdown
-      ::SSL_set_quiet_shutdown(ssl.native_handle(), 1);
-      ::SSL_shutdown(ssl.native_handle());
+    if (was_inited_) {
+      SPDLOG_INFO("Shutting down SSL layer...");
+      auto& ssl = ws_.next_layer();
+      if (ssl.native_handle()) {
+        // More robust SSL shutdown
+        ::SSL_set_quiet_shutdown(ssl.native_handle(), 1);
+        ::SSL_shutdown(ssl.native_handle());
+      }
+      ssl.shutdown(ec);
     }
-    ssl.shutdown(ec);
   } catch (const boost::system::system_error& err) {
     SPDLOG_ERROR("Exception during SSL shutdown: {}", err.what());
   } catch (const std::exception& e) {
@@ -232,7 +256,6 @@ boost::asio::awaitable<bool> WebsocketClient::RunInternal() {
   try {
     const bool connected = co_await Connect();
     if (!connected) {
-      running_ = false;
       co_return false;
     }
 
@@ -242,6 +265,7 @@ boost::asio::awaitable<bool> WebsocketClient::RunInternal() {
     StartWatchdog();
 
     // Start reader and sender
+    was_inited_ = true;
     auto self = shared_from_this();
     boost::asio::co_spawn(
         strand_, [self]() { return self->RunReader(); }, boost::asio::detached);
@@ -250,7 +274,6 @@ boost::asio::awaitable<bool> WebsocketClient::RunInternal() {
     co_return true;
   } catch (const std::exception& e) {
     SPDLOG_ERROR("RunInternal exception: {}", e.what());
-    running_ = false;
   } catch (...) {
     SPDLOG_ERROR("Unknown exception while running");
   }
@@ -302,14 +325,15 @@ boost::asio::awaitable<bool> WebsocketClient::Connect() {
       ws_.next_layer().next_layer().set_obfuscator(obfuscator_);
     }
 
+    // SSL handshake
+    boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::seconds(10));
+
     // timeout
     co_await boost::asio::steady_timer{
         co_await boost::asio::this_coro::executor,
         std::chrono::milliseconds(100)}
         .async_wait(boost::asio::use_awaitable);
 
-    // SSL handshake
-    boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::seconds(10));
     co_await ws_.next_layer().async_handshake(
         boost::asio::ssl::stream_base::client,
         boost::asio::redirect_error(boost::asio::use_awaitable, ec));
@@ -495,19 +519,26 @@ boost::asio::awaitable<bool> WebsocketClient::PerformFakeHandshake() {
 }
 
 void WebsocketClient::StartWatchdog() {
+  if (!running_) {
+    return;
+  }
+
   constexpr std::chrono::milliseconds kTimeout(300);
   watchdog_timer_.expires_after(kTimeout);
-  watchdog_timer_.async_wait(
-      [self = shared_from_this()](const boost::system::error_code& ec) {
-        if (!ec && self->running_) {
-          if (!self->was_connected_.load() && self->running_) {
-            SPDLOG_INFO("Watchdog detected disconnected state, calling Stop()");
-            self->Stop();
-          } else {
-            self->StartWatchdog();
-          }
+  watchdog_timer_.async_wait([self = weak_from_this()](
+                                 const boost::system::error_code& ec) {
+    if (auto shared_self = self.lock()) {
+      if (!ec && shared_self->running_) {
+        // cppcheck-suppress knownConditionTrueFalse
+        if (!shared_self->was_connected_.load() && shared_self->running_) {
+          SPDLOG_INFO("Watchdog detected disconnected state, calling Stop()");
+          shared_self->Stop();
+        } else {
+          shared_self->StartWatchdog();
         }
-      });
+      }
+    }
+  });
 }
 
 }  // namespace fptn::protocol::https

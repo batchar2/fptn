@@ -38,6 +38,27 @@ bool ConfigFile::AddServer(const ServerInfo& s) {
   return true;
 }
 
+std::optional<ServerInfo> ConfigFile::GetServer(
+    const std::string& server_name) const {
+  const std::string prepared_server_name =
+      fptn::common::utils::Trim(fptn::common::utils::ToLowerCase(server_name));
+
+  if (server_name.empty()) {
+    return std::nullopt;
+  }
+
+  auto it = std::ranges::find_if(
+      servers_, [&prepared_server_name](
+                    const fptn::utils::speed_estimator::ServerInfo& server) {
+        return fptn::common::utils::Trim(fptn::common::utils::ToLowerCase(
+                   server.name)) == prepared_server_name;
+      });
+  if (it != servers_.end()) {
+    return *it;
+  }
+  return std::nullopt;
+}
+
 bool ConfigFile::Parse() {
   try {
     const std::string sanitized_token = fptn::common::utils::RemoveSubstring(

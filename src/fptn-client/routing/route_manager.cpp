@@ -284,6 +284,9 @@ bool RouteManager::Apply() {
       (out_interface_name_.empty() ? GetDefaultNetworkInterfaceName()
                                    : out_interface_name_);
 #endif
+  detected_out_interface_name_ =
+      (out_interface_name_.empty() ? GetDefaultNetworkInterfaceName()
+                                   : out_interface_name_);
   detected_gateway_ipv4_ =
       gateway_ipv4_.IsEmpty() ? GetDefaultGatewayIPAddress() : gateway_ipv4_;
 
@@ -326,10 +329,14 @@ bool RouteManager::Apply() {
       fmt::format("ip route add {} via {} dev {}", vpn_server_ip_.ToString(),
           detected_gateway_ipv4_.ToString(), detected_out_interface_name_),
       // DNS
+      fmt::format("resolvectl dns {} ''", detected_out_interface_name_),
+      fmt::format(
+          "resolvectl default-route {} false", detected_out_interface_name_),
+      fmt::format("resolvectl flush-caches"),
       fmt::format("resolvectl dns {} {}", tun_interface_name_,
           dns_server_ipv4_.ToString()),
-      fmt::format("resolvectl domain {} \"~.\" ", tun_interface_name_),
-      fmt::format("resolvectl default-route {} yes", tun_interface_name_)};
+      fmt::format("resolvectl domain {} \"~.\"", tun_interface_name_),
+      fmt::format("resolvectl default-route {} true", tun_interface_name_)};
 #elif __APPLE__
   const std::vector<std::string> commands = {
       fmt::format(
@@ -414,9 +421,18 @@ bool RouteManager::Clean() {  // NOLINT(bugprone-exception-escape)
 
   // clean dns ipv4
   for (const auto& ip : dns_routes_ipv4_) {
-    const std::string interface_name =
-        (ip.policy == RoutingPolicy::kExcludeFromVpn ? out_interface_name_
-                                                     : tun_interface_name_);
+    std::string interface_name;
+    if (ip.policy == RoutingPolicy::kExcludeFromVpn) {
+      if (!detected_out_interface_name_.empty()) {
+        interface_name = detected_out_interface_name_;
+      } else if (!out_interface_name_.empty()) {
+        interface_name = out_interface_name_;
+      } else {
+        interface_name = GetDefaultNetworkInterfaceName();
+      }
+    } else {
+      interface_name = tun_interface_name_;
+    }
     RemoveIPv4RouteFromSystem(
         ip.destination, gateway_ipv4_.ToString(), interface_name);
   }
@@ -424,8 +440,20 @@ bool RouteManager::Clean() {  // NOLINT(bugprone-exception-escape)
 
   // clean dns ipv6
   for (const auto& ip : dns_routes_ipv6_) {
+    std::string interface_name;
+    if (ip.policy == RoutingPolicy::kExcludeFromVpn) {
+      if (!detected_out_interface_name_.empty()) {
+        interface_name = detected_out_interface_name_;
+      } else if (!out_interface_name_.empty()) {
+        interface_name = out_interface_name_;
+      } else {
+        interface_name = GetDefaultNetworkInterfaceName();
+      }
+    } else {
+      interface_name = tun_interface_name_;
+    }
     RemoveIPv6RouteFromSystem(
-        ip.destination, gateway_ipv6_.ToString(), out_interface_name_);
+        ip.destination, gateway_ipv6_.ToString(), interface_name);
   }
   dns_routes_ipv6_.clear();
 
@@ -473,10 +501,13 @@ bool RouteManager::Clean() {  // NOLINT(bugprone-exception-escape)
       fmt::format("ip route del {} via {} dev {}", vpn_server_ip_.ToString(),
           detected_gateway_ipv4_.ToString(), detected_out_interface_name_),
       // DNS
-      fmt::format("resolvectl dns {} '' ", tun_interface_name_),
-      fmt::format("resolvectl domain {} '' ", detected_out_interface_name_),
+      fmt::format("resolvectl dns {} ''", detected_out_interface_name_),
       fmt::format(
-          "resolvectl default-route {} no '' ", detected_out_interface_name_)};
+          "resolvectl default-route {} true", detected_out_interface_name_),
+      fmt::format("resolvectl dns {} ''", tun_interface_name_),
+      fmt::format("resolvectl domain {} ''", tun_interface_name_),
+      fmt::format("resolvectl default-route {} false", tun_interface_name_),
+      fmt::format("resolvectl flush-caches")};
 #elif __APPLE__
   const std::vector<std::string> commands = {
       fmt::format(
@@ -534,7 +565,31 @@ bool RouteManager::Clean() {  // NOLINT(bugprone-exception-escape)
 bool RouteManager::AddDnsRoutesIPv4(
     const std::vector<fptn::common::network::IPv4Address>& ips,
     const RoutingPolicy policy) {
-  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+  const std::unique_lock<std::mutex> lock(mutex_);
+
+  std::string interface_name;
+  std::string gateway_ip;
+
+  if (policy == RoutingPolicy::kExcludeFromVpn) {
+    if (!detected_out_interface_name_.empty()) {
+      interface_name = detected_out_interface_name_;
+    } else if (!out_interface_name_.empty()) {
+      interface_name = out_interface_name_;
+    } else {
+      interface_name = GetDefaultNetworkInterfaceName();
+    }
+    gateway_ip = gateway_ipv4_.ToString();
+  } else {
+    interface_name = tun_interface_name_;
+    gateway_ip = tun_interface_address_ipv4_.ToString();
+  }
+
+  if (interface_name.empty()) {
+    SPDLOG_WARN(
+        "Cannot add DNS IPv4 routes: interface name is empty for policy {}",
+        policy == RoutingPolicy::kExcludeFromVpn ? "EXCLUDE" : "INCLUDE");
+    return false;
+  }
 
   bool status = true;
   for (const auto& ip : ips) {
@@ -543,11 +598,8 @@ bool RouteManager::AddDnsRoutesIPv4(
       RouteEntry entry{.destination = ip_str, .policy = policy};
 
       if (!dns_routes_ipv4_.contains(entry)) {
-        const std::string interface_name =
-            (policy == RoutingPolicy::kExcludeFromVpn ? out_interface_name_
-                                                      : tun_interface_name_);
-        const bool rv = AddIPv4RouteToSystem(
-            ip_str, gateway_ipv4_.ToString(), interface_name);
+        const bool rv =
+            AddIPv4RouteToSystem(ip_str, gateway_ip, interface_name);
         if (rv) {
           const std::string policy_str =
               (policy == RoutingPolicy::kExcludeFromVpn
@@ -571,7 +623,37 @@ bool RouteManager::AddDnsRoutesIPv4(
 bool RouteManager::AddDnsRoutesIPv6(
     const std::vector<fptn::common::network::IPv6Address>& ips,
     const RoutingPolicy policy) {
-  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+  const std::unique_lock<std::mutex> lock(mutex_);
+
+  std::string interface_name;
+  std::string gateway_ip;
+
+  if (policy == RoutingPolicy::kExcludeFromVpn) {
+    if (!detected_out_interface_name_.empty()) {
+      interface_name = detected_out_interface_name_;
+    } else if (!out_interface_name_.empty()) {
+      interface_name = out_interface_name_;
+    } else {
+      interface_name = GetDefaultNetworkInterfaceName();
+    }
+    gateway_ip = gateway_ipv6_.ToString();
+  } else {
+    interface_name = tun_interface_name_;
+    gateway_ip = tun_interface_address_ipv6_.ToString();
+  }
+
+  if (interface_name.empty()) {
+    SPDLOG_WARN(
+        "Cannot add DNS IPv6 routes: interface name is empty for policy {}",
+        policy == RoutingPolicy::kExcludeFromVpn ? "EXCLUDE" : "INCLUDE");
+    return false;
+  }
+
+  if (gateway_ip.empty()) {
+    SPDLOG_WARN("Cannot add DNS IPv6 routes: gateway IP is empty for policy {}",
+        policy == RoutingPolicy::kExcludeFromVpn ? "EXCLUDE" : "INCLUDE");
+    return false;
+  }
 
   bool status = true;
   for (const auto& ip : ips) {
@@ -580,24 +662,8 @@ bool RouteManager::AddDnsRoutesIPv6(
       RouteEntry entry{.destination = ip_str, .policy = policy};
 
       if (!dns_routes_ipv6_.contains(entry)) {
-        const std::string interface_name =
-            (policy == RoutingPolicy::kExcludeFromVpn ? out_interface_name_
-                                                      : tun_interface_name_);
-        // Use appropriate gateway for IPv6
-        std::string gateway_ipv6;
-        if (policy == RoutingPolicy::kExcludeFromVpn) {
-          gateway_ipv6 = gateway_ipv6_.ToString();
-          if (gateway_ipv6.empty()) {
-            SPDLOG_WARN("No IPv6 gateway available for DNS route: {}", ip_str);
-            status = false;
-            continue;
-          }
-        } else {
-          gateway_ipv6 = tun_interface_address_ipv6_.ToString();
-        }
-
         const bool rv =
-            AddIPv6RouteToSystem(ip_str, gateway_ipv6, interface_name);
+            AddIPv6RouteToSystem(ip_str, gateway_ip, interface_name);
         if (rv) {
           const std::string policy_str =
               (policy == RoutingPolicy::kExcludeFromVpn
@@ -632,8 +698,15 @@ bool RouteManager::AddExcludeNetworks(
       const bool is_ipv6 = network.find(':') != std::string::npos;  // NOLINT
       if (is_ipv6) {
         // IPv6
+#ifdef _WIN32
+        std::string interface_name = !detected_out_interface_name_.empty()
+                                         ? detected_out_interface_name_
+                                         : out_interface_name_;
+#else
+        std::string interface_name = out_interface_name_;
+#endif
         const bool success = AddIPv6RouteToSystem(
-            network, gateway_ipv6_.ToString(), out_interface_name_);
+            network, gateway_ipv6_.ToString(), interface_name);
         if (success) {
           additional_routes_ipv6_.insert({.destination = network,
               .policy = RoutingPolicy::kExcludeFromVpn});
@@ -814,7 +887,7 @@ std::string fptn::routing::GetDefaultNetworkInterfaceName() {
         "route get 8.8.8.8 | grep interface | awk '{print $2}' ";
 #elif _WIN32
     const std::string command =
-        R"(cmd.exe /c "FOR /F "tokens=1,2,3" %i IN ('route print ^| findstr /R /C:"0.0.0.0"') DO @echo %i")";
+        R"(powershell -Command "(Get-NetRoute -DestinationPrefix '0.0.0.0/0' | Where-Object {$_.NextHop -ne '0.0.0.0'} | Select-Object -First 1).InterfaceAlias")";
 #endif
     std::vector<std::string> cmd_stdout;
     fptn::common::system::command::run(command, cmd_stdout);

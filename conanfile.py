@@ -236,6 +236,7 @@ class FPTN(ConanFile):
                 "protobuf::protobuf",
                 "spdlog::spdlog",
                 "zlib::zlib",
+                "re2::re2",
             ]
             if self.settings.os == "iOS":
                 self.cpp_info.frameworks = ["Security", "CFNetwork", "SystemConfiguration"]

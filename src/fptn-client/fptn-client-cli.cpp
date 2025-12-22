@@ -60,6 +60,9 @@ int main(int argc, char* argv[]) {
     args.add_argument("--gateway-ipv6")
         .default_value("")
         .help("Your default gateway IPv6 address");
+    args.add_argument("--preferred-server")
+        .default_value("")
+        .help("Preferred server name (case-insensitive)");
     args.add_argument("--tun-interface-name")
         .default_value("tun0")
         .help("Network interface name");
@@ -78,9 +81,7 @@ int main(int argc, char* argv[]) {
             "Domain name for SNI in TLS handshake (used to obfuscate VPN "
             "traffic)");
     args.add_argument("--blacklist-domains")
-        .default_value(
-            "domain:solovev-live.ru,domain:ria.ru,domain:tass.ru,domain:1tv.ru,"
-            "domain:ntv.ru,domain:rt.com")
+        .default_value(FPTN_CLIENT_DEFAULT_BLACKLIST_DOMAINS)
         .help(
             "Completely block access to the main domain AND all its "
             "subdomains\n"
@@ -101,7 +102,7 @@ int main(int argc, char* argv[]) {
         });
     // networks
     args.add_argument("--exclude-tunnel-networks")
-        .default_value("10.0.0.0/8,172.16.0.0/12,192.168.0.0/16")
+        .default_value(FPTN_CLIENT_DEFAULT_EXCLUDE_NETWORKS)
         .help(
             "Networks that always bypass VPN tunnel\n"
             "Traffic to these networks goes directly, never through VPN\n"
@@ -143,9 +144,7 @@ int main(int argc, char* argv[]) {
           return v;
         });
     args.add_argument("--split-tunnel-domains")
-        .default_value(
-            "domain:ru,domain:su,domain:рф,domain:vk.com,domain:yandex.com,"
-            "domain:userapi.com,domain:yandex.net,domain:clstorage.net")
+        .default_value(FPTN_CLIENT_DEFAULT_SPLIT_TUNNEL_DOMAINS)
         .help(
             "List websites that should either use or bypass VPN\n"
             "\n"
@@ -182,9 +181,10 @@ int main(int argc, char* argv[]) {
     const auto gateway_ipv6 =
         fptn::common::network::IPv6Address::Create(param_gateway_ipv6);
 
+    const auto preferred_server = args.get<std::string>("--preferred-server");
+
     const auto tun_interface_name =
         args.get<std::string>("--tun-interface-name");
-
     const auto tun_interface_address_ipv4 =
         fptn::common::network::IPv4Address::Create(
             args.get<std::string>("--tun-interface-ip"));
@@ -255,8 +255,19 @@ int main(int argc, char* argv[]) {
     fptn::utils::speed_estimator::ServerInfo selected_server;
     try {
       config.Parse();
-      selected_server = config.FindFastestServer();
-    } catch (std::runtime_error& err) {
+      if (!preferred_server.empty()) {
+        auto server_opt = config.GetServer(preferred_server);
+        if (server_opt.has_value()) {
+          selected_server = std::move(*server_opt);
+        } else {
+          SPDLOG_WARN("Server '{}' does not exist! Check your token!",
+              preferred_server);
+          selected_server = config.FindFastestServer();
+        }
+      } else {
+        selected_server = config.FindFastestServer();
+      }
+    } catch (const std::runtime_error& err) {
       SPDLOG_ERROR("Config error: {}", err.what());
       return EXIT_FAILURE;
     }
@@ -269,6 +280,7 @@ int main(int argc, char* argv[]) {
     SPDLOG_INFO(
         "\n--- Starting client ---\n"
         "VERSION:            {}\n"
+        "SELECTED SERVER:    {}\n"
         "SNI:                {}\n"
         "GATEWAY IP:         {}\n"
         "NETWORK INTERFACE:  {}\n"
@@ -284,7 +296,7 @@ int main(int argc, char* argv[]) {
         "TUNNEL MODE:        {}\n"
         "TUNNEL DOMAINS:     {}\n"
         "BLACKLIST DOMAINS:  {}\n",
-        FPTN_VERSION, sni, using_gateway_ip.ToString(),
+        FPTN_VERSION, selected_server.name, sni, using_gateway_ip.ToString(),
         out_network_interface_name, selected_server.name, selected_server.host,
         selected_server.port, tun_interface_address_ipv4.ToString(),
         tun_interface_address_ipv6.ToString(), bypass_method,
@@ -328,8 +340,8 @@ int main(int argc, char* argv[]) {
     /* plugins */
     std::vector<fptn::plugin::BasePluginPtr> client_plugins;
     if (!blacklist_domains.empty()) {
-      auto blacklist_plugin =
-          std::make_unique<fptn::plugin::DomainBlacklist>(blacklist_domains);
+      auto blacklist_plugin = std::make_unique<fptn::plugin::DomainBlacklist>(
+          blacklist_domains, route_manager);
       client_plugins.push_back(std::move(blacklist_plugin));
     }
 

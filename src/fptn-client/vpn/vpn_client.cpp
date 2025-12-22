@@ -150,7 +150,15 @@ void VpnClient::HandlePacketFromWebSocket(
     if (!plugins_.empty() && packet) {
       for (const auto& plugin : plugins_) {
         if (packet) {
-          packet = plugin->HandlePacket(std::move(packet));
+          auto [processed_packet, triggered] =
+              plugin->HandlePacket(std::move(packet));
+          packet = std::move(processed_packet);
+          // If plugin triggered, stop further processing
+          // This implements priority-based plugin execution where
+          // the first triggered plugin takes precedence
+          if (triggered) {
+            break;
+          }
         }
       }
     }

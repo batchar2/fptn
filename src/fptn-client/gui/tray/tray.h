@@ -115,7 +115,7 @@ class TrayApp : public QWidget {
   QString inactive_icon_path_;
 
   fptn::vpn::VpnClientPtr vpn_client_;
-  fptn::routing::RouteManagerSPtr ip_tables_;
+  fptn::routing::RouteManagerSPtr route_manager_;
 
   // connecting
   std::atomic<bool> connecting_in_progress_{false};

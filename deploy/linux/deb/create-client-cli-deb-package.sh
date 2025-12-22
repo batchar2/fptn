@@ -46,6 +46,11 @@ ACCESS_TOKEN=
 SNI=rutube.ru
 
 
+# Optional: Connect to specific server instead of auto-selecting fastest
+# Name matching is case-insensitive
+PREFERRED_SERVER=
+
+
 # Optional: Bind to specific network interface
 # Leave empty to use default interface. Examples: eth0, wlan0, tun0
 NETWORK_INTERFACE=
@@ -129,7 +134,9 @@ ExecStart=/usr/bin/$(basename "$CLIENT_CLI") \
     --enable-split-tunnel=\${ENABLE_SPLIT_TUNNEL} \
     --split-tunnel-domains="\${SPLIT_TUNNEL_DOMAINS}" \
     --exclude-tunnel-networks="\${EXCLUDE_TUNNEL_NETWORKS}" \
-    --include-tunnel-networks="\${INCLUDE_TUNNEL_NETWORKS}"
+    --include-tunnel-networks="\${INCLUDE_TUNNEL_NETWORKS}" \
+    --preferred-server="\${PREFERRED_SERVER}"
+
 Restart=always
 RestartSec=5
 User=root

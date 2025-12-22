@@ -43,8 +43,10 @@ Tunneling::Tunneling(const std::vector<std::string>& rules,
   }
 }
 
-fptn::common::network::IPPacketPtr Tunneling::HandlePacket(
+std::pair<fptn::common::network::IPPacketPtr, bool> Tunneling::HandlePacket(
     fptn::common::network::IPPacketPtr packet) {
+  bool triggered = false;
+
   if (packet->IsDns()) {
     const auto domain_opt = packet->GetDnsDomain();
     if (domain_opt.has_value()) {
@@ -56,14 +58,28 @@ fptn::common::network::IPPacketPtr Tunneling::HandlePacket(
         SPDLOG_INFO("Domain '{}' matched tunneling rule", domain);
 
         const auto ipv4_addresses = packet->GetDnsIPv4Addresses();
-        route_manager_->AddDnsRoutesIPv4(ipv4_addresses, policy_);
-
+        if (!ipv4_addresses.empty()) {
+          SPDLOG_INFO("Found {} IPv4 address(es) for domain '{}'",
+              ipv4_addresses.size(), domain);
+          route_manager_->AddDnsRoutesIPv4(ipv4_addresses, policy_);
+        } else {
+          SPDLOG_WARN(
+              "Domain '{}' matched but no IPv4 addresses found in DNS response",
+              domain);
+        }
+#ifndef __APPLE__
         const auto ipv6_addresses = packet->GetDnsIPv6Addresses();
-        route_manager_->AddDnsRoutesIPv6(ipv6_addresses, policy_);
+        if (!ipv6_addresses.empty()) {
+          SPDLOG_INFO("Found {} IPv6 address(es) for domain '{}'",
+              ipv4_addresses.size(), domain);
+          route_manager_->AddDnsRoutesIPv6(ipv6_addresses, policy_);
+        }
+#endif
+        triggered = true;
       }
     }
   }
-  return packet;
+  return {std::move(packet), triggered};
 }
 
 }  // namespace fptn::plugin

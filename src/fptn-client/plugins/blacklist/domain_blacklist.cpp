@@ -18,7 +18,9 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 namespace fptn::plugin {
 
-DomainBlacklist::DomainBlacklist(const std::vector<std::string>& rules) {
+DomainBlacklist::DomainBlacklist(const std::vector<std::string>& rules,
+    routing::RouteManagerSPtr route_manager)
+    : route_manager_(std::move(route_manager)) {
   RE2::Options re_options;
   re_options.set_case_sensitive(false);
   re_options.set_log_errors(false);
@@ -39,8 +41,9 @@ DomainBlacklist::DomainBlacklist(const std::vector<std::string>& rules) {
   }
 }
 
-fptn::common::network::IPPacketPtr DomainBlacklist::HandlePacket(
-    fptn::common::network::IPPacketPtr packet) {
+std::pair<fptn::common::network::IPPacketPtr, bool>
+DomainBlacklist::HandlePacket(fptn::common::network::IPPacketPtr packet) {
+  bool triggered = false;
   if (packet->IsDns()) {
     const auto domain_opt = packet->GetDnsDomain();
     if (domain_opt.has_value()) {
@@ -50,11 +53,54 @@ fptn::common::network::IPPacketPtr DomainBlacklist::HandlePacket(
             return RE2::PartialMatch(domain, *re);
           })) {
         SPDLOG_INFO("Domain {} is blacklisted", domain);
-        return nullptr;
+
+        const auto ipv4_addresses = packet->GetDnsIPv4Addresses();
+        const auto ipv6_addresses = packet->GetDnsIPv6Addresses();
+
+        // save
+        const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+        {
+          for (const auto& ipv4_address : ipv4_addresses) {
+            if (!ipv4_addresses_.contains(ipv4_address.ToInt())) {
+              SPDLOG_INFO(
+                  "Added IPv4 to blacklist: {}", ipv4_address.ToString());
+              ipv4_addresses_.insert(ipv4_address.ToInt());
+            }
+          }
+          for (const auto& ipv6_address : ipv6_addresses) {
+            if (ipv6_addresses_.contains(ipv6_address.ToString())) {
+              SPDLOG_INFO(
+                  "Added IPv6 to blacklist: {}", ipv6_address.ToString());
+              ipv6_addresses_.insert(ipv6_address.ToString());
+            }
+          }
+        }
+        triggered = true;
       }
     }
+  } else if (packet->IsIPv4()) {
+    const std::uint32_t src_ipv4 =
+        packet->IPv4Layer()->getSrcIPAddress().getIPv4().toInt();
+
+    const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+    if (ipv4_addresses_.contains(src_ipv4)) {
+      SPDLOG_INFO("Blocked IPv4 packet from {}",
+          packet->IPv4Layer()->getSrcIPAddress().getIPv4().toString());
+      return {nullptr, true};
+    }
+  } else if (packet->IsIPv6()) {
+    const std::string src_ipv6 =
+        packet->IPv6Layer()->getSrcIPAddress().getIPv6().toString();
+
+    const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+    if (ipv6_addresses_.contains(src_ipv6)) {
+      SPDLOG_INFO("Blocked IPv6 packet from {}", src_ipv6);
+      return {nullptr, true};
+    }
   }
-  return packet;
+  return {std::move(packet), triggered};
 }
 
 }  // namespace fptn::plugin

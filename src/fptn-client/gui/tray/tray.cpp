@@ -32,6 +32,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "gui/autoupdate/autoupdate.h"
 #include "gui/style/style.h"
 #include "gui/translations/translations.h"
+#include "plugins/blacklist/domain_blacklist.h"
 
 #ifdef _WIN32
 #include "utils/windows/vpn_conflict.h"
@@ -479,9 +480,9 @@ void TrayApp::onDisconnectFromServer() {
     vpn_client_->Stop();
     vpn_client_.reset();
   }
-  if (ip_tables_) {
-    ip_tables_->Clean();
-    ip_tables_.reset();
+  if (route_manager_) {
+    route_manager_->Clean();
+    route_manager_.reset();
   }
   UpdateTrayMenu();
 }
@@ -502,9 +503,9 @@ void TrayApp::handleDefaultState() {
       vpn_client_->Stop();
       vpn_client_.reset();
     }
-    if (ip_tables_) {
-      ip_tables_->Clean();
-      ip_tables_.reset();
+    if (route_manager_) {
+      route_manager_->Clean();
+      route_manager_.reset();
     }
   }
   UpdateTrayMenu();
@@ -663,9 +664,9 @@ void TrayApp::stop() {
     vpn_client_->Stop();
     vpn_client_.reset();
   }
-  if (ip_tables_) {
-    ip_tables_->Clean();
-    ip_tables_.reset();
+  if (route_manager_) {
+    route_manager_->Clean();
+    route_manager_.reset();
   }
 }
 
@@ -700,6 +701,8 @@ bool TrayApp::startVpn(QString& err_msg) {
                                ? fptn::routing::GetDefaultGatewayIPAddress()
                                : fptn::common::network::IPv4Address(
                                      settings_->GatewayIp().toStdString()));
+
+  const auto gateway_ipv6 = fptn::routing::GetDefaultGatewayIPv6Address();
 
   if (gateway_ip.IsEmpty()) {
     err_msg = QObject::tr(
@@ -807,10 +810,44 @@ bool TrayApp::startVpn(QString& err_msg) {
     return false;
   }
 
-  // setup ip tables
-  ip_tables_ = std::make_unique<fptn::routing::RouteManager>(network_interface,
-      tun_interface_name, server_ip, dns_server_ipv4, dns_server_ipv6,
-      gateway_ip, tun_interface_address_ipv4, tun_interface_address_ipv6);
+  const auto blacklist_domains = settings_->BlacklistDomains();
+  const auto exclude_networks = settings_->ExcludeTunnelNetworks();
+  const auto include_networks = settings_->IncludeTunnelNetworks();
+  const bool enable_split_tunnel = settings_->EnableSplitTunnel();
+  const QString split_tunnel_mode = settings_->SplitTunnelMode();
+  const auto split_tunnel_domains = settings_->SplitTunnelDomains();
+
+  // route manager
+  route_manager_ = std::make_unique<fptn::routing::RouteManager>(
+      network_interface, tun_interface_name, server_ip, dns_server_ipv4,
+      dns_server_ipv6, gateway_ip, gateway_ipv6, tun_interface_address_ipv4,
+      tun_interface_address_ipv6);
+
+  // setup plugins
+  std::vector<fptn::plugin::BasePluginPtr> client_plugins;
+  if (!blacklist_domains.empty()) {
+    std::vector<std::string> blacklist_domains_std;
+    for (const auto& domain : blacklist_domains) {
+      blacklist_domains_std.push_back(domain.toStdString());
+    }
+    auto blacklist_plugin = std::make_unique<fptn::plugin::DomainBlacklist>(
+        blacklist_domains_std, route_manager_);
+    client_plugins.push_back(std::move(blacklist_plugin));
+  }
+  if (enable_split_tunnel) {
+    std::vector<std::string> split_domains_std;
+    for (const auto& domain : split_tunnel_domains) {
+      split_domains_std.push_back(domain.toStdString());
+    }
+
+    const auto policy = (split_tunnel_mode == "exclude")
+                            ? fptn::routing::RoutingPolicy::kExcludeFromVpn
+                            : fptn::routing::RoutingPolicy::kIncludeInVpn;
+
+    auto split_tunnel_plugin = std::make_unique<fptn::plugin::Tunneling>(
+        split_domains_std, route_manager_, policy);
+    client_plugins.push_back(std::move(split_tunnel_plugin));
+  }
 
   // setup tun interface
   auto virtual_network_interface =
@@ -822,17 +859,10 @@ bool TrayApp::startVpn(QString& err_msg) {
               126  // IPv6 netmask
           });
 
-  // setup vpn client
-  auto split_route_manager = std::make_unique<fptn::split::RouteManager>(
-      network_interface, gateway_ip);
-  std::vector<std::string> domain_rules = {
-      "*.ru", "*.vk.com", "*vk.com", "yandex.com", "*.yandex.com"};
-  auto tunneling = std::make_unique<fptn::split::Tunneling>(
-      domain_rules, std::move(split_route_manager));
-
+  // setup vpn client с плагинами
   vpn_client_ = std::make_unique<fptn::vpn::VpnClient>(std::move(http_client),
       std::move(virtual_network_interface), dns_server_ipv4, dns_server_ipv6,
-      std::move(tunneling));
+      std::move(client_plugins));
 
   // Wait for the WebSocket tunnel to establish
   vpn_client_->Start();
@@ -845,7 +875,24 @@ bool TrayApp::startVpn(QString& err_msg) {
     }
     std::this_thread::sleep_for(std::chrono::microseconds(300));
   }
-  ip_tables_->Apply();
+
+  route_manager_->Apply();
+
+  if (!exclude_networks.empty()) {
+    std::vector<std::string> exclude_networks_std;
+    for (const auto& network : exclude_networks) {
+      exclude_networks_std.push_back(network.toStdString());
+    }
+    route_manager_->AddExcludeNetworks(exclude_networks_std);
+  }
+
+  if (!include_networks.empty()) {
+    std::vector<std::string> include_networks_std;
+    for (const auto& network : include_networks) {
+      include_networks_std.push_back(network.toStdString());
+    }
+    route_manager_->AddIncludeNetworks(include_networks_std);
+  }
 
   return true;
 }
@@ -856,9 +903,9 @@ bool TrayApp::stopVpn() {
     vpn_client_->Stop();
     vpn_client_.reset();
   }
-  if (ip_tables_) {
-    ip_tables_->Clean();
-    ip_tables_.reset();
+  if (route_manager_) {
+    route_manager_->Clean();
+    route_manager_.reset();
   }
   return true;
 }

@@ -9,6 +9,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <memory>
 #include <string>
 #include <vector>
+#include <utility>
 
 #include <re2/re2.h>  // NOLINT(build/include_order)
 
@@ -26,13 +27,12 @@ class Tunneling final : public BasePlugin {
 
   ~Tunneling() override = default;
 
-  fptn::common::network::IPPacketPtr HandlePacket(
+  std::pair<fptn::common::network::IPPacketPtr, bool> HandlePacket(
       fptn::common::network::IPPacketPtr packet) override;
 
  private:
   const routing::RouteManagerSPtr route_manager_;
   const fptn::routing::RoutingPolicy policy_;
-
 
   std::vector<std::unique_ptr<RE2>> rules_;
 };

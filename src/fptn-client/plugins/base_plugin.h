@@ -7,6 +7,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #pragma once
 
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include "common/network/ip_packet.h"
@@ -15,7 +16,7 @@ namespace fptn::plugin {
 class BasePlugin {
  public:
   virtual ~BasePlugin() = default;
-  virtual fptn::common::network::IPPacketPtr HandlePacket(
+  virtual std::pair<fptn::common::network::IPPacketPtr, bool> HandlePacket(
       fptn::common::network::IPPacketPtr packet) = 0;
 };
 
