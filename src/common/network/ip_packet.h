@@ -6,11 +6,15 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #pragma once
 
+#include <array>
 #include <cstdint>
+#include <cstdio>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
+
+#include "common/utils/utils.h"
 
 #if _WIN32
 #pragma warning(disable : 4996)
@@ -30,6 +34,8 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "common/network/ip_address.h"
 #else
 
+#include <boost/asio/ip/address_v4.hpp>
+#include <boost/asio/ip/address_v6.hpp>
 #include <pcapplusplus/ArpLayer.h>     // NOLINT(build/include_order)
 #include <pcapplusplus/EthLayer.h>     // NOLINT(build/include_order)
 #include <pcapplusplus/IPv4Layer.h>    // NOLINT(build/include_order)
@@ -48,6 +54,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #undef TCPOPT_CCECHO
 #endif  // TCPOPT_CCECHO
 
+#include <pcapplusplus/DnsLayer.h>  // NOLINT(build/include_order)
 #include <pcapplusplus/TcpLayer.h>  // NOLINT(build/include_order)
 #include <pcapplusplus/UdpLayer.h>  // NOLINT(build/include_order)
 
@@ -57,9 +64,23 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #endif
 
+#ifdef FPTN_WITH_LIBIDN2
+#include <idn2.h>
+// #include <libidn2/idn2.h>  // NOLINT(build/include_order)
+#endif
+
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
 #include "common/client_id.h"
+#include "common/network/ip_address.h"
+
+// #ifndef INET_ADDRSTRLEN
+// #define INET_ADDRSTRLEN 16
+// #endif
+//
+// #ifndef INET6_ADDRSTRLEN
+// #define INET6_ADDRSTRLEN 46
+// #endif
 
 namespace fptn::common::network {
 
@@ -74,6 +95,32 @@ inline bool CheckIPv4(const std::string& buffer) {
 inline bool CheckIPv6(const std::string& buffer) {
   return (static_cast<uint8_t>(buffer[0]) >> 4) == 6;
 }
+
+#ifdef FPTN_WITH_LIBIDN2
+
+inline bool IsPunycode(const std::string& str) {
+  return str.find("xn--") != std::string::npos;
+}
+
+inline std::string ConvertDomainToUnicode(const std::string& domain) {
+  if (domain.empty()) {
+    return domain;
+  }
+
+  char* result = nullptr;
+  const int ret = idn2_to_unicode_8z8z(domain.c_str(), &result, 0);
+
+  if (ret == IDN2_OK && result != nullptr) {
+    std::string unicode_result = result;
+    free(result);
+    return unicode_result;
+  }
+  if (result != nullptr) {
+    free(result);
+  }
+  return domain;
+}
+#endif
 
 class IPPacket {
  public:
@@ -180,6 +227,122 @@ class IPPacket {
     }
   }
 
+  bool IsDns() const {
+    const auto* udp = parsed_packet_.getLayerOfType<pcpp::UdpLayer>();
+    if (udp && (udp->getDstPort() == 53 || udp->getSrcPort() == 53)) {
+      return GetDnsLayer() != nullptr;
+    }
+
+    const auto* tcp = parsed_packet_.getLayerOfType<pcpp::TcpLayer>();
+    if (tcp && (tcp->getDstPort() == 53 || tcp->getSrcPort() == 53)) {
+      return GetDnsLayer() != nullptr;
+    }
+    return false;
+  }
+
+  std::optional<std::string> GetDnsDomain() const {
+    const auto* dns_layer = GetDnsLayer();
+    if (dns_layer) {
+      const auto* query = dns_layer->getFirstQuery();
+      if (query) {
+        std::string domain_name = query->getName();
+#ifdef FPTN_WITH_LIBIDN2
+        if (IsPunycode(domain_name)) {
+          return ConvertDomainToUnicode(domain_name);
+        }
+#endif
+        return domain_name;
+      }
+    }
+    return std::nullopt;
+  }
+
+  std::vector<fptn::common::network::IPv4Address> GetDnsIPv4Addresses() const {
+    const auto* dns_layer = GetDnsLayer();
+    if (!dns_layer) {
+      return {};
+    }
+
+    if (dns_layer->getDnsHeader()->queryOrResponse != 1) {
+      return {};
+    }
+
+    std::vector<fptn::common::network::IPv4Address> ipv4_addresses;
+    auto* answer = dns_layer->getFirstAnswer();
+
+    while (answer != nullptr) {
+      if (answer->getDnsType() == pcpp::DNS_TYPE_A) {
+        try {
+          const std::size_t data_offset = answer->getDataOffset();
+          const std::size_t data_length = answer->getDataLength();
+          if (data_length == 4) {
+            const std::uint8_t* dns_raw_data = dns_layer->getData();
+            const std::size_t dns_data_len = dns_layer->getDataLen();
+
+            if (data_offset + 4 <= dns_data_len) {
+              const uint8_t* ip_bytes = dns_raw_data + data_offset;
+              const std::uint32_t ip_int =
+                  (static_cast<uint32_t>(ip_bytes[0]) << 24) |
+                  (static_cast<uint32_t>(ip_bytes[1]) << 16) |
+                  (static_cast<uint32_t>(ip_bytes[2]) << 8) |
+                  static_cast<uint32_t>(ip_bytes[3]);
+
+              const auto addr = boost::asio::ip::make_address_v4(ip_int);
+              ipv4_addresses.emplace_back(addr.to_string());
+            }
+          }
+        } catch (const std::exception& e) {
+          SPDLOG_WARN("Failed to parse IPv4 from DNS answer '{}': {}",
+              answer->getName(), e.what());
+        }
+      }
+      answer = dns_layer->getNextAnswer(answer);
+    }
+    return ipv4_addresses;
+  }
+
+  std::vector<fptn::common::network::IPv6Address> GetDnsIPv6Addresses() const {
+    const auto* dns_layer = GetDnsLayer();
+    if (!dns_layer) {
+      return {};
+    }
+
+    if (dns_layer->getDnsHeader()->queryOrResponse != 1) {
+      return {};
+    }
+
+    std::vector<fptn::common::network::IPv6Address> ipv6_addresses;
+    auto* answer = dns_layer->getFirstAnswer();
+
+    while (answer != nullptr) {
+      if (answer->getDnsType() == pcpp::DNS_TYPE_AAAA) {
+        try {
+          const std::size_t data_offset = answer->getDataOffset();
+          const std::size_t data_length = answer->getDataLength();
+
+          if (data_length == 16) {
+            const std::uint8_t* dns_raw_data = dns_layer->getData();
+            const std::size_t dns_data_len = dns_layer->getDataLen();
+
+            if (data_offset + 16 <= dns_data_len) {
+              const uint8_t* ip_bytes = dns_raw_data + data_offset;
+              std::array<unsigned char, 16> bytes;
+              std::memcpy(bytes.data(), ip_bytes, 16);
+
+              const auto addr = boost::asio::ip::make_address_v6(bytes);
+              ipv6_addresses.emplace_back(addr.to_string());
+            }
+          }
+        } catch (const std::exception& e) {
+          SPDLOG_WARN("Failed to parse IPv6 from DNS answer '{}': {}",
+              answer->getName(), e.what());
+        }
+      }
+      answer = dns_layer->getNextAnswer(answer);
+    }
+    return ipv6_addresses;
+  }
+
   fptn::ClientID ClientId() const noexcept { return client_id_; }
 
   pcpp::Packet& Pkt() noexcept { return parsed_packet_; }
@@ -188,6 +351,23 @@ class IPPacket {
 
   const pcpp::RawPacket* GetRawPacket() const noexcept {
     return parsed_packet_.getRawPacket();
+  }
+
+ protected:
+  pcpp::DnsLayer* GetDnsLayer() const {
+    try {
+      auto* udp_layer = parsed_packet_.getLayerOfType<pcpp::UdpLayer>();
+      if (udp_layer) {
+        return parsed_packet_.getLayerOfType<pcpp::DnsLayer>();
+      }
+      auto* tcp_layer = parsed_packet_.getLayerOfType<pcpp::TcpLayer>();
+      if (tcp_layer && tcp_layer->getLayerPayloadSize() >= 2) {
+        return parsed_packet_.getLayerOfType<pcpp::DnsLayer>();
+      }
+    } catch (...) {
+      // ignore
+    }
+    return nullptr;
   }
 
  public:

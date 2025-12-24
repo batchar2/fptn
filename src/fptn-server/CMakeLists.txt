@@ -16,7 +16,8 @@ else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-command-line-argumen")
   endif()
 endif()
-find_package(Boost REQUIRED COMPONENTS asio coroutines future process)
+
+find_package(Boost REQUIRED COMPONENTS asio coroutines future process locale)
 find_package(ZLIB REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_package(argparse REQUIRED)
@@ -26,6 +27,7 @@ find_package(PcapPlusPlus REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(jwt-cpp REQUIRED)
 find_package(prometheus-cpp REQUIRED)
+
 
 # Include Boost directory
 include_directories(${Boost_INCLUDE_DIRS})
@@ -74,6 +76,7 @@ target_link_libraries(
           Boost::random
           Boost::filesystem
           Boost::process
+          Boost::locale
           OpenSSL::SSL
           OpenSSL::Crypto
           argparse::argparse

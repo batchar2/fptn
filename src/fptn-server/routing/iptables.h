@@ -11,11 +11,11 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <string>
 
 namespace fptn::routing {
-class IPTables final {
+class RouteManager final {
  public:
-  IPTables(
+  RouteManager(
       std::string out_net_interface_name, std::string tun_net_interface_name);
-  ~IPTables();
+  ~RouteManager();
   bool Apply();
   bool Clean();
 
@@ -28,5 +28,5 @@ class IPTables final {
   bool running_;
 };
 
-using IPTablesPtr = std::unique_ptr<IPTables>;
+using RouteManagerPtr = std::unique_ptr<RouteManager>;
 }  // namespace fptn::routing

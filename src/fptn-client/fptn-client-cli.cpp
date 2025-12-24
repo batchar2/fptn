@@ -14,6 +14,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <set>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include <argparse/argparse.hpp>
 #include <fmt/format.h>  // NOLINT(build/include_order)
@@ -26,7 +27,8 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "config/config_file.h"
 #include "fptn-protocol-lib/https/obfuscator/methods/detector.h"
 #include "fptn-protocol-lib/time/time_provider.h"
-#include "routing/iptables.h"
+#include "plugins/blacklist/domain_blacklist.h"
+#include "routing/route_manager.h"
 #include "utils/signal/main_loop.h"
 #include "vpn/vpn_client.h"
 
@@ -40,6 +42,7 @@ int main(int argc, char* argv[]) {
   try {
     const std::set<std::string> bypass_methods = {
         "sni", "obfuscation", "sni-reality"};
+    const std::set<std::string> tunnel_modes = {"exclude", "include"};
 
     using fptn::protocol::https::obfuscator::GetObfuscatorByName;
     using fptn::protocol::https::obfuscator::GetObfuscatorNames;
@@ -53,7 +56,13 @@ int main(int argc, char* argv[]) {
         .help("Network out interface");
     args.add_argument("--gateway-ip")
         .default_value("")
-        .help("Your default gateway ip");
+        .help("Your default gateway IPv4 address");
+    args.add_argument("--gateway-ipv6")
+        .default_value("")
+        .help("Your default gateway IPv6 address");
+    args.add_argument("--preferred-server")
+        .default_value("")
+        .help("Preferred server name (case-insensitive)");
     args.add_argument("--tun-interface-name")
         .default_value("tun0")
         .help("Network interface name");
@@ -63,14 +72,18 @@ int main(int argc, char* argv[]) {
     args.add_argument("--tun-interface-ipv6")
         .default_value(FPTN_CLIENT_DEFAULT_ADDRESS_IP6)
         .help("Network interface IPv6 address");
-    args.add_argument("--tun-interface-ipv6")
-        .default_value(FPTN_CLIENT_DEFAULT_ADDRESS_IP6)
-        .help("Network interface IPv6 address");
     args.add_argument("--sni")
         .default_value(FPTN_DEFAULT_SNI)
         .help(
             "Domain name for SNI in TLS handshake (used to obfuscate VPN "
             "traffic)");
+    args.add_argument("--blacklist-domains")
+        .default_value(FPTN_CLIENT_DEFAULT_BLACKLIST_DOMAINS)
+        .help(
+            "Completely block access to the main domain AND all its "
+            "subdomains\n"
+            "Format: domain:example.com,domain:sub.site.org\n"
+            "Example: domain:ria.ru blocks ria.ru and all *.ria.ru sites");
     // Method to bypass censorship
     args.add_argument("--bypass-method")
         .default_value("sni")
@@ -84,6 +97,70 @@ int main(int argc, char* argv[]) {
           }
           return v;
         });
+    // networks
+    args.add_argument("--exclude-tunnel-networks")
+        .default_value(FPTN_CLIENT_DEFAULT_EXCLUDE_NETWORKS)
+        .help(
+            "Networks that always bypass VPN tunnel\n"
+            "Traffic to these networks goes directly, never through VPN\n"
+            "Format: CIDR notation or IP addresses, comma-separated\n"
+            "Example: 10.0.0.0/8,192.168.0.0/16");
+    args.add_argument("--include-tunnel-networks")
+        .default_value("")
+        .help(
+            "Networks that always use VPN tunnel\n"
+            "Traffic to these networks always goes through VPN\n"
+            "Format: CIDR notation or IP addresses, comma-separated\n"
+            "Example: 172.16.0.0/12,192.168.99.0/24");
+    // Split-tunneling arguments
+    args.add_argument("--enable-split-tunnel")
+        .help(
+            "Enable split tunneling - allows different traffic routing for "
+            "different sites.\n"
+            "When enabled, you can configure which sites use VPN and which go"
+            "directly.\n"
+            "Use with --split-tunnel-mode and --split-tunnel-domains for "
+            "configuration.")
+        .default_value(false)
+        .nargs(1)
+        .action([](const std::string& value) {
+          if (value.empty()) {
+            return true;
+          }
+          if (fptn::common::utils::ToLowerCase(value) == "true") {
+            return true;
+          }
+          if (fptn::common::utils::ToLowerCase(value) == "false") {
+            return false;
+          }
+          throw std::runtime_error("Value must be true/false");
+        });
+    args.add_argument("--split-tunnel-mode")
+        .default_value("exclude")
+        .help(
+            "Defines traffic routing strategy for split tunneling.\n"
+            "Modes:\n"
+            "  exclude - Bypass VPN for specified domains, route all other "
+            "traffic through VPN.\n"
+            "  include - Route only specified domains through VPN, bypass VPN "
+            "for all other traffic.\n")
+        .action([&tunnel_modes](const std::string& v) {
+          if (!tunnel_modes.contains(v)) {
+            throw std::runtime_error(
+                fmt::format("Invalid tunnel mode '{}'. Choose from: {}", v,
+                    fmt::join(tunnel_modes, ", ")));
+          }
+          return v;
+        });
+    args.add_argument("--split-tunnel-domains")
+        .default_value(FPTN_CLIENT_DEFAULT_SPLIT_TUNNEL_DOMAINS)
+        .help(
+            "List websites that should either use or bypass VPN\n"
+            "\n"
+            "How it works:\n"
+            "  If --tunnel-mode=exclude: VPN skips these sites\n"
+            "  If --tunnel-mode=include: VPN only for these sites\n"
+            "Format: domain:com,domain:another.com,domain:sub.domainname.com");
     // parse cmd arguments
     try {
       args.parse_args(argc, argv);
@@ -108,9 +185,15 @@ int main(int argc, char* argv[]) {
     const auto param_gateway_ip = args.get<std::string>("--gateway-ip");
     const auto gateway_ip =
         fptn::common::network::IPv4Address::Create(param_gateway_ip);
+
+    const auto param_gateway_ipv6 = args.get<std::string>("--gateway-ipv6");
+    const auto gateway_ipv6 =
+        fptn::common::network::IPv6Address::Create(param_gateway_ipv6);
+
+    const auto preferred_server = args.get<std::string>("--preferred-server");
+
     const auto tun_interface_name =
         args.get<std::string>("--tun-interface-name");
-
     const auto tun_interface_address_ipv4 =
         fptn::common::network::IPv4Address::Create(
             args.get<std::string>("--tun-interface-ip"));
@@ -124,6 +207,10 @@ int main(int argc, char* argv[]) {
         gateway_ip.IsEmpty()
             ? fptn::routing::GetDefaultGatewayIPAddress()
             : fptn::common::network::IPv4Address::Create(gateway_ip);
+    const auto using_gateway_ipv6 =
+        gateway_ipv6.IsEmpty()
+            ? fptn::routing::GetDefaultGatewayIPv6Address()
+            : fptn::common::network::IPv6Address::Create(gateway_ipv6);
     if (using_gateway_ip.IsEmpty()) {
       SPDLOG_ERROR(
           "Unable to find the default gateway IP address. "
@@ -147,15 +234,49 @@ int main(int argc, char* argv[]) {
           fptn::protocol::https::CensorshipStrategy::kSniRealityMode;
     }
 
+    /* parse network lists */
+    const auto exclude_networks_str =
+        args.get<std::string>("--exclude-tunnel-networks");
+    const auto include_networks_str =
+        args.get<std::string>("--include-tunnel-networks");
+
+    const std::vector<std::string> exclude_networks =
+        fptn::common::utils::SplitCommaSeparated(exclude_networks_str);
+    const std::vector<std::string> include_networks =
+        fptn::common::utils::SplitCommaSeparated(include_networks_str);
+
+    /* parse split-tunneling parameters */
+    const bool enable_split_tunnel = args.get<bool>("--enable-split-tunnel");
+    const auto tunnel_mode = args.get<std::string>("--split-tunnel-mode");
+    const auto split_domains_str =
+        args.get<std::string>("--split-tunnel-domains");
+    const auto blacklist_domains_str =
+        args.get<std::string>("--blacklist-domains");
+
+    const std::vector<std::string> split_domains =
+        fptn::common::utils::SplitCommaSeparated(split_domains_str);
+    const std::vector<std::string> blacklist_domains =
+        fptn::common::utils::SplitCommaSeparated(blacklist_domains_str);
+
     /* check config */
     const auto access_token = args.get<std::string>("--access-token");
-
     fptn::config::ConfigFile config(access_token, sni, censorship_strategy);
     fptn::utils::speed_estimator::ServerInfo selected_server;
     try {
       config.Parse();
-      selected_server = config.FindFastestServer();
-    } catch (std::runtime_error& err) {
+      if (!preferred_server.empty()) {
+        auto server_opt = config.GetServer(preferred_server);
+        if (server_opt.has_value()) {
+          selected_server = std::move(*server_opt);
+        } else {
+          SPDLOG_WARN("Server '{}' does not exist! Check your token!",
+              preferred_server);
+          selected_server = config.FindFastestServer();
+        }
+      } else {
+        selected_server = config.FindFastestServer();
+      }
+    } catch (const std::runtime_error& err) {
       SPDLOG_ERROR("Config error: {}", err.what());
       return EXIT_FAILURE;
     }
@@ -168,6 +289,7 @@ int main(int argc, char* argv[]) {
     SPDLOG_INFO(
         "\n--- Starting client ---\n"
         "VERSION:            {}\n"
+        "SELECTED SERVER:    {}\n"
         "SNI:                {}\n"
         "GATEWAY IP:         {}\n"
         "NETWORK INTERFACE:  {}\n"
@@ -176,11 +298,20 @@ int main(int argc, char* argv[]) {
         "VPN SERVER PORT:    {}\n"
         "TUN INTERFACE IPv4: {}\n"
         "TUN INTERFACE IPv6: {}\n"
-        "BYPASS-METHOD:      {}\n",
-        FPTN_VERSION, sni, using_gateway_ip.ToString(),
+        "BYPASS-METHOD:      {}\n"
+        "EXCLUDE NETWORKS:   {}\n"
+        "INCLUDE NETWORKS:   {}\n"
+        "SPLIT TUNNEL:       {}\n"
+        "TUNNEL MODE:        {}\n"
+        "TUNNEL DOMAINS:     {}\n"
+        "BLACKLIST DOMAINS:  {}\n",
+        FPTN_VERSION, selected_server.name, sni, using_gateway_ip.ToString(),
         out_network_interface_name, selected_server.name, selected_server.host,
         selected_server.port, tun_interface_address_ipv4.ToString(),
-        tun_interface_address_ipv6.ToString(), bypass_method);
+        tun_interface_address_ipv6.ToString(), bypass_method,
+        exclude_networks_str, include_networks_str,
+        enable_split_tunnel ? "enabled" : "disabled", tunnel_mode,
+        split_domains_str, blacklist_domains_str);
 
     /* auth & dns */
     auto http_client = std::make_unique<fptn::vpn::http::Client>(server_ip,
@@ -209,15 +340,33 @@ int main(int argc, char* argv[]) {
                 126  // IPv6 netmask
             });
 
-    /* iptables */
-    auto iptables = std::make_unique<fptn::routing::IPTables>(
+    /* route manager */
+    auto route_manager = std::make_shared<fptn::routing::RouteManager>(
         out_network_interface_name, tun_interface_name, server_ip,
-        dnsServerIPv4, dnsServerIPv6, using_gateway_ip,
+        dnsServerIPv4, dnsServerIPv6, using_gateway_ip, using_gateway_ipv6,
         tun_interface_address_ipv4, tun_interface_address_ipv6);
+
+    /* plugins */
+    std::vector<fptn::plugin::BasePluginPtr> client_plugins;
+    if (!blacklist_domains.empty()) {
+      auto blacklist_plugin = std::make_unique<fptn::plugin::DomainBlacklist>(
+          blacklist_domains, route_manager);
+      client_plugins.push_back(std::move(blacklist_plugin));
+    }
+
+    if (enable_split_tunnel) {
+      const auto policy = tunnel_mode == "exclude"
+                              ? fptn::routing::RoutingPolicy::kExcludeFromVpn
+                              : fptn::routing::RoutingPolicy::kIncludeInVpn;
+      auto split_tunnel_plugin = std::make_unique<fptn::plugin::Tunneling>(
+          split_domains, route_manager, policy);
+      client_plugins.push_back(std::move(split_tunnel_plugin));
+    }
 
     /* vpn client */
     fptn::vpn::VpnClient vpn_client(std::move(http_client),
-        std::move(virtual_network_interface), dnsServerIPv4, dnsServerIPv6);
+        std::move(virtual_network_interface), dnsServerIPv4, dnsServerIPv6,
+        std::move(client_plugins));
     vpn_client.Start();
 
     // Wait for the WebSocket tunnel to establish
@@ -231,13 +380,20 @@ int main(int argc, char* argv[]) {
       std::this_thread::sleep_for(std::chrono::microseconds(200));
     }
 
-    iptables->Apply();
+    /* apply mandatory network routes */
+    route_manager->Apply();
+    if (!exclude_networks.empty()) {
+      route_manager->AddExcludeNetworks(exclude_networks);
+    }
+    if (!include_networks.empty()) {
+      route_manager->AddIncludeNetworks(include_networks);
+    }
 
     /* start event loop */
     fptn::utils::WaitForSignal(vpn_client);
 
     /* clean */
-    iptables->Clean();
+    route_manager->Clean();
     vpn_client.Stop();
     spdlog::shutdown();
     return EXIT_SUCCESS;

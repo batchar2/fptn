@@ -22,7 +22,7 @@ namespace fptn::network {
 class VirtualInterface final {
  public:
   VirtualInterface(fptn::common::network::TunInterface::Config config,
-      fptn::routing::IPTablesPtr iptables);
+      fptn::routing::RouteManagerPtr iptables);
   ~VirtualInterface();
 
   bool Check() noexcept;
@@ -40,7 +40,7 @@ class VirtualInterface final {
   std::thread thread_;
   std::atomic<bool> running_;
 
-  const fptn::routing::IPTablesPtr iptables_;
+  const fptn::routing::RouteManagerPtr iptables_;
 
   fptn::common::data::Channel to_network_;
   fptn::common::data::Channel from_network_;

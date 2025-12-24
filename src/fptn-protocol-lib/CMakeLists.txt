@@ -27,8 +27,9 @@ find_package(protobuf REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_package(spdlog REQUIRED)
 find_package(fmt REQUIRED)
+find_package(re2 REQUIRED)
 
-find_package(Boost REQUIRED COMPONENTS random filesystem nowide)
+find_package(Boost REQUIRED COMPONENTS random filesystem nowide locale)
 find_package(ZLIB REQUIRED)
 find_package(nlohmann_json REQUIRED)
 
@@ -36,6 +37,10 @@ if (FPTN_BUILD_ONLY_FPTN_LIB)
   # build fptnlib without pcappp
   set(FPTN_IP_ADDRESS_WITHOUT_PCAP ON)
 endif()
+
+if (FPTN_WITH_LIBIDN2)
+  find_package(libidn2 REQUIRED)
+endif ()
 
 if(NOT FPTN_IP_ADDRESS_WITHOUT_PCAP)
   find_package(PcapPlusPlus REQUIRED)
@@ -109,6 +114,12 @@ foreach(target "${PROJECT_NAME}_static")
   else()
     set(PCAP_LIB PcapPlusPlus::PcapPlusPlus)
   endif()
+
+  if(FPTN_WITH_LIBIDN2)
+    set(LIBIDN2_LIB libidn2::libidn2)
+  else()
+    set(LIBIDN2_LIB "")
+  endif()
   
   if(MSVC)
     target_compile_options(${target} PRIVATE /wd4100 /wd4702) # disable warning C4100
@@ -142,13 +153,16 @@ foreach(target "${PROJECT_NAME}_static")
     Boost::boost
     Boost::nowide
     Boost::random
+    Boost::locale
     OpenSSL::SSL
     OpenSSL::Crypto
     nlohmann_json::nlohmann_json
     spdlog::spdlog
     fmt::fmt
     ntp_client
+    re2::re2
     ${PCAP_LIB}
+    ${LIBIDN2_LIB}
     ${IOS_LIBS}
   )
 endforeach()

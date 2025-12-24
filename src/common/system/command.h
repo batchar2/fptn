@@ -27,6 +27,7 @@ namespace fptn::common::system::command {
 
 inline bool run(const std::string& command) {
   try {
+    SPDLOG_INFO("Running: {}", command);
 #ifdef _WIN32
     boost::process::v1::child child(command,
         boost::process::v1::std_out > stdout,

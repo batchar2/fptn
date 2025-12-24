@@ -211,8 +211,13 @@
         </message>
 
         <message>
+            <source>Fake domain to bypass blocking (MUST ACTUALLY EXIST!)</source>
+            <translation>Фейковый домен для обхода блокировок (ДОЛЖЕН РЕАЛЬНО СУЩЕСТОВАТЬ!)</translation>
+        </message>
+
+        <message>
             <source>FPTN_DESCRIPTION</source>
-            <translation>FPTN — это некоммерческий VPN, волонтерский проект для обхода цензуры. FPTN работает через протокол HTTPS, эффективно маскируя трафик и позволяя обходить ограничения цензуры. Исходный код проекта доступен на Github.</translation>
+            <translation>FPTN — это полностью разработанная с нуля технология VPN, включая собственный протокол, сервер и кроссплатформенные клиенты. Это некоммерческий проект с открытым исходным кодом, развиваемый волонтерами и предназначенный для обхода цензуры. Исходный код проекта доступен на Github.</translation>
         </message>
 
         <message>
@@ -381,5 +386,73 @@ This may cause network connectivity issues or prevent proper operation of FPTN.<
             <translation>Нет импортированных SNI файлов</translation>
         </message>
 
+        <message>
+            <source>Routing</source>
+            <translation>Маршрутизация</translation>
+        </message>
+        <message>
+            <source>Blacklist domains</source>
+            <translation>Черный список доменов</translation>
+        </message>
+        <message>
+            <source>Completely block access to the main domain AND all its subdomains. Format: domain:example.com (one per line)</source>
+            <translation>Полностью блокировать доступ к основному домену и всем его поддоменам. Формат: domain:example.com (по одному в строке)</translation>
+        </message>
+        <message>
+            <source>Exclude tunnel networks</source>
+            <translation>Исключить сети из туннеля</translation>
+        </message>
+        <message>
+            <source>Networks that always bypass VPN tunnel. Traffic to these networks goes directly, never through VPN</source>
+            <translation>Сети, которые всегда обходят VPN-туннель. Трафик к этим сетям идет напрямую, никогда через VPN</translation>
+        </message>
+        <message>
+            <source>Include tunnel networks</source>
+            <translation>Включить сети в туннель</translation>
+        </message>
+        <message>
+            <source>Networks that always use VPN tunnel. Traffic to these networks always goes through VPN</source>
+            <translation>Сети, которые всегда используют VPN-туннель. Трафик к этим сетям всегда идет через VPN</translation>
+        </message>
+        <message>
+            <source>Enable split tunnel</source>
+            <translation>Включить раздельный туннель</translation>
+        </message>
+        <message>
+            <source>When enabled, you can configure which sites use VPN and which go directly.</source>
+            <translation>Когда включено, вы можете настроить, какие сайты используют VPN, а какие идут напрямую.</translation>
+        </message>
+        <message>
+            <source>Split tunnel mode</source>
+            <translation>Режим раздельного туннеля</translation>
+        </message>
+        <message>
+            <source>Defines traffic routing strategy for split tunneling.</source>
+            <translation>Определяет стратегию маршрутизации трафика для раздельного туннелирования.</translation>
+        </message>
+        <message>
+            <source>Exclude</source>
+            <translation>Исключить</translation>
+        </message>
+        <message>
+            <source>Include</source>
+            <translation>Включить</translation>
+        </message>
+        <message>
+            <source>Domains to route through VPN</source>
+            <translation>Домены для маршрутизации через VPN</translation>
+        </message>
+            <message>
+            <source>Domains to bypass VPN</source>
+        <translation>Домены для обхода VPN</translation>
+        </message>
+        <message>
+            <source>List domains that should use VPN tunnel. Only these domains will go through VPN, all other traffic bypasses VPN</source>
+            <translation>Список доменов, которые должны использовать VPN-туннель. Только эти домены будут проходить через VPN, весь остальной трафик мимо VPN</translation>
+        </message>
+        <message>
+            <source>List domains that should bypass VPN tunnel. These domains will go directly, all other traffic uses VPN</source>
+            <translation>Список доменов, которые не пойдут через VPN-туннель. Эти домены будут идти напрямую, весь остальной трафик пойдет в VPN</translation>
+        </message>
     </context>
 </TS>

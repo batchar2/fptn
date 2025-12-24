@@ -211,8 +211,13 @@
         </message>
 
         <message>
+            <source>Fake domain to bypass blocking (MUST ACTUALLY EXIST!)</source>
+            <translation>Fake domain to bypass blocking (MUST ACTUALLY EXIST!)</translation>
+        </message>
+
+        <message>
             <source>FPTN_DESCRIPTION</source>
-            <translation>FPTN is a non-commercial VPN, a volunteer project for bypassing censorship. FPTN operates over the HTTPS protocol, effectively masking traffic and enabling users to bypass censorship restrictions. The project's source code is available on GitHub.</translation>
+            <translation>FPTN is a fully custom-built VPN technology — developed from scratch, including the core protocol, server implementation, and cross-platform clients. It is a non-commercial, open-source project developed by volunteers and designed to bypass censorship. The project's source code is available on GitHub.</translation>
         </message>
 
         <message>
@@ -381,5 +386,73 @@ This may cause network connectivity issues or prevent proper operation of FPTN.<
             <translation>No SNI files imported</translation>
         </message>
 
+        <message>
+            <source>Routing</source>
+            <translation>Routing</translation>
+        </message>
+        <message>
+            <source>Blacklist domains</source>
+            <translation>Blacklist domains</translation>
+        </message>
+        <message>
+            <source>Completely block access to the main domain AND all its subdomains. Format: domain:example.com (one per line)</source>
+            <translation>Completely block access to the main domain AND all its subdomains. Format: domain:example.com (one per line)</translation>
+        </message>
+        <message>
+            <source>Exclude tunnel networks</source>
+            <translation>Exclude tunnel networks</translation>
+        </message>
+        <message>
+            <source>Networks that always bypass VPN tunnel. Traffic to these networks goes directly, never through VPN</source>
+            <translation>Networks that always bypass VPN tunnel. Traffic to these networks goes directly, never through VPN</translation>
+        </message>
+        <message>
+            <source>Include tunnel networks</source>
+            <translation>Include tunnel networks</translation>
+        </message>
+        <message>
+            <source>Networks that always use VPN tunnel. Traffic to these networks always goes through VPN</source>
+            <translation>Networks that always use VPN tunnel. Traffic to these networks always goes through VPN</translation>
+        </message>
+        <message>
+            <source>Enable split tunnel</source>
+            <translation>Enable split tunnel</translation>
+        </message>
+        <message>
+            <source>When enabled, you can configure which sites use VPN and which go directly.</source>
+            <translation>When enabled, you can configure which sites use VPN and which go directly.</translation>
+        </message>
+        <message>
+            <source>Split tunnel mode</source>
+            <translation>Split tunnel mode</translation>
+        </message>
+        <message>
+            <source>Defines traffic routing strategy for split tunneling.</source>
+            <translation>Defines traffic routing strategy for split tunneling.</translation>
+        </message>
+        <message>
+            <source>Exclude</source>
+            <translation>Exclude</translation>
+        </message>
+        <message>
+            <source>Include</source>
+            <translation>Include</translation>
+        </message>
+        <message>
+            <source>Domains to route through VPN</source>
+            <translation>Domains to route through VPN</translation>
+        </message>
+        <message>
+            <source>Domains to bypass VPN</source>
+            <translation>Domains to bypass VPN</translation>
+        </message>
+        <message>
+            <source>List domains that should bypass VPN tunnel. Only these domains will go through VPN, all other traffic bypasses VPN</source>
+            <translation>List domains that should bypass VPN tunnel. Only these domains will go through VPN, all other traffic bypasses VPN</translation>
+        </message>
+        <message>
+            <source>List websites that should bypass VPN tunnel. These domains will go directly, all other traffic uses VPN</source>
+            <translation>List websites that should bypass VPN tunnel. These domains will go directly, all other traffic uses VPN</translation>
+        </message>
     </context>
 </TS>

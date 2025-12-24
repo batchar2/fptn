@@ -30,7 +30,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "gui/settingswidget/settings.h"
 #include "gui/speedwidget/speedwidget.h"
 #include "gui/tray/tray.h"
-#include "routing/iptables.h"
+#include "routing/route_manager.h"
 #include "utils/speed_estimator/server_info.h"
 #include "vpn/http/client.h"
 #include "vpn/vpn_client.h"
@@ -115,7 +115,7 @@ class TrayApp : public QWidget {
   QString inactive_icon_path_;
 
   fptn::vpn::VpnClientPtr vpn_client_;
-  fptn::routing::IPTablesPtr ip_tables_;
+  fptn::routing::RouteManagerSPtr route_manager_;
 
   // connecting
   std::atomic<bool> connecting_in_progress_{false};

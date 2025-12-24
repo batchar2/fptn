@@ -36,6 +36,9 @@ if (FPTN_BUILD_ONLY_FPTN_LIB)
   # build fptnlib without pcappp
   set(FPTN_IP_ADDRESS_WITHOUT_PCAP ON)
   add_compile_definitions(FPTN_IP_ADDRESS_WITHOUT_PCAP)
+else()
+  set(FPTN_WITH_LIBIDN2 ON)
+  add_compile_definitions(FPTN_WITH_LIBIDN2)
 endif()
 
 add_compile_definitions(FPTN_VERSION=\"${FPTN_VERSION}\")
@@ -47,6 +50,9 @@ add_compile_definitions(FPTN_PROTOBUF_PROTOCOL_VERSION=0x01)
 # client
 add_compile_definitions(FPTN_CLIENT_DEFAULT_ADDRESS_IP6=\"fd00::1\")
 add_compile_definitions(FPTN_CLIENT_DEFAULT_ADDRESS_IP4=\"10.0.0.1\")
+add_compile_definitions(FPTN_CLIENT_DEFAULT_EXCLUDE_NETWORKS=\"10.0.0.0/8,172.16.0.0/12,192.168.0.0/16\")
+add_compile_definitions(FPTN_CLIENT_DEFAULT_SPLIT_TUNNEL_DOMAINS=\"domain:ru,domain:su,domain:рф,domain:vk.com,domain:yandex.com,domain:userapi.com,domain:yandex.net,domain:clstorage.net\")
+add_compile_definitions(FPTN_CLIENT_DEFAULT_BLACKLIST_DOMAINS=\"domain:solovev-live.ru,domain:ria.ru,domain:tass.ru,domain:1tv.ru,domain:ntv.ru,domain:rt.com,domain:lenta.ru\")
 # server
 add_compile_definitions(FPTN_SERVER_DEFAULT_ADDRESS_IP6=\"fc00:1::1\")
 add_compile_definitions(FPTN_SERVER_DEFAULT_NET_ADDRESS_IP6=\"fc00:1::\")

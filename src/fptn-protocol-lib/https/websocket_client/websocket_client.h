@@ -8,6 +8,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include <boost/asio.hpp>
 #include <boost/asio/awaitable.hpp>
@@ -45,7 +46,8 @@ class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
       std::string access_token,
       std::string expected_md5_fingerprint,
       CensorshipStrategy censorship_strategy,
-      OnConnectedCallback on_connected_callback = nullptr);
+      OnConnectedCallback on_connected_callback = nullptr,
+      int thread_number = 4);
 
   virtual ~WebsocketClient();
 
@@ -75,9 +77,11 @@ class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
 
   mutable std::mutex mutex_;
   std::atomic<bool> running_{false};
+  std::atomic<bool> was_inited_{false};
   std::atomic<bool> was_connected_{false};
 
   boost::asio::io_context ioc_;
+  const int thread_number_;
   boost::asio::ssl::context ctx_;
   boost::asio::ip::tcp::resolver resolver_;
 
@@ -116,6 +120,8 @@ class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
   boost::asio::cancellation_signal cancel_signal_;
 
   obfuscator::IObfuscatorSPtr obfuscator_;
+
+  std::vector<std::thread> ioc_threads_;
 };
 
 using WebsocketClientSPtr = std::shared_ptr<WebsocketClient>;

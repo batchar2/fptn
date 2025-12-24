@@ -457,6 +457,9 @@ Response ApiClient::GetImpl(const std::string& handle, int timeout) const {
       }
       stream.next_layer().set_obfuscator(nullptr);
 
+      // timeout
+      std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
       boost::beast::http::request<boost::beast::http::string_body> req{
           boost::beast::http::verb::get, handle, 11};
 
@@ -632,6 +635,9 @@ Response ApiClient::PostImpl(const std::string& handle,
         }
       }
       stream.next_layer().set_obfuscator(nullptr);
+
+      // timeout
+      std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
       boost::beast::http::request<boost::beast::http::string_body> req{
           boost::beast::http::verb::post, handle, 11};

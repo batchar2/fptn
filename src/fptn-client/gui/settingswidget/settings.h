@@ -12,9 +12,11 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <QDialog>
 #include <QGridLayout>
 #include <QLabel>
+#include <QLineEdit>
 #include <QListWidget>
 #include <QPushButton>
 #include <QTableWidget>
+#include <QTextEdit>
 #include <QToolButton>
 #include <QWidget>
 
@@ -55,6 +57,7 @@ class SettingsWidget : public QDialog {
 
   QTabWidget* tab_widget_ = nullptr;
   QWidget* settings_tab_ = nullptr;
+  QWidget* routing_tab_ = nullptr;
   QWidget* about_tab_ = nullptr;
   QTableWidget* server_table_ = nullptr;
 
@@ -67,6 +70,7 @@ class SettingsWidget : public QDialog {
   QComboBox* language_combo_box_ = nullptr;
 
   QGridLayout* grid_layout_ = nullptr;
+  QGridLayout* routing_grid_layout_ = nullptr;
 
   QComboBox* interface_combo_box_ = nullptr;
   QLabel* interface_label_ = nullptr;
@@ -86,6 +90,31 @@ class SettingsWidget : public QDialog {
   QListWidget* sni_files_list_widget_ = nullptr;
   QPushButton* sni_import_button_ = nullptr;
   QPushButton* sni_autoscan_button_ = nullptr;
+
+  // New fields widgets for routing tab
+  QLabel* blacklist_domains_label_ = nullptr;
+  QLabel* blacklist_domains_info_label_ = nullptr;
+  QTextEdit* blacklist_domains_text_edit_ = nullptr;
+
+  QLabel* exclude_tunnel_networks_label_ = nullptr;
+  QLabel* exclude_tunnel_networks_info_label_ = nullptr;
+  QTextEdit* exclude_tunnel_networks_text_edit_ = nullptr;
+
+  QLabel* include_tunnel_networks_label_ = nullptr;
+  QLabel* include_tunnel_networks_info_label_ = nullptr;
+  QTextEdit* include_tunnel_networks_text_edit_ = nullptr;
+
+  QLabel* enable_split_tunnel_label_ = nullptr;
+  QLabel* enable_split_tunnel_info_label_ = nullptr;
+  QCheckBox* enable_split_tunnel_checkbox_ = nullptr;
+
+  QLabel* split_tunnel_mode_label_ = nullptr;
+  QLabel* split_tunnel_mode_info_label_ = nullptr;
+  QComboBox* split_tunnel_mode_combo_box_ = nullptr;
+
+  QLabel* split_tunnel_domains_label_ = nullptr;
+  QLabel* split_tunnel_domains_info_label_ = nullptr;
+  QTextEdit* split_tunnel_domains_text_edit_ = nullptr;
 
   QPushButton* load_new_token_button_ = nullptr;
 
