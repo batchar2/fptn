@@ -56,9 +56,11 @@ PREFERRED_SERVER=
 NETWORK_INTERFACE=
 
 
-# Optional: Specify the gateway IP (e.g., router IP)
+# Optional: Specify the gateway IPv4 (e.g., router IPv4)
 GATEWAY_IP=
 
+# Optional: Specify the gateway IPv6 (e.g., router IPv6)
+GATEWAY_IPv6=
 
 # Censorship Bypass Settings
 # Optional: Method to bypass censorship mechanisms
@@ -125,17 +127,18 @@ After=network.target
 [Service]
 EnvironmentFile=/etc/fptn-client/client.conf
 ExecStart=/usr/bin/$(basename "$CLIENT_CLI") \
-    --access-token=\${ACCESS_TOKEN} \
-    --out-network-interface=\${NETWORK_INTERFACE} \
-    --gateway-ip=\${GATEWAY_IP} \
-    --sni=\${SNI} \
-    --bypass-method=\${BYPASS_METHOD} \
-    --blacklist-domains="\${BLACKLIST_DOMAINS}" \
+    --access-token "\${ACCESS_TOKEN}" \
+    --out-network-interface "\${NETWORK_INTERFACE}" \
+    --gateway-ip "\${GATEWAY_IP}" \
+    --gateway-ipv6 "\${GATEWAY_IPv6}" \
+    --sni "\${SNI}" \
+    --bypass-method "\${BYPASS_METHOD}" \
+    --blacklist-domains "\${BLACKLIST_DOMAINS}" \
     --enable-split-tunnel=\${ENABLE_SPLIT_TUNNEL} \
-    --split-tunnel-domains="\${SPLIT_TUNNEL_DOMAINS}" \
-    --exclude-tunnel-networks="\${EXCLUDE_TUNNEL_NETWORKS}" \
-    --include-tunnel-networks="\${INCLUDE_TUNNEL_NETWORKS}" \
-    --preferred-server="\${PREFERRED_SERVER}"
+    --split-tunnel-domains "\${SPLIT_TUNNEL_DOMAINS}" \
+    --exclude-tunnel-networks "\${EXCLUDE_TUNNEL_NETWORKS}" \
+    --include-tunnel-networks "\${INCLUDE_TUNNEL_NETWORKS}" \
+    --preferred-server "\${PREFERRED_SERVER}"
 
 Restart=always
 RestartSec=5

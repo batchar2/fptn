@@ -72,9 +72,6 @@ int main(int argc, char* argv[]) {
     args.add_argument("--tun-interface-ipv6")
         .default_value(FPTN_CLIENT_DEFAULT_ADDRESS_IP6)
         .help("Network interface IPv6 address");
-    args.add_argument("--tun-interface-ipv6")
-        .default_value(FPTN_CLIENT_DEFAULT_ADDRESS_IP6)
-        .help("Network interface IPv6 address");
     args.add_argument("--sni")
         .default_value(FPTN_DEFAULT_SNI)
         .help(
@@ -117,15 +114,27 @@ int main(int argc, char* argv[]) {
             "Example: 172.16.0.0/12,192.168.99.0/24");
     // Split-tunneling arguments
     args.add_argument("--enable-split-tunnel")
-        .default_value(true)
-        .implicit_value(true)
         .help(
             "Enable split tunneling - allows different traffic routing for "
             "different sites.\n"
-            "When enabled, you can configure which sites use VPN and which go "
+            "When enabled, you can configure which sites use VPN and which go"
             "directly.\n"
             "Use with --split-tunnel-mode and --split-tunnel-domains for "
-            "configuration.");
+            "configuration.")
+        .default_value(false)
+        .nargs(1)
+        .action([](const std::string& value) {
+          if (value.empty()) {
+            return true;
+          }
+          if (fptn::common::utils::ToLowerCase(value) == "true") {
+            return true;
+          }
+          if (fptn::common::utils::ToLowerCase(value) == "false") {
+            return false;
+          }
+          throw std::runtime_error("Value must be true/false");
+        });
     args.add_argument("--split-tunnel-mode")
         .default_value("exclude")
         .help(
