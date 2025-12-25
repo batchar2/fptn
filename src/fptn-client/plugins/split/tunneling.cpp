@@ -51,32 +51,54 @@ std::pair<fptn::common::network::IPPacketPtr, bool> Tunneling::HandlePacket(
     const auto domain_opt = packet->GetDnsDomain();
     if (domain_opt.has_value()) {
       const std::string& domain = domain_opt.value();
+      bool domain_matched = std::ranges::any_of(rules_,
+          [&domain](const auto& re) { return RE2::PartialMatch(domain, *re); });
 
-      if (std::ranges::any_of(rules_, [&domain](const auto& re) {
-            return RE2::PartialMatch(domain, *re);
-          })) {
-        SPDLOG_INFO("Domain '{}' matched tunneling rule", domain);
-
-        const auto ipv4_addresses = packet->GetDnsIPv4Addresses();
-        if (!ipv4_addresses.empty()) {
-          SPDLOG_INFO("Found {} IPv4 address(es) for domain '{}'",
-              ipv4_addresses.size(), domain);
-          route_manager_->AddDnsRoutesIPv4(ipv4_addresses, policy_);
-        } else {
-          SPDLOG_WARN(
-              "Domain '{}' matched but no IPv4 addresses found in DNS response",
+      const auto ipv4_addresses = packet->GetDnsIPv4Addresses();
+      if (policy_ == routing::RoutingPolicy::kIncludeInVpn) {
+        if (!domain_matched) {
+          triggered = true;
+          route_manager_->AddDnsRoutesIPv4(
+              ipv4_addresses, routing::RoutingPolicy::kExcludeFromVpn);
+          SPDLOG_INFO(
+              "Domain '{}' -> EXCLUDE from VPN (policy: INCLUDE only selected)",
               domain);
         }
-#ifndef __APPLE__
-        const auto ipv6_addresses = packet->GetDnsIPv6Addresses();
-        if (!ipv6_addresses.empty()) {
-          SPDLOG_INFO("Found {} IPv6 address(es) for domain '{}'",
-              ipv4_addresses.size(), domain);
-          route_manager_->AddDnsRoutesIPv6(ipv6_addresses, policy_);
+      } else if (policy_ == routing::RoutingPolicy::kExcludeFromVpn) {
+        if (domain_matched) {
+          triggered = true;
+          route_manager_->AddDnsRoutesIPv4(
+              ipv4_addresses, routing::RoutingPolicy::kExcludeFromVpn);
+          SPDLOG_INFO(
+              "Domain '{}' -> EXCLUDE from VPN (policy: EXCLUDE selected)",
+              domain);
         }
-#endif
-        triggered = true;
       }
+#ifndef __APPLE__
+      const auto ipv6_addresses = packet->GetDnsIPv6Addresses();
+      if (!ipv6_addresses.empty()) {
+        if (policy_ == routing::RoutingPolicy::kIncludeInVpn) {
+          if (!domain_matched) {
+            triggered = true;
+            route_manager_->AddDnsRoutesIPv6(
+                ipv6_addresses, routing::RoutingPolicy::kExcludeFromVpn);
+            SPDLOG_INFO(
+                "Domain '{}' -> EXCLUDE from VPN (policy: INCLUDE only "
+                "selected)",
+                domain);
+          }
+        } else if (policy_ == routing::RoutingPolicy::kExcludeFromVpn) {
+          if (domain_matched) {
+            triggered = true;
+            route_manager_->AddDnsRoutesIPv6(
+                ipv6_addresses, routing::RoutingPolicy::kExcludeFromVpn);
+            SPDLOG_INFO(
+                "Domain '{}' -> EXCLUDE from VPN (policy: EXCLUDE selected)",
+                domain);
+          }
+        }
+      }
+#endif
     }
   }
   return {std::move(packet), triggered};

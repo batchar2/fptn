@@ -6,6 +6,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include "routing/route_manager.h"
 
+#include <algorithm>
 #include <string>
 #include <utility>
 #include <vector>
@@ -94,6 +95,27 @@ std::pair<std::string, int> ParseIPv6CIDR(const std::string& network) {
     }
   }
   return {ip, prefix};
+}
+
+#elif __linux__
+bool IsSystemdResolvedActive() {
+  try {
+    std::vector<std::string> cmd_stdout;
+    fptn::common::system::command::run(
+        "systemctl is-active systemd-resolved", cmd_stdout);
+
+    if (!cmd_stdout.empty()) {
+      std::string result = cmd_stdout[0];
+      result.erase(result.find_last_not_of(" \n\r\t") + 1);
+      result.erase(0, result.find_first_not_of(" \n\r\t"));
+      std::transform(result.begin(), result.end(), result.begin(), ::tolower);
+      return result == "active";
+    }
+  } catch (const std::exception& err) {
+    SPDLOG_WARN(
+        "Warning: Failed to check systemd-resolved status: {}", err.what());
+  }
+  return false;
 }
 
 #endif
@@ -299,8 +321,7 @@ bool RouteManager::Apply() {
   SPDLOG_INFO(
       "IPTABLES DNS SERVER:            {}", dns_server_ipv4_.ToString());
 #ifdef __linux__
-  const std::vector<std::string> commands = {
-      fmt::format("systemctl start sysctl"),
+  std::vector<std::string> commands = {fmt::format("systemctl start sysctl"),
       fmt::format("sysctl -w net.ipv4.ip_forward=1"),
       fmt::format("sysctl -w net.ipv6.conf.default.disable_ipv6=0"),
       fmt::format("sysctl -w net.ipv6.conf.all.disable_ipv6=0"),
@@ -327,16 +348,33 @@ bool RouteManager::Apply() {
       fmt::format("ip -6 route add default dev {}", tun_interface_name_),
       // exclude vpn server
       fmt::format("ip route add {} via {} dev {}", vpn_server_ip_.ToString(),
-          detected_gateway_ipv4_.ToString(), detected_out_interface_name_),
-      // DNS
-      fmt::format("resolvectl dns {} ''", detected_out_interface_name_),
-      fmt::format(
-          "resolvectl default-route {} false", detected_out_interface_name_),
-      fmt::format("resolvectl flush-caches"),
-      fmt::format("resolvectl dns {} {}", tun_interface_name_,
-          dns_server_ipv4_.ToString()),
-      fmt::format("resolvectl domain {} \"~.\"", tun_interface_name_),
-      fmt::format("resolvectl default-route {} true", tun_interface_name_)};
+          detected_gateway_ipv4_.ToString(), detected_out_interface_name_)};
+
+  // DNS settings
+  if (IsSystemdResolvedActive()) {
+    SPDLOG_INFO("Using systemd-resolved for DNS configuration");
+    commands.push_back(
+        fmt::format("resolvectl dns {} ''", detected_out_interface_name_));
+    commands.push_back(fmt::format(
+        "resolvectl default-route {} true", detected_out_interface_name_));
+    commands.push_back(
+        fmt::format("resolvectl dns {} ''", tun_interface_name_));
+    commands.push_back(
+        fmt::format("resolvectl domain {} ''", tun_interface_name_));
+    commands.push_back(
+        fmt::format("resolvectl default-route {} false", tun_interface_name_));
+    commands.push_back(fmt::format("resolvectl flush-caches"));
+  } else {
+    SPDLOG_INFO("Using NetworkManager for DNS configuration");
+    commands.push_back(fmt::format("nmcli dev mod {} ipv4.ignore-auto-dns no",
+        detected_out_interface_name_));
+    commands.push_back(
+        fmt::format("nmcli con mod {} ipv4.dns \"\"", tun_interface_name_));
+    commands.push_back(
+        fmt::format("nmcli con up {}", detected_out_interface_name_));
+    commands.push_back(fmt::format("nmcli con up {}", tun_interface_name_));
+  }
+
 #elif __APPLE__
   const std::vector<std::string> commands = {
       fmt::format(
@@ -484,7 +522,7 @@ bool RouteManager::Clean() {  // NOLINT(bugprone-exception-escape)
   additional_routes_ipv6_.clear();
 
 #ifdef __linux__
-  const std::vector<std::string> commands = {
+  std::vector<std::string> commands = {
       fmt::format("iptables -t nat -D POSTROUTING -o {} -j MASQUERADE",
           detected_out_interface_name_),
       fmt::format("iptables -D FORWARD -i {} -o {} -m state --state "
@@ -499,15 +537,41 @@ bool RouteManager::Clean() {  // NOLINT(bugprone-exception-escape)
       // del routes
       fmt::format("ip route del default dev {}", tun_interface_name_),
       fmt::format("ip route del {} via {} dev {}", vpn_server_ip_.ToString(),
-          detected_gateway_ipv4_.ToString(), detected_out_interface_name_),
-      // DNS
-      fmt::format("resolvectl dns {} ''", detected_out_interface_name_),
-      fmt::format(
-          "resolvectl default-route {} true", detected_out_interface_name_),
-      fmt::format("resolvectl dns {} ''", tun_interface_name_),
-      fmt::format("resolvectl domain {} ''", tun_interface_name_),
-      fmt::format("resolvectl default-route {} false", tun_interface_name_),
-      fmt::format("resolvectl flush-caches")};
+          detected_gateway_ipv4_.ToString(), detected_out_interface_name_)};
+  // DNS
+  if (IsSystemdResolvedActive()) {
+    SPDLOG_INFO("Cleaning DNS via systemd-resolved");
+    commands.push_back(
+        fmt::format("resolvectl dns {} ''", detected_out_interface_name_));
+    commands.push_back(fmt::format(
+        "resolvectl default-route {} true", detected_out_interface_name_));
+    commands.push_back(
+        fmt::format("resolvectl dns {} ''", tun_interface_name_));
+    commands.push_back(
+        fmt::format("resolvectl domain {} ''", tun_interface_name_));
+    commands.push_back(
+        fmt::format("resolvectl default-route {} false", tun_interface_name_));
+    commands.push_back(fmt::format("resolvectl flush-caches"));
+  } else {
+    SPDLOG_INFO("Cleaning DNS via NetworkManager");
+    commands.push_back(
+        fmt::format("nmcli connection modify '{}' ipv4.ignore-auto-dns no",
+            detected_out_interface_name_));
+    commands.push_back(
+        fmt::format("nmcli connection modify '{}' ipv6.ignore-auto-dns no",
+            detected_out_interface_name_));
+    commands.push_back(fmt::format(
+        "nmcli connection modify '{}' ipv4.dns \"\"", tun_interface_name_));
+    commands.push_back(fmt::format(
+        "nmcli connection modify '{}' ipv6.dns \"\"", tun_interface_name_));
+    commands.push_back(
+        fmt::format("nmcli connection up '{}'", detected_out_interface_name_));
+    commands.push_back(
+        fmt::format("nmcli connection up '{}'", tun_interface_name_));
+    commands.push_back(
+        "systemctl restart systemd-resolved 2>/dev/null || "
+        "systemctl restart NetworkManager 2>/dev/null || true");
+  }
 #elif __APPLE__
   const std::vector<std::string> commands = {
       fmt::format(
