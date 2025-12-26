@@ -855,6 +855,7 @@ void Session::Close() {
   }
 
   // Set socket linger option for fast close
+  /*
   try {
     auto& tcp_socket = boost::beast::get_lowest_layer(ws_).socket();
     if (tcp_socket.is_open()) {
@@ -869,6 +870,7 @@ void Session::Close() {
         "Session::Close unknown error setting linger option (client_id={})",
         client_id_);
   }
+  */
 
   // Close TCP socket first
   try {

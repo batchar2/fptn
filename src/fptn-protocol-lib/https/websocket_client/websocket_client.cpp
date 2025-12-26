@@ -88,9 +88,10 @@ WebsocketClient::WebsocketClient(fptn::common::network::IPv4Address server_ip,
 }
 
 WebsocketClient::~WebsocketClient() {
-  Stop();
-  if (auto* ssl = ws_.next_layer().native_handle()) {
-    https::utils::AttachCertificateVerificationCallbackDelete(ssl);
+  try {
+    Stop();
+  } catch (...) {
+    SPDLOG_WARN("Unknown error in ~WebsocketClient");
   }
 }
 
@@ -142,6 +143,41 @@ bool WebsocketClient::Stop() {
     }
   } catch (const boost::system::system_error&) {
     SPDLOG_WARN("Cancellation timer error: {}", ec.what());
+  } catch (...) {
+    SPDLOG_ERROR("Unknown exception while stopping timer");
+  }
+
+  try {
+    SPDLOG_INFO("Emit cancel signal");
+    if (was_inited_) {
+      cancel_signal_.emit(boost::asio::cancellation_type::all);
+    }
+  } catch (const std::exception&) {
+    SPDLOG_DEBUG("Exception during cancellation");
+  } catch (...) {
+    SPDLOG_ERROR("Unknown exception during cancellation");
+  }
+
+  try {
+    SPDLOG_INFO("Closing write_channel");
+    if (was_inited_) {
+      write_channel_.close();
+    }
+  } catch (const std::exception&) {
+    SPDLOG_DEBUG("Exception closing write channel");
+  } catch (...) {
+    SPDLOG_ERROR("Unknown exception during closing write channel");
+  }
+
+  try {
+    SPDLOG_INFO("Closing resolver");
+    if (was_inited_) {
+      resolver_.cancel();
+    }
+  } catch (const std::exception&) {
+    SPDLOG_DEBUG("Exception cancelling resolver");
+  } catch (...) {
+    SPDLOG_ERROR("Unknown exception during closing resolver");
   }
 
   // Stop io_context
@@ -158,33 +194,6 @@ bool WebsocketClient::Stop() {
     SPDLOG_ERROR("Exception while stopping io_context: {}", err.what());
   } catch (...) {
     SPDLOG_ERROR("Unknown exception while stopping io_context");
-  }
-
-  try {
-    SPDLOG_INFO("Emit cancel signal");
-    if (was_inited_) {
-      cancel_signal_.emit(boost::asio::cancellation_type::all);
-    }
-  } catch (const std::exception&) {
-    SPDLOG_DEBUG("Exception during cancellation");
-  }
-
-  try {
-    SPDLOG_INFO("Closing write_channel");
-    if (was_inited_) {
-      write_channel_.close();
-    }
-  } catch (const std::exception&) {
-    SPDLOG_DEBUG("Exception closing write channel");
-  }
-
-  try {
-    SPDLOG_INFO("Closing resolver");
-    if (was_inited_) {
-      resolver_.cancel();
-    }
-  } catch (const std::exception&) {
-    SPDLOG_DEBUG("Exception cancelling resolver");
   }
 
   // Close TCP connection
@@ -232,6 +241,10 @@ bool WebsocketClient::Stop() {
     SPDLOG_ERROR("Unexpected exception during SSL shutdown: {}", e.what());
   } catch (...) {
     SPDLOG_ERROR("Unknown exception occurred during SSL shutdown");
+  }
+
+  if (auto* ssl = ws_.next_layer().native_handle()) {
+    https::utils::AttachCertificateVerificationCallbackDelete(ssl);
   }
 
   SPDLOG_INFO("WebSocket client stopped successfully");

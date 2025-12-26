@@ -183,6 +183,7 @@ void SettingsWidget::SetupUi() {
   } else {
     sni_label_->setText(QObject::tr("Fake domain to bypass blocking"));
   }
+  sni_label_->setMinimumHeight(40);
 
   sni_label_->setWordWrap(true);
   sni_line_edit_ = new QLineEdit(this);
@@ -500,15 +501,16 @@ void SettingsWidget::SetupUi() {
   split_tunnel_domains_info_label_ = new QLabel(this);
   if (settings_->SplitTunnelMode() == SettingsModel::kSplitTunnelModeInclude) {
     split_tunnel_domains_info_label_->setText(QObject::tr(
-        "List websites that should use VPN tunnel. Only these domains will go "
+        "List domains that should use VPN tunnel. Only these domains will go "
         "through VPN, all other traffic bypasses VPN"));
   } else {
     split_tunnel_domains_info_label_->setText(
-        QObject::tr("List websites that should bypass VPN tunnel. These "
-                    "domains will go directly, all other traffic uses VPN"));
+        QObject::tr("List domains that should bypass VPN tunnel. These domains "
+                    "will go directly, all other traffic uses VPN"));
   }
   split_tunnel_domains_info_label_->setWordWrap(true);
   split_tunnel_domains_info_label_->setStyleSheet(kInfoLabelStyle);
+  split_tunnel_domains_info_label_->setMinimumHeight(40);
 
   split_tunnel_domains_info_label_->setSizePolicy(
       QSizePolicy::Expanding, QSizePolicy::Preferred);
@@ -1093,6 +1095,15 @@ void SettingsWidget::onBypassMethodChanged(const QString& method) {
     settings_->SetBypassMethod(SettingsModel::kBypassMethodSniReality);
   } else {
     settings_->SetBypassMethod(SettingsModel::kBypassMethodSni);
+  }
+
+  if (sni_label_) {
+    if (settings_->BypassMethod() == SettingsModel::kBypassMethodSniReality) {
+      sni_label_->setText(
+          QObject::tr("Fake domain to bypass blocking (MUST ACTUALLY EXIST!)"));
+    } else {
+      sni_label_->setText(QObject::tr("Fake domain to bypass blocking"));
+    }
   }
 }
 

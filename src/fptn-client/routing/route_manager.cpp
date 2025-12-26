@@ -6,6 +6,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include "routing/route_manager.h"
 
+#include <algorithm>
 #include <string>
 #include <utility>
 #include <vector>
@@ -299,8 +300,7 @@ bool RouteManager::Apply() {
   SPDLOG_INFO(
       "IPTABLES DNS SERVER:            {}", dns_server_ipv4_.ToString());
 #ifdef __linux__
-  const std::vector<std::string> commands = {
-      fmt::format("systemctl start sysctl"),
+  std::vector<std::string> commands = {fmt::format("systemctl start sysctl"),
       fmt::format("sysctl -w net.ipv4.ip_forward=1"),
       fmt::format("sysctl -w net.ipv6.conf.default.disable_ipv6=0"),
       fmt::format("sysctl -w net.ipv6.conf.all.disable_ipv6=0"),
@@ -327,16 +327,19 @@ bool RouteManager::Apply() {
       fmt::format("ip -6 route add default dev {}", tun_interface_name_),
       // exclude vpn server
       fmt::format("ip route add {} via {} dev {}", vpn_server_ip_.ToString(),
-          detected_gateway_ipv4_.ToString(), detected_out_interface_name_),
-      // DNS
-      fmt::format("resolvectl dns {} ''", detected_out_interface_name_),
-      fmt::format(
-          "resolvectl default-route {} false", detected_out_interface_name_),
-      fmt::format("resolvectl flush-caches"),
-      fmt::format("resolvectl dns {} {}", tun_interface_name_,
-          dns_server_ipv4_.ToString()),
-      fmt::format("resolvectl domain {} \"~.\"", tun_interface_name_),
-      fmt::format("resolvectl default-route {} true", tun_interface_name_)};
+          detected_gateway_ipv4_.ToString(), detected_out_interface_name_)};
+
+  commands.push_back(
+      fmt::format("resolvectl dns {} ''", detected_out_interface_name_));
+  commands.push_back(fmt::format(
+      "resolvectl default-route {} true", detected_out_interface_name_));
+  commands.push_back(fmt::format("resolvectl dns {} ''", tun_interface_name_));
+  commands.push_back(
+      fmt::format("resolvectl domain {} ''", tun_interface_name_));
+  commands.push_back(
+      fmt::format("resolvectl default-route {} false", tun_interface_name_));
+  commands.push_back(fmt::format("resolvectl flush-caches"));
+
 #elif __APPLE__
   const std::vector<std::string> commands = {
       fmt::format(
@@ -484,7 +487,7 @@ bool RouteManager::Clean() {  // NOLINT(bugprone-exception-escape)
   additional_routes_ipv6_.clear();
 
 #ifdef __linux__
-  const std::vector<std::string> commands = {
+  std::vector<std::string> commands = {
       fmt::format("iptables -t nat -D POSTROUTING -o {} -j MASQUERADE",
           detected_out_interface_name_),
       fmt::format("iptables -D FORWARD -i {} -o {} -m state --state "
@@ -499,15 +502,19 @@ bool RouteManager::Clean() {  // NOLINT(bugprone-exception-escape)
       // del routes
       fmt::format("ip route del default dev {}", tun_interface_name_),
       fmt::format("ip route del {} via {} dev {}", vpn_server_ip_.ToString(),
-          detected_gateway_ipv4_.ToString(), detected_out_interface_name_),
-      // DNS
-      fmt::format("resolvectl dns {} ''", detected_out_interface_name_),
-      fmt::format(
-          "resolvectl default-route {} true", detected_out_interface_name_),
-      fmt::format("resolvectl dns {} ''", tun_interface_name_),
-      fmt::format("resolvectl domain {} ''", tun_interface_name_),
-      fmt::format("resolvectl default-route {} false", tun_interface_name_),
-      fmt::format("resolvectl flush-caches")};
+          detected_gateway_ipv4_.ToString(), detected_out_interface_name_)};
+  // DNS
+  commands.push_back(
+      fmt::format("resolvectl dns {} ''", detected_out_interface_name_));
+  commands.push_back(fmt::format(
+      "resolvectl default-route {} true", detected_out_interface_name_));
+  commands.push_back(fmt::format("resolvectl dns {} ''", tun_interface_name_));
+  commands.push_back(
+      fmt::format("resolvectl domain {} ''", tun_interface_name_));
+  commands.push_back(
+      fmt::format("resolvectl default-route {} false", tun_interface_name_));
+  commands.push_back(fmt::format("resolvectl flush-caches"));
+
 #elif __APPLE__
   const std::vector<std::string> commands = {
       fmt::format(
