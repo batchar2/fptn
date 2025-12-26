@@ -89,9 +89,9 @@ bool ConfigFile::Parse() {
   return false;
 }
 
-ServerInfo ConfigFile::FindFastestServer() const {
+ServerInfo ConfigFile::FindFastestServer(int timeout_sec) const {
   return fptn::utils::speed_estimator::FindFastestServer(
-      sni_, servers_, censorship_strategy_);
+      sni_, servers_, censorship_strategy_, timeout_sec);
 }
 
 std::uint64_t ConfigFile::GetDownloadTimeMs(const ServerInfo& server,

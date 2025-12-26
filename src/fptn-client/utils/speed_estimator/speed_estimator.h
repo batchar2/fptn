@@ -24,6 +24,7 @@ std::uint64_t GetDownloadTimeMs(const ServerInfo& server,
 
 ServerInfo FindFastestServer(const std::string& sni,
     const std::vector<ServerInfo>& servers,
-    fptn::protocol::https::CensorshipStrategy censorship_strategy);
+    fptn::protocol::https::CensorshipStrategy censorship_strategy,
+    int timeout_sec = 15);
 
 };  // namespace fptn::utils::speed_estimator

@@ -758,7 +758,7 @@ bool TrayApp::startVpn(QString& err_msg) {
       }
     }
     try {
-      selected_server_ = config.FindFastestServer();
+      selected_server_ = config.FindFastestServer(30);
     } catch (std::runtime_error& err) {
       err_msg = QObject::tr("Config error: ") + err.what();
       return false;
@@ -766,7 +766,7 @@ bool TrayApp::startVpn(QString& err_msg) {
   } else {
     // check connection to selected server
     const std::uint64_t time = config.GetDownloadTimeMs(
-        selected_server_, sni, 15, selected_server_.md5_fingerprint);
+        selected_server_, sni, 30, selected_server_.md5_fingerprint);
     if (time == UINT64_MAX) {
       err_msg = QString(
           QObject::tr("The server is unavailable. Please select another server "

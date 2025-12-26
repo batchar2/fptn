@@ -38,7 +38,9 @@ class Client final {
       std::string md5_fingerprint,
       fptn::protocol::https::CensorshipStrategy censorship_strategy,
       NewIPPacketCallback new_ip_pkt_callback = nullptr);
-  bool Login(const std::string& username, const std::string& password);
+  bool Login(const std::string& username,
+      const std::string& password,
+      int timeout_sec = 15);
   std::pair<IPv4Address, IPv6Address> GetDns();
   bool Start();
   bool Stop();
@@ -52,7 +54,7 @@ class Client final {
   void Run();
 
  private:
-  const int kMaxReconnectionAttempts_ = 3;
+  const int kMaxReconnectionAttempts_ = 5;
 
   std::thread th_;
   mutable std::mutex mutex_;

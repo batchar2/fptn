@@ -45,14 +45,16 @@ Client::Client(IPv4Address server_ip,
       new_ip_pkt_callback_(std::move(new_ip_pkt_callback)),
       reconnection_attempts_(kMaxReconnectionAttempts_) {}
 
-bool Client::Login(const std::string& username, const std::string& password) {
+bool Client::Login(
+    const std::string& username, const std::string& password, int timeout_sec) {
   const std::string request = fmt::format(
       R"({{ "username": "{}", "password": "{}" }})", username, password);
 
   const std::string ip = server_ip_.ToString();
   ApiClient cli(ip, server_port_, sni_, md5_fingerprint_, censorship_strategy_);
 
-  const auto resp = cli.Post("/api/v1/login", request, "application/json");
+  const auto resp =
+      cli.Post("/api/v1/login", request, "application/json", timeout_sec);
   if (resp.code == 200) {
     try {
       const auto msg = resp.Json();
@@ -156,7 +158,7 @@ void Client::Run() {
         ws_ = std::make_shared<fptn::protocol::https::WebsocketClient>(
             server_ip_, server_port_, tun_interface_address_ipv4_,
             tun_interface_address_ipv6_, new_ip_pkt_callback_, sni_,
-            access_token_, md5_fingerprint_, censorship_strategy_);
+            access_token_, md5_fingerprint_, censorship_strategy_, nullptr, 32);
       }
     }
 

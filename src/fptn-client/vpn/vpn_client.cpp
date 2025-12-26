@@ -143,27 +143,28 @@ void VpnClient::HandlePacketFromWebSocket(
     return;
   }
 
-  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
-
-  if (running_) {
-    // run plugins
-    if (!plugins_.empty() && packet) {
-      for (const auto& plugin : plugins_) {
-        if (packet) {
-          auto [processed_packet, triggered] =
-              plugin->HandlePacket(std::move(packet));
-          packet = std::move(processed_packet);
-          // If plugin triggered, stop further processing
-          // This implements priority-based plugin execution where
-          // the first triggered plugin takes precedence
-          if (triggered) {
-            break;
-          }
+  // run plugins
+  if (running_ && !plugins_.empty() && packet) {
+    for (const auto& plugin : plugins_) {
+      if (packet) {
+        auto [processed_packet, triggered] =
+            plugin->HandlePacket(std::move(packet));
+        packet = std::move(processed_packet);
+        // If plugin triggered, stop further processing
+        // This implements priority-based plugin execution where
+        // the first triggered plugin takes precedence
+        if (triggered) {
+          break;
         }
       }
     }
-    if (virtual_net_interface_ && packet) {
-      virtual_net_interface_->Send(std::move(packet));
+
+    if (running_ && packet) {
+      const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+      if (running_ && virtual_net_interface_) {
+        virtual_net_interface_->Send(std::move(packet));
+      }
     }
   }
 }
