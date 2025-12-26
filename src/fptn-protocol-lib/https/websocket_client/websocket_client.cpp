@@ -147,22 +147,6 @@ bool WebsocketClient::Stop() {
     SPDLOG_ERROR("Unknown exception while stopping timer");
   }
 
-  // Stop io_context
-  try {
-    SPDLOG_INFO("Stopping io_context...");
-    ioc_.stop();
-    for (auto& th : ioc_threads_) {
-      if (th.joinable()) {
-        th.join();
-      }
-    }
-    SPDLOG_INFO("io_context stopped");
-  } catch (const boost::system::system_error& err) {
-    SPDLOG_ERROR("Exception while stopping io_context: {}", err.what());
-  } catch (...) {
-    SPDLOG_ERROR("Unknown exception while stopping io_context");
-  }
-
   try {
     SPDLOG_INFO("Emit cancel signal");
     if (was_inited_) {
@@ -194,6 +178,22 @@ bool WebsocketClient::Stop() {
     SPDLOG_DEBUG("Exception cancelling resolver");
   } catch (...) {
     SPDLOG_ERROR("Unknown exception during closing resolver");
+  }
+
+  // Stop io_context
+  try {
+    SPDLOG_INFO("Stopping io_context...");
+    ioc_.stop();
+    for (auto& th : ioc_threads_) {
+      if (th.joinable()) {
+        th.join();
+      }
+    }
+    SPDLOG_INFO("io_context stopped");
+  } catch (const boost::system::system_error& err) {
+    SPDLOG_ERROR("Exception while stopping io_context: {}", err.what());
+  } catch (...) {
+    SPDLOG_ERROR("Unknown exception while stopping io_context");
   }
 
   // Close TCP connection
