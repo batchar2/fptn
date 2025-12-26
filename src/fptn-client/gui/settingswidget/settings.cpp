@@ -612,7 +612,8 @@ void SettingsWidget::SetupUi() {
       "  - Teya Aster<br>"
       "  - loftynite<br>"
       "  - vlz78<br>"
-      "  - Erranted<br>";
+      "  - Erranted<br>"
+      "  - Kotishqua<br>";
 
   sponsors_names_label_ = new QLabel(sponsors_list, this);
   sponsors_names_label_->setAlignment(Qt::AlignLeft);
