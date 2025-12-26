@@ -62,11 +62,11 @@ class ApiClient {
       std::string md5_fingerprint,
       CensorshipStrategy censorship_strategy);
 
-  Response Get(const std::string& handle, int timeout = 10) const;
+  Response Get(const std::string& handle, int timeout = 15) const;
   Response Post(const std::string& handle,
       const std::string& request,
       const std::string& content_type = "application/json",
-      int timeout = 10) const;
+      int timeout = 15) const;
   bool TestHandshake(int timeout = 10) const;
 
  protected:

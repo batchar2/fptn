@@ -271,10 +271,10 @@ int main(int argc, char* argv[]) {
         } else {
           SPDLOG_WARN("Server '{}' does not exist! Check your token!",
               preferred_server);
-          selected_server = config.FindFastestServer();
+          selected_server = config.FindFastestServer(15);
         }
       } else {
-        selected_server = config.FindFastestServer();
+        selected_server = config.FindFastestServer(15);
       }
     } catch (const std::runtime_error& err) {
       SPDLOG_ERROR("Config error: {}", err.what());

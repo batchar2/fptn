@@ -55,9 +55,8 @@ std::uint64_t GetDownloadTimeMs(const ServerInfo& server,
 
 ServerInfo FindFastestServer(const std::string& sni,
     const std::vector<ServerInfo>& servers,
-    fptn::protocol::https::CensorshipStrategy censorship_strategy) {
-  constexpr int kTimeoutSeconds = 10;
-
+    fptn::protocol::https::CensorshipStrategy censorship_strategy,
+    int timeout_sec) {
   // randomly select half of the servers
   std::vector<ServerInfo> shuffled_servers = servers;
   std::random_device rd;
@@ -82,9 +81,9 @@ ServerInfo FindFastestServer(const std::string& sni,
   for (std::size_t i = 0; i < selected_servers.size(); ++i) {
     // NOLINTNEXTLINE(bugprone-exception-escape)
     std::thread([&promise = promises[i], server = selected_servers[i], sni,
-                    censorship_strategy]() {
+                    timeout_sec, censorship_strategy]() {
       try {
-        const auto time_ms = GetDownloadTimeMs(server, sni, kTimeoutSeconds,
+        const auto time_ms = GetDownloadTimeMs(server, sni, timeout_sec,
             server.md5_fingerprint, censorship_strategy);
         promise.set_value(time_ms);
       } catch (...) {  // NOLINT
@@ -98,8 +97,8 @@ ServerInfo FindFastestServer(const std::string& sni,
   std::vector<std::uint64_t> times;
   times.reserve(futures.size());
 
-  const auto deadline = std::chrono::steady_clock::now() +
-                        std::chrono::seconds(kTimeoutSeconds + 2);
+  const auto deadline =
+      std::chrono::steady_clock::now() + std::chrono::seconds(timeout_sec + 2);
 
   for (auto& future : futures) {
     if (future.wait_until(deadline) == std::future_status::ready) {

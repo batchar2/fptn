@@ -394,6 +394,7 @@ void SettingsWidget::SetupUi() {
       new QLabel(QObject::tr("When enabled, you can configure which sites use "
                              "VPN and which go directly."),
           this);
+  enable_split_tunnel_info_label_->setMinimumHeight(50);
   enable_split_tunnel_info_label_->setWordWrap(true);
   enable_split_tunnel_info_label_->setStyleSheet(kInfoLabelStyle);
 
@@ -510,7 +511,7 @@ void SettingsWidget::SetupUi() {
   }
   split_tunnel_domains_info_label_->setWordWrap(true);
   split_tunnel_domains_info_label_->setStyleSheet(kInfoLabelStyle);
-  split_tunnel_domains_info_label_->setMinimumHeight(40);
+  split_tunnel_domains_info_label_->setMinimumHeight(70);
 
   split_tunnel_domains_info_label_->setSizePolicy(
       QSizePolicy::Expanding, QSizePolicy::Preferred);

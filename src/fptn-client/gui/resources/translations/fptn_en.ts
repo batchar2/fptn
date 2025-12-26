@@ -416,7 +416,7 @@ This may cause network connectivity issues or prevent proper operation of FPTN.<
         </message>
         <message>
             <source>Enable split tunnel</source>
-            <translation>Enable split tunnel</translation>
+            <translation>Enable split tunneling (experimental)</translation>
         </message>
         <message>
             <source>When enabled, you can configure which sites use VPN and which go directly.</source>

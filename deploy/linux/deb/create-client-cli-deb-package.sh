@@ -97,7 +97,7 @@ INCLUDE_TUNNEL_NETWORKS=
 # When enabled, traffic routing is controlled by TUNNEL_MODE and domain/network lists
 # true:  Enable split tunneling - configure routing with TUNNEL_MODE below
 # false: Disable split tunneling - all traffic goes through VPN tunnel
-ENABLE_SPLIT_TUNNEL=true
+ENABLE_SPLIT_TUNNEL=false
 
 
 # Split tunneling mode - defines traffic routing strategy

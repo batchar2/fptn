@@ -572,8 +572,6 @@ bool RouteManager::Clean() {  // NOLINT(bugprone-exception-escape)
 bool RouteManager::AddDnsRoutesIPv4(
     const std::vector<fptn::common::network::IPv4Address>& ips,
     const RoutingPolicy policy) {
-  const std::unique_lock<std::mutex> lock(mutex_);
-
   std::string interface_name;
   std::string gateway_ip;
 
@@ -598,40 +596,59 @@ bool RouteManager::AddDnsRoutesIPv4(
     return false;
   }
 
-  bool status = true;
-  for (const auto& ip : ips) {
-    try {
+  std::vector<RouteEntry> entries_to_add;
+  {
+    const std::unique_lock<std::mutex> lock(mutex_);
+
+    for (const auto& ip : ips) {
       std::string ip_str = ip.ToString();
       RouteEntry entry{.destination = ip_str, .policy = policy};
 
       if (!dns_routes_ipv4_.contains(entry)) {
-        const bool rv =
-            AddIPv4RouteToSystem(ip_str, gateway_ip, interface_name);
-        if (rv) {
-          const std::string policy_str =
-              (policy == RoutingPolicy::kExcludeFromVpn
-                      ? "EXCLUDE (bypass VPN)"
-                      : "INCLUDE (through VPN)");
-          SPDLOG_INFO("DNS route added: {} [{}]", ip_str, policy_str);
-          dns_routes_ipv4_.insert(std::move(entry));
-        } else {
-          SPDLOG_WARN("Failed to add DNS route: {}", ip_str);
-          status = false;
-        }
+        dns_routes_ipv4_.insert(entry);
+        entries_to_add.push_back(std::move(entry));
+      }
+    }
+  }
+
+  if (entries_to_add.empty()) {
+    return true;
+  }
+
+  bool status = true;
+  for (const auto& entry : entries_to_add) {
+    try {
+      const bool rv =
+          AddIPv4RouteToSystem(entry.destination, gateway_ip, interface_name);
+
+      if (rv) {
+        const std::string policy_str = (policy == RoutingPolicy::kExcludeFromVpn
+                                            ? "EXCLUDE (bypass VPN)"
+                                            : "INCLUDE (through VPN)");
+        SPDLOG_INFO("DNS route added: {} [{}]", entry.destination, policy_str);
+      } else {
+        SPDLOG_WARN("Failed to add DNS route: {}", entry.destination);
+
+        const std::unique_lock<std::mutex> lock(mutex_);
+        dns_routes_ipv4_.erase(entry);
+        status = false;
       }
     } catch (const std::exception& e) {
-      SPDLOG_WARN("Exception adding DNS IPv4 route: {}", e.what());
+      SPDLOG_WARN("Exception adding DNS IPv4 route {}: {}", entry.destination,
+          e.what());
+
+      const std::unique_lock<std::mutex> lock(mutex_);
+      dns_routes_ipv4_.erase(entry);
       status = false;
     }
   }
+
   return status;
 }
 
 bool RouteManager::AddDnsRoutesIPv6(
     const std::vector<fptn::common::network::IPv6Address>& ips,
     const RoutingPolicy policy) {
-  const std::unique_lock<std::mutex> lock(mutex_);
-
   std::string interface_name;
   std::string gateway_ip;
 
@@ -662,29 +679,44 @@ bool RouteManager::AddDnsRoutesIPv6(
     return false;
   }
 
-  bool status = true;
-  for (const auto& ip : ips) {
-    try {
+  std::vector<RouteEntry> entries_to_add;
+  {
+    const std::unique_lock<std::mutex> lock(mutex_);
+
+    for (const auto& ip : ips) {
       std::string ip_str = ip.ToString();
       RouteEntry entry{.destination = ip_str, .policy = policy};
 
       if (!dns_routes_ipv6_.contains(entry)) {
-        const bool rv =
-            AddIPv6RouteToSystem(ip_str, gateway_ip, interface_name);
-        if (rv) {
-          const std::string policy_str =
-              (policy == RoutingPolicy::kExcludeFromVpn
-                      ? "EXCLUDE (bypass VPN)"
-                      : "INCLUDE (through VPN)");
-          SPDLOG_INFO("DNS IPv6 route added: {} [{}]", ip_str, policy_str);
-          dns_routes_ipv6_.insert(std::move(entry));
-        } else {
-          SPDLOG_WARN("Failed to add DNS IPv6 route: {}", ip_str);
-          status = false;
-        }
+        dns_routes_ipv6_.insert(entry);
+        entries_to_add.push_back(std::move(entry));
+      }
+    }
+  }
+
+  if (entries_to_add.empty()) {
+    return true;
+  }
+
+  bool status = true;
+  for (const auto& entry : entries_to_add) {
+    try {
+      const bool rv =
+          AddIPv6RouteToSystem(entry.destination, gateway_ip, interface_name);
+
+      if (rv) {
+        const std::string policy_str = (policy == RoutingPolicy::kExcludeFromVpn
+                                            ? "EXCLUDE (bypass VPN)"
+                                            : "INCLUDE (through VPN)");
+        SPDLOG_INFO(
+            "DNS IPv6 route added: {} [{}]", entry.destination, policy_str);
+      } else {
+        SPDLOG_WARN("Failed to add DNS IPv6 route: {}", entry.destination);
+        status = false;
       }
     } catch (const std::exception& e) {
-      SPDLOG_WARN("Exception adding DNS IPv6 route: {}", e.what());
+      SPDLOG_WARN("Exception adding DNS IPv6 route {}: {}", entry.destination,
+          e.what());
       status = false;
     }
   }
@@ -693,18 +725,42 @@ bool RouteManager::AddDnsRoutesIPv6(
 
 bool RouteManager::AddExcludeNetworks(
     const std::vector<std::string>& networks) {
-  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+  std::vector<std::pair<std::string, bool>> networks_to_add;
+  {
+    const std::unique_lock<std::mutex> lock(mutex_);
+
+    for (const auto& network : networks) {
+      if (network.empty()) {
+        continue;
+      }
+
+      const bool is_ipv6 = network.find(':') != std::string::npos;  // NOLINT
+      RouteEntry entry{
+          .destination = network, .policy = RoutingPolicy::kExcludeFromVpn};
+
+      if (is_ipv6) {
+        if (!additional_routes_ipv6_.contains(entry)) {
+          networks_to_add.emplace_back(network, true);
+          additional_routes_ipv6_.insert(entry);
+        }
+      } else {
+        if (!additional_routes_ipv4_.contains(entry)) {
+          networks_to_add.emplace_back(network, false);
+          additional_routes_ipv4_.insert(entry);
+        }
+      }
+    }
+    if (networks_to_add.empty()) {
+      return true;
+    }
+  }
 
   bool all_success = true;
-  for (const auto& network : networks) {
-    if (network.empty()) {
-      continue;
-    }
+  for (const auto& [network, is_ipv6] : networks_to_add) {
     try {
-      // Check if IPv6
-      const bool is_ipv6 = network.find(':') != std::string::npos;  // NOLINT
+      bool success = false;
+
       if (is_ipv6) {
-        // IPv6
 #ifdef _WIN32
         std::string interface_name = !detected_out_interface_name_.empty()
                                          ? detected_out_interface_name_
@@ -712,80 +768,95 @@ bool RouteManager::AddExcludeNetworks(
 #else
         std::string interface_name = out_interface_name_;
 #endif
-        const bool success = AddIPv6RouteToSystem(
+        success = AddIPv6RouteToSystem(
             network, gateway_ipv6_.ToString(), interface_name);
-        if (success) {
-          additional_routes_ipv6_.insert({.destination = network,
-              .policy = RoutingPolicy::kExcludeFromVpn});
-          SPDLOG_INFO("Added IPv6 exclude network: {}", network);
-        } else {
-          SPDLOG_WARN("Failed to add route: {}", network);
-          all_success = false;
-        }
       } else {
-        // IPv4 network
-        const bool success = AddIPv4RouteToSystem(
+        success = AddIPv4RouteToSystem(
             network, gateway_ipv4_.ToString(), out_interface_name_);
-        if (success) {
-          additional_routes_ipv4_.insert({.destination = network,
-              .policy = RoutingPolicy::kExcludeFromVpn});
-          SPDLOG_INFO("Added IPv4 exclude network: {}", network);
-        } else {
-          SPDLOG_WARN("Failed to add route: {}", network);
-          all_success = false;
-        }
+      }
+
+      if (success) {
+        SPDLOG_INFO(
+            "Added {} exclude network: {}", is_ipv6 ? "IPv6" : "IPv4", network);
+      } else {
+        SPDLOG_WARN("Failed to add route: {}", network);
+        all_success = false;
       }
     } catch (const std::exception& e) {
       SPDLOG_WARN("Failed to add exclude network '{}': {}", network, e.what());
+
+      const std::unique_lock<std::mutex> lock(mutex_);
+      RouteEntry entry{
+          .destination = network, .policy = RoutingPolicy::kExcludeFromVpn};
+      if (is_ipv6) {
+        additional_routes_ipv6_.erase(entry);
+      } else {
+        additional_routes_ipv4_.erase(entry);
+      }
       all_success = false;
     }
   }
-
   return all_success;
 }
 
 bool RouteManager::AddIncludeNetworks(
     const std::vector<std::string>& networks) {
-  const std::unique_lock<std::mutex> lock(mutex_);
+  std::vector<std::pair<std::string, bool>> networks_to_add;
+  {
+    const std::unique_lock<std::mutex> lock(mutex_);
 
-  bool all_success = true;
-  for (const auto& network : networks) {
-    if (network.empty()) {
-      continue;
-    }
-    try {
-      // Check if IPv6
+    for (const auto& network : networks) {
+      if (network.empty()) {
+        continue;
+      }
+
       const bool is_ipv6 = network.find(':') != std::string::npos;  // NOLINT
+      RouteEntry entry{
+          .destination = network, .policy = RoutingPolicy::kIncludeInVpn};
+
       if (is_ipv6) {
-        // IPv6
-        const bool success = AddIPv6RouteToSystem(network,
-            tun_interface_address_ipv6_.ToString(), tun_interface_name_);
-        if (success) {
-          additional_routes_ipv6_.insert(
-              {.destination = network, .policy = RoutingPolicy::kIncludeInVpn});
-          SPDLOG_INFO("Added IPv6 include network: {}", network);
-        } else {
-          SPDLOG_ERROR("Failed to add route: {}", network);
-          all_success = false;
+        if (!additional_routes_ipv6_.contains(entry)) {
+          networks_to_add.emplace_back(network, true);
+          additional_routes_ipv6_.insert(entry);
         }
       } else {
-        // IPv4
-        const bool success = AddIPv4RouteToSystem(network,
-            tun_interface_address_ipv4_.ToString(), tun_interface_name_);
-        if (success) {
-          additional_routes_ipv4_.insert(
-              {.destination = network, .policy = RoutingPolicy::kIncludeInVpn});
-          SPDLOG_INFO("Added IPv4 include network: {}", network);
-        } else {
-          SPDLOG_WARN("Failed to add route: {}", network);
-          all_success = false;
+        if (!additional_routes_ipv4_.contains(entry)) {
+          networks_to_add.emplace_back(network, false);
+          additional_routes_ipv4_.insert(entry);
         }
+      }
+    }
+    if (networks_to_add.empty()) {
+      return true;
+    }
+  }
+
+  bool all_success = true;
+  for (const auto& [network, is_ipv6] : networks_to_add) {
+    try {
+      bool success = false;
+
+      if (is_ipv6) {
+        success = AddIPv6RouteToSystem(network,
+            tun_interface_address_ipv6_.ToString(), tun_interface_name_);
+      } else {
+        success = AddIPv4RouteToSystem(network,
+            tun_interface_address_ipv4_.ToString(), tun_interface_name_);
+      }
+
+      if (success) {
+        SPDLOG_INFO(
+            "Added {} include network: {}", is_ipv6 ? "IPv6" : "IPv4", network);
+      } else {
+        SPDLOG_ERROR("Failed to add route: {}", network);
+        all_success = false;
       }
     } catch (const std::exception& e) {
       SPDLOG_WARN("Failed to add include network '{}': {}", network, e.what());
       all_success = false;
     }
   }
+
   return all_success;
 }
 

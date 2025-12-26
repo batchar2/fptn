@@ -25,7 +25,8 @@ class ConfigFile final {
       fptn::protocol::https::CensorshipStrategy censorship_strategy);
 
   bool Parse();
-  fptn::utils::speed_estimator::ServerInfo FindFastestServer() const;
+  fptn::utils::speed_estimator::ServerInfo FindFastestServer(
+      int timeout_sec) const;
   std::uint64_t GetDownloadTimeMs(
       const fptn::utils::speed_estimator::ServerInfo& server,
       const std::string& sni,
