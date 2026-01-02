@@ -146,7 +146,6 @@ void SettingsModel::Load(bool dont_load_server) {
     SPDLOG_WARN("Failed to open file for reading: {}", file_path.toStdString());
     return;
   }
-  SPDLOG_INFO("Settings: {}", file_path.toStdString());
 
   const QByteArray data = file.readAll();
   file.close();
@@ -365,9 +364,6 @@ bool SettingsModel::Save() {
   auto len = file.write(document.toJson());
   file.close();
 
-  if (len > 0) {
-    SPDLOG_INFO("Success save: {}", file_path.toStdString());
-  }
   emit dataChanged();
 
   return len > 0;
