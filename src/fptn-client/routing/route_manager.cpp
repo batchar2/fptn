@@ -19,34 +19,47 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 namespace {
 #ifdef _WIN32
-std::string GetWindowsInterfaceNumber(const std::string& interface_name) {
-  try {
-    const std::string command =
-        "powershell -Command \"(Get-NetAdapter -Name '" + interface_name +
-        "').ifIndex\"";
-    std::vector<std::string> cmd_stdout;
-    fptn::common::system::command::run(command, cmd_stdout);
 
-    if (cmd_stdout.empty()) {
-      SPDLOG_WARN("Warning: Interface index not found.");
-      return {};
-    }
-    for (const auto& line : cmd_stdout) {
-      std::string result = line;
-      result.erase(result.find_last_not_of(" \n\r\t") + 1);
-      result.erase(0, result.find_first_not_of(" \n\r\t"));
-      if (!result.empty() &&
-          std::all_of(result.begin(), result.end(), ::isdigit)) {
-        return result;
-      }
-    }
-    SPDLOG_ERROR("Error: Invalid interface index format.");
+std::string GetWindowsInterfaceNumber(const std::string& interface_name) {
+  if (interface_name.empty()) {
     return {};
-  } catch (const std::exception& ex) {
-    SPDLOG_ERROR(
-        "Error: failed to retrieve the interface index. Msg: {}", ex.what());
   }
-  return {};
+
+  ULONG out_buf_len = 0;
+  PIP_ADAPTER_INFO adapter_info = nullptr;
+  PIP_ADAPTER_INFO adapter = nullptr;
+
+  DWORD dw_ret = GetAdaptersInfo(nullptr, &out_buf_len);
+  if (dw_ret != ERROR_BUFFER_OVERFLOW) {
+    return {};
+  }
+
+  adapter_info = static_cast<PIP_ADAPTER_INFO>(malloc(out_buf_len));
+  if (!adapter_info) {
+    return {};
+  }
+
+  dw_ret = GetAdaptersInfo(adapter_info, &out_buf_len);
+  if (dw_ret != NO_ERROR) {
+    free(adapter_info);
+    return {};
+  }
+
+  DWORD if_index = 0;
+  adapter = adapter_info;
+
+  while (adapter) {
+    std::string adapter_name = adapter->AdapterName;
+    std::string description = adapter->Description;
+
+    if (interface_name == adapter_name || interface_name == description) {
+      if_index = adapter->Index;
+      break;
+    }
+    adapter = adapter->Next;
+  }
+  free(adapter_info);
+  return if_index > 0 ? std::to_string(if_index) : std::string();
 }
 
 std::pair<std::string, std::string> ParseIPv4CIDR(const std::string& network) {

@@ -148,7 +148,6 @@ void SettingsWidget::SetupUi() {
 
   grid_layout_->addWidget(gateway_label_, 3, 0);
   grid_layout_->addLayout(gateway_layout, 3, 1, 1, 2);
-  settings_layout->addLayout(grid_layout_);
 
   bypass_method_label_ =
       new QLabel(QObject::tr("Bypass blocking method"), this);
@@ -249,14 +248,14 @@ void SettingsWidget::SetupUi() {
   routing_tab_ = new QWidget();
   auto* routing_layout = new QVBoxLayout(routing_tab_);
   routing_layout->setContentsMargins(10, 10, 10, 10);
-  routing_layout->setSpacing(10);
+  routing_layout->setSpacing(5);
 
   routing_grid_layout_ = new QGridLayout();
   routing_grid_layout_->setContentsMargins(0, 0, 0, 0);
   routing_grid_layout_->setHorizontalSpacing(10);
-  routing_grid_layout_->setVerticalSpacing(10);
+  routing_grid_layout_->setVerticalSpacing(5);
   routing_grid_layout_->setColumnStretch(0, 1);
-  routing_grid_layout_->setColumnStretch(1, 3);
+  routing_grid_layout_->setColumnStretch(1, 2);
 
   int current_row = 0;
 
@@ -275,27 +274,23 @@ void SettingsWidget::SetupUi() {
                   "subdomains. Format: domain:example.com (one per line)"),
       this);
   blacklist_domains_info_label_->setWordWrap(true);
+  blacklist_domains_info_label_->setMinimumHeight(60);
   blacklist_domains_info_label_->setStyleSheet(kInfoLabelStyle);
-
-  blacklist_domains_info_label_->setSizePolicy(
-      QSizePolicy::Expanding, QSizePolicy::Preferred);
 
   auto* blacklist_label_container = new QWidget(this);
   auto* blacklist_label_layout = new QVBoxLayout(blacklist_label_container);
   blacklist_label_layout->setContentsMargins(0, 0, 0, 0);
-  blacklist_label_layout->setSpacing(5);
   blacklist_label_layout->addWidget(
       blacklist_domains_label_, 0, Qt::AlignLeft | Qt::AlignTop);
   blacklist_label_layout->addWidget(
       blacklist_domains_info_label_, 0, Qt::AlignLeft | Qt::AlignTop);
-  blacklist_label_layout->addStretch(1);
 
   blacklist_domains_text_edit_ = new QTextEdit(this);
   blacklist_domains_text_edit_->setPlainText(
       VectorToText(settings_->BlacklistDomains()));
   blacklist_domains_text_edit_->setSizePolicy(
-      QSizePolicy::Expanding, QSizePolicy::Preferred);
-  blacklist_domains_text_edit_->setMaximumHeight(150);
+      QSizePolicy::Expanding, QSizePolicy::Fixed);
+  blacklist_domains_text_edit_->setMaximumHeight(60);
   connect(
       blacklist_domains_text_edit_, &QTextEdit::textChanged, this, [this]() {
         settings_->SetBlacklistDomains(
@@ -305,6 +300,7 @@ void SettingsWidget::SetupUi() {
   routing_grid_layout_->addWidget(
       blacklist_label_container, current_row, 0, Qt::AlignLeft | Qt::AlignTop);
   routing_grid_layout_->addWidget(blacklist_domains_text_edit_, current_row, 1);
+  routing_grid_layout_->setRowStretch(current_row, 1);
   current_row++;
 
   exclude_tunnel_networks_label_ =
@@ -314,27 +310,23 @@ void SettingsWidget::SetupUi() {
                   "Traffic to these networks goes directly, never through VPN"),
       this);
   exclude_tunnel_networks_info_label_->setWordWrap(true);
-
+  exclude_tunnel_networks_info_label_->setMinimumHeight(60);
   exclude_tunnel_networks_info_label_->setStyleSheet(kInfoLabelStyle);
-
-  exclude_tunnel_networks_info_label_->setSizePolicy(
-      QSizePolicy::Expanding, QSizePolicy::Preferred);
 
   auto* exclude_label_container = new QWidget(this);
   auto* exclude_label_layout = new QVBoxLayout(exclude_label_container);
   exclude_label_layout->setContentsMargins(0, 0, 0, 0);
-  exclude_label_layout->setSpacing(5);
   exclude_label_layout->addWidget(
       exclude_tunnel_networks_label_, 0, Qt::AlignLeft | Qt::AlignTop);
   exclude_label_layout->addWidget(
       exclude_tunnel_networks_info_label_, 0, Qt::AlignLeft | Qt::AlignTop);
-  exclude_label_layout->addStretch(1);
 
   exclude_tunnel_networks_text_edit_ = new QTextEdit(this);
   exclude_tunnel_networks_text_edit_->setPlainText(
       VectorToText(settings_->ExcludeTunnelNetworks()));
   exclude_tunnel_networks_text_edit_->setSizePolicy(
-      QSizePolicy::Expanding, QSizePolicy::Expanding);
+      QSizePolicy::Expanding, QSizePolicy::Fixed);
+  exclude_tunnel_networks_text_edit_->setMaximumHeight(60);
   connect(exclude_tunnel_networks_text_edit_, &QTextEdit::textChanged, this,
       [this]() {
         settings_->SetExcludeTunnelNetworks(
@@ -354,26 +346,23 @@ void SettingsWidget::SetupUi() {
                   "Traffic to these networks always goes through VPN"),
       this);
   include_tunnel_networks_info_label_->setWordWrap(true);
+  include_tunnel_networks_info_label_->setMinimumHeight(60);
   include_tunnel_networks_info_label_->setStyleSheet(kInfoLabelStyle);
-
-  include_tunnel_networks_info_label_->setSizePolicy(
-      QSizePolicy::Expanding, QSizePolicy::Preferred);
 
   auto* include_label_container = new QWidget(this);
   auto* include_label_layout = new QVBoxLayout(include_label_container);
   include_label_layout->setContentsMargins(0, 0, 0, 0);
-  include_label_layout->setSpacing(5);
   include_label_layout->addWidget(
       include_tunnel_networks_label_, 0, Qt::AlignLeft | Qt::AlignTop);
   include_label_layout->addWidget(
       include_tunnel_networks_info_label_, 0, Qt::AlignLeft | Qt::AlignTop);
-  include_label_layout->addStretch(1);
 
   include_tunnel_networks_text_edit_ = new QTextEdit(this);
   include_tunnel_networks_text_edit_->setPlainText(
       VectorToText(settings_->IncludeTunnelNetworks()));
   include_tunnel_networks_text_edit_->setSizePolicy(
-      QSizePolicy::Expanding, QSizePolicy::Expanding);
+      QSizePolicy::Expanding, QSizePolicy::Fixed);
+  include_tunnel_networks_text_edit_->setMaximumHeight(60);
   include_tunnel_networks_text_edit_->setPlaceholderText(
       QObject::tr("192.168.99.0/24"));
   connect(include_tunnel_networks_text_edit_, &QTextEdit::textChanged, this,
@@ -394,18 +383,17 @@ void SettingsWidget::SetupUi() {
       new QLabel(QObject::tr("When enabled, you can configure which sites use "
                              "VPN and which go directly."),
           this);
-  enable_split_tunnel_info_label_->setMinimumHeight(50);
   enable_split_tunnel_info_label_->setWordWrap(true);
+  enable_split_tunnel_info_label_->setMinimumHeight(60);
   enable_split_tunnel_info_label_->setStyleSheet(kInfoLabelStyle);
-
   enable_split_tunnel_info_label_->setSizePolicy(
-      QSizePolicy::Expanding, QSizePolicy::Preferred);
+      QSizePolicy::Expanding, QSizePolicy::Fixed);
+  enable_split_tunnel_info_label_->setFixedHeight(40);
 
   auto* enable_split_label_container = new QWidget(this);
   auto* enable_split_label_layout =
       new QVBoxLayout(enable_split_label_container);
   enable_split_label_layout->setContentsMargins(0, 0, 0, 0);
-  enable_split_label_layout->setSpacing(5);
   enable_split_label_layout->addWidget(
       enable_split_tunnel_label_, 0, Qt::AlignLeft | Qt::AlignTop);
   enable_split_label_layout->addWidget(
@@ -436,16 +424,14 @@ void SettingsWidget::SetupUi() {
       QObject::tr("Defines traffic routing strategy for split tunneling."),
       this);
   split_tunnel_mode_info_label_->setWordWrap(true);
-  split_tunnel_mode_info_label_->setStyleSheet(kInfoLabelStyle);
-
   split_tunnel_mode_info_label_->setSizePolicy(
-      QSizePolicy::Expanding, QSizePolicy::Preferred);
-  split_tunnel_mode_info_label_->setFixedHeight(50);
+      QSizePolicy::Expanding, QSizePolicy::Fixed);
+  split_tunnel_mode_info_label_->setFixedHeight(40);
+  split_tunnel_mode_info_label_->setStyleSheet(kInfoLabelStyle);
 
   auto* split_mode_label_container = new QWidget(this);
   auto* split_mode_label_layout = new QVBoxLayout(split_mode_label_container);
   split_mode_label_layout->setContentsMargins(0, 0, 0, 0);
-  split_mode_label_layout->setSpacing(5);
   split_mode_label_layout->addWidget(
       split_tunnel_mode_label_, 0, Qt::AlignLeft | Qt::AlignTop);
   split_mode_label_layout->addWidget(
@@ -511,27 +497,22 @@ void SettingsWidget::SetupUi() {
   }
   split_tunnel_domains_info_label_->setWordWrap(true);
   split_tunnel_domains_info_label_->setStyleSheet(kInfoLabelStyle);
-  split_tunnel_domains_info_label_->setMinimumHeight(70);
-
-  split_tunnel_domains_info_label_->setSizePolicy(
-      QSizePolicy::Expanding, QSizePolicy::Preferred);
 
   auto* split_domains_label_container = new QWidget(this);
   auto* split_domains_label_layout =
       new QVBoxLayout(split_domains_label_container);
   split_domains_label_layout->setContentsMargins(0, 0, 0, 0);
-  split_domains_label_layout->setSpacing(5);
   split_domains_label_layout->addWidget(
       split_tunnel_domains_label_, 0, Qt::AlignLeft | Qt::AlignTop);
   split_domains_label_layout->addWidget(
       split_tunnel_domains_info_label_, 0, Qt::AlignLeft | Qt::AlignTop);
-  split_domains_label_layout->addStretch(1);
 
   split_tunnel_domains_text_edit_ = new QTextEdit(this);
   split_tunnel_domains_text_edit_->setPlainText(
       VectorToText(settings_->SplitTunnelDomains()));
   split_tunnel_domains_text_edit_->setSizePolicy(
       QSizePolicy::Expanding, QSizePolicy::Expanding);
+  split_tunnel_domains_text_edit_->setMinimumHeight(80);
   split_tunnel_domains_text_edit_->setPlaceholderText(
       QObject::tr("domain:com\ndomain:another.com\ndomain:sub.domainname.com"));
   connect(
@@ -544,6 +525,7 @@ void SettingsWidget::SetupUi() {
       Qt::AlignLeft | Qt::AlignTop);
   routing_grid_layout_->addWidget(
       split_tunnel_domains_text_edit_, current_row, 1);
+  routing_grid_layout_->setRowStretch(current_row, 1);
   current_row++;
 
   bool split_enabled = settings_->EnableSplitTunnel();
@@ -554,11 +536,11 @@ void SettingsWidget::SetupUi() {
   split_tunnel_domains_info_label_->setVisible(split_enabled);
   split_tunnel_domains_text_edit_->setVisible(split_enabled);
 
-  routing_layout->addLayout(routing_grid_layout_);
-  routing_layout->addStretch();
+  routing_layout->addLayout(routing_grid_layout_, 1);
 
   tab_widget_->addTab(routing_tab_, QObject::tr("Routing"));
 
+  // About
   about_tab_ = new QWidget();
   auto* about_layout = new QVBoxLayout(about_tab_);
   about_layout->setContentsMargins(10, 10, 10, 10);
@@ -705,9 +687,7 @@ void SettingsWidget::SetupUi() {
 
   UpdateSniFilesList();
 
-  setMinimumSize(400, 400);
-  // setMaximumSize(800, 600);
-  resize(650, 600);
+  resize(500, 450);
   if (tab_widget_) {
     tab_widget_->setCurrentIndex(0);
   }

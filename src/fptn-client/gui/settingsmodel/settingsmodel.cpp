@@ -81,7 +81,7 @@ SettingsModel::SettingsModel(const QMap<QString, QString>& languages,
       default_language_(default_language),
       selected_language_(default_language),
       client_autostart_(false),
-      enable_split_tunnel_(false) {
+      enable_split_tunnel_(true) {
 #if _WIN32
   wchar_t exe_path[MAX_PATH] = {};
   if (GetModuleFileNameW(nullptr, exe_path, MAX_PATH) != 0) {
@@ -118,7 +118,7 @@ SettingsModel::SettingsModel(const QMap<QString, QString>& languages,
 
 QString SettingsModel::GetSettingsFilePath() const {
   const QString directory = GetSettingsFolderPath();
-  return directory + "/fptn-settings-2.json";
+  return directory + "/fptn-settings-3.json";
 }
 
 // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
@@ -146,7 +146,6 @@ void SettingsModel::Load(bool dont_load_server) {
     SPDLOG_WARN("Failed to open file for reading: {}", file_path.toStdString());
     return;
   }
-  SPDLOG_INFO("Settings: {}", file_path.toStdString());
 
   const QByteArray data = file.readAll();
   file.close();
@@ -365,9 +364,6 @@ bool SettingsModel::Save() {
   auto len = file.write(document.toJson());
   file.close();
 
-  if (len > 0) {
-    SPDLOG_INFO("Success save: {}", file_path.toStdString());
-  }
   emit dataChanged();
 
   return len > 0;

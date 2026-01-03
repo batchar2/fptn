@@ -25,8 +25,6 @@ bool fptn::gui::SetTranslation(const QString& language_code) {
       SPDLOG_WARN("Failed to install translator for language: {}",
           language_code.toStdString());
     } else {
-      SPDLOG_INFO(
-          "Successfully loaded language: {}", language_code.toStdString());
       return true;
     }
   } else {
