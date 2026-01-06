@@ -21,7 +21,7 @@ class FPTN(ConanFile):
         "nlohmann_json/3.12.0",
         "protobuf/5.29.3",
         "re2/20251105",
-        "spdlog/1.16.0",
+        "spdlog/1.17.0",
         "zlib/1.3.1",
     )
     settings = (
