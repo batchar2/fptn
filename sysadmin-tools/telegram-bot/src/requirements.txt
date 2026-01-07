@@ -1,4 +1,5 @@
 anyio==4.4.0
+brotli==1.2.0
 certifi==2024.7.4
 h11==0.14.0
 httpcore==1.0.5

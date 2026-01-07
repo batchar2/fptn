@@ -20,8 +20,14 @@ find_package(libidn2 REQUIRED)
 find_package(re2 REQUIRED)
 
 find_package(nlohmann_json REQUIRED)
-
 include_directories(${nlohmann_json_INCLUDE_DIRS})
+
+# brotli
+find_path(BROTLI_INCLUDE_DIR "brotli/decode.h" REQUIRED)
+include_directories(${BROTLI_INCLUDE_DIR})
+find_library(BROTLI_DEC_LIB NAMES brotlidec REQUIRED)
+find_library(BROTLI_COMMON_LIB NAMES brotlicommon REQUIRED)
+find_library(BROTLI_ENC_LIB NAMES brotlienc REQUIRED)
 
 # fptn-client-cli
 add_executable(
@@ -61,7 +67,9 @@ target_link_libraries(
           libidn2::libidn2
           re2::re2
           fptn-protocol-lib_static
-          ${TUNTAP_LIB})
+          "${TUNTAP_LIB}"
+          "${BROTLI_DEC_LIB}"
+          "${BROTLI_COMMON_LIB}")
 
 # fptn-client-gui
 if("${FPTN_BUILD_WITH_GUI_CLIENT}")
@@ -178,6 +186,8 @@ WarningsAsErrors: ''
             fptn-protocol-lib_static
             httplib::httplib
             "${TUNTAP_LIB}"
+            "${BROTLI_DEC_LIB}"
+            "${BROTLI_COMMON_LIB}"
             "${PLATFORM_SPECIFIC_LIBS}")
   set_target_properties("${PROJECT_NAME}-gui" PROPERTIES AUTOMOC ON)
 endif()

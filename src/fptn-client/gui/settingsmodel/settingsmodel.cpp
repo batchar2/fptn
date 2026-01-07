@@ -31,6 +31,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <QStandardPaths>     // NOLINT(build/include_order)
 
 #include "routing//route_manager.h"
+#include "utils/brotli/brotli.h"
 
 using fptn::gui::ServerConfig;
 using fptn::gui::ServiceConfig;

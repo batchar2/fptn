@@ -12,6 +12,7 @@ services:
       - SERVERS_LIST_FILE=/etc/servers.json
       - SERVERS_CENSORED_LIST_FILE=/etc/servers_censored_zone.json
       - SERVICE_NAME=${SERVICE_NAME}
+      - ENABLE_BROTLI_COMPRESSION=${ENABLE_BROTLI_COMPRESSION}
     volumes:
       - /etc/fptn/:/etc/fptn/:rw
       - ./logs:/var/log/fptn_bot:rw
