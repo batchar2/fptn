@@ -9,6 +9,8 @@ import tempfile
 import threading
 from pathlib import Path
 
+import brotli
+
 from loguru import logger
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
 from telegram.constants import ParseMode
@@ -30,6 +32,9 @@ SERVICE_NAME = os.getenv("SERVICE_NAME")
 USERS_FILE = Path(os.getenv("USERS_FILE", "/etc/fptn/users.list"))
 SERVERS_LIST_FILE = os.getenv("SERVERS_LIST_FILE")
 SERVERS_CENSORED_LIST_FILE = os.getenv("SERVERS_CENSORED_LIST_FILE")
+
+ENABLE_BROTLI_COMPRESSION = os.getenv("ENABLE_BROTLI_COMPRESSION", "false").lower() == "true"
+
 
 with open(SERVERS_LIST_FILE, "r") as fp:
     SERVERS_LIST = json.load(fp)
@@ -159,12 +164,14 @@ def generate_token(username: str, password: str) -> str:
         "servers": SERVERS_LIST,
         "censored_zone_servers": SERVERS_CENSORED_LIST,
     }
-    return json.dumps(data)
+    return json.dumps(data, separators=(",", ":"))
 
 
 def generate_access_link(token: str) -> str:
-    base64_content = base64.b64encode(token.encode("utf-8")).decode().replace("=", "")
-    return f"fptn:{base64_content}"
+    if ENABLE_BROTLI_COMPRESSION is True:
+        compressed = brotli.compress(token.encode("utf-8"), quality=11, lgwin=24, lgblock=24, mode=brotli.MODE_TEXT)
+        return "fptnb:" + base64.b64encode(compressed).decode("utf-8").replace("=", "")
+    return "fptn:" + base64.b64encode(token.encode("utf-8")).decode().replace("=", "")
 
 
 async def get_access_token(update: Update, context: CallbackContext) -> None:

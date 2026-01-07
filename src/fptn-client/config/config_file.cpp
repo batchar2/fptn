@@ -11,19 +11,21 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <vector>
 
 #include <nlohmann/json.hpp>
-#include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
 #include "common/utils/base64.h"
 #include "common/utils/utils.h"
 
-using fptn::config::ConfigFile;
+#include "utils/brotli/brotli.h"
+
 using fptn::utils::speed_estimator::ServerInfo;
+
+namespace fptn::config {
 
 ConfigFile::ConfigFile(std::string sni,
     fptn::protocol::https::CensorshipStrategy censorship_strategy)
     : sni_(std::move(sni)),
       censorship_strategy_(censorship_strategy),
-      version_(0) {}
+      version_(0) {}  // NOLINT(whitespace/indent_namespace)
 
 ConfigFile::ConfigFile(std::string token,
     std::string sni,
@@ -31,7 +33,7 @@ ConfigFile::ConfigFile(std::string token,
     : token_(std::move(token)),
       sni_(std::move(sni)),
       censorship_strategy_(censorship_strategy),
-      version_(0) {}
+      version_(0) {}  // NOLINT(whitespace/indent_namespace)
 
 bool ConfigFile::AddServer(const ServerInfo& s) {
   servers_.push_back(s);
@@ -61,32 +63,43 @@ std::optional<ServerInfo> ConfigFile::GetServer(
 
 bool ConfigFile::Parse() {
   try {
-    const std::string sanitized_token = fptn::common::utils::RemoveSubstring(
-        token_, {"fptn://", "fptn:", " ", "\n", "\r", "\t", "="});
+    if (token_.empty()) {
+      throw std::runtime_error("Token is empty");
+    }
+    std::string token_data;
+    if (token_.starts_with("fptnb:") || token_.starts_with("fptnb//")) {
+      // Brotli
+      const std::string compressed_data = fptn::common::utils::base64::decode(
+          fptn::common::utils::RemoveSubstring(
+              token_, {"fptnb:", "fptnb//", " ", "\n", "\r", "\t", "="}));
+      token_data = fptn::utils::brotli::Decompress(compressed_data);
+    } else {
+      const std::string sanitized_token = fptn::common::utils::RemoveSubstring(
+          token_, {"fptn://", "fptn:", " ", "\n", "\r", "\t", "="});
+      token_data = fptn::common::utils::base64::decode(sanitized_token);
+    }
 
-    const std::string decoded_token =
-        fptn::common::utils::base64::decode(sanitized_token);
-    auto const config = nlohmann::json::parse(decoded_token);
-
+    const auto config = nlohmann::json::parse(token_data);
     version_ = config.at("version").get<int>();
     service_name_ = config.at("service_name").get<std::string>();
     username_ = config.at("username").get<std::string>();
     password_ = config.at("password").get<std::string>();
-    for (auto const& server : config.at("servers")) {
+    for (const auto& server : config.at("servers")) {
       ServerInfo s(server.at("name").get<std::string>(),
           server.at("host").get<std::string>(), server.at("port").get<int>(),
           server.at("md5_fingerprint").get<std::string>());
       servers_.push_back(s);
     }
-    if (!servers_.empty()) {
-      return true;
+    if (servers_.empty()) {
+      throw std::runtime_error("Server list is empty!");
     }
-    throw std::runtime_error("Server list is empty!");
-  } catch (nlohmann::json::exception const& e) {
+    return true;
+  } catch (const nlohmann::json::exception& e) {
     throw std::runtime_error(std::string("JSON parsing error: ") + e.what() +
                              ". Try to update your token");
+  } catch (const std::exception& e) {
+    throw std::runtime_error(std::string("Token parsing error: ") + e.what());
   }
-  return false;
 }
 
 ServerInfo ConfigFile::FindFastestServer(int timeout_sec) const {
@@ -119,3 +132,4 @@ const std::string& ConfigFile::GetPassword() const noexcept {
 const std::vector<ServerInfo>& ConfigFile::GetServers() const noexcept {
   return servers_;
 }
+}  // namespace fptn::config

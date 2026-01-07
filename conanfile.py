@@ -14,8 +14,8 @@ class FPTN(ConanFile):
     version = FPTN_VERSION
     requires = (
         "argparse/3.2",
-        "cpp-httplib/0.29.0",
         "boost/1.90.0",
+        "cpp-httplib/0.29.0",
         "fmt/12.1.0",
         "jwt-cpp/0.7.1",
         "nlohmann_json/3.12.0",
@@ -113,19 +113,18 @@ class FPTN(ConanFile):
     )
 
     def requirements(self):
-        # WE USE BORINGSSL
+        self.requires("brotli/1.2.0", override=True)
         self._register_local_recipe("boringssl", "openssl", "boringssl", True, False)
         if self.options.with_gui_client:
             self.requires("qt/6.7.3")
         if self.settings.os != "Windows":
             self.requires("meson/1.9.1", override=True, force=True)
         if not self.options.build_only_fptn_lib:
-            # pcap++ does not support iOS and Android.
-            # Since libfptn is built as a detached part of the whole project,
-            #   we don't use pcap++ in that case.
             self.requires("libidn2/2.3.8")
-            self.requires("pcapplusplus/25.05")
             self.requires("prometheus-cpp/1.3.0")
+            # pcap++ does not support iOS and Android.
+            # Since libfptn is built as a detached part of the whole project, we don't use pcap++ in that case.
+            self.requires("pcapplusplus/25.05")
 
     def build_requirements(self):
         self.build_requires("cmake/3.22.0", override=True)
@@ -237,6 +236,7 @@ class FPTN(ConanFile):
                 "spdlog::spdlog",
                 "zlib::zlib",
                 "re2::re2",
+                "brotli::brotli",
             ]
             if self.settings.os == "iOS":
                 self.cpp_info.frameworks = ["Security", "CFNetwork", "SystemConfiguration"]

@@ -6,10 +6,16 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include "gui/tokendialog/tokendialog.h"
 
+#include <iostream>
 #include <string>
+
+#include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
 #include "common/utils/base64.h"
 #include "common/utils/utils.h"
+
+#include "utils/brotli/brotli.h"
+#include "utils/utils.h"
 
 using fptn::gui::TokenDialog;
 
@@ -56,12 +62,23 @@ const QString& TokenDialog::Token() const { return token_; }
 
 void TokenDialog::onOkClicked() {
   try {
-    const QString entered_token = token_field_->text().trimmed();
-    const std::string clean_token =
-        fptn::common::utils::RemoveSubstring(entered_token.toStdString(),
-            {"fptn://", "fptn:", " ", "\n", "\r", "\t"});
-    const std::string decoded_token =
-        fptn::common::utils::base64::decode(clean_token);
+    const std::string entered_token =
+        token_field_->text().trimmed().toStdString();
+    const std::string token = fptn::common::utils::RemoveSubstring(
+        entered_token, {" ", "\n", "\r", "\t"});
+
+    std::string decoded_token;
+    if (token.starts_with("fptnb:") || token.starts_with("fptnb//")) {
+      const std::string clean_token =
+          common::utils::RemoveSubstring(token, {"fptnb:", "fptnb//"});
+      decoded_token = fptn::utils::brotli::Decompress(
+          fptn::common::utils::base64::decode(clean_token));
+    } else {
+      const std::string clean_token = fptn::common::utils::RemoveSubstring(
+          entered_token, {"fptn:", "fptn://"});
+      decoded_token = fptn::common::utils::base64::decode(clean_token);
+    }
+
     const QString t = QString::fromStdString(decoded_token);
     if (t.isEmpty()) {
       QMessageBox::warning(this, QObject::tr("Validation Error"),
@@ -71,6 +88,7 @@ void TokenDialog::onOkClicked() {
       accept();
     }
   } catch (const std::runtime_error& err) {
+    SPDLOG_WARN("Wrong token: {}", err.what());
     QMessageBox::warning(this, QObject::tr("Wrong token"),
         QObject::tr("Wrong token") + ": " + err.what());
   }
