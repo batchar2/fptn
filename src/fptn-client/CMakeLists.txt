@@ -18,11 +18,11 @@ find_package(ZLIB REQUIRED)
 find_package(httplib REQUIRED)
 find_package(libidn2 REQUIRED)
 find_package(re2 REQUIRED)
-
 find_package(nlohmann_json REQUIRED)
 include_directories(${nlohmann_json_INCLUDE_DIRS})
 
-# brotli
+## brotli
+find_package(brotli REQUIRED)
 find_path(BROTLI_INCLUDE_DIR "brotli/decode.h" REQUIRED)
 include_directories(${BROTLI_INCLUDE_DIR})
 find_library(BROTLI_DEC_LIB NAMES brotlidec REQUIRED)

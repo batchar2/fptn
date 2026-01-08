@@ -15,6 +15,7 @@ class FPTN(ConanFile):
     requires = (
         "argparse/3.2",
         "boost/1.90.0",
+        "brotli/1.2.0",
         "cpp-httplib/0.29.0",
         "fmt/12.1.0",
         "jwt-cpp/0.7.1",
@@ -104,6 +105,8 @@ class FPTN(ConanFile):
         "prometheus-cpp/*:with_push": False,
         "civetweb/*:with_ssl": False,
         "civetweb/*:disable_werror": True,
+        # --- freetype ---
+        "freetype/*:with_brotli": False,
     }
     exports_sources = (
         "CMakeLists.txt",
@@ -113,7 +116,6 @@ class FPTN(ConanFile):
     )
 
     def requirements(self):
-        self.requires("brotli/1.2.0", override=True)
         self._register_local_recipe("boringssl", "openssl", "boringssl", True, False)
         if self.options.with_gui_client:
             self.requires("qt/6.7.3")
