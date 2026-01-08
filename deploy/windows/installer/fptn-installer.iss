@@ -38,8 +38,8 @@ UninstallLogMode=overwrite
 AppCopyright=Copyright (C) {#APP_COPYRIGHT_YEAR} {#APP_PUBLISHER}.
 PrivilegesRequired=admin
 AppendDefaultDirName=yes
-ArchitecturesAllowed={#ARCHITECTURES_ALLOWED}
-ArchitecturesInstallIn64BitMode=x64compatible
+//ArchitecturesAllowed={#ARCHITECTURES_ALLOWED}
+//ArchitecturesInstallIn64BitMode=x64compatible
 SetupLogging=Yes
 
 [Dirs]
