@@ -93,6 +93,22 @@ WebsocketClient::~WebsocketClient() {
   } catch (...) {
     SPDLOG_WARN("Unknown error in ~WebsocketClient");
   }
+
+  // Stop io_context
+  try {
+    SPDLOG_INFO("Stopping io_context...");
+    ioc_.stop();
+    for (auto& th : ioc_threads_) {
+      if (th.joinable()) {
+        th.join();
+      }
+    }
+    ioc_threads_.clear();
+  } catch (const boost::system::system_error& err) {
+    SPDLOG_ERROR("Exception while stopping io_context: {}", err.what());
+  } catch (...) {
+    SPDLOG_ERROR("Unknown exception while stopping io_context");
+  }
 }
 
 void WebsocketClient::Run() {
@@ -103,10 +119,13 @@ void WebsocketClient::Run() {
 
   SPDLOG_INFO("Connecting to {}:{}", server_ip_.ToString(), server_port_str_);
 
+  auto self = weak_from_this();
   boost::asio::co_spawn(
       ioc_,
-      [self = shared_from_this()]() -> boost::asio::awaitable<void> {
-        co_await self->RunInternal();
+      [self]() -> boost::asio::awaitable<void> {
+        if (auto shared_self = self.lock()) {
+          co_await shared_self->RunInternal();
+        }
       },
       boost::asio::detached);
   ioc_threads_.reserve(thread_number_);
@@ -178,22 +197,6 @@ bool WebsocketClient::Stop() {
     SPDLOG_DEBUG("Exception cancelling resolver");
   } catch (...) {
     SPDLOG_ERROR("Unknown exception during closing resolver");
-  }
-
-  // Stop io_context
-  try {
-    SPDLOG_INFO("Stopping io_context...");
-    ioc_.stop();
-    for (auto& th : ioc_threads_) {
-      if (th.joinable()) {
-        th.join();
-      }
-    }
-    SPDLOG_INFO("io_context stopped");
-  } catch (const boost::system::system_error& err) {
-    SPDLOG_ERROR("Exception while stopping io_context: {}", err.what());
-  } catch (...) {
-    SPDLOG_ERROR("Unknown exception while stopping io_context");
   }
 
   // Close TCP connection
