@@ -23,15 +23,15 @@ def get_md5_fingerprint(cert_path="/etc/fptn/server.crt"):
         sys.exit(1)
 
 
-def generate_token(username, password, server_ip, service_name, md5_fingerprint):
+def generate_token(username, password, server_ip, service_name, md5_fingerprint, port=443):
     token_data = {
         "version": 1,
         "service_name": service_name,
         "username": username,
         "password": password,
-        "servers": [{"name": service_name, "host": server_ip, "md5_fingerprint": md5_fingerprint, "port": 443}],
+        "servers": [{"name": service_name, "host": server_ip, "md5_fingerprint": md5_fingerprint, "port": port}],
+        "censored_zone_servers": [],
     }
-
     json_str = json.dumps(token_data, separators=(",", ":"))
     b64_bytes = base64.b64encode(json_str.encode("utf-8"))
     b64_str = b64_bytes.decode("utf-8").rstrip("=")
@@ -45,16 +45,24 @@ def main():
     parser.add_argument("--server-ip", required=True, help="VPN server public IP")
     parser.add_argument("--service-name", default="MyFptnServer", help="VPN service name")
     parser.add_argument("--cert-path", default="/etc/fptn/server.crt", help="Path to server certificate")
+    parser.add_argument("--port", type=int, default=443, help="Port number (default: 443)")
 
     args = parser.parse_args()
 
+    # Validate port
+    if not (1 <= args.port <= 65535):
+        print(f"Error: Port {args.port} is out of range (1-65535).", file=sys.stderr)
+        sys.exit(1)
+
     md5_fingerprint = get_md5_fingerprint(args.cert_path)
+
     token = generate_token(
         username=args.user,
         password=args.password,
         server_ip=args.server_ip,
         service_name=args.service_name,
         md5_fingerprint=md5_fingerprint,
+        port=args.port,
     )
     print(token)
 
