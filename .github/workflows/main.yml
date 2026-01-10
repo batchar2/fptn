@@ -72,14 +72,17 @@ jobs:
       - name: Build and Push Docker Image (amd64)
         if: github.event_name == 'release'
         run: |
-          docker pull ubuntu:24.04
-          docker build \
+          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+          docker buildx create --name amd64-builder --platform linux/amd64 --use || true
+          docker buildx build \
+            --platform linux/amd64 \
             -f ./deploy/docker/Dockerfile \
             -t "$DOCKER_REGISTRY/$IMAGE_NAME:$RELEASE_VERSION-amd64" \
             --build-arg FPTN_SERVER_PATH=build/src/fptn-server/fptn-server \
-            --build-arg FPTN_PASSWD_PATH=build/src/fptn-passwd/fptn-passwd .
-          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
-          docker push $DOCKER_REGISTRY/$IMAGE_NAME:$RELEASE_VERSION-amd64
+            --build-arg FPTN_PASSWD_PATH=build/src/fptn-passwd/fptn-passwd \
+            --push \
+            --provenance=false \
+            --sbom=false .
 
   build_ubuntu_arm64:
     runs-on: Ubuntu_ARM64_Desktop
@@ -141,14 +144,17 @@ jobs:
       - name: Build and Push Docker Image (arm64)
         if: github.event_name == 'release'
         run: |
-          docker pull ubuntu:24.04
-          docker build \
+          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+          docker buildx create --name arm64-builder --platform linux/arm64 --use || true
+          docker buildx build \
+            --platform linux/arm64 \
             -f ./deploy/docker/Dockerfile \
             -t "$DOCKER_REGISTRY/$IMAGE_NAME:$RELEASE_VERSION-arm64" \
             --build-arg FPTN_SERVER_PATH=build/src/fptn-server/fptn-server \
-            --build-arg FPTN_PASSWD_PATH=build/src/fptn-passwd/fptn-passwd .
-          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
-          docker push $DOCKER_REGISTRY/$IMAGE_NAME:$RELEASE_VERSION-arm64 
+            --build-arg FPTN_PASSWD_PATH=build/src/fptn-passwd/fptn-passwd \
+            --push \
+            --provenance=false \
+            --sbom=false .
 
   build_macos_arm64:
     runs-on: MacOS_ARM64
@@ -299,17 +305,18 @@ jobs:
       - name: Create multi-arch manifests
         if: github.event_name == 'release'
         run: |
+          docker pull --quiet $DOCKER_REGISTRY/$IMAGE_NAME:$RELEASE_VERSION-amd64
+          docker pull --quiet $DOCKER_REGISTRY/$IMAGE_NAME:$RELEASE_VERSION-arm64
+          
           docker manifest rm $DOCKER_REGISTRY/$IMAGE_NAME:$RELEASE_VERSION 2>/dev/null || true
           docker manifest rm $DOCKER_REGISTRY/$IMAGE_NAME:latest 2>/dev/null || true
           
-          # push version
-          docker manifest create $DOCKER_REGISTRY/$IMAGE_NAME:$RELEASE_VERSION \
-            --amend $DOCKER_REGISTRY/$IMAGE_NAME:$RELEASE_VERSION-amd64 \
-            --amend $DOCKER_REGISTRY/$IMAGE_NAME:$RELEASE_VERSION-arm64
-          docker manifest push $DOCKER_REGISTRY/$IMAGE_NAME:$RELEASE_VERSION
+          docker buildx imagetools create \
+            -t $DOCKER_REGISTRY/$IMAGE_NAME:$RELEASE_VERSION \
+            $DOCKER_REGISTRY/$IMAGE_NAME:$RELEASE_VERSION-amd64 \
+            $DOCKER_REGISTRY/$IMAGE_NAME:$RELEASE_VERSION-arm64
           
-          # push latest
-          docker manifest create $DOCKER_REGISTRY/$IMAGE_NAME:latest \
-            --amend $DOCKER_REGISTRY/$IMAGE_NAME:$RELEASE_VERSION-amd64 \
-            --amend $DOCKER_REGISTRY/$IMAGE_NAME:$RELEASE_VERSION-arm64
-          docker manifest push $DOCKER_REGISTRY/$IMAGE_NAME:latest
+          docker buildx imagetools create \
+            -t "$DOCKER_REGISTRY/$IMAGE_NAME":latest \
+            $DOCKER_REGISTRY/$IMAGE_NAME:$RELEASE_VERSION-amd64 \
+            $DOCKER_REGISTRY/$IMAGE_NAME:$RELEASE_VERSION-arm64
