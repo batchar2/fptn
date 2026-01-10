@@ -596,7 +596,16 @@ void SettingsWidget::SetupUi() {
       "  - loftynite<br>"
       "  - vlz78<br>"
       "  - Erranted<br>"
-      "  - Kotishqua<br>";
+      "  - Kotishqua<br>"
+      "  - Neiros<br>"
+      "  - Кабан из AYAYANII<br>"
+      "  - Stasyan<br>"
+      "  - Daptepik<br>"
+      "  - Cu6ic<br>"
+      "  - FC<br>"
+      "  - Temikin<br>"
+      "  - Azeasy<br>"
+      "  - NekoDark<br>";
 
   sponsors_names_label_ = new QLabel(sponsors_list, this);
   sponsors_names_label_->setAlignment(Qt::AlignLeft);
