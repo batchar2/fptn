@@ -26,7 +26,7 @@ class BoringSSLConan(ConanFile):
         tc = CMakeToolchain(self)
         tc.variables["BUILD_TESTING"] = False
         tc.variables["ENABLE_EXPRESSION_TESTS"] = False
-        
+
         # Правильная настройка для iOS
         if self.settings.os == "iOS":
             tc.variables["CMAKE_SYSTEM_NAME"] = "iOS"
@@ -41,7 +41,7 @@ class BoringSSLConan(ConanFile):
             tc.variables["CMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED"] = "NO"
             tc.variables["CMAKE_XCODE_ATTRIBUTE_ENABLE_BITCODE"] = "YES"
             tc.variables["CMAKE_XCODE_ATTRIBUTE_ONLY_ACTIVE_ARCH"] = "NO"
-        
+
         tc.generate()
 
     def build(self):

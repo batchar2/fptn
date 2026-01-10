@@ -15,17 +15,17 @@ services:
     devices:
       - /dev/net/tun:/dev/net/tun
     ports:
-      - "443:443/tcp"
+      - "${FPTN_PORT}:443/tcp"
     volumes:
-      - ./ssl:/etc/fptn
+      - ./fptn-server-data:/etc/fptn
     environment:
-      - ENABLE_DETECT_PROBING=false
-      - DISABLE_BITTORRENT=false
-      - PROMETHEUS_SECRET_ACCESS_KEY=your-secret-key
-      - USE_REMOTE_SERVER_AUTH=false
-      - REMOTE_SERVER_AUTH_HOST=auth.example.com
-      - REMOTE_SERVER_AUTH_PORT=8080
-      - MAX_ACTIVE_SESSIONS_PER_USER=5
+      - ENABLE_DETECT_PROBING=${ENABLE_DETECT_PROBING}
+      - DISABLE_BITTORRENT=${DISABLE_BITTORRENT}
+      - PROMETHEUS_SECRET_ACCESS_KEY=${PROMETHEUS_SECRET_ACCESS_KEY}
+      - USE_REMOTE_SERVER_AUTH=${USE_REMOTE_SERVER_AUTH}
+      - REMOTE_SERVER_AUTH_HOST=${REMOTE_SERVER_AUTH_HOST}
+      - REMOTE_SERVER_AUTH_PORT=${REMOTE_SERVER_AUTH_PORT}
+      - MAX_ACTIVE_SESSIONS_PER_USER=${MAX_ACTIVE_SESSIONS_PER_USER}
     healthcheck:
       test: ["CMD", "sh", "-c", "pgrep dnsmasq && pgrep fptn-server"]
       interval: 30s
