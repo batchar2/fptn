@@ -213,7 +213,7 @@ void SettingsWidget::SetupUi() {
 
   sni_buttons_layout_ = new QHBoxLayout();
 
-  sni_autoscan_button_ = new QPushButton(QObject::tr("Autoscan sni"), this);
+  sni_autoscan_button_ = new QPushButton(QObject::tr("Autoscan SNI"), this);
   sni_import_button_ = new QPushButton(QObject::tr("Import SNI file"), this);
 
   sni_buttons_layout_->addWidget(sni_autoscan_button_, 0, Qt::AlignLeft);
@@ -905,7 +905,7 @@ void SettingsWidget::onLanguageChanged(const QString&) {
     }
   }
   if (sni_autoscan_button_) {
-    sni_autoscan_button_->setText(QObject::tr("Autoscan sni"));
+    sni_autoscan_button_->setText(QObject::tr("Autoscan SNI"));
   }
   if (sni_import_button_) {
     sni_import_button_->setText(QObject::tr("Import SNI file"));
