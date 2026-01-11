@@ -45,6 +45,8 @@ Client::Client(IPv4Address server_ip,
       new_ip_pkt_callback_(std::move(new_ip_pkt_callback)),
       reconnection_attempts_(kMaxReconnectionAttempts_) {}
 
+Client::~Client() { Stop(); }
+
 bool Client::Login(
     const std::string& username, const std::string& password, int timeout_sec) {
   const std::string request = fmt::format(
@@ -245,13 +247,7 @@ bool Client::Stop() {
   return true;
 }
 
-bool Client::IsStarted() {
-  if (!running_) {
-    return false;
-  }
-
-  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
-
+bool Client::IsStarted() const {
   return running_ && reconnection_attempts_ > 0;
 }
 
