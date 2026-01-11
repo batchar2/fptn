@@ -81,7 +81,6 @@ class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
   std::atomic<bool> was_connected_{false};
 
   boost::asio::io_context ioc_;
-  const int thread_number_;
   boost::asio::ssl::context ctx_;
   boost::asio::ip::tcp::resolver resolver_;
 
@@ -120,8 +119,6 @@ class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
   boost::asio::cancellation_signal cancel_signal_;
 
   obfuscator::IObfuscatorSPtr obfuscator_;
-
-  std::vector<std::thread> ioc_threads_;
 };
 
 using WebsocketClientSPtr = std::shared_ptr<WebsocketClient>;

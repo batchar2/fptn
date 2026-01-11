@@ -165,15 +165,20 @@ void Client::Run() {
     if (running_ && ws_) {
       ws_->Run();  // Start the WebSocket client
     }
-    if (running_) {
+
+    if (!running_) {
+      break;
+    }
+
+    // clean
+    if (ws_) {
       const std::unique_lock<std::mutex> lock(mutex_);  // mutex
-      if (running_ && ws_) {
+
+      // cppcheck-suppress knownConditionTrueFalse
+      if (ws_ && running_) {
         ws_->Stop();
         ws_.reset();
       }
-    }
-    if (!running_) {
-      break;
     }
 
     // Calculate time since last window start
@@ -199,12 +204,6 @@ void Client::Run() {
     std::this_thread::sleep_for(kReconnectionDelay);
   }
 
-  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
-  if (running_ && ws_) {
-    ws_->Stop();
-    ws_.reset();
-  }
-
   if (running_ && !reconnection_attempts_) {
     SPDLOG_ERROR("Connection failure: Could not establish connection");
   }
@@ -222,7 +221,6 @@ bool Client::Stop() {
   }
 
   SPDLOG_INFO("Stopping client");
-
   {
     const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
@@ -236,8 +234,13 @@ bool Client::Stop() {
     ws_->Stop();
     ws_.reset();
   }
+
   if (th_.joinable()) {
-    th_.join();
+    try {
+      th_.join();
+    } catch (...) {
+      SPDLOG_WARN("Unexpected exception during thread join");
+    }
   }
   return true;
 }

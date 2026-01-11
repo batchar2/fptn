@@ -11,19 +11,23 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <string>
 #include <utility>
 
-using fptn::vpn::VpnClient;
+#include <spdlog/spdlog.h>  // NOLINT(build/include_order)
+
+namespace fptn::vpn {
 
 VpnClient::VpnClient(fptn::vpn::http::ClientPtr http_client,
     fptn::common::network::TunInterfacePtr virtual_net_interface,
     fptn::common::network::IPv4Address dns_server_ipv4,
     fptn::common::network::IPv6Address dns_server_ipv6,
-    fptn::plugin::PluginList plugins)
+    fptn::plugin::PluginList plugins,
+    std::size_t thread_pool_size)
     : running_(false),
       http_client_(std::move(http_client)),
       virtual_net_interface_(std::move(virtual_net_interface)),
       dns_server_ipv4_(std::move(dns_server_ipv4)),
       dns_server_ipv6_(std::move(dns_server_ipv6)),
-      plugins_(std::move(plugins)) {}
+      plugins_(std::move(plugins)),
+      thread_pool_size_(thread_pool_size) {}  // NOLINT
 
 VpnClient::~VpnClient() { Stop(); }
 
@@ -63,6 +67,13 @@ bool VpnClient::Start() {
   http_client_->Start();
   virtual_net_interface_->Start();
   running_ = true;
+
+  // Start workers
+  worker_threads_.reserve(thread_pool_size_);
+  for (std::size_t i = 0; i < thread_pool_size_; ++i) {
+    worker_threads_.emplace_back(&VpnClient::ProcessWebSocketPackets, this);
+  }
+
   return true;
 }
 
@@ -70,15 +81,27 @@ bool VpnClient::Stop() {
   if (!running_) {
     return false;
   }
+  {
+    const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
-  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+    // cppcheck-suppress identicalConditionAfterEarlyExit
+    if (!running_) {
+      return false;
+    }
 
-  // cppcheck-suppress identicalConditionAfterEarlyExit
-  if (!running_) {
-    return false;
+    running_ = false;
   }
 
-  running_ = false;
+  ws_queue_cv_.notify_all();
+
+  SPDLOG_INFO("Stopping VPN Websocket-workers...");
+
+  for (auto& thread : worker_threads_) {
+    if (thread.joinable()) {
+      thread.join();
+    }
+  }
+  worker_threads_.clear();
 
   SPDLOG_INFO("Stopping VPN client...");
 
@@ -139,32 +162,65 @@ void VpnClient::HandlePacketFromVirtualNetworkInterface(
 
 void VpnClient::HandlePacketFromWebSocket(
     fptn::common::network::IPPacketPtr packet) {
-  if (!running_) {
+  if (!running_ || !packet) {
     return;
   }
 
-  // run plugins
-  if (running_ && !plugins_.empty() && packet) {
-    for (const auto& plugin : plugins_) {
-      if (packet) {
-        auto [processed_packet, triggered] =
-            plugin->HandlePacket(std::move(packet));
-        packet = std::move(processed_packet);
-        // If plugin triggered, stop further processing
-        // This implements priority-based plugin execution where
-        // the first triggered plugin takes precedence
-        if (triggered) {
-          break;
+  constexpr std::size_t kMaxQueueSize = 128;
+
+  std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+  if (ws_packet_queue_.size() >= kMaxQueueSize) {
+    SPDLOG_WARN("WebSocket packet queue is full, dropping packet");
+    return;
+  }
+
+  ws_packet_queue_.push(std::move(packet));
+  lock.unlock();
+  ws_queue_cv_.notify_one();
+}
+
+void VpnClient::ProcessWebSocketPackets() {
+  fptn::common::network::IPPacketPtr packet;
+  while (running_) {
+    {
+      std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+      ws_queue_cv_.wait(
+          lock, [this]() { return !ws_packet_queue_.empty() || !running_; });
+      if (!running_ && ws_packet_queue_.empty()) {
+        break;
+      }
+      if (!ws_packet_queue_.empty()) {
+        packet = std::move(ws_packet_queue_.front());
+        ws_packet_queue_.pop();
+      }
+    }
+
+    if (!packet) {
+      continue;
+    }
+
+    // Обрабатываем пакет через плагины
+    if (running_ && !plugins_.empty()) {
+      for (const auto& plugin : plugins_) {
+        if (packet) {
+          auto [processed_packet, triggered] =
+              plugin->HandlePacket(std::move(packet));
+          packet = std::move(processed_packet);
+          if (triggered) {
+            break;
+          }
         }
       }
     }
 
     if (running_ && packet) {
       const std::unique_lock<std::mutex> lock(mutex_);  // mutex
-
       if (running_ && virtual_net_interface_) {
         virtual_net_interface_->Send(std::move(packet));
       }
     }
   }
 }
+}  // namespace fptn::vpn
