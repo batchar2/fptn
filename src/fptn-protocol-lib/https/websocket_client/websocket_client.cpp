@@ -96,18 +96,32 @@ WebsocketClient::~WebsocketClient() {
 
   // Stop io_context
   try {
-    SPDLOG_INFO("Stopping io_context...");
-    ioc_.stop();
-    for (auto& th : ioc_threads_) {
-      if (th.joinable()) {
-        th.join();
-      }
+    const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+    if (!ioc_.stopped()) {
+      SPDLOG_INFO("Stopping io_context...");
+      ioc_.stop();
     }
-    ioc_threads_.clear();
   } catch (const boost::system::system_error& err) {
     SPDLOG_ERROR("Exception while stopping io_context: {}", err.what());
   } catch (...) {
     SPDLOG_ERROR("Unknown exception while stopping io_context");
+  }
+
+  // Wait for all worker threads to complete their execution
+  {
+    const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+    for (auto& th : ioc_threads_) {
+      if (th.joinable()) {
+        try {
+          th.join();
+        } catch (...) {
+          SPDLOG_WARN("Unexpected exception during thread join");
+        }
+      }
+    }
+    ioc_threads_.clear();
   }
 }
 
