@@ -120,12 +120,15 @@ void WebsocketClient::Run() {
       ioc_,
       [self]() -> boost::asio::awaitable<void> {
         if (auto shared_self = self.lock()) {
-          co_await shared_self->RunInternal();
+          const bool status = co_await shared_self->RunInternal();
+          if (!status) {
+            shared_self->Stop();
+          }
         }
       },
       boost::asio::detached);
   try {
-    while (running_) {
+    while (running_ || !was_stopped_) {
       const std::size_t processed = ioc_.poll_one();
       if (processed == 0) {
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -253,7 +256,7 @@ bool WebsocketClient::Stop() {
   if (auto* ssl = ws_.next_layer().native_handle()) {
     https::utils::AttachCertificateVerificationCallbackDelete(ssl);
   }
-
+  was_stopped_ = true;
   SPDLOG_INFO("WebSocket client stopped successfully");
   return true;
 }

@@ -77,6 +77,7 @@ class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
 
   mutable std::mutex mutex_;
   std::atomic<bool> running_{false};
+  std::atomic<bool> was_stopped_{false};
   std::atomic<bool> was_inited_{false};
   std::atomic<bool> was_connected_{false};
 

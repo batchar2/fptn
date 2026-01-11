@@ -38,6 +38,7 @@ class Client final {
       std::string md5_fingerprint,
       fptn::protocol::https::CensorshipStrategy censorship_strategy,
       NewIPPacketCallback new_ip_pkt_callback = nullptr);
+  ~Client();
   bool Login(const std::string& username,
       const std::string& password,
       int timeout_sec = 15);
@@ -46,7 +47,7 @@ class Client final {
   bool Stop();
   bool Send(fptn::common::network::IPPacketPtr packet) const;
   void SetRecvIPPacketCallback(const NewIPPacketCallback& callback) noexcept;
-  bool IsStarted();
+  bool IsStarted() const;
 
   const std::string& LatestError() const;
 
