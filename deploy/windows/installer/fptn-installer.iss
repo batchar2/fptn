@@ -5,9 +5,6 @@
 // replacement automatically
 #define APP_COPYRIGHT_YEAR "2024"
 
-// replacement automatically arm64 x64os
-#define ARCHITECTURES_ALLOWED 	"x64os" 
-
 #define APP_ID				"{D2D2C1f8-5F5F-5f79-9C5F-7E2B9F1C39A4}"
 #define APP_URL 			"fptn.org"
 #define APP_NAME 			"FPTN Client"
@@ -38,8 +35,8 @@ UninstallLogMode=overwrite
 AppCopyright=Copyright (C) {#APP_COPYRIGHT_YEAR} {#APP_PUBLISHER}.
 PrivilegesRequired=admin
 AppendDefaultDirName=yes
-//ArchitecturesAllowed={#ARCHITECTURES_ALLOWED}
-//ArchitecturesInstallIn64BitMode=x64compatible
+ArchitecturesAllowed=x64compatible
+ArchitecturesInstallIn64BitMode=x64compatible
 SetupLogging=Yes
 
 [Dirs]

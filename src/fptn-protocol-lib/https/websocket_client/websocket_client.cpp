@@ -30,7 +30,6 @@ WebsocketClient::WebsocketClient(fptn::common::network::IPv4Address server_ip,
     OnConnectedCallback on_connected_callback,
     int thread_number)
     : ioc_(thread_number),
-      thread_number_(thread_number),
       ctx_(https::utils::CreateNewSslCtx()),
       resolver_(boost::asio::make_strand(ioc_)),
       censorship_strategy_(censorship_strategy),
@@ -96,8 +95,6 @@ WebsocketClient::~WebsocketClient() {
 
   // Stop io_context
   try {
-    const std::unique_lock<std::mutex> lock(mutex_);  // mutex
-
     if (!ioc_.stopped()) {
       SPDLOG_INFO("Stopping io_context...");
       ioc_.stop();
@@ -107,22 +104,7 @@ WebsocketClient::~WebsocketClient() {
   } catch (...) {
     SPDLOG_ERROR("Unknown exception while stopping io_context");
   }
-
-  // Wait for all worker threads to complete their execution
-  {
-    const std::unique_lock<std::mutex> lock(mutex_);  // mutex
-
-    for (auto& th : ioc_threads_) {
-      if (th.joinable()) {
-        try {
-          th.join();
-        } catch (...) {
-          SPDLOG_WARN("Unexpected exception during thread join");
-        }
-      }
-    }
-    ioc_threads_.clear();
-  }
+  SPDLOG_INFO("WebsocketClient removed");
 }
 
 void WebsocketClient::Run() {
@@ -142,11 +124,19 @@ void WebsocketClient::Run() {
         }
       },
       boost::asio::detached);
-  ioc_threads_.reserve(thread_number_);
-  for (int i = 0; i < thread_number_; ++i) {
-    ioc_threads_.emplace_back([this]() { ioc_.run(); });
+  try {
+    while (running_) {
+      const std::size_t processed = ioc_.poll_one();
+      if (processed == 0) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      }
+    }
+    if (!ioc_.stopped()) {
+      ioc_.stop();
+    }
+  } catch (...) {
+    SPDLOG_WARN("Exception while running");
   }
-  ioc_.run();
 }
 
 bool WebsocketClient::Stop() {
@@ -175,7 +165,7 @@ bool WebsocketClient::Stop() {
       watchdog_timer_.cancel();
     }
   } catch (const boost::system::system_error&) {
-    SPDLOG_WARN("Cancellation timer error: {}", ec.what());
+    SPDLOG_WARN("Cancellation timer error");
   } catch (...) {
     SPDLOG_ERROR("Unknown exception while stopping timer");
   }
