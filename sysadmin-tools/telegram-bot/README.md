@@ -49,55 +49,100 @@ To configure your bot, you'll need to edit the .env file. This file contains sen
     - Modify the `FPTN_WELCOME_MESSAGE` variable to customize the greeting message that your bot will send to users.
 - Set Maximum User Speed Limit:
     - Modify the `MAX_USER_SPEED_LIMIT` variable to define the maximum speed limit for users in megabits per second (Mbps). This setting controls the bandwidth cap applied to individual users. Adjust the value based on your requirements.
-- Configure Server Information:
-    - Set `FPTN_SERVER_HOST` with the actual host or IP address of your FPTN server.
-    - Set `FPTN_SERVER_PORT` to the port number your FPTN server is listening on.
-- Specify the Path to the Users File:
-    - By default, the USERS_FILE variable is set to /etc/fptn/users.list. This path is usually appropriate and does not need to be changed unless you have specific requirements.
-    - Ensure that this path is accessible from within the Docker container and has appropriate read/write permissions.
+- Configure Service Name:
+  - Set `SERVICE_NAME` to your preferred service name (appears in logs and messages).
+- Enable Brotli Compression:
+  - Set `ENABLE_BROTLI_COMPRESSION` to `true` for smaller tokens or `false` to disable.
+- Configure Configuration Folder Path:
+  Set `FPTN_CONFIGS_FOLDER` to specify the directory where all configuration files are stored.
+  - Default value: `./configs` (relative path to the project root)
+  - Alternative: Use an absolute path like `/etc/fptn` to point to the folder where the FPTN server keeps user data
+  - This folder will be mounted to `/etc/fptn` inside the Docker container
+  - **All configuration files must be placed in this directory:**
+    - `servers.json` - public servers list
+    - `servers_censored_zone.json` - censored region servers
+    - `users.list` - user database
+    - `premium_servers.json` - premium servers (optional)
+
+Example `.env` configuration:
 
 ```bash
 # Telegram bot API token
-API_TOKEN=your_actual_api_token_here
-````
+TELEGRAM_API_TOKEN=your_actual_api_token_here
 
-**Welcome message for the bot (en)**
-
-```bash
-FPTN_WELCOME_MESSAGE_EN=...
-```
-
-**Welcome message for the bot (ru)**
-
-FPTN_WELCOME_MESSAGE_RU = ....
+# Welcome messages for the bot
+FPTN_WELCOME_MESSAGE_EN = "⚡ Welcome to the FPTN bot! ⚡ \n
+Use this bot to get a VPN access token or reset it. \n\n
+🌐_ You can download the client from the official project website _ [https://fptn.org](https://batchar2.github.io/fptn/) \n\n
+👉_ To get your connection token, just type the command: _ /token \n
 "
 
-**Maximum speed limit for users in Mbps.**
+FPTN_WELCOME_MESSAGE_RU = "⚡ Добро пожаловать в бот FPTN! ⚡ \n
+Этот бот позволяет получить токен доступа к VPN или сбросить его. \n\n
+🌐_ Клиент можно скачать с официального сайта проекта _ [https://fptn.org](https://batchar2.github.io/fptn/) \n\n
+👉_ Чтобы получить токен для подключения, просто введите команду: _ /token \n
+"
 
-```bash
+# Enable Brotli compression for smaller tokens
+ENABLE_BROTLI_COMPRESSION=true
+
+# Maximum speed limit for new users in Mbps.
 MAX_USER_SPEED_LIMIT=20
+
+# name of service
+SERVICE_NAME=FPTN.ONLINE
+
+
+# Path to the FPTN configuration folder on the host machine
+# This folder will be mounted to /etc/fptn inside the container
+# Recommended: ./configs (relative path) or /etc/fptn (absolute path)
+# Create this folder and place all config files here:
+# - servers.json
+# - servers_censored_zone.json
+# - users.list
+# - premium_servers.json
+FPTN_CONFIGS_FOLDER=./configs
+
 ```
 
-**Host or IP address of your FPTN server**
+6. **Initialize Configuration Folder**
+
+   Important: Before running the bot, you must set up the configuration folder and populate it with necessary files.
 
 ```bash
-FPTN_SERVER_HOST=your-server-host-or-ip
+# Create the configuration folder (matches FPTN_CONFIGS_FOLDER in .env)
+cd ./configs
+
+# Copy demo server configurations to the config folder
+cp servers.json.demo servers.json
+cp premium_servers.json.demo premium_servers.json
+cp servers_censored_zone.json.demo servers_censored_zone.json
+
+# Create empty required files
+touch ./configs/users.list
+touch ./configs/premium_servers.json
+
+# Verify the folder structure
+ls -la ./configs/
 ```
 
-**Port of your FPTN server**
+Expected folder structure after setup:
 
 ```bash
-FPTN_SERVER_PORT=your-server-port
+telegram-bot/
+├── docker-compose.yml
+├── .env
+├── Dockerfile
+├── logs/
+└── configs/                       # ← ALL CONFIGURATION FILES HERE
+    ├── servers.json               # Public servers list
+    ├── servers_censored_zone.json # Censored region servers
+    ├── premium_servers.json       # Premium servers list
+    └── users.list                 # User database
 ```
 
-**Path to the users file (default, not need to change by default)**
 
-```bash
-USERS_FILE=/etc/fptn/users.list
-```
-
-
-6. **🟢 Configure Public Servers**:
+7. **🟢 Configure Public Servers**:
 
 To set up your server list, follow these steps:
 
@@ -122,7 +167,7 @@ openssl x509 -noout -fingerprint -md5 -in /etc/fptn/server.crt | cut -d'=' -f2 |
 
 Copy the value and paste it into the md5_fingerprint field.
 
-7. **🔴 Configure Servers for Censored Regions**:
+8. **🔴 Configure Servers for Censored Regions**:
 
 Copy the demo configuration:
 
@@ -132,8 +177,35 @@ cp servers_censored_zone.json.demo servers_censored_zone.json
 
 Then open `servers_censored_zone.json` and edit it the same way as `servers.json`, using server details intended for restricted or high-surveillance regions.
 
+9. **⚡ Configure Premium Servers**:
 
-8. **Run the Bot**
+
+- Premium servers have the same structure as regular servers
+
+- These servers are only accessible to premium users
+
+- Can be used for higher speeds, special locations, or better performance
+
+
+10. **Premium User Identification in `users.list` File**
+
+Premium users are identified by a special flag in the users.list file. Here's how it works:
+
+File Format. Each line in users.list follows this format:
+
+```bash
+username password_hash speed_limit premium_flag
+...
+user00001 213098467123094612309846 100 1
+user00002 321o32908237249384233232 100 0
+```
+
+Premium Flag Values:
+- 0 = Regular user (not premium)
+- 1 = Premium user
+
+
+10. **Run the Bot**
 
 After setting up the environment file, start the bot with:
 
@@ -144,7 +216,7 @@ docker compose up -d
 
 This command will start the bot in detached mode, allowing it to run in the background.
 
-9. **Stop the Bot**
+11. **Stop the Bot**
 
 To stop the bot, use:
 
