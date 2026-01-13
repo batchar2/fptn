@@ -30,16 +30,22 @@ FPTN_WELCOME_MESSAGE_RU = os.getenv("FPTN_WELCOME_MESSAGE_RU", "")
 MAX_USER_SPEED_LIMIT = int(os.getenv("MAX_USER_SPEED_LIMIT"))
 SERVICE_NAME = os.getenv("SERVICE_NAME")
 USERS_FILE = Path(os.getenv("USERS_FILE", "/etc/fptn/users.list"))
-SERVERS_LIST_FILE = os.getenv("SERVERS_LIST_FILE")
-SERVERS_CENSORED_LIST_FILE = os.getenv("SERVERS_CENSORED_LIST_FILE")
+SERVERS_LIST_FILE = os.getenv("SERVERS_LIST_FILE", "/etc/fptn/servers.json")
+PREMIUM_SERVERS_FILE = os.getenv("PREMIUM_SERVERS_FILE", "/etc/fptn/premium_servers.json")
+SERVERS_CENSORED_LIST_FILE = os.getenv("SERVERS_CENSORED_LIST_FILE", "/etc/fptn/servers_censored_zone.json")
 
 ENABLE_BROTLI_COMPRESSION = os.getenv("ENABLE_BROTLI_COMPRESSION", "false").lower() == "true"
 
+if os.path.exists(PREMIUM_SERVERS_FILE):
+    with open(PREMIUM_SERVERS_FILE, "r") as fp:
+        PREMIUM_SERVERS = json.load(fp)
+else:
+    PREMIUM_SERVERS = []
 
 with open(SERVERS_LIST_FILE, "r") as fp:
     SERVERS_LIST = json.load(fp)
 
-if SERVERS_CENSORED_LIST_FILE is not None:
+if os.path.exists(SERVERS_CENSORED_LIST_FILE):
     with open(SERVERS_CENSORED_LIST_FILE, "r") as fp:
         SERVERS_CENSORED_LIST = json.load(fp)
 else:
@@ -78,16 +84,32 @@ class UserManager:
             with self.users_file.open("r") as file:
                 for line in file:
                     parts = line.strip().split()
-                    if len(parts) == 3:
-                        username, hashed_password, speed = parts
-                        users[username] = {"password": hashed_password, "speed": speed}
+                    if len(parts) == 4:
+                        username, hashed_password, speed, is_premium = parts[0], parts[1], parts[2], parts[3] == "1"
+                    elif len(parts) == 3:
+                        username, hashed_password, speed, is_premium = parts[0], parts[1], parts[2], False
+                    users[username] = {
+                        "password": hashed_password,
+                        "speed": speed,
+                        "is_premium": is_premium,
+                    }
         return users
 
     def save_users(self, users: dict):
         self.users_file.parent.mkdir(parents=True, exist_ok=True)
         with self.users_file.open("w") as file:
             for username, data in users.items():
-                file.write(f"{username} {data['password']} {data['speed']}\n")
+                password, speed = data["password"], data["speed"]
+                is_premium = "1" if data["is_premium"] is True else "0"
+                file.write(f"{username} {password} {speed} {is_premium}\n")
+
+    def is_premium_user(self, user_id: str) -> bool:
+        username = f"user{user_id}"
+        with self.user_data_lock:
+            users = self.load_users()
+            if username in users:
+                return users[username].get("is_premium", False)
+        return False
 
     def register_user(self, user_id: str) -> (str, str):
         username = f"user{user_id}"
@@ -99,7 +121,11 @@ class UserManager:
             else:
                 password = self._generate_password()
                 hashed_password = self._hash_password(password)
-                users[username] = {"password": hashed_password, "speed": str(MAX_USER_SPEED_LIMIT)}
+                users[username] = {
+                    "password": hashed_password,
+                    "speed": str(MAX_USER_SPEED_LIMIT),
+                    "is_premium": False,
+                }
                 self.save_users(users)
                 logger.info(f"User {user_id} registered with username: {username}")
                 return username, password
@@ -109,6 +135,7 @@ class UserManager:
         with self.user_data_lock:
             users = self.load_users()
             return username in users
+        return False
 
     def reset_password(self, user_id: str) -> (str, str):
         username = f"user{user_id}"
@@ -118,9 +145,10 @@ class UserManager:
                 new_password = self._generate_password()
                 hashed_password = self._hash_password(new_password)
                 current_speed = users[username]["speed"]
-                users[username] = {"password": hashed_password, "speed": current_speed}
+                current_premium = users[username].get("is_premium", False)
+                users[username] = {"password": hashed_password, "speed": current_speed, "is_premium": current_premium}
                 self.save_users(users)
-                logger.info(f"User {user_id} reset password.")
+                logger.info(f"User {user_id} reset password. Premium: {current_premium}")
                 return username, new_password
             else:
                 logger.info(f"User {user_id} attempted to reset password but is not registered.")
@@ -155,13 +183,17 @@ async def start(update: Update, context: CallbackContext) -> None:
         logger.error(f"Error: {e}")
 
 
-def generate_token(username: str, password: str) -> str:
+def generate_token(username: str, password: str, is_premium: bool) -> str:
+    if is_premium is True:
+        servers = PREMIUM_SERVERS + SERVERS_LIST
+    else:
+        servers = SERVERS_LIST
     data = {
         "version": 1,
         "service_name": SERVICE_NAME,
         "username": username,
         "password": password,
-        "servers": SERVERS_LIST,
+        "servers": servers,
         "censored_zone_servers": SERVERS_CENSORED_LIST,
     }
     return json.dumps(data, separators=(",", ":"))
@@ -200,7 +232,8 @@ async def get_access_token(update: Update, context: CallbackContext) -> None:
         username, password = user_manager.register_user(user_id)
         status_message = messages["status_registered"]
 
-    token = generate_token(username, password)
+    is_premium = user_manager.is_premium_user(user_id)
+    token = generate_token(username, password, is_premium)
     fptn_link = generate_access_link(token)
     click_to_copy = messages["click_to_copy"]
     info = messages["info"]
