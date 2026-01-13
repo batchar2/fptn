@@ -22,10 +22,10 @@ inline IObfuscatorSPtr DetectObfuscator(
     const std::uint8_t* data, std::size_t size) {
   auto tls_obfuscator = std::make_shared<TlsObfuscator>();
   if (tls_obfuscator->CheckProtocol(data, size)) {
-    SPDLOG_INFO("Detected TLS obfuscator protocol - using TlsObfuscator");
+    SPDLOG_DEBUG("Detected TLS obfuscator protocol - using TlsObfuscator");
     return tls_obfuscator;
   }
-  SPDLOG_INFO(
+  SPDLOG_DEBUG(
       "No specific obfuscator detected - using NoneObfuscator as default");
   return nullptr;
 }
