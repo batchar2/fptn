@@ -120,7 +120,7 @@ class FPTN(ConanFile):
         if self.options.with_gui_client:
             self.requires("qt/6.7.3")
         if self.settings.os != "Windows":
-            self.requires("meson/1.9.1", override=True, force=True)
+            self.requires("meson/1.10.0", override=True, force=True)
         if not self.options.build_only_fptn_lib:
             self.requires("libidn2/2.3.8")
             self.requires("prometheus-cpp/1.3.0")
@@ -135,7 +135,7 @@ class FPTN(ConanFile):
         self.test_requires("gtest/1.17.0")
 
         if self.settings.os != "Windows":
-            self.build_requires("meson/1.9.1", override=True)
+            self.build_requires("meson/1.10.0", override=True)
 
     def generate(self):
         tc = CMakeToolchain(self)
