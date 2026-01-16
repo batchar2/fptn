@@ -200,8 +200,6 @@ boost::asio::awaitable<void> Session::Run() {
       // This provides additional encryption layer for the real connection
       ws_.next_layer().next_layer().set_obfuscator(
           std::make_shared<protocol::https::obfuscator::TlsObfuscator>());
-    } else {
-      SPDLOG_INFO("It's not a reality mode. Continue");
     }
   }
   // SSL handshake
@@ -367,10 +365,8 @@ boost::asio::awaitable<bool> Session::IsSniSelfProxyAttempt(
     const std::string& sni) const {
   // First check if SNI is already an IP address
   if (fptn::common::network::IsIpAddress(sni)) {
-    // SNI is a valid IP address - check directly
-    const auto server_ips = GetServerIpAddresses();
-    const auto exists = std::ranges::find(server_ips, sni);
-    co_return exists != server_ips.end();
+    // FIXME
+    co_return true;
   }
 
   // Not an IP address - proceed with DNS resolution using our new function
@@ -552,7 +548,7 @@ boost::asio::awaitable<bool> Session::HandleProxy(
     co_await boost::asio::async_connect(
         target_socket, resolve_result.results, boost::asio::use_awaitable);
 
-    auto ep = target_socket.local_endpoint();
+    const auto ep = target_socket.remote_endpoint();
     SPDLOG_INFO("Proxying {}:{} <-> {}:{} (client_id={})",
         ep.address().to_string(), ep.port(), sni, port_str, client_id_);
 
