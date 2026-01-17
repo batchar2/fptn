@@ -19,46 +19,44 @@
 
 ### Core Features of FPTN
 
-FPTN is a VPN technology built from the ground up to provide secure, censorship- and block-resistant connections that can bypass censorship and network filtering.
+FPTN is a VPN technology engineered from the ground up to provide secure, robust, and censorship-resistant connections capable of bypassing network filtering and deep packet inspection (DPI).
+Key Technical Features:
 
-Core features include:
 
-1. **L3 Tunnel (IP-level)**
-  - Transmits IP packets (IPv4 and IPv6) through a VPN tunnel to the server.
-  - **Split-tunneling** support – the ability to route only specific traffic through the VPN while allowing the rest to go directly. Enables flexible routing policy configuration based on rules for domains and networks.
-  - **NAT** is implemented on the server side. Future plans include support for grouping users into virtual local networks for peer-to-peer interaction.
+1. **L3 Tunnel (Network Layer)**
+  - **IP Packet Tunneling:** Encapsulates and transmits raw IP packets (IPv4/IPv6) over a secure tunnel to the VPN server.
+  - **Split Tunneling:** Provides granular control over routing policies. Users can define rules (based on domains or IP networks) to specify which traffic is routed through the VPN tunnel; all other traffic uses the direct internet connection.
+  - **Server-side NAT:** Implements Network Address Translation (NAT) on the server. Future roadmap includes support for user grouping into virtual LANs (VLANs) for peer-to-peer communication within the VPN.
 
 2. **Traffic Obfuscation and Blocking Evasion**
-  - **Resistant to active DPI**: The server identifies clients via the TLS handshake by analyzing the `session_id` (which the FPTN client can set using a special time-based method). If the client is not recognized as an FPTN client, the server returns legitimate content for the requested domain, acting as a transparent proxy.
-  - The VPN connection is disguised as regular HTTPS traffic (a mode for short-lived HTTPS connections is also under development).
-  - Three implemented methods for evading blocks:
-    1. **SNI Spoofing**: A fake domain is set in the TLS packet initiating the connection. Traffic analysis systems see a legitimate connection, while the traffic is actually routed to the VPN server.
-    2. **Obfuscation**: Traffic mimics an already established TLS session, hiding the TLS handshake and preventing DPI detection.
-    3. **Reality Mode + SNI**: The client initiates a connection to the VPN server with spoofed SNI, receives a real TLS handshake from an actual website, and then continues data exchange with the VPN server within the same connection.
-  - The desktop client features an integrated `SNI scanner`.
+  - **Resistance to active Deep Packet Inspection (DPI):** The server can identify FPTN clients during the TLS handshake by analyzing the session_id (which the FPTN client can set using a special time-based method). If the client is not recognized as an FPTN client, the server acts as a transparent proxy and returns legitimate content for the requested domain.
+  - The VPN connection is masqueraded as regular HTTPS traffic (a mode for short-lived HTTPS connections is also under development).
+  - Three implemented methods for bypassing blocks:
+    - **SNI Spoofing:** A fake domain name is set in the TLS ClientHello packet that initiates the connection. Traffic analysis systems observe a legitimate TLS connection, while the traffic is actually routed to the VPN server.
+    - **Obfuscation:** The traffic is disguised as an already established TLS session, hiding the initial TLS handshake and preventing detection by DPI systems.
+    - **Reality Mode with SNI Spoofing:** The client initiates a connection to the VPN server using a spoofed Server Name Indication (SNI), receives a genuine TLS handshake response from the actual (spoofed) website, and then continues data exchange with the VPN server within the same connection.
+  - The desktop client includes an integrated `SNI scanner utility`.
 
-3. **Transport Protocol**
-  - Uses a custom transport protocol based on **Protobuf** for data transmission between client and server.
-  - **Protocol-level padding**: Data packets are padded with random data to randomize traffic and hinder analysis.
-  - The server provides a **REST API** for client authorization and fetching special configurations.
+3. Transport Protocol
+  - Uses a proprietary transport protocol based on Protocol Buffers (Protobuf) for data exchange between the client and server.
+  - **Protocol-level padding:** Data packets are padded with random data to randomize traffic patterns and complicate analysis.
+  - The server provides a **REST API** for client authentication and retrieving specific configuration settings.
 
-4. **Advanced Features**
-  - Built-in filtering of unwanted traffic (e.g., BitTorrent protocol).
-  - Per-user speed and traffic control: The server includes a traffic shaper based on the **Leaky Bucket** algorithm, allowing flexible speed policy configuration.
-  - Support for a multi-server architecture with a single master server storing all user information.
-  - System monitoring via **Prometheus** and visualization in **Grafana**.
-  - User onboarding via a **Telegram bot**.
+4. **Advanced Functionality**
+  - Built-in filtering of unwanted traffic (e.g., the BitTorrent protocol).
+  - Per-user bandwidth and traffic control: The server employs a traffic shaper based on the **Leaky Bucket** algorithm, allowing for granular bandwidth policy configuration.
+  - Support for a multi-server architecture with a single master server that stores all user data and configuration.
+  - System monitoring via **Prometheus** and visualization dashboards in **Grafana**.
+  - Ability for users to connect and manage their service via a **Telegram bot**.
 
 5. **Cross-Platform Clients**
-  - A cross-platform library, **`libfptn`**, has been developed for use across various operating systems. It internally implements the FPTN network protocol, connection management, and data transmission mechanisms for the VPN tunnel.
-  - **Desktop:** Windows, macOS, Linux – a minimalistic client focused on ease of use.
-  - **Mobile:** Android, iOS (under development).
+  - A cross-platform core library, **libfptn**, has been developed for use across various operating systems. It implements the FPTN network protocol, connection management, and data transmission mechanisms for the VPN tunnel.
+  - **Desktop Clients**: Windows, macOS, Linux — a minimalist client focused on ease of use.
+  - **Mobile Clients**: Android, iOS (under development).
 
-6. **Easy Setup via Token**
-  - A **Token** is a specially generated configuration file containing all necessary system settings.
-  - Enables VPN connection without manual configuration or extra steps: simply add the token to the client to start using the service.
-
-
+6. **Simple Token-Based Configuration**
+  - A **Token** is a specially generated configuration file containing all necessary settings for the system.
+  - Enables connection to the VPN without manual configuration: the user simply imports the token into the client application to begin using the service.
 
 ### Demonstration
 
