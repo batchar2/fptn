@@ -326,7 +326,14 @@ boost::asio::awaitable<Session::ProbingResult> Session::DetectProbing() {
     if (!allowed_sni_list_.empty()) {
       const bool sni_allowed = std::ranges::any_of(
           allowed_sni_list_, [&sni](const std::string& allowed_sni) {
-            return sni == allowed_sni;
+            if (sni == allowed_sni) {
+              return true;
+            }
+            // check subdomains
+            if (sni.size() > allowed_sni.size() + 1) {
+              return sni.ends_with("." + allowed_sni);
+            }
+            return false;
           });
       if (!sni_allowed) {
         sni = default_proxy_domain_;
@@ -493,21 +500,6 @@ boost::asio::awaitable<Session::RealityResult> Session::IsRealityHandshake() {
       std::string tls_sni = sni_ext->getHostName();
       if (!tls_sni.empty()) {
         sni = std::move(tls_sni);
-      }
-    }
-
-    // Validate allowed sni
-    if (!allowed_sni_list_.empty()) {
-      const bool sni_allowed = std::ranges::any_of(
-          allowed_sni_list_, [&sni](const std::string& allowed_sni) {
-            return sni == allowed_sni;
-          });
-      if (!sni_allowed) {
-        sni = default_proxy_domain_;
-        SPDLOG_WARN(
-            "SNI '{}' not in allowed list, using default domain: {} "
-            "(client_id={})",
-            sni, default_proxy_domain_, client_id_);
       }
     }
 

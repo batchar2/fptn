@@ -55,10 +55,19 @@ DEFAULT_PROXY_DOMAIN=cdnvideo.com
 # Comma-separated list of allowed website domains for non-VPN clients
 # This acts like a "whitelist" of websites that scanning bots are allowed to reach
 # Behavior logic:
-#   - List is empty (default): proxy all non-VPN traffic to DEFAULT_PROXY_DOMAIN
+#   - List is empty (default): allows ALL domains, proxy all non-VPN traffic to the SNI in the TLS-handshake
 #   - List is NOT empty: use as whitelist:
-#       - Client SNI in list -> proxy to client's SNI\
+#       - Client SNI in list -> proxy to client's SNI
 #       - Client SNI not in list -> proxy to --default-proxy-domain
+# Domain matching includes all subdomains:
+#   - If "example.com" is in the list, it will match:
+#       - example.com (exact match)
+#       - www.example.com
+#       - api.example.com
+#       - any.other.sub.example.com
+# Examples:
+#   ALLOWED_SNI_LIST=example.com,test.org
+#   This allows: example.com, test.org and ALL their subdomains
 ALLOWED_SNI_LIST=
 
 # Block BitTorrent traffic to prevent abuse (accepted values: true or false)
