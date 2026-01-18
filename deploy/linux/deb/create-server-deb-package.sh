@@ -68,6 +68,12 @@ PROMETHEUS_SECRET_ACCESS_KEY=
 
 # Maximum number of active sessions allowed per VPN user
 MAX_ACTIVE_SESSIONS_PER_USER=3
+
+# Public IPv4 addresses of this VPN server (comma-separated).
+# Used to prevent proxy loops when clients connect.
+# Example: 1.2.3.4,5.6.7.8
+SERVER_EXTERNAL_IPS=
+
 EOL
 
 # Create systemd service file for server
@@ -90,7 +96,8 @@ ExecStart=/usr/bin/$(basename "$SERVER_BIN") \
   --use-remote-server-auth=\${USE_REMOTE_SERVER_AUTH} \
   --remote-server-auth-host=\${REMOTE_SERVER_AUTH_HOST} \
   --remote-server-auth-port=\${REMOTE_SERVER_AUTH_PORT} \
-  --max-active-sessions-per-user=\${MAX_ACTIVE_SESSIONS_PER_USER}
+  --max-active-sessions-per-user=\${MAX_ACTIVE_SESSIONS_PER_USER} \
+  --server-external-ips=\${SERVER_EXTERNAL_IPS}
 Restart=always
 WorkingDirectory=/etc/fptn
 RestartSec=5

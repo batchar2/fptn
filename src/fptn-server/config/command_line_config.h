@@ -51,6 +51,8 @@ class CommandLineConfig {
 
   [[nodiscard]] std::size_t MaxActiveSessionsPerUser() const;
 
+  [[nodiscard]] std::string ServerExternalIPs() const;
+
  private:
   int argc_;
   char** argv_;

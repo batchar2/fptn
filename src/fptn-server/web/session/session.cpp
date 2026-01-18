@@ -38,7 +38,8 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 namespace {
 std::atomic<fptn::ClientID> client_id_counter = 0;
 
-std::vector<std::string> GetServerIpAddresses() {
+std::vector<std::string> GetServerIpAddresses(
+    const std::string& server_external_ips) {
   static std::mutex ip_mutex;
   static std::vector<std::string> server_ips;
 
@@ -46,6 +47,15 @@ std::vector<std::string> GetServerIpAddresses() {
 
   if (server_ips.empty()) {
     server_ips = fptn::common::network::GetServerIpAddresses();
+
+    if (!server_external_ips.empty()) {
+      const auto external_ips =
+          fptn::common::utils::SplitCommaSeparated(server_external_ips);
+      std::ranges::copy_if(external_ips, std::back_inserter(server_ips),
+          [](const std::string& ip) {
+            return fptn::common::network::IsIpAddress(ip);
+          });
+    }
   }
   return server_ips;
 }
@@ -67,6 +77,7 @@ namespace fptn::web {
 
 Session::Session(std::uint16_t port,
     bool enable_detect_probing,
+    std::string server_external_ips,
     boost::asio::ip::tcp::socket&& socket,
     boost::asio::ssl::context& ctx,
     const ApiHandleMap& api_handles,
@@ -76,6 +87,7 @@ Session::Session(std::uint16_t port,
     WebSocketCloseConnectionCallback ws_close_callback)
     : port_(port),
       enable_detect_probing_(enable_detect_probing),
+      server_external_ips_(std::move(server_external_ips)),
       ws_(ssl_stream_type(
           obfuscator_socket_type(tcp_stream_type(std::move(socket))), ctx)),
       strand_(boost::asio::make_strand(ws_.get_executor())),
@@ -182,10 +194,7 @@ boost::asio::awaitable<void> Session::Run() {
       // Prevent recursive proxy attempts for Reality Mode
       const auto self_proxy = co_await IsSniSelfProxyAttempt(result.sni);
       if (self_proxy) {
-        SPDLOG_WARN(
-            "Detected recursive proxy attempt in Reality Mode! "
-            "Client: {}, SNI: {}, Redirecting to default SNI",
-            client_id_, result.sni);
+        co_await HandleProxy(FPTN_DEFAULT_SNI, port_);
         Close();
         co_return;
       }
@@ -366,15 +375,16 @@ boost::asio::awaitable<bool> Session::IsSniSelfProxyAttempt(
   // First check if SNI is already an IP address
   if (fptn::common::network::IsIpAddress(sni)) {
     // FIXME
+    SPDLOG_WARN("SNI is IP address, treating as potential self-proxy: {}", sni);
     co_return true;
   }
 
   // Not an IP address - proceed with DNS resolution using our new function
   try {
-    const auto server_ips = GetServerIpAddresses();
+    const auto server_ips = GetServerIpAddresses(server_external_ips_);
 
     boost::asio::io_context ioc;
-    auto resolve_result =
+    const auto resolve_result =
         fptn::common::network::ResolveWithTimeout(ioc, sni, "", 5);
 
     if (!resolve_result.success()) {
@@ -386,8 +396,14 @@ boost::asio::awaitable<bool> Session::IsSniSelfProxyAttempt(
     // Iterate through resolved endpoints
     for (const auto& endpoint : resolve_result.results) {
       const auto ip = endpoint.endpoint().address().to_string();
-      const auto exists = std::ranges::find(server_ips, ip);
-      if (exists != server_ips.end()) {
+      if (ip.empty()) {
+        continue;
+      }
+      // check server interfaces
+      if (std::ranges::find(server_ips, ip) != server_ips.end()) {
+        SPDLOG_WARN(
+            "SNI {} resolves to server interface IP {}, blocking self-proxy",
+            sni, ip);
         co_return true;
       }
     }
