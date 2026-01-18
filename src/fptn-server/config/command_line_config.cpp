@@ -9,8 +9,11 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <algorithm>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
+
+#include "common/utils/utils.h"
 
 namespace {
 bool ParseBoolean(std::string value) noexcept {
@@ -105,11 +108,26 @@ CommandLineConfig::CommandLineConfig(int argc, char* argv[])
       .help("Maximum number of active sessions allowed per VPN user")
       .default_value(3)
       .scan<'i', int>();
+  // Probing
   args_.add_argument("--enable-detect-probing")
       .help(
           "Enable detection of non-FPTN clients or probing attempts during SSL "
           "handshake. ")
       .default_value("false");
+  args_.add_argument("--default-proxy-domain")
+      .help("Default domain for proxying non-VPN clients.")
+      .default_value(FPTN_DEFAULT_SNI);
+  args_.add_argument("--allowed-sni-list")
+      .help(
+          "Comma-separated list of allowed SNI hostnames for non-VPN clients.\n"
+          "Behavior logic:\n"
+          " - List is empty (default): proxy all non-VPN traffic to "
+          "--default-proxy-domain\n"
+          " - List is NOT empty: use as whitelist:\n"
+          "   - Client SNI in list -> proxy to client's SNI\n"
+          "   - Client SNI not in list -> proxy to --default-proxy-domain")
+      .default_value("");
+  // Prevent self-proxy
   args_.add_argument("--server-external-ips")
       .help(
           "Public IPv4 address of this VPN server. "
@@ -204,12 +222,32 @@ bool CommandLineConfig::EnableDetectProbing() const {
   return ParseBoolean(args_.get<std::string>("--enable-detect-probing"));
 }
 
+[[nodiscard]]
+std::string CommandLineConfig::DefaultProxyDomain() const {
+  auto default_domain = args_.get<std::string>("--default-proxy-domain");
+  if (default_domain.empty()) {
+    return FPTN_DEFAULT_SNI;
+  }
+  return default_domain;
+}
+
+[[nodiscard]]
+std::vector<std::string> CommandLineConfig::AllowedSniList() const {
+  const auto allowed_sni = args_.get<std::string>("--allowed-sni-list");
+  if (!allowed_sni.empty()) {
+    return common::utils::SplitCommaSeparated(
+        allowed_sni + "," + DefaultProxyDomain());
+  }
+  return {};
+}
+
 std::size_t CommandLineConfig::MaxActiveSessionsPerUser() const {
   return static_cast<std::size_t>(
       args_.get<int>("--max-active-sessions-per-user"));
 }
 
-[[nodiscard]] std::string CommandLineConfig::ServerExternalIPs() const {
+[[nodiscard]]
+std::string CommandLineConfig::ServerExternalIPs() const {
   return args_.get<std::string>("--server-external-ips");
 }
 

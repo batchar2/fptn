@@ -9,6 +9,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
@@ -27,6 +28,8 @@ class Listener final {
  public:
   explicit Listener(std::uint16_t port,
       bool enable_detect_probing,
+      std::string default_proxy_domain,
+      std::vector<std::string> allowed_sni_list,
       boost::asio::io_context& ioc,
       fptn::common::jwt_token::TokenManagerSPtr token_manager,
       HandshakeCacheManagerSPtr handshake_cache_manager,
@@ -44,6 +47,8 @@ class Listener final {
  protected:
   const std::uint16_t port_;
   const bool enable_detect_probing_;
+  const std::string default_proxy_domain_;
+  const std::vector<std::string> allowed_sni_list_;
 
   boost::asio::io_context& ioc_;
   boost::asio::ssl::context ctx_;

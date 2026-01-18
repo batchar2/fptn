@@ -6,9 +6,11 @@ echo "[FPTN] Using network interface: $OUT_NETWORK_INTERFACE"
 exec /usr/local/bin/fptn-server \
     --server-key=/etc/fptn/server.key \
     --server-crt=/etc/fptn/server.crt \
-    --out-network-interface="$OUT_NETWORK_INTERFACE" \
+    --out-network-interface="${OUT_NETWORK_INTERFACE}" \
     --server-port=443 \
-    --enable-detect-probing="$ENABLE_DETECT_PROBING" \
+    --enable-detect-probing="${ENABLE_DETECT_PROBING}" \
+    --default-proxy-domain="${DEFAULT_PROXY_DOMAIN}" \
+    --allowed-sni-list="${ALLOWED_SNI_LIST}" \
     --tun-interface-name=fptn0 \
     --disable-bittorrent="$DISABLE_BITTORRENT" \
     --prometheus-access-key="$PROMETHEUS_SECRET_ACCESS_KEY" \

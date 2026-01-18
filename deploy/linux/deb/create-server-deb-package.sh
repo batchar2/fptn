@@ -48,7 +48,20 @@ TUN_INTERFACE_NAME=fptn0
 # Enable detection of probing attempts (experimental; accepted values: true or false)
 ENABLE_DETECT_PROBING=false
 
-# true or false
+# Default domain where non-VPN client traffic will be redirected
+# When someone scans your server (not using VPN), their connection will be forwarded to this domain instead
+DEFAULT_PROXY_DOMAIN=cdnvideo.com
+
+# Comma-separated list of allowed website domains for non-VPN clients
+# This acts like a "whitelist" of websites that scanning bots are allowed to reach
+# Behavior logic:
+#   - List is empty (default): proxy all non-VPN traffic to DEFAULT_PROXY_DOMAIN
+#   - List is NOT empty: use as whitelist:
+#       - Client SNI in list -> proxy to client's SNI\
+#       - Client SNI not in list -> proxy to --default-proxy-domain
+ALLOWED_SNI_LIST=
+
+# Block BitTorrent traffic to prevent abuse (accepted values: true or false)
 DISABLE_BITTORRENT=true
 
 # Set the USE_REMOTE_SERVER_AUTH variable to true if you need to
@@ -90,6 +103,8 @@ ExecStart=/usr/bin/$(basename "$SERVER_BIN") \
   --out-network-interface=\${OUT_NETWORK_INTERFACE} \
   --server-port=\${PORT} \
   --enable-detect-probing=\${ENABLE_DETECT_PROBING} \
+  --default-proxy-domain=\${DEFAULT_PROXY_DOMAIN} \
+  --allowed-sni-list=\${ALLOWED_SNI_LIST} \
   --tun-interface-name=\${TUN_INTERFACE_NAME} \
   --disable-bittorrent=\${DISABLE_BITTORRENT} \
   --prometheus-access-key=\${PROMETHEUS_SECRET_ACCESS_KEY} \

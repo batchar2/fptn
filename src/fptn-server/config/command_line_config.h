@@ -7,6 +7,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #pragma once
 
 #include <string>
+#include <vector>
 
 #include <argparse/argparse.hpp>  // NOLINT(build/include_order)
 
@@ -48,6 +49,9 @@ class CommandLineConfig {
   [[nodiscard]] int RemoteServerAuthPort() const;
 
   [[nodiscard]] bool EnableDetectProbing() const;
+
+  [[nodiscard]] std::string DefaultProxyDomain() const;
+  [[nodiscard]] std::vector<std::string> AllowedSniList() const;
 
   [[nodiscard]] std::size_t MaxActiveSessionsPerUser() const;
 
