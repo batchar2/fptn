@@ -36,6 +36,7 @@ services:
       - REMOTE_SERVER_AUTH_HOST=${REMOTE_SERVER_AUTH_HOST}
       - REMOTE_SERVER_AUTH_PORT=${REMOTE_SERVER_AUTH_PORT}
       - MAX_ACTIVE_SESSIONS_PER_USER=${MAX_ACTIVE_SESSIONS_PER_USER}
+      - SERVER_EXTERNAL_IPS=${SERVER_EXTERNAL_IPS}
     healthcheck:
       test: ["CMD", "sh", "-c", "pgrep dnsmasq && pgrep fptn-server"]
       interval: 30s

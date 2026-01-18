@@ -12,10 +12,6 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
-using fptn::common::network::IPv4Address;
-using fptn::common::network::IPv6Address;
-using fptn::config::CommandLineConfig;
-
 namespace {
 bool ParseBoolean(std::string value) noexcept {
   try {
@@ -29,6 +25,11 @@ bool ParseBoolean(std::string value) noexcept {
   }
 }
 }  // namespace
+
+namespace fptn::config {
+
+using fptn::common::network::IPv4Address;
+using fptn::common::network::IPv6Address;
 
 CommandLineConfig::CommandLineConfig(int argc, char* argv[])
     : argc_(argc), argv_(argv), args_("fptn-server", FPTN_VERSION) {
@@ -109,6 +110,12 @@ CommandLineConfig::CommandLineConfig(int argc, char* argv[])
           "Enable detection of non-FPTN clients or probing attempts during SSL "
           "handshake. ")
       .default_value("false");
+  args_.add_argument("--server-external-ips")
+      .help(
+          "Public IPv4 address of this VPN server. "
+          "Prevents proxy loops when clients connect via IP. "
+          "Example: --server-external-ip 1.2.3.4,5.6.7.8")
+      .default_value("");
 }
 
 bool CommandLineConfig::Parse() noexcept {  // NOLINT(bugprone-exception-escape)
@@ -201,3 +208,9 @@ std::size_t CommandLineConfig::MaxActiveSessionsPerUser() const {
   return static_cast<std::size_t>(
       args_.get<int>("--max-active-sessions-per-user"));
 }
+
+[[nodiscard]] std::string CommandLineConfig::ServerExternalIPs() const {
+  return args_.get<std::string>("--server-external-ips");
+}
+
+}  // namespace fptn::config

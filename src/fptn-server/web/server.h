@@ -40,6 +40,7 @@ class Server final {
       fptn::common::network::IPv6Address dns_server_ipv6,
       bool enable_detect_probing,
       std::size_t max_active_sessions_per_user,
+      std::string server_external_ips,
       int thread_number = 4);
   ~Server();
   bool Start();
@@ -91,6 +92,7 @@ class Server final {
   const fptn::common::network::IPv6Address dns_server_ipv6_;
   const bool enable_detect_probing_;
   const std::size_t max_active_sessions_per_user_;
+  const std::string server_external_ips_;
   const std::size_t thread_number_;
 
   boost::asio::io_context ioc_;

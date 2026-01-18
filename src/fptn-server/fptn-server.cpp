@@ -106,7 +106,8 @@ int main(int argc, char* argv[]) {
         nat_table, user_manager, token_manager, prometheus,
         config.PrometheusAccessKey(), config.TunInterfaceIPv4(),
         config.TunInterfaceIPv6(), config.EnableDetectProbing(),
-        config.MaxActiveSessionsPerUser());
+        config.MaxActiveSessionsPerUser(),
+        config.ServerExternalIPs());
 
     /* init packet filter */
     auto filter_manager = std::make_shared<fptn::filter::Manager>();

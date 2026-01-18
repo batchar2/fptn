@@ -36,6 +36,7 @@ class Session : public std::enable_shared_from_this<Session> {
  public:
   explicit Session(std::uint16_t port,
       bool enable_detect_probing,
+      std::string server_external_ips,
       boost::asio::ip::tcp::socket&& socket,
       boost::asio::ssl::context& ctx,
       const ApiHandleMap& api_handles,
@@ -96,6 +97,7 @@ class Session : public std::enable_shared_from_this<Session> {
 
   const std::uint16_t port_;
   const bool enable_detect_probing_;
+  const std::string server_external_ips_;
 
   // TCP -> obfuscator -> SSL -> WebSocket
   using tcp_stream_type = boost::beast::tcp_stream;
