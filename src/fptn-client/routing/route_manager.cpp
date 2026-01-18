@@ -401,7 +401,20 @@ bool RouteManager::Apply() {
       fmt::format("route add {} mask 255.255.255.255 {} METRIC 2 {}",
           dns_server_ipv4_.ToString(), tun_interface_address_ipv4_.ToString(),
           interfaceInfo),  // via TUN
-      // DNS
+                           // DNS
+                           // Load saved DNS IPv4 if was error
+      R"(powershell -Command "if(Test-Path \"$env:TEMP\fptn_dns_saved_ipv4.txt\"){$primary=Get-Content \"$env:TEMP\fptn_dns_saved_ipv4.txt\";Get-NetAdapter|ForEach{Set-DnsClientServerAddress -InterfaceIndex $_.InterfaceIndex -ServerAddresses @($primary)};Remove-Item \"$env:TEMP\fptn_dns_saved_ipv4.txt\"}")",
+      R"(powershell -Command "if(Test-Path \"$env:TEMP\fptn_dns_saved_ipv4_alt.txt\"){$secondary=Get-Content \"$env:TEMP\fptn_dns_saved_ipv4_alt.txt\";$currentDns=(Get-DnsClientServerAddress|Where{$_.AddressFamily-eq2}).ServerAddresses;$newDns=if($currentDns.Count-gt0){@($currentDns[0],$secondary)}else{@($secondary)};Get-NetAdapter|ForEach{Set-DnsClientServerAddress -InterfaceIndex $_.InterfaceIndex -ServerAddresses $newDns};Remove-Item \"$env:TEMP\fptn_dns_saved_ipv4_alt.txt\"}")",
+      // Load saved DNS IPv6 if was error
+      R"(powershell -Command "if(Test-Path \"$env:TEMP\fptn_dns_saved_ipv6.txt\"){$primary=Get-Content \"$env:TEMP\fptn_dns_saved_ipv6.txt\";Get-NetAdapter|ForEach{Set-DnsClientServerAddress -InterfaceIndex $_.InterfaceIndex -ServerAddresses @($primary)};Remove-Item \"$env:TEMP\fptn_dns_saved_ipv6.txt\"}")",
+      R"(powershell -Command "if(Test-Path \"$env:TEMP\fptn_dns_saved_ipv6_alt.txt\"){$secondary=Get-Content \"$env:TEMP\fptn_dns_saved_ipv6_alt.txt\";$currentDns=(Get-DnsClientServerAddress|Where{$_.AddressFamily-eq23}).ServerAddresses;$newDns=if($currentDns.Count-gt0){@($currentDns[0],$secondary)}else{@($secondary)};Get-NetAdapter|ForEach{Set-DnsClientServerAddress -InterfaceIndex $_.InterfaceIndex -ServerAddresses $newDns};Remove-Item \"$env:TEMP\fptn_dns_saved_ipv6_alt.txt\"}")",
+      // Save IPv4 DNS
+      R"(powershell -Command "$dns=(Get-DnsClientServerAddress|Where{$_.AddressFamily-eq2-and$_.ServerAddresses.Count-gt0}).ServerAddresses;if($dns.Count-gt0){$dns[0]|Out-File \"$env:TEMP\fptn_dns_saved_ipv4.txt\" -NoNewline}")",
+      R"(powershell -Command "$dns=(Get-DnsClientServerAddress|Where{$_.AddressFamily-eq2-and$_.ServerAddresses.Count-gt1}).ServerAddresses;if($dns.Count-gt1){$dns[1]|Out-File \"$env:TEMP\fptn_dns_saved_ipv4_alt.txt\" -NoNewline}")",
+      // Save IPv6 DNS
+      R"(powershell -Command "$dns=(Get-DnsClientServerAddress|Where{$_.AddressFamily-eq23-and$_.ServerAddresses.Count-gt0}).ServerAddresses;if($dns.Count-gt0){$dns[0]|Out-File \"$env:TEMP\fptn_dns_saved_ipv6.txt\" -NoNewline}")",
+      R"(powershell -Command "$dns=(Get-DnsClientServerAddress|Where{$_.AddressFamily-eq23-and$_.ServerAddresses.Count-gt1}).ServerAddresses;if($dns.Count-gt1){$dns[1]|Out-File \"$env:TEMP\fptn_dns_saved_ipv6_alt.txt\" -NoNewline}")",
+      // Set new DNS server
       fmt::format("netsh interface ip set dns name=\"{}\" static {}",
           tun_interface_name_, dns_server_ipv4_.ToString()),
       // IPv6
@@ -563,9 +576,15 @@ bool RouteManager::Clean() {  // NOLINT(bugprone-exception-escape)
       fmt::format("route delete {} mask 255.255.255.255 {} METRIC 2 {}",
           dns_server_ipv4_.ToString(), tun_interface_address_ipv4_.ToString(),
           interface_info),  // via TUN
-      // IPv6
+                            // IPv6
       fmt::format("netsh interface ipv6 delete dnsservers \"{}\" {}",
-          tun_interface_name_, dns_server_ipv6_.ToString())};
+          tun_interface_name_, dns_server_ipv6_.ToString()),
+      // Load saved DNS IPv4
+      R"(powershell -Command "if(Test-Path \"$env:TEMP\fptn_dns_saved_ipv4.txt\"){$primary=Get-Content \"$env:TEMP\fptn_dns_saved_ipv4.txt\";Get-NetAdapter|ForEach{Set-DnsClientServerAddress -InterfaceIndex $_.InterfaceIndex -ServerAddresses @($primary)};Remove-Item \"$env:TEMP\fptn_dns_saved_ipv4.txt\"}")",
+      R"(powershell -Command "if(Test-Path \"$env:TEMP\fptn_dns_saved_ipv4_alt.txt\"){$secondary=Get-Content \"$env:TEMP\fptn_dns_saved_ipv4_alt.txt\";$currentDns=(Get-DnsClientServerAddress|Where{$_.AddressFamily-eq2}).ServerAddresses;$newDns=if($currentDns.Count-gt0){@($currentDns[0],$secondary)}else{@($secondary)};Get-NetAdapter|ForEach{Set-DnsClientServerAddress -InterfaceIndex $_.InterfaceIndex -ServerAddresses $newDns};Remove-Item \"$env:TEMP\fptn_dns_saved_ipv4_alt.txt\"}")",
+      // Load saved DNS IPv6
+      R"(powershell -Command "if(Test-Path \"$env:TEMP\fptn_dns_saved_ipv6.txt\"){$primary=Get-Content \"$env:TEMP\fptn_dns_saved_ipv6.txt\";Get-NetAdapter|ForEach{Set-DnsClientServerAddress -InterfaceIndex $_.InterfaceIndex -ServerAddresses @($primary)};Remove-Item \"$env:TEMP\fptn_dns_saved_ipv6.txt\"}")",
+      R"(powershell -Command "if(Test-Path \"$env:TEMP\fptn_dns_saved_ipv6_alt.txt\"){$secondary=Get-Content \"$env:TEMP\fptn_dns_saved_ipv6_alt.txt\";$currentDns=(Get-DnsClientServerAddress|Where{$_.AddressFamily-eq23}).ServerAddresses;$newDns=if($currentDns.Count-gt0){@($currentDns[0],$secondary)}else{@($secondary)};Get-NetAdapter|ForEach{Set-DnsClientServerAddress -InterfaceIndex $_.InterfaceIndex -ServerAddresses $newDns};Remove-Item \"$env:TEMP\fptn_dns_saved_ipv6_alt.txt\"}")"};
 #else
 #error "Unsupported system!"
 #endif
