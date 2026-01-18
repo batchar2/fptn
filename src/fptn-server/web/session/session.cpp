@@ -77,6 +77,8 @@ namespace fptn::web {
 
 Session::Session(std::uint16_t port,
     bool enable_detect_probing,
+    std::string default_proxy_domain,
+    std::vector<std::string> allowed_sni_list,
     std::string server_external_ips,
     boost::asio::ip::tcp::socket&& socket,
     boost::asio::ssl::context& ctx,
@@ -87,6 +89,8 @@ Session::Session(std::uint16_t port,
     WebSocketCloseConnectionCallback ws_close_callback)
     : port_(port),
       enable_detect_probing_(enable_detect_probing),
+      default_proxy_domain_(std::move(default_proxy_domain)),
+      allowed_sni_list_(std::move(allowed_sni_list)),
       server_external_ips_(std::move(server_external_ips)),
       ws_(ssl_stream_type(
           obfuscator_socket_type(tcp_stream_type(std::move(socket))), ctx)),
@@ -194,7 +198,7 @@ boost::asio::awaitable<void> Session::Run() {
       // Prevent recursive proxy attempts for Reality Mode
       const auto self_proxy = co_await IsSniSelfProxyAttempt(result.sni);
       if (self_proxy) {
-        co_await HandleProxy(FPTN_DEFAULT_SNI, port_);
+        co_await HandleProxy(default_proxy_domain_, port_);
         Close();
         co_return;
       }
@@ -258,16 +262,18 @@ boost::asio::awaitable<Session::ProbingResult> Session::DetectProbing() {
             boost::asio::socket_base::message_peek, boost::asio::use_awaitable);
     if (!bytes_read) {
       SPDLOG_ERROR("Peeked zero bytes from socket (client_id={})", client_id_);
-      co_return ProbingResult{
-          .is_probing = true, .sni = FPTN_DEFAULT_SNI, .should_close = true};
+      co_return ProbingResult{.is_probing = true,
+          .sni = default_proxy_domain_,
+          .should_close = true};
     }
     // Check ssl
     if (!pcpp::SSLLayer::IsSSLMessage(
             0, 0, buffer.data(), buffer.size(), true)) {
       SPDLOG_ERROR(
           "Not an SSL message, closing connection (client_id={})", client_id_);
-      co_return ProbingResult{
-          .is_probing = true, .sni = FPTN_DEFAULT_SNI, .should_close = true};
+      co_return ProbingResult{.is_probing = true,
+          .sni = default_proxy_domain_,
+          .should_close = true};
     }
     // Create SslLayer
     pcpp::SSLLayer* ssl_layer = pcpp::SSLLayer::createSSLMessage(
@@ -276,8 +282,9 @@ boost::asio::awaitable<Session::ProbingResult> Session::DetectProbing() {
       SPDLOG_ERROR(
           "Failed to create SSL layer from handshake data (client_id={})",
           client_id_);
-      co_return ProbingResult{
-          .is_probing = true, .sni = FPTN_DEFAULT_SNI, .should_close = true};
+      co_return ProbingResult{.is_probing = true,
+          .sni = default_proxy_domain_,
+          .should_close = true};
     }
 
     // Check handshake
@@ -285,8 +292,9 @@ boost::asio::awaitable<Session::ProbingResult> Session::DetectProbing() {
     const auto* handshake = dynamic_cast<pcpp::SSLHandshakeLayer*>(ssl_layer);
     if (!handshake) {
       SPDLOG_ERROR("Failed to cast to SSLHandshakeLayer");
-      co_return ProbingResult{
-          .is_probing = true, .sni = FPTN_DEFAULT_SNI, .should_close = true};
+      co_return ProbingResult{.is_probing = true,
+          .sni = default_proxy_domain_,
+          .should_close = true};
     }
 
     // Get TTL-HELLO
@@ -298,12 +306,13 @@ boost::asio::awaitable<Session::ProbingResult> Session::DetectProbing() {
           "Failed to extract SSLClientHelloMessage from handshake "
           "(client_id={})",
           client_id_);
-      co_return ProbingResult{
-          .is_probing = true, .sni = FPTN_DEFAULT_SNI, .should_close = true};
+      co_return ProbingResult{.is_probing = true,
+          .sni = default_proxy_domain_,
+          .should_close = true};
     }
 
     // Set  SNI
-    std::string sni = FPTN_DEFAULT_SNI;
+    std::string sni = default_proxy_domain_;
     auto* sni_ext =
         // cppcheck-suppress nullPointerRedundantCheck
         hello->getExtensionOfType<pcpp::SSLServerNameIndicationExtension>();
@@ -313,16 +322,30 @@ boost::asio::awaitable<Session::ProbingResult> Session::DetectProbing() {
         sni = std::move(tls_sni);
       }
     }
+    // Validate allowed sni
+    if (!allowed_sni_list_.empty()) {
+      const bool sni_allowed = std::ranges::any_of(
+          allowed_sni_list_, [&sni](const std::string& allowed_sni) {
+            return sni == allowed_sni;
+          });
+      if (!sni_allowed) {
+        sni = default_proxy_domain_;
+        SPDLOG_WARN(
+            "SNI '{}' not in allowed list, using default domain: {} "
+            "(client_id={})",
+            sni, default_proxy_domain_, client_id_);
+      }
+    }
 
     // Detect and prevent recursive proxying to the local server
-    if (sni != FPTN_DEFAULT_SNI) {
+    if (sni != default_proxy_domain_) {
       const bool is_recursive_attempt = co_await IsSniSelfProxyAttempt(sni);
       if (is_recursive_attempt) {
         SPDLOG_WARN(
             "Detected recursive proxy attempt! "
             "Client: {}, SNI: {}, Redirecting to default SNI: {}",
-            client_id_, sni, FPTN_DEFAULT_SNI);
-        sni = FPTN_DEFAULT_SNI;
+            client_id_, sni, default_proxy_domain_);
+        sni = default_proxy_domain_;
       }
     }
 
@@ -366,7 +389,7 @@ boost::asio::awaitable<Session::ProbingResult> Session::DetectProbing() {
     SPDLOG_ERROR("Unknown exception during probing (client_id={})", client_id_);
   }
   co_return ProbingResult{
-      .is_probing = true, .sni = FPTN_DEFAULT_SNI, .should_close = true};
+      .is_probing = true, .sni = default_proxy_domain_, .should_close = true};
 }
 
 // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
@@ -462,7 +485,7 @@ boost::asio::awaitable<Session::RealityResult> Session::IsRealityHandshake() {
     }
 
     // Get SNI
-    std::string sni = FPTN_DEFAULT_SNI;
+    std::string sni = default_proxy_domain_;
     auto* sni_ext =
         // cppcheck-suppress nullPointerRedundantCheck
         hello->getExtensionOfType<pcpp::SSLServerNameIndicationExtension>();
@@ -470,6 +493,21 @@ boost::asio::awaitable<Session::RealityResult> Session::IsRealityHandshake() {
       std::string tls_sni = sni_ext->getHostName();
       if (!tls_sni.empty()) {
         sni = std::move(tls_sni);
+      }
+    }
+
+    // Validate allowed sni
+    if (!allowed_sni_list_.empty()) {
+      const bool sni_allowed = std::ranges::any_of(
+          allowed_sni_list_, [&sni](const std::string& allowed_sni) {
+            return sni == allowed_sni;
+          });
+      if (!sni_allowed) {
+        sni = default_proxy_domain_;
+        SPDLOG_WARN(
+            "SNI '{}' not in allowed list, using default domain: {} "
+            "(client_id={})",
+            sni, default_proxy_domain_, client_id_);
       }
     }
 

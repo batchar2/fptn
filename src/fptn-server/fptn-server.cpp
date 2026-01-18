@@ -10,6 +10,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <utility>
 
 #include <boost/asio.hpp>
+#include <fmt/ranges.h>  // NOLINT(build/include_order)
 
 #include "common/jwt_token/token_manager.h"
 #include "common/logger/logger.h"
@@ -105,8 +106,13 @@ int main(int argc, char* argv[]) {
     auto web_server = std::make_unique<fptn::web::Server>(config.ServerPort(),
         nat_table, user_manager, token_manager, prometheus,
         config.PrometheusAccessKey(), config.TunInterfaceIPv4(),
-        config.TunInterfaceIPv6(), config.EnableDetectProbing(),
+        config.TunInterfaceIPv6(),
+        /* probing */
+        config.EnableDetectProbing(), config.DefaultProxyDomain(),
+        config.AllowedSniList(),
+        /* sessions */
         config.MaxActiveSessionsPerUser(),
+        /* External IPs */
         config.ServerExternalIPs());
 
     /* init packet filter */
@@ -131,11 +137,19 @@ int main(int argc, char* argv[]) {
         "VPN NETWORK IPv6:  {}\n"
         "VPN SERVER PORT:   {}\n"
         "DETECT_PROBING:    {}\n"
+        "DEFAULT_PROXY_DOMAIN: {}\n"
+        "ALLOWED_SNI_LIST:     {}\n"
         "MAX_ACTIVE_SESSIONS_PER_USER: {}\n",
-        FPTN_VERSION, config.OutNetworkInterface(),
+        FPTN_VERSION,
+        // Network settings
+        config.OutNetworkInterface(),
         config.TunInterfaceNetworkIPv4Address().ToString(),
         config.TunInterfaceNetworkIPv6Address().ToString(), config.ServerPort(),
+        // Probing settings
         config.EnableDetectProbing() ? "YES" : "NO",
+        config.DefaultProxyDomain(),
+        fmt::format("[{}]", fmt::join(config.AllowedSniList(), ", ")),
+        // max session
         config.MaxActiveSessionsPerUser());
 
     // Init vpn manager
@@ -147,6 +161,7 @@ int main(int argc, char* argv[]) {
     manager.Start();
     WaitForSignal();
     manager.Stop();
+
     return EXIT_SUCCESS;
   } catch (const std::exception& ex) {
     SPDLOG_ERROR("An error occurred: {}. Exiting...", ex.what());

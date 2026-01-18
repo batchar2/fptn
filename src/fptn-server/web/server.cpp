@@ -11,6 +11,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
@@ -27,6 +28,8 @@ Server::Server(std::uint16_t port,
     fptn::common::network::IPv4Address dns_server_ipv4,
     fptn::common::network::IPv6Address dns_server_ipv6,
     bool enable_detect_probing,
+    std::string default_proxy_domain,
+    std::vector<std::string> allowed_sni_list,
     std::size_t max_active_sessions_per_user,
     std::string server_external_ips,
     int thread_number)
@@ -40,6 +43,8 @@ Server::Server(std::uint16_t port,
       dns_server_ipv4_(std::move(dns_server_ipv4)),
       dns_server_ipv6_(std::move(dns_server_ipv6)),
       enable_detect_probing_(enable_detect_probing),
+      default_proxy_domain_(std::move(default_proxy_domain)),
+      allowed_sni_list_(std::move(allowed_sni_list)),
       max_active_sessions_per_user_(max_active_sessions_per_user),
       server_external_ips_(std::move(server_external_ips)),
       thread_number_(std::max<std::size_t>(1, thread_number)),
@@ -56,8 +61,11 @@ Server::Server(std::uint16_t port,
 
   handshake_cache_manager_ = std::make_shared<HandshakeCacheManager>(ioc_);
 
-  listener_ = std::make_shared<Listener>(port_, enable_detect_probing_, ioc_,
-      token_manager, handshake_cache_manager_, server_external_ips_,
+  listener_ = std::make_shared<Listener>(port_,
+      // proxy settings
+      enable_detect_probing_, default_proxy_domain_, allowed_sni_list_,
+      // ioc
+      ioc_, token_manager, handshake_cache_manager_, server_external_ips_,
       // NOLINTNEXTLINE(modernize-avoid-bind)
       std::bind(
           &Server::HandleWsOpenConnection, this, _1, _2, _3, _4, _5, _6, _7),
