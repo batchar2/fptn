@@ -460,8 +460,6 @@ QVector<QString> SettingsModel::GetNetworkInterfaces() const {
   for (const QNetworkInterface& network_interface : network_interfaces) {
     if (network_interface.flags().testFlag(QNetworkInterface::IsUp) &&
         !network_interface.flags().testFlag(QNetworkInterface::IsLoopBack) &&
-        !network_interface.flags().testFlag(
-            QNetworkInterface::IsPointToPoint) &&
         !network_interface.hardwareAddress().isEmpty()) {
       QList<QNetworkAddressEntry> entries = network_interface.addressEntries();
       if (!entries.isEmpty()) {
