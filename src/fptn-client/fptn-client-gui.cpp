@@ -63,10 +63,10 @@ int main(int argc, char* argv[]) {
 
     // Setup signal handler
 #if defined(__APPLE__) || defined(__linux__)
-    std::signal(SIGINT, SignalHandler);
-    std::signal(SIGHUP, SignalHandler);
-    std::signal(SIGTERM, SignalHandler);
-    std::signal(SIGQUIT, SignalHandler);
+    ::signal(SIGINT, SignalHandler);
+    ::signal(SIGHUP, SignalHandler);
+    ::signal(SIGTERM, SignalHandler);
+    ::signal(SIGQUIT, SignalHandler);
 #if __linux__
     std::signal(SIGPWR, SignalHandler);
 #endif

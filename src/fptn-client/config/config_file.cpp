@@ -22,14 +22,14 @@ using fptn::utils::speed_estimator::ServerInfo;
 namespace fptn::config {
 
 ConfigFile::ConfigFile(std::string sni,
-    fptn::protocol::https::CensorshipStrategy censorship_strategy)
+    fptn::protocol::https::HttpsInitConnectionStrategy censorship_strategy)
     : sni_(std::move(sni)),
       censorship_strategy_(censorship_strategy),
       version_(0) {}  // NOLINT(whitespace/indent_namespace)
 
 ConfigFile::ConfigFile(std::string token,
     std::string sni,
-    fptn::protocol::https::CensorshipStrategy censorship_strategy)
+    fptn::protocol::https::HttpsInitConnectionStrategy censorship_strategy)
     : token_(std::move(token)),
       sni_(std::move(sni)),
       censorship_strategy_(censorship_strategy),

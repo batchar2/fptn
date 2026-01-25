@@ -14,7 +14,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <boost/asio/ip/tcp.hpp>
 #include <nlohmann/json.hpp>
 
-#include "fptn-protocol-lib/https/censorship_strategy.h"
+#include "fptn-protocol-lib/https/connection_config.h"
 
 namespace fptn::protocol::https {
 
@@ -49,18 +49,18 @@ class ApiClient {
  public:
   ApiClient(const std::string& host,
       int port,
-      CensorshipStrategy censorship_strategy);
+      HttpsInitConnectionStrategy censorship_strategy);
 
   ApiClient(std::string host,
       int port,
       std::string sni,
-      CensorshipStrategy censorship_strategy);
+      HttpsInitConnectionStrategy censorship_strategy);
 
   ApiClient(std::string host,
       int port,
       std::string sni,
       std::string md5_fingerprint,
-      CensorshipStrategy censorship_strategy);
+      HttpsInitConnectionStrategy censorship_strategy);
 
   Response Get(const std::string& handle, int timeout = 15) const;
   Response Post(const std::string& handle,
@@ -91,7 +91,7 @@ class ApiClient {
   const int port_;
   const std::string sni_;
   const std::string expected_md5_fingerprint_;
-  const CensorshipStrategy censorship_strategy_;
+  const HttpsInitConnectionStrategy censorship_strategy_;
 };
 
 using HttpsClientPtr = std::unique_ptr<ApiClient>;

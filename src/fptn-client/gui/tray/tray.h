@@ -32,7 +32,6 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "gui/tray/tray.h"
 #include "routing/route_manager.h"
 #include "utils/speed_estimator/server_info.h"
-#include "vpn/http/client.h"
 #include "vpn/vpn_client.h"
 
 namespace fptn::gui {
@@ -119,6 +118,5 @@ class TrayApp : public QWidget {
 
   // connecting
   std::atomic<bool> connecting_in_progress_{false};
-  // std::future<bool> connecting_;
 };
 }  // namespace fptn::gui

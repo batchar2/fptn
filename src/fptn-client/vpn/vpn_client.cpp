@@ -15,30 +15,36 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 namespace fptn::vpn {
 
-VpnClient::VpnClient(fptn::vpn::http::ClientPtr http_client,
+VpnClient::VpnClient(
+    fptn::protocol::connection::ConnectionManagerPtr connectin_manager,
     fptn::common::network::TunInterfacePtr virtual_net_interface,
-    fptn::common::network::IPv4Address dns_server_ipv4,
-    fptn::common::network::IPv6Address dns_server_ipv6,
     fptn::plugin::PluginList plugins,
     std::size_t thread_pool_size)
     : running_(false),
-      http_client_(std::move(http_client)),
+      connectin_manager_(std::move(connectin_manager)),
       virtual_net_interface_(std::move(virtual_net_interface)),
-      dns_server_ipv4_(std::move(dns_server_ipv4)),
-      dns_server_ipv6_(std::move(dns_server_ipv6)),
       plugins_(std::move(plugins)),
-      thread_pool_size_(thread_pool_size) {}  // NOLINT
+      thread_pool_size_(thread_pool_size) {
+  // NOLINTNEXTLINE(modernize-avoid-bind)
+  connectin_manager_->SetRecvIPPacketCallback(std::bind(
+      &VpnClient::HandlePacketFromWebSocket, this, std::placeholders::_1));
+
+  virtual_net_interface_->SetRecvIPPacketCallback(
+      // NOLINTNEXTLINE(modernize-avoid-bind)
+      std::bind(&VpnClient::HandlePacketFromVirtualNetworkInterface, this,
+          std::placeholders::_1));
+}
 
 VpnClient::~VpnClient() { Stop(); }
 
-bool VpnClient::IsStarted() {
+bool VpnClient::IsStarted() const {
   if (!running_) {
     return false;
   }
 
   const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
-  return running_ && http_client_ && http_client_->IsStarted();
+  return running_ && connectin_manager_ && connectin_manager_->IsStarted();
 }
 
 bool VpnClient::Start() {
@@ -55,16 +61,7 @@ bool VpnClient::Start() {
     }
   }
 
-  // NOLINTNEXTLINE(modernize-avoid-bind)
-  http_client_->SetRecvIPPacketCallback(std::bind(
-      &VpnClient::HandlePacketFromWebSocket, this, std::placeholders::_1));
-
-  virtual_net_interface_->SetRecvIPPacketCallback(
-      // NOLINTNEXTLINE(modernize-avoid-bind)
-      std::bind(&VpnClient::HandlePacketFromVirtualNetworkInterface, this,
-          std::placeholders::_1));
-
-  http_client_->Start();
+  connectin_manager_->Start();
   virtual_net_interface_->Start();
   running_ = true;
 
@@ -112,10 +109,10 @@ bool VpnClient::Stop() {
     SPDLOG_DEBUG("Virtual network interface stopped successfully");
   }
 
-  if (http_client_) {
+  if (connectin_manager_) {
     SPDLOG_INFO("Stopping HTTP client");
-    http_client_->Stop();
-    http_client_.reset();
+    connectin_manager_->Stop();
+    connectin_manager_.reset();
     SPDLOG_DEBUG("HTTP client stopped successfully");
   }
   return true;
@@ -155,8 +152,8 @@ void VpnClient::HandlePacketFromVirtualNetworkInterface(
 
   const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
-  if (running_ && http_client_) {
-    http_client_->Send(std::move(packet));
+  if (running_ && connectin_manager_) {
+    connectin_manager_->Send(std::move(packet));
   }
 }
 
@@ -186,8 +183,10 @@ void VpnClient::ProcessWebSocketPackets() {
     {
       std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
-      ws_queue_cv_.wait(
-          lock, [this]() { return !ws_packet_queue_.empty() || !running_; });
+      if (ws_packet_queue_.empty()) {
+        ws_queue_cv_.wait(
+            lock, [this]() { return !ws_packet_queue_.empty() || !running_; });
+      }
       if (!running_ && ws_packet_queue_.empty()) {
         break;
       }
@@ -201,7 +200,6 @@ void VpnClient::ProcessWebSocketPackets() {
       continue;
     }
 
-    // Обрабатываем пакет через плагины
     if (running_ && !plugins_.empty()) {
       for (const auto& plugin : plugins_) {
         if (packet) {
