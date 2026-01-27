@@ -30,8 +30,8 @@ class Manager final {
   bool Start();
 
  protected:
-  void RunToClient() const noexcept;
-  void RunFromClient() const noexcept;
+  void RunProcessingToWebsocket() const noexcept;
+  void RunProcessingFromWebsocket() const noexcept;
   void RunCollectStatistics() noexcept;
 
  private:
