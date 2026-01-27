@@ -20,7 +20,7 @@ class FPTN(ConanFile):
         "fmt/12.1.0",
         "jwt-cpp/0.7.1",
         "nlohmann_json/3.12.0",
-        "protobuf/5.29.3",
+        "protobuf/6.32.1",
         "re2/20251105",
         "spdlog/1.17.0",
         "zlib/1.3.1",
@@ -130,7 +130,7 @@ class FPTN(ConanFile):
 
     def build_requirements(self):
         self.build_requires("cmake/3.22.0", override=True)
-        self.tool_requires("protobuf/5.29.3")
+        self.tool_requires("protobuf/6.32.1")
 
         self.test_requires("gtest/1.17.0")
 
