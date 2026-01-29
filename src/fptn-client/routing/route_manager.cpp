@@ -340,18 +340,15 @@ bool RouteManager::Apply() {
       fmt::format("ip -6 route add default dev {}", tun_interface_name_),
       // exclude vpn server
       fmt::format("ip route add {} via {} dev {}", vpn_server_ip_.ToString(),
-          detected_gateway_ipv4_.ToString(), detected_out_interface_name_)};
-
-  commands.push_back(
-      fmt::format("resolvectl dns {} ''", detected_out_interface_name_));
-  commands.push_back(fmt::format(
-      "resolvectl default-route {} true", detected_out_interface_name_));
-  commands.push_back(fmt::format("resolvectl dns {} ''", tun_interface_name_));
-  commands.push_back(
-      fmt::format("resolvectl domain {} ''", tun_interface_name_));
-  commands.push_back(
-      fmt::format("resolvectl default-route {} false", tun_interface_name_));
-  commands.push_back(fmt::format("resolvectl flush-caches"));
+          detected_gateway_ipv4_.ToString(), detected_out_interface_name_),
+      // DNS
+      fmt::format("resolvectl dns {} ''", detected_out_interface_name_),
+      fmt::format(
+          "resolvectl default-route {} true", detected_out_interface_name_),
+      fmt::format("resolvectl dns {} ''", tun_interface_name_),
+      fmt::format("resolvectl domain {} ''", tun_interface_name_),
+      fmt::format("resolvectl default-route {} false", tun_interface_name_),
+      fmt::format("resolvectl flush-caches")};
 
 #elif __APPLE__
   const std::vector<std::string> commands = {
