@@ -23,16 +23,17 @@ RUN chmod +x /usr/local/bin/fptn-server && \
     chmod +x /usr/local/bin/fptn-passwd
 
 # Copy configuration files
-COPY deploy/docker/config/dnsmasq.conf /etc/dnsmasq.conf
 COPY deploy/docker/config/supervisord.conf /etc/supervisor/supervisord.conf
 COPY deploy/docker/config/supervisor/*.conf /etc/supervisor/conf.d/
 
 # Copy scripts
 COPY deploy/docker/scripts/check-dns.sh /usr/local/bin/check-dns.sh
 COPY deploy/docker/scripts/start-fptn.sh /usr/local/bin/start-fptn.sh
+COPY deploy/docker/scripts/start-dnsmasq.sh /usr/local/bin/start-dnsmasq.sh
 COPY deploy/docker/scripts/token-generator.py /usr/local/bin/token-generator
 RUN chmod +x /usr/local/bin/check-dns.sh && \
     chmod +x /usr/local/bin/start-fptn.sh && \
+    chmod +x /usr/local/bin/start-dnsmasq.sh && \
     chmod +x /usr/local/bin/token-generator
 
 CMD ["/usr/bin/supervisord", "--nodaemon", "-c", "/etc/supervisor/supervisord.conf"]
