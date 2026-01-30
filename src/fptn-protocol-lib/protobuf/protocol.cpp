@@ -6,6 +6,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include "fptn-protocol-lib/protobuf/protocol.h"
 
+#include <algorithm>
 #include <ctime>
 #include <random>
 #include <string>
@@ -42,7 +43,6 @@ std::string GetProtoPayload(const std::string& raw) {
       throw ProcessingError("Unknown message type.");
   }
 }
-
 std::string CreateProtoPayload(fptn::common::network::IPPacketPtr packet) {
   fptn::protocol::Message message;
   message.set_protocol_version(FPTN_PROTOBUF_PROTOCOL_VERSION);
@@ -50,35 +50,40 @@ std::string CreateProtoPayload(fptn::common::network::IPPacketPtr packet) {
 
   const auto* raw_packet = packet->GetRawPacket();
   const void* data = raw_packet->getRawData();
-  const auto len = raw_packet->getRawDataLen();
+  const auto current_size =
+      static_cast<std::size_t>(raw_packet->getRawDataLen());
 
-  message.mutable_packet()->set_payload(data, len);
+  message.mutable_packet()->set_payload(data, current_size);
 
 #ifdef FPTN_ENABLE_PACKET_PADDING
   /**
    * Fill with random data to prevent issues related to TLS-inside-TLS.
    */
-  static thread_local std::mt19937 gen{std::random_device {}()};
-  static thread_local std::uniform_int_distribution<std::size_t> dist(
-      0, FPTN_IP_PACKET_MAX_SIZE);
-
-  const std::size_t current_size = len;
   if (current_size < FPTN_IP_PACKET_MAX_SIZE) {
-    const std::size_t padding_size =
-        dist(gen) % (FPTN_IP_PACKET_MAX_SIZE - current_size + 1);
+    constexpr std::size_t kMaxPaddingBytes = 128;
+    const std::size_t available_space = FPTN_IP_PACKET_MAX_SIZE - current_size;
+    const std::size_t max_padding = std::min(kMaxPaddingBytes, available_space);
 
-    std::string padding_buffer;
-    if (padding_buffer.capacity() < padding_size) {
-      padding_buffer.reserve(FPTN_IP_PACKET_MAX_SIZE);
-      padding_buffer.resize(padding_size);
-      std::generate_n(padding_buffer.begin(), padding_size,
-          []() { return static_cast<char>(gen() % 256); });
+    if (max_padding > 0) {
+      static thread_local std::mt19937 gen{std::random_device {}()};
+      static thread_local std::uniform_int_distribution<std::size_t> dist(
+          0, kMaxPaddingBytes);
+
+      const std::size_t padding_size = dist(gen) % (max_padding + 1);
+      if (padding_size > 0) {
+        std::string padding_buffer;
+        padding_buffer.resize(padding_size);
+
+        auto* gen_ptr = &gen;
+        std::ranges::generate(padding_buffer,
+            [gen_ptr]() { return static_cast<char>((*gen_ptr)() & 0xFF); });
+
+        message.mutable_packet()->set_padding_data(
+            padding_buffer.data(), padding_size);
+      }
     }
-    message.mutable_packet()->set_padding_data(
-        padding_buffer.data(), padding_size);
   }
 #endif
-
   const std::size_t estimated_size = message.ByteSizeLong();
   std::string serialized_data;
   serialized_data.reserve(estimated_size + 32);

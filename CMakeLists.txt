@@ -44,7 +44,7 @@ endif()
 add_compile_definitions(FPTN_VERSION=\"${FPTN_VERSION}\")
 add_compile_definitions(FPTN_MTU_SIZE=1500)
 add_compile_definitions(FPTN_DEFAULT_SNI=\"rutube.ru\")
-add_compile_definitions(FPTN_IP_PACKET_MAX_SIZE=1450)
+add_compile_definitions(FPTN_IP_PACKET_MAX_SIZE=1250)
 add_compile_definitions(FPTN_ENABLE_PACKET_PADDING=1)
 add_compile_definitions(FPTN_PROTOBUF_PROTOCOL_VERSION=0x01)
 # client
