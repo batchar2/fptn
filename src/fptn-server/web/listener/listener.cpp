@@ -86,7 +86,7 @@ boost::asio::awaitable<void> Listener::Run() {
       co_await acceptor_.async_accept(
           socket, boost::asio::redirect_error(boost::asio::use_awaitable, ec));
       if (!ec) {
-        auto session = std::make_shared<Session>(port_,
+        auto session = std::make_shared<ClientEndpoint>(port_,
             // probing settings
             enable_detect_probing_, default_proxy_domain_, allowed_sni_list_,
             server_external_ips_, std::move(socket), ctx_,

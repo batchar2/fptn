@@ -100,15 +100,6 @@ class ChannelAsync {
 
     co_await timer.async_wait(boost::asio::use_awaitable);
 
-    // while (!mutex_.try_lock()) {
-    //     if (std::chrono::steady_clock::now() - start >
-    //     std::chrono::seconds(3)) {
-    //         spdlog::error("Session::send: failed to acquire lock within
-    //         timeout"); co_return false;
-    //     }
-    //     std::this_thread::yield();  // Yield to avoid busy waiting
-    // }
-
     co_return;
   }
 

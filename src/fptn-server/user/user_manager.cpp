@@ -26,7 +26,7 @@ UserManager::UserManager(const std::string& userfile,
     // remote user list
     http_api_client_ =
         std::make_unique<fptn::protocol::https::ApiClient>(remote_server_ip_,
-            remote_server_port, protocol::https::CensorshipStrategy::kSni);
+            remote_server_port, protocol::https::HttpsInitConnectionStrategy::kSni);
   } else {
     // local user list
     common_manager_ =

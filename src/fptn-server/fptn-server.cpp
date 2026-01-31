@@ -23,7 +23,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "nat/table.h"
 #include "network/virtual_interface.h"
 #include "routing/iptables.h"
-#include "statistic/metrics.h"
+#include "nat/statistic/metrics.h"
 #include "user/user_manager.h"
 #include "vpn/manager.h"
 #include "web/server.h"

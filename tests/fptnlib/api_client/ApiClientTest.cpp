@@ -34,7 +34,7 @@ TEST(ApiClientTest, GitHubReleasesConnection) {
 
 TEST(ApiClientTest, GitHubHandshakeTest) {
   fptn::protocol::https::ApiClient client("api.github.com", 443,
-      "api.github.com", fptn::protocol::https::CensorshipStrategy::kSni);
+      "api.github.com", fptn::protocol::https::HttpsInitConnectionStrategy::kSni);
 
   bool handshake_success = client.TestHandshake(10);
   EXPECT_TRUE(handshake_success);

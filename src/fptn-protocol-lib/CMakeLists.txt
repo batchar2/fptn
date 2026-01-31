@@ -100,6 +100,16 @@ set(FPTN_CLIENT_PROTOCOL_SOURCES
     https/utils/tls/tls.cpp
     https/websocket_client/websocket_client.h
     https/websocket_client/websocket_client.cpp
+    connection/connection_manager/connection_manager.h
+    connection/connection_manager/connection_manager.cpp
+    connection/connection_manager_builder/connection_manager_builder.h
+    connection/connection_manager_builder/connection_manager_builder.cpp
+    connection/strategies/base_strategy_connection.h
+    connection/strategies/base_strategy_connection.cpp
+    connection/strategies/long_term_connection/long_term_connection.h
+    connection/strategies/long_term_connection/long_term_connection.cpp
+    connection/strategies/connection_pool/connection_pool.h
+    connection/strategies/connection_pool/connection_pool.cpp
     protobuf/protocol.h
     protobuf/protocol.cpp
     time/time_provider.h

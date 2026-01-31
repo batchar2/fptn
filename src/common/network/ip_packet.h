@@ -164,8 +164,10 @@ class IPPacket {
       parsed_packet_ = pcpp::Packet(&raw_packet_, false);
       if (pcpp::LINKTYPE_IPV4 == ip_type) {
         ipv4_layer_ = parsed_packet_.getLayerOfType<pcpp::IPv4Layer>();
+        ipv4_ = ipv4_layer_->getDstIPv4Address();
       } else if (pcpp::LINKTYPE_IPV6 == ip_type) {
         ipv6_layer_ = parsed_packet_.getLayerOfType<pcpp::IPv6Layer>();
+        ipv6_ = ipv6_layer_->getDstIPv6Address();
       }
     } catch (const std::exception& e) {
       SPDLOG_WARN(
@@ -195,6 +197,14 @@ class IPPacket {
       }
       ipv6_layer_->computeCalculateFields();
     }
+  }
+
+  fptn::common::network::IPv4Address DstIPv4Address() const noexcept {
+    return ipv4_;
+  }
+
+  fptn::common::network::IPv6Address DstIPv6Address() const noexcept {
+    return ipv6_;
   }
 
   void SetClientId(fptn::ClientID client_id) noexcept {
@@ -391,6 +401,9 @@ class IPPacket {
 
   pcpp::IPv4Layer* ipv4_layer_ = nullptr;
   pcpp::IPv6Layer* ipv6_layer_ = nullptr;
+
+  fptn::common::network::IPv4Address ipv4_;
+  fptn::common::network::IPv6Address ipv6_;
 };
 
 using IPPacketPtr = std::unique_ptr<IPPacket>;

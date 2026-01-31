@@ -243,8 +243,9 @@ using tcp_stream_type = boost::beast::tcp_stream;
 using obfuscator_socket_type = obfuscator::TcpStream<tcp_stream_type>;
 using ssl_stream_type = boost::beast::ssl_stream<obfuscator_socket_type>;
 
-ApiClient::ApiClient(
-    const std::string& host, int port, CensorshipStrategy censorship_strategy)
+ApiClient::ApiClient(const std::string& host,
+    int port,
+    HttpsInitConnectionStrategy censorship_strategy)
     : host_(host),
       port_(port),
       sni_(host),
@@ -253,7 +254,7 @@ ApiClient::ApiClient(
 ApiClient::ApiClient(std::string host,
     int port,
     std::string sni,
-    CensorshipStrategy censorship_strategy)
+    HttpsInitConnectionStrategy censorship_strategy)
     : host_(std::move(host)),
       port_(port),
       sni_(std::move(sni)),
@@ -263,7 +264,7 @@ ApiClient::ApiClient(std::string host,
     int port,
     std::string sni,
     std::string md5_fingerprint,
-    CensorshipStrategy censorship_strategy)
+    HttpsInitConnectionStrategy censorship_strategy)
     : host_(std::move(host)),
       port_(port),
       sni_(std::move(sni)),
@@ -306,7 +307,7 @@ bool ApiClient::TestHandshake(int timeout) const {
       timeout, "TestHandshake", "", host_, false);
 }
 
-ApiClient ApiClient::Clone() const {
+ApiClient ApiClient::Clone() const {  // NOLINT
   ApiClient temp_client(
       host_, port_, sni_, expected_md5_fingerprint_, censorship_strategy_);
   return temp_client;
@@ -376,7 +377,7 @@ Response ApiClient::GetImpl(const std::string& handle, int timeout) const {
     boost::asio::ssl::context ctx(ssl_ctx);
 
     fptn::protocol::https::obfuscator::IObfuscatorSPtr obfuscator = nullptr;
-    if (censorship_strategy_ == CensorshipStrategy::kTlsObfuscator) {
+    if (censorship_strategy_ == HttpsInitConnectionStrategy::kTlsObfuscator) {
       obfuscator =
           std::make_shared<fptn::protocol::https::obfuscator::TlsObfuscator>();
     }
@@ -413,7 +414,8 @@ Response ApiClient::GetImpl(const std::string& handle, int timeout) const {
       SetSocketTimeouts(socket, timeout);
 
       // Perform fake handshake if enabled
-      if (censorship_strategy_ == CensorshipStrategy::kSniRealityMode) {
+      if (censorship_strategy_ ==
+          HttpsInitConnectionStrategy::kSniRealityMode) {
         const bool perform_status = PerformFakeHandshake(socket);
         if (!perform_status) {
           SPDLOG_WARN(
@@ -555,7 +557,7 @@ Response ApiClient::PostImpl(const std::string& handle,
     boost::asio::ssl::context ctx(ssl_ctx);
 
     fptn::protocol::https::obfuscator::IObfuscatorSPtr obfuscator = nullptr;
-    if (censorship_strategy_ == CensorshipStrategy::kTlsObfuscator) {
+    if (censorship_strategy_ == HttpsInitConnectionStrategy::kTlsObfuscator) {
       obfuscator =
           std::make_shared<fptn::protocol::https::obfuscator::TlsObfuscator>();
     }
@@ -592,7 +594,8 @@ Response ApiClient::PostImpl(const std::string& handle,
       SetSocketTimeouts(socket, timeout);
 
       // Perform fake handshake if enabled
-      if (censorship_strategy_ == CensorshipStrategy::kSniRealityMode) {
+      if (censorship_strategy_ ==
+          HttpsInitConnectionStrategy::kSniRealityMode) {
         const bool perform_status = PerformFakeHandshake(socket);
         if (!perform_status) {
           SPDLOG_WARN(
@@ -734,7 +737,7 @@ bool ApiClient::TestHandshakeImpl(int timeout) const {
     boost::asio::ssl::context ctx(ssl_ctx);
 
     fptn::protocol::https::obfuscator::IObfuscatorSPtr obfuscator = nullptr;
-    if (censorship_strategy_ == CensorshipStrategy::kTlsObfuscator) {
+    if (censorship_strategy_ == HttpsInitConnectionStrategy::kTlsObfuscator) {
       obfuscator =
           std::make_shared<fptn::protocol::https::obfuscator::TlsObfuscator>();
     }
@@ -780,7 +783,7 @@ bool ApiClient::TestHandshakeImpl(int timeout) const {
     SetSocketTimeouts(socket, timeout);
 
     // Perform fake handshake if enabled
-    if (censorship_strategy_ == CensorshipStrategy::kSniRealityMode) {
+    if (censorship_strategy_ == HttpsInitConnectionStrategy::kSniRealityMode) {
       SPDLOG_INFO("TestHandshake - Performing fake handshake");
       if (!PerformFakeHandshake(socket)) {
         SPDLOG_WARN(

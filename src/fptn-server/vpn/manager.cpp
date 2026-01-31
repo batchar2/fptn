@@ -60,11 +60,13 @@ bool Manager::Start() {
   network_interface_->Start();
 
   for (size_t i = 0; i < thread_pool_size_; ++i) {
-    read_to_client_threads_.emplace_back(&Manager::RunToClient, this);
+    read_to_client_threads_.emplace_back(
+        &Manager::RunProcessingToWebsocket, this);
   }
 
   for (size_t i = 0; i < thread_pool_size_; ++i) {
-    read_from_client_threads_.emplace_back(&Manager::RunFromClient, this);
+    read_from_client_threads_.emplace_back(
+        &Manager::RunProcessingFromWebsocket, this);
   }
 
   collect_statistics_ = std::thread(&Manager::RunCollectStatistics, this);
@@ -72,7 +74,7 @@ bool Manager::Start() {
   return collect_statistic_status;
 }
 
-void Manager::RunToClient() const noexcept {
+void Manager::RunProcessingToWebsocket() const noexcept {
   constexpr std::chrono::milliseconds kTimeout{100};
 
   while (running_) {
@@ -80,34 +82,29 @@ void Manager::RunToClient() const noexcept {
     if (!packet || !running_) {
       continue;
     }
-    if (!packet->IsIPv4() && !packet->IsIPv6()) {
-      continue;
-    }
-    // get session using "fake" client address
-    fptn::client::SessionSPtr session = nullptr;
+
+    fptn::nat::ConnectionMultiplexerSPtr connection_multiplexer = nullptr;
     if (packet->IsIPv4()) {
-      session = nat_->GetSessionByFakeIPv4(fptn::common::network::IPv4Address(
-          packet->IPv4Layer()->getDstIPv4Address()));
+      connection_multiplexer =
+          nat_->GetConnectionMultiplexerByFakeIPv4(packet->DstIPv4Address());
     } else if (packet->IsIPv6()) {
-      session = nat_->GetSessionByFakeIPv6(fptn::common::network::IPv6Address(
-          packet->IPv6Layer()->getDstIPv6Address()));
+      connection_multiplexer =
+          nat_->GetConnectionMultiplexerByFakeIPv6(packet->DstIPv6Address());
     }
-    if (!session || !running_) {
+
+    if (!connection_multiplexer || !running_) {
       continue;
     }
-    // check shaper
-    auto& shaper = session->TrafficShaperToClient();
-    if (shaper && !shaper->CheckSpeedLimit(packet->Size())) {
-      continue;
-    }
-    // send
-    if (running_) {
-      web_server_->Send(session->ChangeIPAddressToClientIP(std::move(packet)));
+
+    packet =
+        connection_multiplexer->PacketPreparingToWebsocket(std::move(packet));
+    if (packet && running_) {
+      web_server_->Send(std::move(packet));
     }
   }
 }
 
-void Manager::RunFromClient() const noexcept {
+void Manager::RunProcessingFromWebsocket() const noexcept {
   constexpr std::chrono::milliseconds kTimeout{100};
 
   while (running_) {
@@ -118,40 +115,32 @@ void Manager::RunFromClient() const noexcept {
     if (!packet->IsIPv4() && !packet->IsIPv6()) {
       continue;
     }
-    // get session
-    const auto session = nat_->GetSessionByClientId(packet->ClientId());
-    if (!session || !running_) {
+
+    const auto connection_multiplexer =
+        nat_->GetConnectionMultiplexerByClientId(packet->ClientId());
+    if (!connection_multiplexer || !running_) {
       continue;
     }
-    // check shaper
-    auto shaper = session->TrafficShaperFromClient();
-    if (shaper && !shaper->CheckSpeedLimit(packet->Size())) {
-      continue;
-    }
-    // filter
-    packet = filter_->Apply(std::move(packet));
-    if (!packet || !running_) {
-      continue;
-    }
-    // send
-    if (running_) {
-      network_interface_->Send(
-          session->ChangeIPAddressToFakeIP(std::move(packet)));
+
+    packet =
+        connection_multiplexer->PacketPreparingFromWebsocket(std::move(packet));
+    if (packet && running_) {
+      network_interface_->Send(std::move(packet));
     }
   }
 }
 
 void Manager::RunCollectStatistics() noexcept {
-  const std::chrono::milliseconds timeout{300};
-  const std::chrono::seconds collect_interval{2};
+  constexpr std::chrono::milliseconds kTimeout{300};
+  constexpr std::chrono::seconds kCollectInterval{10};
 
   std::chrono::steady_clock::time_point last_collection_time;
   while (running_) {
     auto now = std::chrono::steady_clock::now();
-    if (now - last_collection_time > collect_interval) {
+    if (now - last_collection_time > kCollectInterval) {
       nat_->UpdateStatistic(prometheus_);
       last_collection_time = now;
     }
-    std::this_thread::sleep_for(timeout);
+    std::this_thread::sleep_for(kTimeout);
   }
 }

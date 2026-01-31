@@ -24,6 +24,8 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include "handshake/handshake_cache_manager.h"
 #include "listener/listener.h"
+#include "nat/connect_params.h"
+#include "nat/statistic/metrics.h"
 #include "nat/table.h"
 #include "user/user_manager.h"
 
@@ -64,13 +66,8 @@ class Server final {
 
  protected:
   // websocket
-  bool HandleWsOpenConnection(fptn::ClientID client_id,
-      const fptn::common::network::IPv4Address& client_ip,
-      const fptn::common::network::IPv4Address& client_vpn_ipv4,
-      const fptn::common::network::IPv6Address& client_vpn_ipv6,
-      const SessionSPtr& session,
-      const std::string& url,
-      const std::string& access_token);
+  bool HandleWsOpenConnection(
+      const fptn::nat::ConnectParams& params, const ClientEndpointSPtr& session);
   void HandleWsNewIPPacket(fptn::common::network::IPPacketPtr packet) noexcept;
   void HandleWsCloseConnection(fptn::ClientID client_id) noexcept;
 
@@ -109,7 +106,7 @@ class Server final {
   HandshakeCacheManagerSPtr handshake_cache_manager_;
 
   std::vector<std::thread> ioc_threads_;
-  std::unordered_map<fptn::ClientID, SessionSPtr> sessions_;
+  std::unordered_map<fptn::ClientID, ClientEndpointSPtr> client_endpoints_;
 };
 
 using ServerPtr = std::unique_ptr<Server>;

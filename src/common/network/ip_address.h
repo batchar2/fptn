@@ -134,6 +134,11 @@ class IPv4Address : public IPAddress<boost::asio::ip::address> {
     return *this;
   }
 
+  IPv4Address& operator=(const std::string& ip) {
+    *this = IPv4Address(ip);
+    return *this;
+  }
+
   static IPv4Address Create(const std::string& ip) { return IPv4Address(ip); }
 
   static IPv4Address Create(const boost::asio::ip::address& ip_addr) {
@@ -200,6 +205,11 @@ class IPv6Address : public IPAddress<boost::asio::ip::address> {
     if (this != &other) {
       IPAddress<boost::asio::ip::address>::operator=(std::move(other));
     }
+    return *this;
+  }
+
+  IPv6Address& operator=(const std::string& ip) {
+    *this = IPv6Address(ip);
     return *this;
   }
 
@@ -315,6 +325,16 @@ class IPv4Address : public IPAddress<pcpp::IPv4Address> {
     return *this;
   }
 
+  IPv4Address& operator=(const pcpp::IPv4Address& other) {
+    *this = IPv4Address(other);
+    return *this;
+  }
+
+  IPv4Address& operator=(const std::string& ip) {
+    *this = IPv4Address(ip);
+    return *this;
+  }
+
   static IPv4Address Create(std::string ip) {
     return IPv4Address(std::move(ip));
   }
@@ -362,6 +382,16 @@ class IPv6Address : public IPAddress<pcpp::IPv6Address> {
     if (this != &other) {
       IPAddress<pcpp::IPv6Address>::operator=(std::move(other));
     }
+    return *this;
+  }
+
+  IPv6Address& operator=(const pcpp::IPv6Address& other) {
+    *this = IPv6Address(other);
+    return *this;
+  }
+
+  IPv6Address& operator=(const std::string& ip) {
+    *this = IPv6Address(ip);
     return *this;
   }
 

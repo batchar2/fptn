@@ -247,7 +247,7 @@ void SniAutoscanDialog::WorkerThread(int thread_id) {
       constexpr int kHandshakeTimeout = 2;
       fptn::protocol::https::ApiClient client(server.host.toStdString(),
           server.port, sni, server.md5_fingerprint.toStdString(),
-          protocol::https::CensorshipStrategy::kSni);
+          protocol::https::HttpsInitConnectionStrategy::kSni);
 
       handshake_ok = client.TestHandshake(kHandshakeTimeout);
       if (handshake_ok) {

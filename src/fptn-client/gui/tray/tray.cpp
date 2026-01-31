@@ -27,6 +27,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "common/network/ip_packet.h"
 #include "common/system/command.h"
 
+#include "fptn-protocol-lib/connection/connection_manager_builder/connection_manager_builder.h"
 #include "fptn-protocol-lib/https/obfuscator/methods/tls/tls_obfuscator.h"
 #include "fptn-protocol-lib/time/time_provider.h"
 #include "gui/autoupdate/autoupdate.h"
@@ -726,16 +727,16 @@ bool TrayApp::startVpn(QString& err_msg) {
   const std::string sni = !settings_->SNI().isEmpty()
                               ? settings_->SNI().toStdString()
                               : FPTN_DEFAULT_SNI;
-  fptn::protocol::https::CensorshipStrategy censorship_strategy =
-      fptn::protocol::https::CensorshipStrategy::kSni;
+  fptn::protocol::https::HttpsInitConnectionStrategy censorship_strategy =
+      fptn::protocol::https::HttpsInitConnectionStrategy::kSni;
   if (settings_->BypassMethod() == "OBFUSCATION") {
     SPDLOG_INFO("Using obfuscation to bypass censorship");
     censorship_strategy =
-        fptn::protocol::https::CensorshipStrategy::kTlsObfuscator;
+        fptn::protocol::https::HttpsInitConnectionStrategy::kTlsObfuscator;
   } else if (settings_->BypassMethod() == "SNI-REALITY") {
     SPDLOG_INFO("Using reality mode to bypass censorship");
     censorship_strategy =
-        fptn::protocol::https::CensorshipStrategy::kSniRealityMode;
+        fptn::protocol::https::HttpsInitConnectionStrategy::kSniRealityMode;
   } else {
     SPDLOG_INFO("Using SNI spoofing to bypass censorship");
   }
@@ -783,15 +784,25 @@ bool TrayApp::startVpn(QString& err_msg) {
     return false;
   }
 
-  auto http_client = std::make_unique<fptn::vpn::http::Client>(server_ip,
-      selected_server_.port, tun_interface_address_ipv4,
-      tun_interface_address_ipv6, sni, selected_server_.md5_fingerprint,
-      censorship_strategy);
-  // login
-  bool login_status =
-      http_client->Login(selected_server_.username, selected_server_.password);
+  const auto strategy = fptn::protocol::connection::strategies::
+      ConnectionStrategy::kLongTermConnection;
+  auto connection_manager =
+      fptn::protocol::connection::ConnectionManagerBuilder()
+          .SetConnectionStrategyType(strategy)
+          .SetServer(server_ip, selected_server_.port)
+          .SetTunInterface(
+              tun_interface_address_ipv4, tun_interface_address_ipv6)
+          .SetSNI(sni)
+          .SetServerFingerprint(selected_server_.md5_fingerprint)
+          .SetCensorshipStrategy(censorship_strategy)
+          .SetMaxReconnections(5)
+          .SetConnectionTimeout(10000)
+          .Build();
+
+  const bool login_status = connection_manager->Login(
+      selected_server_.username, selected_server_.password);
   if (!login_status) {
-    const std::string error = http_client->LatestError();
+    const std::string error = connection_manager->LatestError();
     err_msg = QObject::tr(
                   "Unable to connect to the server. Please use the Telegram "
                   "bot to generate a new TOKEN with your personal settings, "
@@ -802,9 +813,9 @@ bool TrayApp::startVpn(QString& err_msg) {
   }
 
   // get dns
-  const auto [dns_server_ipv4, dns_server_ipv6] = http_client->GetDns();
+  const auto [dns_server_ipv4, dns_server_ipv6] = connection_manager->GetDns();
   if (dns_server_ipv4.IsEmpty() || dns_server_ipv6.IsEmpty()) {
-    const std::string error = http_client->LatestError();
+    const std::string error = connection_manager->LatestError();
     err_msg = QObject::tr("DNS server error! Check your connection!") + "\n\n" +
               QObject::tr("Error message: ") + QString::fromStdString(error);
     return false;
@@ -859,10 +870,10 @@ bool TrayApp::startVpn(QString& err_msg) {
               126  // IPv6 netmask
           });
 
-  // setup vpn client с плагинами
-  vpn_client_ = std::make_unique<fptn::vpn::VpnClient>(std::move(http_client),
-      std::move(virtual_network_interface), dns_server_ipv4, dns_server_ipv6,
-      std::move(client_plugins));
+  // vpn client
+  vpn_client_ =
+      std::make_unique<fptn::vpn::VpnClient>(std::move(connection_manager),
+          std::move(virtual_network_interface), std::move(client_plugins));
 
   // Wait for the WebSocket tunnel to establish
   vpn_client_->Start();

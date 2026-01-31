@@ -26,16 +26,16 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "common/jwt_token/token_manager.h"
 
 #include "fptn-protocol-lib/https/obfuscator/tcp_stream/tcp_stream.h"
-#include "web/api/handle.h"
+#include "web/handle/handle.h"
 #include "web/handshake/handshake_cache_manager.h"
 
 namespace fptn::web {
 
 using IObfuscator = std::optional<protocol::https::obfuscator::IObfuscatorSPtr>;
 
-class Session : public std::enable_shared_from_this<Session> {
+class ClientEndpoint : public std::enable_shared_from_this<ClientEndpoint> {
  public:
-  explicit Session(std::uint16_t port,
+  explicit ClientEndpoint(std::uint16_t port,
       bool enable_detect_probing,
       std::string default_proxy_domain,
       std::vector<std::string> allowed_sni_list,
@@ -47,7 +47,7 @@ class Session : public std::enable_shared_from_this<Session> {
       WebSocketOpenConnectionCallback ws_open_callback,
       WebSocketNewIPPacketCallback ws_new_ippacket_callback,
       WebSocketCloseConnectionCallback ws_close_callback);
-  virtual ~Session();
+  virtual ~ClientEndpoint();
   void Close();
 
   // async
@@ -135,5 +135,5 @@ class Session : public std::enable_shared_from_this<Session> {
   boost::asio::cancellation_signal cancel_signal_;
 };
 
-using SessionSPtr = std::shared_ptr<Session>;
+using ClientEndpointSPtr = std::shared_ptr<ClientEndpoint>;
 }  // namespace fptn::web

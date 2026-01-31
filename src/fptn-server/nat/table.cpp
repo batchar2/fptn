@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -12,7 +12,72 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
-using fptn::nat::Table;
+namespace {
+
+fptn::nat::ConnectionMultiplexerSPtr GetMultiplexerBySessionId(
+    const fptn::nat::NatMultiplexers& multiplexers,
+    const std::string& session_id) {
+  if (multiplexers.contains(session_id)) {
+    return multiplexers.at(session_id);
+  }
+  return nullptr;
+}
+
+fptn::nat::ConnectionMultiplexerSPtr GetMultiplexerByClientId(
+    const fptn::nat::NatMultiplexers& multiplexers,
+    const fptn::ClientID& client_id) {
+  const auto it =
+      std::ranges::find_if(multiplexers, [&client_id](const auto& pair) {
+        const auto& multiplexer = pair.second;
+        return multiplexer && multiplexer->HasClientId(client_id);
+      });
+  if (it != multiplexers.end()) {
+    return it->second;
+  }
+  return nullptr;
+}
+
+fptn::nat::ConnectionMultiplexerSPtr GetMultiplexerByFakeIPv4(
+    const fptn::nat::NatMultiplexers& multiplexers,
+    const fptn::common::network::IPv4Address& ip) {
+  const auto it = std::ranges::find_if(multiplexers, [&ip](const auto& pair) {
+    const auto& multiplexer = pair.second;
+    return multiplexer && multiplexer->FakeClientIPv4() == ip;
+  });
+  if (it != multiplexers.end()) {
+    return it->second;
+  }
+  return nullptr;
+}
+
+fptn::nat::ConnectionMultiplexerSPtr GetMultiplexerByFakeIPv6(
+    const fptn::nat::NatMultiplexers& multiplexers,
+    const fptn::common::network::IPv6Address& ip) {
+  const auto it = std::ranges::find_if(multiplexers, [&ip](const auto& pair) {
+    const auto& multiplexer = pair.second;
+    return multiplexer && multiplexer->FakeClientIPv6() == ip;
+  });
+  if (it != multiplexers.end()) {
+    return it->second;
+  }
+  return nullptr;
+}
+
+std::size_t GetNumberActiveSessionByUsername(
+    const fptn::nat::NatMultiplexers& multiplexers,
+    const std::string& username) {
+  std::size_t number = 0;
+  for (const auto& [session_id, multiplexer] : multiplexers) {
+    if (multiplexer->Username() == username) {
+      ++number;
+    }
+  }
+  return number;
+}
+
+}  // namespace
+
+namespace fptn::nat {
 
 Table::Table(fptn::common::network::IPv4Address tun_ipv4,
     fptn::common::network::IPv4Address tun_ipv4_network_address,
@@ -30,149 +95,124 @@ Table::Table(fptn::common::network::IPv4Address tun_ipv4,
       ipv4_generator_(tun_ipv4_network_address_, tun_network_ipv4_mask_),
       ipv6_generator_(tun_ipv6_network_address_, tun_network_ipv6_mask_) {}
 
-fptn::client::SessionSPtr Table::CreateClientSession(ClientID client_id,
-    const std::string& user_name,
-    const fptn::common::network::IPv4Address& client_ipv4,
-    const fptn::common::network::IPv6Address& client_ipv6,
-    const fptn::traffic_shaper::LeakyBucketSPtr& to_client,
-    const fptn::traffic_shaper::LeakyBucketSPtr& from_client) {
+ConnectionMultiplexerSPtr Table::AddConnection(
+    const fptn::nat::ConnectParams& params) {
   const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
-  if (!client_id_to_sessions_.contains(client_id)) {
-    if (client_number_ >= ipv4_generator_.NumAvailableAddresses()) {
-      /* ||  client_number_ >= client_ipv6.NumAvailableAddresses() */
-      SPDLOG_INFO("Client limit was exceeded");
-      return nullptr;
-    }
-    client_number_ += 1;
-    try {
-      const auto fake_ipv4 = GetUniqueIPv4Address();
-      const auto fake_ipv6 = GetUniqueIPv6Address();
-      auto session = std::make_shared<fptn::client::Session>(client_id,
-          user_name, client_ipv4, fake_ipv4, client_ipv6, fake_ipv6, to_client,
-          from_client);
-      client_id_to_sessions_.insert({client_id, session});
-      ipv4_to_sessions_.insert(
-          {fake_ipv4.ToInt(), session});  // ipv4 -> session
-      ipv6_to_sessions_.insert(
-          {fake_ipv6.ToString(), session});  // ipv6 -> session
-      return session;
-    } catch (const std::runtime_error& err) {
-      SPDLOG_INFO("Client error: {}", err.what());
-    } catch (const std::exception& e) {
-      SPDLOG_ERROR(
-          "Standard exception while creating client session: {}", e.what());
-    } catch (...) {
-      SPDLOG_ERROR("An unknown error occurred while creating client session.");
-    }
+  if (client_number_ >= ipv4_generator_.NumAvailableAddresses()) {
+    SPDLOG_INFO("Client limit was exceeded");
+    return nullptr;
   }
-  return nullptr;
+
+  if (auto mplx =
+          GetMultiplexerBySessionId(multiplexers_, params.request.session_id)) {
+    if (mplx->AddClientConnection(params)) {
+      multiplexers_.insert({params.request.session_id, mplx});
+      return mplx;
+    }
+    return nullptr;
+  }
+
+  const auto fake_ipv4_opt = GetUniqueIPv4Address();
+  const auto fake_ipv6_opt = GetUniqueIPv6Address();
+  if (!fake_ipv4_opt.has_value() || !fake_ipv6_opt.has_value()) {
+    return nullptr;
+  }
+
+  const auto& fake_ipv4 = fake_ipv4_opt.value();
+  const auto& fake_ipv6 = fake_ipv6_opt.value();
+
+  auto mplx = ConnectionMultiplexer::Create(params, fake_ipv4, fake_ipv6);
+
+  // DO NOT REMOVE
+  // session_id_to_connections_.insert({params.request.session_id, mplx});
+  // ipv4_to_mplxs_.insert({fake_ipv4.ToInt(), mplx});     // ipv4 -> session
+  // ipv6_to_mplxs_.insert({fake_ipv6.ToString(), mplx});  // ipv6 -> session
+
+  multiplexers_.insert({params.request.session_id, mplx});
+
+  client_number_ += 1;
+
+  return mplx;
 }
 
-bool Table::DelClientSession(ClientID client_id) {
-  fptn::client::SessionSPtr ipv4_session;
-  fptn::client::SessionSPtr ipv6_session;
-  {
-    const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+bool Table::DelConnectionByClientId(ClientID client_id) noexcept {
+  const std::unique_lock<std::mutex> lock(mutex_);
 
-    auto it = client_id_to_sessions_.find(client_id);
-    if (it != client_id_to_sessions_.end()) {
-      const IPv4INT ipv4_int = it->second->FakeClientIPv4().ToInt();
-      const std::string ipv6_str = it->second->FakeClientIPv6().ToString();
-      client_id_to_sessions_.erase(it);
-
-      // delete ipv4 -> session
-      {
-        auto it_ipv4 = ipv4_to_sessions_.find(ipv4_int);
-        if (it_ipv4 != ipv4_to_sessions_.end()) {
-          ipv4_session = std::move(it_ipv4->second);
-          ipv4_to_sessions_.erase(it_ipv4);
-        }
-      }
-      // delete ipv6 -> session
-      {
-        auto it_ipv6 = ipv6_to_sessions_.find(ipv6_str);
-        if (it_ipv6 != ipv6_to_sessions_.end()) {
-          ipv6_session = std::move(it_ipv6->second);
-          ipv6_to_sessions_.erase(it_ipv6);
-        }
-      }
-    }
+  auto multiplexer = GetMultiplexerByClientId(multiplexers_, client_id);
+  if (multiplexer == nullptr) {
+    return false;
   }
-  return ipv4_session != nullptr && ipv6_session != nullptr;
+
+  multiplexer->DelConnectionByClientId(client_id);
+
+  if (multiplexer->Size() == 0) {
+    return multiplexers_.erase(multiplexer->SessionId()) > 0;
+  }
+  return true;
 }
 
-fptn::client::SessionSPtr Table::GetSessionByFakeIPv4(
+fptn::nat::ConnectionMultiplexerSPtr Table::GetConnectionMultiplexerByFakeIPv4(
     const fptn::common::network::IPv4Address& ip) noexcept {
   const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
-  const auto it = ipv4_to_sessions_.find(ip.ToInt());
-  if (it != ipv4_to_sessions_.end()) {
-    return it->second;
-  }
-  return nullptr;
+  return ::GetMultiplexerByFakeIPv4(multiplexers_, ip);
 }
 
-fptn::client::SessionSPtr Table::GetSessionByFakeIPv6(
+fptn::nat::ConnectionMultiplexerSPtr Table::GetConnectionMultiplexerByFakeIPv6(
     const fptn::common::network::IPv6Address& ip) noexcept {
   const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
-  auto it = ipv6_to_sessions_.find(ip.ToString());
-  if (it != ipv6_to_sessions_.end()) {
-    return it->second;
-  }
-  return nullptr;
+  return ::GetMultiplexerByFakeIPv6(multiplexers_, ip);
 }
 
-fptn::client::SessionSPtr Table::GetSessionByClientId(
+fptn::nat::ConnectionMultiplexerSPtr Table::GetConnectionMultiplexerByClientId(
     ClientID clientId) noexcept {
   const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
-  auto it = client_id_to_sessions_.find(clientId);
-  if (it != client_id_to_sessions_.end()) {
-    return it->second;
-  }
-  return nullptr;
+  return ::GetMultiplexerByClientId(multiplexers_, clientId);
 }
 
 std::size_t Table::GetNumberActiveSessionByUsername(
-    const std::string& username) {
+    const std::string& username) noexcept {
   const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
-  return std::count_if(ipv4_to_sessions_.begin(), ipv4_to_sessions_.end(),
-      [&username](
-          const auto& pair) { return pair.second->UserName() == username; });
+  return ::GetNumberActiveSessionByUsername(multiplexers_, username);
 }
 
-fptn::common::network::IPv4Address Table::GetUniqueIPv4Address() {
+std::optional<IPv4Address> Table::GetUniqueIPv4Address() noexcept {
   for (std::uint32_t i = 0; i < ipv4_generator_.NumAvailableAddresses(); i++) {
-    const auto ip = ipv4_generator_.GetNextAddress();
-    if (ip != tun_ipv4_ && !ipv4_to_sessions_.contains(ip.ToInt())) {
+    auto ip = ipv4_generator_.GetNextAddress();
+    if (ip != tun_ipv4_ && GetMultiplexerByFakeIPv4(multiplexers_, ip)) {
       return ip;
     }
   }
-  throw std::runtime_error("No available address");
+  return std::nullopt;
 }
 
-fptn::common::network::IPv6Address Table::GetUniqueIPv6Address() {
+std::optional<IPv6Address> Table::GetUniqueIPv6Address() noexcept {
   for (int i = 0; i < ipv6_generator_.NumAvailableAddresses(); i++) {
-    const auto ip = ipv6_generator_.GetNextAddress();
-    if (ip != tun_ipv6_ && !ipv6_to_sessions_.contains(ip.ToString())) {
+    auto ip = ipv6_generator_.GetNextAddress();
+    if (ip != tun_ipv6_ && !GetMultiplexerByFakeIPv6(multiplexers_, ip)) {
       return ip;
     }
   }
-  throw std::runtime_error("No available address");
+  return std::nullopt;
 }
 
-void Table::UpdateStatistic(const fptn::statistic::MetricsSPtr& prometheus) {
+void Table::UpdateStatistic(
+    const fptn::statistic::MetricsSPtr& prometheus) noexcept {
   const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
-  prometheus->UpdateActiveSessions(client_id_to_sessions_.size());
-  for (const auto& client : client_id_to_sessions_) {
-    auto client_id = client.first;
-    const auto& session = client.second;
-    prometheus->UpdateStatistics(client_id, session->UserName(),
-        session->TrafficShaperToClient()->FullDataAmount(),
-        session->TrafficShaperFromClient()->FullDataAmount());
-  }
+  (void)prometheus;
+  //
+  // prometheus->UpdateActiveSessions(client_id_to_mplxs_.size());
+  // for (const auto& client : client_id_to_mplxs_) {
+  //   auto client_id = client.first;
+  //   const auto& session = client.second;
+  //   prometheus->UpdateStatistics(client_id, session->UserName(),
+  //       session->TrafficShaperToClient()->FullDataAmount(),
+  //       session->TrafficShaperFromClient()->FullDataAmount());
+  // }
 }
+}  // namespace fptn::nat

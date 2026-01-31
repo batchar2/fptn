@@ -32,7 +32,7 @@ std::uint64_t GetDownloadTimeMs(const ServerInfo& server,
     const std::string& sni,
     int timeout,
     const std::string& md5_fingerprint,
-    fptn::protocol::https::CensorshipStrategy censorship_strategy) {
+    fptn::protocol::https::HttpsInitConnectionStrategy censorship_strategy) {
   try {
     auto const start = std::chrono::high_resolution_clock::now();
     ApiClient cli(
@@ -55,7 +55,7 @@ std::uint64_t GetDownloadTimeMs(const ServerInfo& server,
 
 ServerInfo FindFastestServer(const std::string& sni,
     const std::vector<ServerInfo>& servers,
-    fptn::protocol::https::CensorshipStrategy censorship_strategy,
+    fptn::protocol::https::HttpsInitConnectionStrategy censorship_strategy,
     int timeout_sec) {
   // randomly select half of the servers
   std::vector<ServerInfo> shuffled_servers = servers;

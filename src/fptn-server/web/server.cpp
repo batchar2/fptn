@@ -67,21 +67,24 @@ Server::Server(std::uint16_t port,
       // ioc
       ioc_, token_manager, handshake_cache_manager_, server_external_ips_,
       // NOLINTNEXTLINE(modernize-avoid-bind)
-      std::bind(
-          &Server::HandleWsOpenConnection, this, _1, _2, _3, _4, _5, _6, _7),
+      std::bind(&Server::HandleWsOpenConnection, this, _1, _2),
       // NOLINTNEXTLINE(modernize-avoid-bind)
       std::bind(&Server::HandleWsNewIPPacket, this, _1),
       // NOLINTNEXTLINE(modernize-avoid-bind)
       std::bind(&Server::HandleWsCloseConnection, this, _1));
+
   listener_->AddApiHandle(
       // NOLINTNEXTLINE(modernize-avoid-bind)
       kUrlDns_, "GET", std::bind(&Server::HandleApiDns, this, _1, _2));
+
   listener_->AddApiHandle(
       // NOLINTNEXTLINE(modernize-avoid-bind)
       kUrlLogin_, "POST", std::bind(&Server::HandleApiLogin, this, _1, _2));
+
   listener_->AddApiHandle(kUrlTestFileBin_, "GET",
       // NOLINTNEXTLINE(modernize-avoid-bind)
       std::bind(&Server::HandleApiTestFile, this, _1, _2));
+
   if (!prometheus_access_key.empty()) {
     // Construct the URL for accessing Prometheus statistics by appending the
     // access key
@@ -126,13 +129,13 @@ boost::asio::awaitable<void> Server::RunSender() {
   while (running_) {
     auto optpacket = co_await to_client_->WaitForPacketAsync(kTimeout);
     if (optpacket && running_) {
-      SessionSPtr session;
+      ClientEndpointSPtr session;
 
       {
         const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
-        auto it = sessions_.find(optpacket->get()->ClientId());
-        if (it != sessions_.end()) {
+        auto it = client_endpoints_.find(optpacket->get()->ClientId());
+        if (it != client_endpoints_.end()) {
           session = it->second;
         }
       }
@@ -154,12 +157,12 @@ bool Server::Stop() {
 
     listener_->Stop();
 
-    for (auto& session : sessions_) {
+    for (auto& session : client_endpoints_) {
       if (session.second) {
         session.second->Close();
       }
     }
-    sessions_.clear();
+    client_endpoints_.clear();
     if (!ioc_.stopped()) {
       ioc_.stop();
     }
@@ -249,67 +252,66 @@ int Server::HandleApiTestFile(const http::request& req, http::response& resp) {
   return 200;
 }
 
-bool Server::HandleWsOpenConnection(fptn::ClientID client_id,
-    const fptn::common::network::IPv4Address& client_ip,
-    const fptn::common::network::IPv4Address& client_vpn_ipv4,
-    const fptn::common::network::IPv6Address& client_vpn_ipv6,
-    const SessionSPtr& session,
-    const std::string& url,
-    const std::string& access_token) {
+bool Server::HandleWsOpenConnection(
+    const fptn::nat::ConnectParams& params, const ClientEndpointSPtr& session) {
   if (!running_) {
     SPDLOG_ERROR("Server is not running");
     return false;
   }
-  if (url != kUrlWebSocket_) {
-    SPDLOG_ERROR("Wrong URL \"{}\"", url);
+  if (params.request.url != kUrlWebSocket_) {
+    SPDLOG_ERROR("Wrong URL \"{}\"", params.request.url);
     return false;
   }
-  if (!client_vpn_ipv4.IsEmpty() && !client_vpn_ipv6.IsEmpty()) {
-    std::string username;
-    std::size_t bandwidth_bites_seconds = 0;
-    if (token_manager_->Validate(
-            access_token, username, bandwidth_bites_seconds)) {
-      const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
-      const auto active_sessions =
-          nat_table_->GetNumberActiveSessionByUsername(username);
+  if (client_endpoints_.contains(params.client_id)) {
+    SPDLOG_WARN("Client with same ID already exists!");
+    return false;
+  }
 
-      if (active_sessions > max_active_sessions_per_user_) {
-        SPDLOG_WARN(
-            "Session limit exceeded for user '{}': {} active (limit: {})",
-            username, active_sessions, max_active_sessions_per_user_);
-        return false;
-      }
+  if (!params.Validate()) {
+    SPDLOG_WARN("Wrong request: {}", params.client_id);
+  }
 
-      if (sessions_.contains(client_id)) {
-        SPDLOG_WARN("Client with same ID already exists!");
-      } else {
-        const auto shaper_to_client =
-            std::make_shared<fptn::traffic_shaper::LeakyBucket>(
-                bandwidth_bites_seconds);
-        const auto shaper_from_client =
-            std::make_shared<fptn::traffic_shaper::LeakyBucket>(
-                bandwidth_bites_seconds);
-        const auto nat_session = nat_table_->CreateClientSession(client_id,
-            username, client_vpn_ipv4, client_vpn_ipv6, shaper_to_client,
-            shaper_from_client);
-        SPDLOG_INFO(
-            "NEW SESSION! Username={} client_id={} Bandwidth={} ClientIP={} "
-            "VirtualIPv4={} VirtualIPv6={}",
-            username, client_id, bandwidth_bites_seconds, client_ip.ToString(),
-            nat_session->FakeClientIPv4().ToString(),
-            nat_session->FakeClientIPv6().ToString());
-        if (running_) {
-          sessions_.insert({client_id, session});
-          return true;
-        }
-        return false;
-      }
-    } else {
-      SPDLOG_WARN("WRONG TOKEN: {}", username);
-    }
-  } else {
-    SPDLOG_WARN("Wrong ClientIP or ClientIPv6");
+  std::string username;
+  std::size_t bandwidth_bites_seconds = 0;
+  // get username and bandwidth from a jwt-token
+  if (!token_manager_->Validate(
+          params.request.jwt_auth_token, username, bandwidth_bites_seconds)) {
+    SPDLOG_WARN("WRONG TOKEN: {}", username);
+    return false;
+  }
+
+  fptn::nat::ConnectParams mod_params = params;
+  mod_params.user.username = username;
+  mod_params.user.bandwidth_bites_seconds += bandwidth_bites_seconds;
+
+  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+  const auto active_sessions =
+      nat_table_->GetNumberActiveSessionByUsername(username);
+
+  if (active_sessions > max_active_sessions_per_user_) {
+    SPDLOG_WARN("Session limit exceeded for user '{}': {} active (limit: {})",
+        username, active_sessions, max_active_sessions_per_user_);
+    return false;
+  }
+
+  const auto connection_multiplexer = nat_table_->AddConnection(mod_params);
+  if (!connection_multiplexer) {
+    return false;
+  }
+
+  SPDLOG_INFO(
+      "New session: username={} client_id={} Bandwidth={} ClientIP={} "
+      "VirtualIPv4={} VirtualIPv6={}",
+      mod_params.user.username, mod_params.client_id,
+      mod_params.user.bandwidth_bites_seconds,
+      mod_params.request.client_ipv4.ToString(),
+      connection_multiplexer->FakeClientIPv4().ToString(),
+      connection_multiplexer->FakeClientIPv6().ToString());
+  if (running_) {
+    client_endpoints_.insert({mod_params.client_id, session});
+    return true;
   }
   return false;
 }
@@ -320,14 +322,14 @@ void Server::HandleWsNewIPPacket(
 }
 
 void Server::HandleWsCloseConnection(fptn::ClientID client_id) noexcept {
-  SessionSPtr session;
+  ClientEndpointSPtr session;
   if (running_) {
     const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
-    auto it = sessions_.find(client_id);
-    if (it != sessions_.end()) {
+    auto it = client_endpoints_.find(client_id);
+    if (it != client_endpoints_.end()) {
       session = std::move(it->second);
-      sessions_.erase(it);
+      client_endpoints_.erase(it);
     }
   }
   if (session != nullptr) {
@@ -337,5 +339,5 @@ void Server::HandleWsCloseConnection(fptn::ClientID client_id) noexcept {
     SPDLOG_WARN(
         "Attempted to close non-existent session (client_id={})", client_id);
   }
-  nat_table_->DelClientSession(client_id);
+  nat_table_->DelConnectionByClientId(client_id);
 }
