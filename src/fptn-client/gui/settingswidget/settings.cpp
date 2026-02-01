@@ -605,7 +605,11 @@ void SettingsWidget::SetupUi() {
       "  - FC<br>"
       "  - Temikin<br>"
       "  - Azeasy<br>"
-      "  - NekoDark<br>";
+      "  - NekoDark<br>"
+      "  - Alin Zoberg<br>"
+      "  - zsergey<br>"
+      "  - OlegPaRe<br>"
+      "  - Norelax<br>";
 
   sponsors_names_label_ = new QLabel(sponsors_list, this);
   sponsors_names_label_->setAlignment(Qt::AlignLeft);
