@@ -210,15 +210,19 @@ async def get_access_token(update: Update, context: CallbackContext) -> None:
     MESSAGES = {
         "en": {
             "status_registered": "🎉✨ You have successfully registered! 🎉",
-            "status_reset": "🔑 Your  token has been reset! 🔑",
-            "info": "🌐 _ You can download the client from the official project website _ [https://batchar2.github.io/fptn/](https://batchar2.github.io/fptn/)",
+            "status_reset": "🔑 Your token has been reset! 🔑",
+            "info": "🌐 You can download the client from https://storage.googleapis.com/fptn.org/index.html",
             "click_to_copy": "📋💾 Tap the **token below** to copy it and paste it into the app! ⬇️",
+            "support_info": "You can support our small hobby project on [Boosty](https://boosty.to/fptn) by donating to help cover server costs. ❤️❤️❤️",
+            "support_benefits": "_Sponsors enjoy unlimited speed, access to more servers, and can optionally have their names featured in our VPN clients' credits. More details in our Telegram chat _ https://t.me/fptn\_project ",
         },
         "ru": {
             "status_registered": "🎉✨ Вы успешно зарегистрированы! 🎉",
             "status_reset": "🔑 Ваш токен был сброшен!🔑",
-            "info": "🌐 _ Клиент можно скачать с официального сайта проекта _ [https://batchar2.github.io/fptn/](https://batchar2.github.io/fptn/) ",
+            "info": "🌐 Клиент можно скачать с https://storage.googleapis.com/fptn.org/index.html",
             "click_to_copy": "📋💾 Нажмите на **токен ниже**, чтобы скопировать и вставите его в приложение! ⬇️",
+            "support_info": "Вы можете поддержать наш небольшой хобби-проект на [Boosty](https://boosty.to/fptn), сделав донат для оплаты серверов. ❤️❤️❤️",
+            "support_benefits": "_Спонсорам мы убираем лимиты скорости, предоставляем доступ к большему числу серверов и, по желанию, отображаем их ники в списке благодарностей прямо в наших VPN-клиентах. Подробнее — в нашем Telegram-чате _ https://t.me/fptn\_project ",
         },
     }
     user_id = update.message.from_user.id
@@ -237,8 +241,10 @@ async def get_access_token(update: Update, context: CallbackContext) -> None:
     fptn_link = generate_access_link(token)
     click_to_copy = messages["click_to_copy"]
     info = messages["info"]
+    support_info = messages["support_info"]
+    support_benefits = messages["support_benefits"]
     await update.message.reply_text(
-        f"{status_message}\n\n" f"{info}\n\n\n" f"{click_to_copy}\n\n" f"`{fptn_link}`",
+        f"{status_message}\n\n" f"{info}\n\n" f"{click_to_copy}\n\n" f"`{fptn_link}` \n\n{support_info} \n{support_benefits}",
         parse_mode=ParseMode.MARKDOWN,
         disable_web_page_preview=True,
     )
