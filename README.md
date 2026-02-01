@@ -20,8 +20,10 @@
 ### Core Features of FPTN
 
 FPTN is a VPN technology engineered from the ground up to provide secure, robust, and censorship-resistant connections capable of bypassing network filtering and deep packet inspection (DPI).
-Key Technical Features:
 
+Project website: [https://storage.googleapis.com/fptn.org/index.html](https://storage.googleapis.com/fptn.org/index.html)
+
+Key Technical Features:
 
 1. **L3 Tunnel (Network Layer)**
   - **IP Packet Tunneling:** Encapsulates and transmits raw IP packets (IPv4/IPv6) over a secure tunnel to the VPN server.

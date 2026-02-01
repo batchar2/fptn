@@ -224,7 +224,7 @@
             <source>FPTN_WEBSITE_DESCRIPTION</source>
             <translation>
             <![CDATA[
-                Наш сайт <a href="https://fptn.org">fptn.org</a>
+                Наш сайт <a href="https://storage.googleapis.com/fptn.org/index.html">fptn.org</a>
             ]]>
             </translation>
         </message>
