@@ -229,11 +229,13 @@
             </translation>
         </message>
 
-        <message>
+         <message>
             <source>FPTN_TELEGRAM_DESCRIPTION</source>
             <translation>
-            <![CDATA[
-                Наша группа в Telegram <a href="https://t.me/fptn_project">@fptn_project</a>
+            <![CDATA[Присоединяйтесь к нашим Telegram-сообществам:
+                <br/> - <a href="https://t.me/fptn_project">Русскоязычное сообщество</a>
+                <br/> - <a href="https://t.me/fpnt_project_global">Англоязычное сообщество</a>
+                <br/> - <a href="https://t.me/fptn_project_iran">Персидское сообщество</a>
             ]]>
             </translation>
         </message>
