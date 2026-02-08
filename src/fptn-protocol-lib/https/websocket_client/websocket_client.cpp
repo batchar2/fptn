@@ -389,7 +389,7 @@ boost::asio::awaitable<bool> WebsocketClient::Connect() {
     // WebSocket options
     boost::beast::websocket::stream_base::timeout timeout_option;
     timeout_option.handshake_timeout = std::chrono::seconds(10);
-    timeout_option.idle_timeout = std::chrono::seconds(30);
+    timeout_option.idle_timeout = std::chrono::seconds(10);
     timeout_option.keep_alive_pings = true;
     ws_.set_option(timeout_option);
 
