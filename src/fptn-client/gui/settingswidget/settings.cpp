@@ -562,7 +562,10 @@ void SettingsWidget::SetupUi() {
   about_layout->addWidget(website_link_label_);
   telegram_group_label_ =
       new QLabel(QObject::tr("FPTN_TELEGRAM_DESCRIPTION"), this);
+  telegram_group_label_->setTextFormat(Qt::RichText);
+  telegram_group_label_->setTextInteractionFlags(Qt::TextBrowserInteraction);
   telegram_group_label_->setOpenExternalLinks(true);
+
   about_layout->addWidget(telegram_group_label_);
 
   boosty_link_label_ =
