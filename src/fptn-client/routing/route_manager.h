@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -94,6 +94,10 @@ class RouteManager final {
  private:
   std::string detected_out_interface_name_;
   fptn::common::network::IPv4Address detected_gateway_ipv4_;
+
+#ifdef __linux__
+  std::vector<std::string> original_dns_servers_;
+#endif
 };
 
 using RouteManagerSPtr = std::shared_ptr<RouteManager>;

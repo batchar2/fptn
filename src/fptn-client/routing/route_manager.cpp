@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -109,7 +109,29 @@ std::pair<std::string, int> ParseIPv6CIDR(const std::string& network) {
   }
   return {ip, prefix};
 }
+#elif __linux__
 
+std::vector<std::string> GetLinuxDnsServers(const std::string& interface) {
+  std::vector<std::string> dns_servers;
+
+  const std::string command = fmt::format(
+      "resolvectl status {} | grep 'DNS Servers:' | awk -F': ' '{{print $2}}'",
+      interface);
+
+  std::vector<std::string> output;
+  fptn::common::system::command::run(command, output);
+
+  if (!output.empty() && !output[0].empty()) {
+    std::istringstream iss(output[0]);
+    std::string server;
+    while (iss >> server) {
+      if (!server.empty()) {
+        dns_servers.push_back(server);
+      }
+    }
+  }
+  return dns_servers;
+}
 #endif
 
 bool AddIPv4RouteToSystem(const std::string& destination,
@@ -119,8 +141,9 @@ bool AddIPv4RouteToSystem(const std::string& destination,
   (void)out_interface;
   try {
 #ifdef __linux__
-    const std::string command = fmt::format("ip route add {} via {} dev {}",
-        destination, gateway_ip, out_interface);
+    const std::string command =
+        fmt::format("ip route add {} via \"{}\" dev \"{}\" ", destination,
+            gateway_ip, out_interface);
 #elif __APPLE__
     const std::string command =
         fmt::format("route add -net {} {}", destination, gateway_ip);
@@ -157,8 +180,9 @@ bool AddIPv6RouteToSystem(const std::string& destination,
   (void)out_interface;
   try {
 #ifdef __linux__
-    const std::string command = fmt::format("ip -6 route add {} via {} dev {}",
-        destination, gateway_ip, out_interface);
+    const std::string command =
+        fmt::format("ip -6 route add {} via \"{}\" dev \"{}\" ", destination,
+            gateway_ip, out_interface);
 #elif __APPLE__
     const std::string command =
         fmt::format("route add -inet6 {} {}", destination, gateway_ip);
@@ -313,6 +337,11 @@ bool RouteManager::Apply() {
   SPDLOG_INFO(
       "IPTABLES DNS SERVER:            {}", dns_server_ipv4_.ToString());
 #ifdef __linux__
+  original_dns_servers_ = GetLinuxDnsServers(detected_out_interface_name_);
+  for (const auto& dns : original_dns_servers_) {
+    SPDLOG_INFO("Saved dns: {}", dns);
+  }
+
   std::vector<std::string> commands = {fmt::format("systemctl start sysctl"),
       fmt::format("sysctl -w net.ipv4.ip_forward=1"),
       fmt::format("sysctl -w net.ipv6.conf.default.disable_ipv6=0"),
@@ -341,13 +370,48 @@ bool RouteManager::Apply() {
       // exclude vpn server
       fmt::format("ip route add {} via {} dev {}", vpn_server_ip_.ToString(),
           detected_gateway_ipv4_.ToString(), detected_out_interface_name_),
-      // DNS
-      fmt::format("resolvectl dns {} ''", detected_out_interface_name_),
+      // Allow DNS responses from TUN (sport 53, not dport 53)
+      fmt::format("iptables -A OUTPUT -o {} -p udp --sport 53 -j ACCEPT",
+          tun_interface_name_),
+      fmt::format("iptables -A OUTPUT -o {} -p tcp --sport 53 -j ACCEPT",
+          tun_interface_name_),
+      fmt::format("ip6tables -A OUTPUT -o {} -p udp --sport 53 -j ACCEPT",
+          tun_interface_name_),
+      fmt::format("ip6tables -A OUTPUT -o {} -p tcp --sport 53 -j ACCEPT",
+          tun_interface_name_),
+      // Block DNS requests on physical interface
+      fmt::format("iptables -A OUTPUT -o {} -p udp --dport 53 -j DROP",
+          detected_out_interface_name_),
+      fmt::format("iptables -A OUTPUT -o {} -p tcp --dport 53 -j DROP",
+          detected_out_interface_name_),
+      // Block DNS IPv6
+      fmt::format("ip6tables -A OUTPUT -o {} -p udp --dport 53 -j DROP",
+          detected_out_interface_name_),
+      fmt::format("ip6tables -A OUTPUT -o {} -p tcp --dport 53 -j DROP",
+          detected_out_interface_name_),
+      // Block DoT IPv4
+      fmt::format("iptables -A OUTPUT -o {} -p udp --dport 853 -j DROP",
+          detected_out_interface_name_),
+      fmt::format("iptables -A OUTPUT -o {} -p tcp --dport 853 -j DROP",
+          detected_out_interface_name_),
+      // Block DoT IPv6
+      fmt::format("ip6tables -A OUTPUT -o {} -p udp --dport 853 -j DROP",
+          detected_out_interface_name_),
+      fmt::format("ip6tables -A OUTPUT -o {} -p tcp --dport 853 -j DROP",
+          detected_out_interface_name_),
+      // Also allow DNS to specific DNS server IP
+      fmt::format("iptables -A OUTPUT -d {} -p udp --dport 53 -j ACCEPT",
+          dns_server_ipv4_.ToString()),
+      fmt::format("iptables -A OUTPUT -d {} -p tcp --dport 53 -j ACCEPT",
+          dns_server_ipv4_.ToString()),
+      // DNS via resolvectl
+      fmt::format("resolvectl dns {} {}", detected_out_interface_name_,
+          dns_server_ipv4_.ToString()),
       fmt::format(
-          "resolvectl default-route {} true", detected_out_interface_name_),
-      fmt::format("resolvectl dns {} ''", tun_interface_name_),
-      fmt::format("resolvectl domain {} ''", tun_interface_name_),
-      fmt::format("resolvectl default-route {} false", tun_interface_name_),
+          "resolvectl default-route {} false", detected_out_interface_name_),
+      fmt::format("resolvectl dns {} {}", tun_interface_name_,
+          dns_server_ipv4_.ToString()),
+      fmt::format("resolvectl default-route {} true", tun_interface_name_),
       fmt::format("resolvectl flush-caches")};
 
 #elif __APPLE__
@@ -382,30 +446,82 @@ bool RouteManager::Apply() {
       fmt::format(
           R"(bash -c "networksetup -listallnetworkservices | grep -v '^\* ' | xargs -I {{}} networksetup -setdnsservers '{{}}' {}")",
           dns_server_ipv4_.ToString())};
+
 #elif _WIN32
   const std::string win_interface_number =
       GetWindowsInterfaceNumber(tun_interface_name_);
-  const std::string interfaceInfo =
+  const std::string interface_info =
       win_interface_number.empty() ? "" : " if " + win_interface_number;
+  const std::string backup_dns_cmd = R"PSHELL(powershell -Command "
+    if (-not (Test-Path \"$env:TEMP\\fptn_orig_dns.txt\")) {
+      $interface = ')PSHELL" + detected_out_interface_name_ +
+                                     R"PSHELL(';
+      if (-not $interface) { $interface = ''; }
+      if ($interface) {
+        # IPv4
+        $netshIPv4 = netsh interface ipv4 show dnsservers \"$interface\" 2>`$null;
+        if ($netshIPv4 -match 'DHCP') {
+          $output = @{IPv4='DHCP'};
+        } else {
+          $dns4 = Get-DnsClientServerAddress -InterfaceAlias $interface -AddressFamily IPv4 2>`$null | Select-Object -ExpandProperty ServerAddresses;
+          if ($dns4) {
+            $output = @{IPv4=($dns4 -join ',')};
+          }
+        }
+        # IPv6
+        $netshIPv6 = netsh interface ipv6 show dnsservers \"$interface\" 2>`$null;
+        if ($netshIPv6 -match 'DHCP') {
+          $output.IPv6 = 'DHCP';
+        } else {
+          $dns6 = Get-DnsClientServerAddress -InterfaceAlias $interface -AddressFamily IPv6 2>`$null | Select-Object -ExpandProperty ServerAddresses;
+          if ($dns6) {
+            $output.IPv6 = $dns6 -join ',';
+          }
+        }
+        if ($output) {
+          $output | ConvertTo-Json | Out-File \"$env:TEMP\\fptn_orig_dns.txt\" -Encoding UTF8;
+        }
+      }
+    }")PSHELL";
+
+  const std::string configure_dns_cmd = R"PSHELL(powershell -Command "
+    $dns4 = ')PSHELL" + dns_server_ipv4_.ToString() +
+                                        R"PSHELL(';
+    $dns6 = ')PSHELL" + dns_server_ipv6_.ToString() +
+                                        R"PSHELL(';
+    $interface = ')PSHELL" + detected_out_interface_name_ +
+                                        R"PSHELL(';
+    if (-not $interface) { $interface = ''; }
+    if ($interface) {
+      # IPv4
+      Set-DnsClientServerAddress -InterfaceAlias $interface -ServerAddresses $dns4 -ErrorAction SilentlyContinue;
+      netsh interface ipv4 set dnsservers name=\"$interface\" source=static address=$dns4 validate=no register=no 2>`$null;
+      # IPv6
+      Set-DnsClientServerAddress -InterfaceAlias $interface -ServerAddresses $dns6 -ErrorAction SilentlyContinue;
+      netsh interface ipv6 set dnsservers name=\"$interface\" source=static address=$dns6 validate=no register=no 2>`$null;
+  }")PSHELL";
+
   const std::vector<std::string> commands = {
-      fmt::format("netsh interface ip set dns name=\"{}\" dhcp",
-          tun_interface_name_),  // CLEAN DNS
       fmt::format("route add {} mask 255.255.255.255 {} METRIC 2",
           vpn_server_ip_.ToString(), detected_gateway_ipv4_.ToString()),
       // Default gateway & dns
       fmt::format("route add 0.0.0.0 mask 0.0.0.0 {} METRIC 1 {}",
-          tun_interface_address_ipv4_.ToString(), interfaceInfo),
+          tun_interface_address_ipv4_.ToString(), interface_info),
       fmt::format("route add {} mask 255.255.255.255 {} METRIC 2 {}",
           dns_server_ipv4_.ToString(), tun_interface_address_ipv4_.ToString(),
-          interfaceInfo),  // via TUN
+          interface_info),  // via TUN
       // DNS
+      backup_dns_cmd, configure_dns_cmd,
       fmt::format("netsh interface ip set dns name=\"{}\" static {}",
           tun_interface_name_, dns_server_ipv4_.ToString()),
       // IPv6
       fmt::format("netsh interface ipv6 add route ::/0 \"{}\" \"{}\" ",
           tun_interface_name_, tun_interface_address_ipv6_.ToString()),
       fmt::format("netsh interface ipv6 add dnsservers=\"{}\" \"{}\" index=1",
-          tun_interface_name_, dns_server_ipv6_.ToString())};
+          tun_interface_name_, dns_server_ipv6_.ToString()),
+      // Flush DNS cache
+      "ipconfig /flushdns"};
+
 #else
 #error "Unsupported system!"
 #endif
@@ -512,18 +628,67 @@ bool RouteManager::Clean() {  // NOLINT(bugprone-exception-escape)
       // del routes
       fmt::format("ip route del default dev {}", tun_interface_name_),
       fmt::format("ip route del {} via {} dev {}", vpn_server_ip_.ToString(),
-          detected_gateway_ipv4_.ToString(), detected_out_interface_name_)};
-  // DNS
-  commands.push_back(
-      fmt::format("resolvectl dns {} ''", detected_out_interface_name_));
-  commands.push_back(fmt::format(
-      "resolvectl default-route {} true", detected_out_interface_name_));
-  commands.push_back(fmt::format("resolvectl dns {} ''", tun_interface_name_));
-  commands.push_back(
-      fmt::format("resolvectl domain {} ''", tun_interface_name_));
-  commands.push_back(
-      fmt::format("resolvectl default-route {} false", tun_interface_name_));
-  commands.push_back(fmt::format("resolvectl flush-caches"));
+          detected_gateway_ipv4_.ToString(), detected_out_interface_name_),
+      // Delete DNS server route
+      fmt::format("ip route del {} dev {}", dns_server_ipv4_.ToString(),
+          tun_interface_name_),
+      // Delete DNS to specific DNS server IP rules
+      fmt::format("iptables -D OUTPUT -d {} -p udp --dport 53 -j ACCEPT",
+          dns_server_ipv4_.ToString()),
+      fmt::format("iptables -D OUTPUT -d {} -p tcp --dport 53 -j ACCEPT",
+          dns_server_ipv4_.ToString()),
+      // Delete DNS block rules IPv4
+      fmt::format("iptables -D OUTPUT -o {} -p udp --dport 53 -j DROP",
+          detected_out_interface_name_),
+      fmt::format("iptables -D OUTPUT -o {} -p tcp --dport 53 -j DROP",
+          detected_out_interface_name_),
+      fmt::format("iptables -D OUTPUT -o {} -p udp --dport 853 -j DROP",
+          detected_out_interface_name_),
+      fmt::format("iptables -D OUTPUT -o {} -p tcp --dport 853 -j DROP",
+          detected_out_interface_name_),
+      // Delete DNS block rules IPv6
+      fmt::format("ip6tables -D OUTPUT -o {} -p udp --dport 53 -j DROP",
+          detected_out_interface_name_),
+      fmt::format("ip6tables -D OUTPUT -o {} -p tcp --dport 53 -j DROP",
+          detected_out_interface_name_),
+      fmt::format("ip6tables -D OUTPUT -o {} -p udp --dport 853 -j DROP",
+          detected_out_interface_name_),
+      fmt::format("ip6tables -D OUTPUT -o {} -p tcp --dport 853 -j DROP",
+          detected_out_interface_name_),
+      // Delete TUN allow rules IPv4
+      fmt::format("iptables -D OUTPUT -o {} -p udp --sport 53 -j ACCEPT",
+          tun_interface_name_),
+      fmt::format("iptables -D OUTPUT -o {} -p tcp --sport 53 -j ACCEPT",
+          tun_interface_name_),
+      // Delete TUN allow rules IPv6
+      fmt::format("ip6tables -D OUTPUT -o {} -p udp --sport 53 -j ACCEPT",
+          tun_interface_name_),
+      fmt::format("ip6tables -D OUTPUT -o {} -p tcp --sport 53 -j ACCEPT",
+          tun_interface_name_)};
+
+  // Restore DNS
+  if (!original_dns_servers_.empty()) {
+    std::string all_dns;
+    for (const auto& dns : original_dns_servers_) {
+      if (!all_dns.empty()) {
+        all_dns += " ";
+      }
+      all_dns += dns;
+    }
+    commands.push_back(fmt::format(
+        "resolvectl dns {} {}", detected_out_interface_name_, all_dns));
+    commands.push_back(
+        fmt::format("resolvectl domain {} .", detected_out_interface_name_));
+    commands.push_back(fmt::format(
+        "resolvectl default-route {} true", detected_out_interface_name_));
+    SPDLOG_INFO("Restoring {} DNS servers for {}", original_dns_servers_.size(),
+        detected_out_interface_name_);
+  } else {
+    commands.push_back(
+        fmt::format("resolvectl revert {}", detected_out_interface_name_));
+    SPDLOG_INFO("Reverting DNS to DHCP for {}", detected_out_interface_name_);
+  }
+  commands.push_back("resolvectl flush-caches");
 
 #elif __APPLE__
   const std::vector<std::string> commands = {
@@ -545,24 +710,67 @@ bool RouteManager::Clean() {  // NOLINT(bugprone-exception-escape)
           R"(bash -c "networksetup -listallnetworkservices | grep -v '^An asterisk' | xargs -I {{}} networksetup -setdnsservers '{{}}' empty")")  // clean DNS
   };
 #elif _WIN32
-  const std::string win_interface_number =
-      GetWindowsInterfaceNumber(tun_interface_name_);
-  const std::string interface_info =
-      win_interface_number.empty() ? "" : " if " + win_interface_number;
-  const std::vector<std::string> commands = {
-      fmt::format("route delete {} mask 255.255.255.255 {}",
-          vpn_server_ip_.ToString(), detected_gateway_ipv4_.ToString()),
-      fmt::format("route delete 0.0.0.0 mask 0.0.0.0 {}",
-          tun_interface_address_ipv4_.ToString()),
-      // DNS
+  std::string current_interface_name = detected_out_interface_name_;
+  if (current_interface_name.empty()) {
+    current_interface_name = out_interface_name_;
+  }
+  if (current_interface_name.empty()) {
+    current_interface_name = GetDefaultNetworkInterfaceName();
+  }
+  const std::string restore_dns_cmd = R"PSHELL(powershell -Command "
+    $interface = ')PSHELL" + current_interface_name +
+                                      R"PSHELL(';
+    if ($interface) {
+        if (Test-Path \"$env:TEMP\\fptn_orig_dns.txt\") {
+            $config = Get-Content \"$env:TEMP\\fptn_orig_dns.txt\" -Raw | ConvertFrom-Json;
+            # IPv4
+            if ($config.IPv4 -eq 'DHCP') {
+                netsh interface ip set dns \"$interface\" dhcp
+            } elseif ($config.IPv4) {
+                $dns4Servers = $config.IPv4 -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' };
+                if ($dns4Servers.Count -gt 0) {
+                    netsh interface ip set dns \"$interface\" static $($dns4Servers[0])
+                    if ($dns4Servers.Count -gt 1) {
+                        netsh interface ip add dns \"$interface\" $($dns4Servers[1]) index=2
+                    }
+                }
+            }
+            # IPv6
+            if ($config.IPv6 -eq 'DHCP') {
+                netsh interface ipv6 set dnsservers \"$interface\" dhcp
+            } elseif ($config.IPv6) {
+                $dns6Servers = $config.IPv6 -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' };
+                if ($dns6Servers.Count -gt 0) {
+                    netsh interface ipv6 set dnsservers \"$interface\" static $($dns6Servers[0]) primary
+                    if ($dns6Servers.Count -gt 1) {
+                        netsh interface ipv6 add dnsservers \"$interface\" $($dns6Servers[1]) index=2
+                    }
+                }
+            }
+            Remove-Item \"$env:TEMP\\fptn_orig_dns.txt\" -Force
+        } else {
+            netsh interface ip set dns \"$interface\" dhcp
+            netsh interface ipv6 set dnsservers \"$interface\" dhcp
+        }
+    }")PSHELL";
+
+  const std::vector<std::string> commands = {restore_dns_cmd,
+      // Remove routes
       fmt::format(
-          "netsh interface ip set dns name=\"{}\" dhcp", tun_interface_name_),
-      fmt::format("route delete {} mask 255.255.255.255 {} METRIC 2 {}",
-          dns_server_ipv4_.ToString(), tun_interface_address_ipv4_.ToString(),
-          interface_info),  // via TUN
-      // IPv6
-      fmt::format("netsh interface ipv6 delete dnsservers \"{}\" {}",
-          tun_interface_name_, dns_server_ipv6_.ToString())};
+          "route delete {} mask 255.255.255.255", vpn_server_ip_.ToString()),
+      fmt::format("route delete 0.0.0.0 mask 0.0.0.0"),
+      fmt::format(
+          "route delete {} mask 255.255.255.255", dns_server_ipv4_.ToString()),
+      fmt::format(
+          "netsh interface ipv6 delete route ::/0 \"{}\"", tun_interface_name_),
+
+      // Final cleanup
+      "ipconfig /flushdns",
+
+      // restore routing
+      fmt::format("route add 0.0.0.0 mask 0.0.0.0 {} METRIC 1",
+          detected_gateway_ipv4_.ToString())};
+
 #else
 #error "Unsupported system!"
 #endif
@@ -597,6 +805,9 @@ bool RouteManager::AddDnsRoutesIPv4(
   } else {
     interface_name = tun_interface_name_;
     gateway_ip = tun_interface_address_ipv4_.ToString();
+  }
+  if (interface_name.empty()) {
+    interface_name = fptn::routing::GetDefaultNetworkInterfaceName();
   }
 
   if (interface_name.empty()) {
@@ -765,24 +976,21 @@ bool RouteManager::AddExcludeNetworks(
     }
   }
 
+  const std::string interface_name = !detected_out_interface_name_.empty()
+                                         ? detected_out_interface_name_
+                                         : out_interface_name_;
+
   bool all_success = true;
   for (const auto& [network, is_ipv6] : networks_to_add) {
     try {
       bool success = false;
 
       if (is_ipv6) {
-#ifdef _WIN32
-        std::string interface_name = !detected_out_interface_name_.empty()
-                                         ? detected_out_interface_name_
-                                         : out_interface_name_;
-#else
-        std::string interface_name = out_interface_name_;
-#endif
         success = AddIPv6RouteToSystem(
             network, gateway_ipv6_.ToString(), interface_name);
       } else {
         success = AddIPv4RouteToSystem(
-            network, gateway_ipv4_.ToString(), out_interface_name_);
+            network, gateway_ipv4_.ToString(), interface_name);
       }
 
       if (success) {
