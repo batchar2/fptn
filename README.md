@@ -16,6 +16,7 @@
 [![GitHub All Releases](https://img.shields.io/github/downloads/batchar2/fptn/total.svg?style=for-the-badge&logo=github&logoColor=white&label=Downloads&labelColor=181717)](https://github.com/batchar2/fptn/releases)
 </div>
 
+---
 
 ### Core Features of FPTN
 
@@ -60,6 +61,8 @@ Key Technical Features:
   - A **Token** is a specially generated configuration file containing all necessary settings for the system.
   - Enables connection to the VPN without manual configuration: the user simply imports the token into the client application to begin using the service.
 
+---
+
 ### Demonstration
 
 *🍏🍎MacOS users are recommended to review the [macOS installation guide](docs/macos/README.md), as macOS includes additional security measures that may require specific actions.*
@@ -95,7 +98,7 @@ In this case, all devices connected to this WiFi network will be able to access 
 
 <img style="max-height: 350px" class="img-center" src="docs/images/orangepi.jpg" alt="Settings"/>
 
-
+---
 
 ### Installation, Building, and Configuration
 
@@ -202,6 +205,7 @@ Open the project in CLion. After opening, the Open Project Wizard window will ap
 
 </details>
 
+---
 
 ### About the Project
 
@@ -212,3 +216,23 @@ If you wish to support the project, you can donate via [Boosty](https://boosty.t
 Our Telegram chat for users and developers: [FPTN Project](https://t.me/fptn_project)
 
 Join the community and the development team!
+
+---
+
+## Community Tools
+
+The following tools are built and maintained by the community to extend or simplify working with FPTN.
+
+### fptn-manager
+
+A small external management tool built around FPTN, focused on simplifying deployment and common day-to-day administrative tasks.
+
+It is especially useful for users who prefer not to work directly with Docker commands or internal configuration details.
+
+It provides:
+- A Docker-based installer
+- An interactive CLI for user, password, and token management
+- Easier initial setup and repeated operations
+
+Project repository:  
+https://github.com/FarazFe/fptn-manager
