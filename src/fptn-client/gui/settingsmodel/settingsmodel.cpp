@@ -81,8 +81,11 @@ SettingsModel::SettingsModel(const QMap<QString, QString>& languages,
       languages_(languages),
       default_language_(default_language),
       selected_language_(default_language),
+#if _WIN32
+      enable_advanced_dns_management_(false),
+#endif
       client_autostart_(false),
-      enable_split_tunnel_(true) {
+      enable_split_tunnel_(false) {
 #if _WIN32
   wchar_t exe_path[MAX_PATH] = {};
   if (GetModuleFileNameW(nullptr, exe_path, MAX_PATH) != 0) {
@@ -119,7 +122,7 @@ SettingsModel::SettingsModel(const QMap<QString, QString>& languages,
 
 QString SettingsModel::GetSettingsFilePath() const {
   const QString directory = GetSettingsFolderPath();
-  return directory + "/fptn-settings-3.json";
+  return directory + "/fptn-settings-4.json";
 }
 
 // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
@@ -186,6 +189,13 @@ void SettingsModel::Load(bool dont_load_server) {
   if (service_obj.contains("autostart")) {
     client_autostart_ = service_obj["autostart"].toBool();
   }
+
+#if _WIN32
+  if (service_obj.contains("enable_advanced_dns_management")) {
+    enable_advanced_dns_management_ =
+        service_obj["enable_advanced_dns_management"].toBool();
+  }
+#endif
 
   if (service_obj.contains("gateway_ip")) {
     gateway_ip_ = service_obj["gateway_ip"].toString();
@@ -353,6 +363,11 @@ bool SettingsModel::Save() {
   json_object["autostart"] = client_autostart_ ? 1 : 0;
   json_object["sni"] = sni_;
   json_object["bypass_method"] = bypass_method_;
+
+#if _WIN32
+  json_object["enable_advanced_dns_management"] =
+      enable_advanced_dns_management_;
+#endif
 
   json_object["blacklist_domains"] = blacklist_domains_;
   json_object["exclude_tunnel_networks"] = exclude_tunnel_networks_;
@@ -555,3 +570,12 @@ void SettingsModel::SetSplitTunnelDomains(const QVector<QString>& domains) {
   split_tunnel_domains_ = JoinVectorToString(domains);
   Save();
 }
+#if _WIN32
+bool SettingsModel::EnableAdvancedDnsManagement() const {
+  return enable_advanced_dns_management_;
+}
+
+void SettingsModel::SetEnableAdvancedDnsManagement(const bool enable) {
+  enable_advanced_dns_management_ = enable;
+}
+#endif

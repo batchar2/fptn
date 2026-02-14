@@ -456,5 +456,14 @@ This may cause network connectivity issues or prevent proper operation of FPTN.<
             <source>List domains that should bypass VPN tunnel. These domains will go directly, all other traffic uses VPN</source>
             <translation>Список доменов, которые не пойдут через VPN-туннель. Эти домены будут идти напрямую, весь остальной трафик пойдет в VPN</translation>
         </message>
+
+        <message>
+            <source>Enable advanced DNS management</source>
+            <translation>Разрешить расширенное управление DNS (экспериментально)</translation>
+        </message>
+        <message>
+            <source>Enables advanced DNS configuration to prevent leaks. Recommended when using split tunneling. Use with caution!</source>
+            <translation>Включает расширенную конфигурацию DNS для защиты от утечек. Рекомендуется активировать при использовании раздельного туннелирования. Используйте с осторожностью!</translation>
+        </message>
     </context>
 </TS>

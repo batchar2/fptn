@@ -172,6 +172,11 @@ class SettingsModel : public QObject {
   QVector<QString> SplitTunnelDomains() const;
   void SetSplitTunnelDomains(const QVector<QString>& domains);
 
+#if _WIN32
+  bool EnableAdvancedDnsManagement() const;
+  void SetEnableAdvancedDnsManagement(bool enable);
+#endif
+
  signals:
   void dataChanged();
 
@@ -187,6 +192,9 @@ class SettingsModel : public QObject {
   QString gateway_ip_;
   QString sni_;
 
+#if _WIN32
+  bool enable_advanced_dns_management_;
+#endif
   bool client_autostart_;
 
   QString bypass_method_;

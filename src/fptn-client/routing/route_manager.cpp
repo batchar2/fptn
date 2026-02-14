@@ -295,7 +295,13 @@ RouteManager::RouteManager(std::string out_interface_name,
     fptn::common::network::IPv4Address gateway_ipv4,
     fptn::common::network::IPv6Address gateway_ipv6,
     fptn::common::network::IPv4Address tun_interface_address_ipv4,
-    fptn::common::network::IPv6Address tun_interface_address_ipv6)
+    fptn::common::network::IPv6Address tun_interface_address_ipv6
+#if _WIN32
+    ,
+    bool enable_advanced_dns_management
+#endif
+
+    )
     : running_(false),
       out_interface_name_(std::move(out_interface_name)),
       tun_interface_name_(std::move(tun_interface_name)),
@@ -305,7 +311,13 @@ RouteManager::RouteManager(std::string out_interface_name,
       gateway_ipv4_(std::move(gateway_ipv4)),
       gateway_ipv6_(std::move(gateway_ipv6)),
       tun_interface_address_ipv4_(std::move(tun_interface_address_ipv4)),
-      tun_interface_address_ipv6_(std::move(tun_interface_address_ipv6)) {}
+      tun_interface_address_ipv6_(std::move(tun_interface_address_ipv6))
+#if _WIN32
+      ,
+      enable_advanced_dns_management_(enable_advanced_dns_management)
+#endif
+{
+}
 
 RouteManager::~RouteManager() {  // NOLINT(bugprone-exception-escape)
   if (running_) {
@@ -341,7 +353,6 @@ bool RouteManager::Apply() {
   for (const auto& dns : original_dns_servers_) {
     SPDLOG_INFO("Saved dns: {}", dns);
   }
-
   std::vector<std::string> commands = {fmt::format("systemctl start sysctl"),
       fmt::format("sysctl -w net.ipv4.ip_forward=1"),
       fmt::format("sysctl -w net.ipv6.conf.default.disable_ipv6=0"),
@@ -511,7 +522,10 @@ bool RouteManager::Apply() {
           dns_server_ipv4_.ToString(), tun_interface_address_ipv4_.ToString(),
           interface_info),  // via TUN
       // DNS
-      backup_dns_cmd, configure_dns_cmd,
+      enable_advanced_dns_management_ ? backup_dns_cmd
+                                      : "echo \"No advanced DNS management\" ",
+      enable_advanced_dns_management_ ? configure_dns_cmd
+                                      : "echo \"No advanced DNS management\" ",
       fmt::format("netsh interface ip set dns name=\"{}\" static {}",
           tun_interface_name_, dns_server_ipv4_.ToString()),
       // IPv6
@@ -754,7 +768,9 @@ bool RouteManager::Clean() {  // NOLINT(bugprone-exception-escape)
         }
     }")PSHELL";
 
-  const std::vector<std::string> commands = {restore_dns_cmd,
+  const std::vector<std::string> commands = {
+      enable_advanced_dns_management_ ? restore_dns_cmd
+                                      : "echo \"No advanced DNS management\" ",
       // Remove routes
       fmt::format(
           "route delete {} mask 255.255.255.255", vpn_server_ip_.ToString()),

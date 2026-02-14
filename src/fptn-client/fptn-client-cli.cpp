@@ -344,7 +344,12 @@ int main(int argc, char* argv[]) {
     auto route_manager = std::make_shared<fptn::routing::RouteManager>(
         out_network_interface_name, tun_interface_name, server_ip,
         dnsServerIPv4, dnsServerIPv6, using_gateway_ip, using_gateway_ipv6,
-        tun_interface_address_ipv4, tun_interface_address_ipv6);
+        tun_interface_address_ipv4, tun_interface_address_ipv6
+#if _WIN32
+        ,
+        false
+#endif
+    );  // NOLINT
 
     /* plugins */
     std::vector<fptn::plugin::BasePluginPtr> client_plugins;

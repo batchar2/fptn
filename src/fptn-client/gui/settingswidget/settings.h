@@ -92,6 +92,10 @@ class SettingsWidget : public QDialog {
   QPushButton* sni_autoscan_button_ = nullptr;
 
   // New fields widgets for routing tab
+  QLabel* enable_dns_management_label_ = nullptr;
+  QLabel* enable_dns_management_info_label_ = nullptr;
+  QCheckBox* enable_dns_management_checkbox_ = nullptr;
+
   QLabel* blacklist_domains_label_ = nullptr;
   QLabel* blacklist_domains_info_label_ = nullptr;
   QTextEdit* blacklist_domains_text_edit_ = nullptr;
