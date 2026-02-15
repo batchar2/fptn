@@ -245,6 +245,7 @@ void SettingsWidget::SetupUi() {
 
   tab_widget_->addTab(settings_tab_, QObject::tr("Settings"));
 
+  // ==================== Routing Tab ====================
   routing_tab_ = new QWidget();
   auto* routing_layout = new QVBoxLayout(routing_tab_);
   routing_layout->setContentsMargins(10, 10, 10, 10);
@@ -259,7 +260,6 @@ void SettingsWidget::SetupUi() {
 
   int current_row = 0;
 
-  // Routing
 #ifdef _WIN32
   constexpr char kInfoLabelStyle[] = "color: #888888; font-size: 7pt;";
 #elif defined(__APPLE__)
@@ -268,6 +268,41 @@ void SettingsWidget::SetupUi() {
   constexpr char kInfoLabelStyle[] = "color: #888888; font-size: 8pt;";
 #endif
 
+  // Routing
+#if _WIN32
+  // DNS Management
+  enable_dns_management_label_ =
+      new QLabel(QObject::tr("Enable advanced DNS management"), this);
+  enable_dns_management_info_label_ = new QLabel(
+      QObject::tr("Enables advanced DNS configuration to prevent leaks. "
+                  "Recommended when using split tunneling. Use with caution!"),
+      this);
+  enable_dns_management_info_label_->setWordWrap(true);
+  enable_dns_management_info_label_->setStyleSheet(kInfoLabelStyle);
+  enable_dns_management_info_label_->setMinimumHeight(70);
+  auto* dns_label_container = new QWidget(this);
+  auto* dns_label_layout = new QVBoxLayout(dns_label_container);
+  dns_label_layout->setContentsMargins(0, 0, 0, 0);
+  dns_label_layout->addWidget(
+      enable_dns_management_label_, 0, Qt::AlignLeft | Qt::AlignTop);
+  dns_label_layout->addWidget(
+      enable_dns_management_info_label_, 0, Qt::AlignLeft | Qt::AlignTop);
+  dns_label_layout->addStretch(1);
+
+  enable_dns_management_checkbox_ = new QCheckBox(" ", this);
+  enable_dns_management_checkbox_->setChecked(
+      settings_->EnableAdvancedDnsManagement());
+  connect(enable_dns_management_checkbox_, &QCheckBox::toggled, this,
+      [this](bool checked) {
+        settings_->SetEnableAdvancedDnsManagement(checked);
+      });
+
+  routing_grid_layout_->addWidget(
+      dns_label_container, current_row, 0, Qt::AlignLeft | Qt::AlignTop);
+  routing_grid_layout_->addWidget(enable_dns_management_checkbox_, current_row,
+      1, Qt::AlignLeft | Qt::AlignTop);
+  current_row++;
+#endif
   blacklist_domains_label_ = new QLabel(QObject::tr("Blacklist domains"), this);
   blacklist_domains_info_label_ = new QLabel(
       QObject::tr("Completely block access to the main domain AND all its "
@@ -884,7 +919,8 @@ void SettingsWidget::onLanguageChanged(const QString&) {
   if (bypass_method_label_) {
     bypass_method_label_->setText(QObject::tr("Bypass blocking method"));
   }
-  const QString current_method = bypass_method_combo_box_->currentText();
+
+  const auto current_method = settings_->BypassMethod();
   if (bypass_method_combo_box_) {
     bypass_method_combo_box_->clear();
     bypass_method_combo_box_->addItem(
@@ -921,6 +957,15 @@ void SettingsWidget::onLanguageChanged(const QString&) {
   }
 
   // Routing tab
+  if (enable_dns_management_label_) {
+    enable_dns_management_label_->setText(
+        QObject::tr("Enable advanced DNS management"));
+  }
+  if (enable_dns_management_info_label_) {
+    enable_dns_management_info_label_->setText(QObject::tr(
+        "Enables advanced DNS configuration to prevent leaks. "
+        "Recommended when using split tunneling. Use with caution!"));
+  }
   if (blacklist_domains_label_) {
     blacklist_domains_label_->setText(QObject::tr("Blacklist domains"));
   }
