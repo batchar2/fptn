@@ -455,5 +455,13 @@ This may cause network connectivity issues or prevent proper operation of FPTN.<
             <source>List websites that should bypass VPN tunnel. These domains will go directly, all other traffic uses VPN</source>
             <translation>List websites that should bypass VPN tunnel. These domains will go directly, all other traffic uses VPN</translation>
         </message>
+        <message>
+            <source>Enable advanced DNS management</source>
+            <translation>Enable advanced DNS management (experimental)</translation>
+        </message>
+        <message>
+            <source>Enables advanced DNS configuration to prevent leaks. Recommended when using split tunneling. Use with caution!</source>
+            <translation>Enables advanced DNS configuration to prevent leaks. Recommended when using split tunneling. Use with caution!</translation>
+        </message>
     </context>
 </TS>

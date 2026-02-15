@@ -54,7 +54,12 @@ class RouteManager final {
       fptn::common::network::IPv4Address gateway_ipv4,
       fptn::common::network::IPv6Address gateway_ipv6,
       fptn::common::network::IPv4Address tun_interface_address_ipv4,
-      fptn::common::network::IPv6Address tun_interface_address_ipv6);
+      fptn::common::network::IPv6Address tun_interface_address_ipv6
+#if _WIN32
+      ,
+      bool enable_advanced_dns_management_
+#endif
+  );  // NOLINT
   ~RouteManager();
 
   bool Apply();
@@ -84,6 +89,10 @@ class RouteManager final {
   const fptn::common::network::IPv6Address gateway_ipv6_;
   const fptn::common::network::IPv4Address tun_interface_address_ipv4_;
   const fptn::common::network::IPv6Address tun_interface_address_ipv6_;
+
+#if _WIN32
+  const bool enable_advanced_dns_management_;
+#endif
 
   std::unordered_set<RouteEntry, RouteEntry::Hash> dns_routes_ipv4_;
   std::unordered_set<RouteEntry, RouteEntry::Hash> dns_routes_ipv6_;
