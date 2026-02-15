@@ -19,7 +19,6 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 namespace {
 #ifdef _WIN32
-
 std::string GetWindowsInterfaceNumber(const std::string& interface_name) {
   if (interface_name.empty()) {
     return {};
@@ -27,56 +26,60 @@ std::string GetWindowsInterfaceNumber(const std::string& interface_name) {
 
   ULONG out_buf_len = 15000;
   ULONG flags = GAA_FLAG_INCLUDE_PREFIX | GAA_FLAG_INCLUDE_GATEWAYS;
-  
+
   PIP_ADAPTER_ADDRESSES adapter_addresses = nullptr;
   DWORD ret = ERROR_BUFFER_OVERFLOW;
-  
+
   for (int i = 0; i < 3 && ret == ERROR_BUFFER_OVERFLOW; i++) {
     adapter_addresses = static_cast<PIP_ADAPTER_ADDRESSES>(malloc(out_buf_len));
     if (!adapter_addresses) {
       break;
     }
-    
-    ret = GetAdaptersAddresses(AF_UNSPEC, flags, nullptr, adapter_addresses, &out_buf_len);
-    
+
+    ret = GetAdaptersAddresses(
+        AF_UNSPEC, flags, nullptr, adapter_addresses, &out_buf_len);
+
     if (ret == ERROR_BUFFER_OVERFLOW) {
       free(adapter_addresses);
       adapter_addresses = nullptr;
     }
   }
-  
+
   if (ret == NO_ERROR && adapter_addresses) {
     PIP_ADAPTER_ADDRESSES current = adapter_addresses;
     DWORD if_index = 0;
-    
+
     while (current) {
       std::string adapter_name = current->AdapterName;
-      
-      int size_need = WideCharToMultiByte(CP_UTF8, 0, current->FriendlyName, -1, nullptr, 0, nullptr, nullptr);
-      std::string friendly_name(size_need - 1, 0);
-      WideCharToMultiByte(CP_UTF8, 0, current->FriendlyName, -1, &friendly_name[0], size_need, nullptr, nullptr);
-      
-      size_need = WideCharToMultiByte(CP_UTF8, 0, current->Description, -1, nullptr, 0, nullptr, nullptr);
-      std::string description(size_need - 1, 0);
-      WideCharToMultiByte(CP_UTF8, 0, current->Description, -1, &description[0], size_need, nullptr, nullptr);
 
-      if (interface_name == adapter_name || 
-          interface_name == friendly_name || 
+      int size_need = WideCharToMultiByte(
+          CP_UTF8, 0, current->FriendlyName, -1, nullptr, 0, nullptr, nullptr);
+      std::string friendly_name(size_need - 1, 0);
+      WideCharToMultiByte(CP_UTF8, 0, current->FriendlyName, -1,
+          &friendly_name[0], size_need, nullptr, nullptr);
+
+      size_need = WideCharToMultiByte(
+          CP_UTF8, 0, current->Description, -1, nullptr, 0, nullptr, nullptr);
+      std::string description(size_need - 1, 0);
+      WideCharToMultiByte(CP_UTF8, 0, current->Description, -1, &description[0],
+          size_need, nullptr, nullptr);
+
+      if (interface_name == adapter_name || interface_name == friendly_name ||
           interface_name == description) {
         if_index = current->IfIndex;
         break;
       }
       current = current->Next;
     }
-    
+
     free(adapter_addresses);
     return if_index > 0 ? std::to_string(if_index) : std::string();
   }
-  
+
   if (adapter_addresses) {
     free(adapter_addresses);
   }
-  
+
   return {};
 }
 
