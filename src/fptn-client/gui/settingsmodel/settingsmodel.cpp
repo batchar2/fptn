@@ -458,14 +458,10 @@ QVector<QString> SettingsModel::GetNetworkInterfaces() const {
       QNetworkInterface::allInterfaces();
 
   for (const QNetworkInterface& network_interface : network_interfaces) {
-    if (network_interface.flags().testFlag(QNetworkInterface::IsUp) &&
-        !network_interface.flags().testFlag(QNetworkInterface::IsLoopBack) &&
-        !network_interface.flags().testFlag(
-            QNetworkInterface::IsPointToPoint) &&
-        !network_interface.hardwareAddress().isEmpty()) {
-      QList<QNetworkAddressEntry> entries = network_interface.addressEntries();
-      if (!entries.isEmpty()) {
-        interfaces.append(network_interface.humanReadableName());
+    if (!network_interface.flags().testFlag(QNetworkInterface::IsLoopBack)) {
+      const QString iface_name = network_interface.humanReadableName();
+      if (!iface_name.isEmpty()) {
+        interfaces.append(iface_name);
       }
     }
   }
