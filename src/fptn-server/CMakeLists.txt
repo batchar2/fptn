@@ -35,20 +35,24 @@ include_directories(${Boost_INCLUDE_DIRS})
 add_executable(
   "${PROJECT_NAME}"
   fptn-server.cpp
-  nat/table.h
-  nat/table.cpp
-  client/session.h
-  client/session.cpp
   network/virtual_interface.h
   network/virtual_interface.cpp
-  traffic_shaper/leaky_bucket.h
-  traffic_shaper/leaky_bucket.cpp
+  nat/table.h
+  nat/table.cpp
+  nat/statistic/metrics.h
+  nat/statistic/metrics.cpp
+  nat/connection_multiplexer/connection_multiplexer.h
+  nat/connection_multiplexer/connection_multiplexer.cpp
+  nat/client_connection/client_connection.h
+  nat/client_connection/client_connection.cpp
+  nat/traffic_shaper/leaky_bucket.h
+  nat/traffic_shaper/leaky_bucket.cpp
   routing/iptables.h
   routing/iptables.cpp
   web/listener/listener.h
   web/listener/listener.cpp
-  web/session/session.h
-  web/session/session.cpp
+  web/client_endpoint/client_endpoint.h
+  web/client_endpoint/client_endpoint.cpp
   web/server.h
   web/server.cpp
   web/handshake/handshake_cache_manager.h
@@ -62,8 +66,6 @@ add_executable(
   filter/filters/bittorrent/bittorrent.cpp
   vpn/manager.h
   vpn/manager.cpp
-  statistic/metrics.h
-  statistic/metrics.cpp
   config/command_line_config.cpp
   config/command_line_config.h
   user/user_manager.cpp

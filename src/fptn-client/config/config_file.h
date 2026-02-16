@@ -13,16 +13,15 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include "fptn-client/utils/speed_estimator/server_info.h"
 #include "fptn-client/utils/speed_estimator/speed_estimator.h"
-#include "fptn-protocol-lib/https/censorship_strategy.h"
 
 namespace fptn::config {
 class ConfigFile final {
  public:
   explicit ConfigFile(std::string sni,
-      fptn::protocol::https::CensorshipStrategy censorship_strategy);
+      fptn::protocol::https::HttpsInitConnectionStrategy censorship_strategy);
   explicit ConfigFile(std::string token,
       std::string sni,
-      fptn::protocol::https::CensorshipStrategy censorship_strategy);
+      fptn::protocol::https::HttpsInitConnectionStrategy censorship_strategy);
 
   bool Parse();
   fptn::utils::speed_estimator::ServerInfo FindFastestServer(
@@ -48,7 +47,7 @@ class ConfigFile final {
  private:
   const std::string token_;
   const std::string sni_;
-  const fptn::protocol::https::CensorshipStrategy censorship_strategy_;
+  const fptn::protocol::https::HttpsInitConnectionStrategy censorship_strategy_;
 
   int version_;
   std::string service_name_;

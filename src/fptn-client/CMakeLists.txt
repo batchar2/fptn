@@ -35,8 +35,6 @@ add_executable(
   fptn-client-cli.cpp
   vpn/vpn_client.h
   vpn/vpn_client.cpp
-  vpn/http/client.h
-  vpn/http/client.cpp
   routing/route_manager.h
   routing/route_manager.cpp
   config/config_file.cpp
@@ -124,8 +122,6 @@ WarningsAsErrors: ''
     fptn-client-gui.cpp
     vpn/vpn_client.h
     vpn/vpn_client.cpp
-    vpn/http/client.h
-    vpn/http/client.cpp
     routing/route_manager.h
     routing/route_manager.cpp
     config/config_file.cpp

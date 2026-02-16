@@ -20,11 +20,11 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <boost/locale.hpp>
 
 namespace fptn::common::utils {
-inline std::string GenerateRandomString(int length) {
+inline std::string GenerateRandomString(const int length) {
   const std::string characters =
       "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
-  std::mt19937 gen{std::random_device {}()};
+  std::mt19937 gen{std::random_device{}()};
   std::uniform_int_distribution<std::size_t> dist(0, characters.size() - 1);
 
   std::string result;
@@ -75,6 +75,16 @@ inline std::string ToLowerCase(const std::string& str) {
     return str;
   }
   return str;
+}
+
+inline std::string FilterDigitsOnly(const std::string& input) {
+  std::string result;
+  result.reserve(input.size());
+
+  std::ranges::copy_if(input, std::back_inserter(result),
+      [](const unsigned char c) { return std::isdigit(c); });
+
+  return result;
 }
 
 }  // namespace fptn::common::utils

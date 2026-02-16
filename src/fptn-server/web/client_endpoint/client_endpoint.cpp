@@ -1,10 +1,10 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
 
-#include "web/session/session.h"
+#include "web/client_endpoint/client_endpoint.h"
 
 #include <atomic>
 #include <memory>
@@ -14,7 +14,6 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <utility>
 #include <vector>
 
-#include <boost/algorithm/string/replace.hpp>
 #include <boost/asio.hpp>
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/co_spawn.hpp>
@@ -34,6 +33,8 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "fptn-protocol-lib/https/utils/tls/tls.h"
 #include "fptn-protocol-lib/protobuf/protocol.h"
 #include "fptn-protocol-lib/time/time_provider.h"
+#include "fptn-server/nat/connect_params.h"
+#include "nat/connect_params.h"
 
 namespace {
 std::atomic<fptn::ClientID> client_id_counter = 0;
@@ -71,11 +72,45 @@ void SetSocketTimeouts(boost::asio::ip::tcp::socket& socket, int timeout_sec) {
       reinterpret_cast<const char*>(&tv), sizeof(tv));
 }
 
+std::uint64_t ParseRequestUint(
+    const boost::beast::http::request<boost::beast::http::string_body>& request,
+    const std::string& param_name,
+    const std::uint64_t default_value = UINT64_MAX) {
+  if (request.contains(param_name)) {
+    const std::string value_str =
+        fptn::common::utils::FilterDigitsOnly(request[param_name]);
+    if (value_str.empty()) {
+      return default_value;
+    }
+    try {
+      std::size_t pos = 0;
+      const std::uint64_t value = std::stoull(value_str, &pos, 10);
+      if (pos != value_str.size()) {
+        return default_value;
+      }
+      return value;
+    } catch (const std::exception&) {
+      return default_value;
+    }
+  }
+  return default_value;
+}
+
+std::string ParseRequestStr(
+    const boost::beast::http::request<boost::beast::http::string_body>& request,
+    const std::string& param_name,
+    const std::string& default_value) {
+  if (request.contains(param_name)) {
+    return request[param_name];
+  }
+  return default_value;
+}
+
 }  // namespace
 
 namespace fptn::web {
 
-Session::Session(std::uint16_t port,
+ClientEndpoint::ClientEndpoint(std::uint16_t port,
     bool enable_detect_probing,
     std::string default_proxy_domain,
     std::vector<std::string> allowed_sni_list,
@@ -125,25 +160,26 @@ Session::Session(std::uint16_t port,
     boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::seconds(15));
     init_completed_ = true;
   } catch (const boost::system::system_error& err) {
-    SPDLOG_ERROR("Session::init failed (client_id={}): {} [{}]", client_id_,
-        err.what(), err.code().message());
+    SPDLOG_ERROR("ClientEndpoint::init failed (client_id={}): {} [{}]",
+        client_id_, err.what(), err.code().message());
   } catch (const std::exception& e) {
-    SPDLOG_ERROR("Session::init unexpected exception (client_id={}): {}",
+    SPDLOG_ERROR("ClientEndpoint::init unexpected exception (client_id={}): {}",
         client_id_, e.what());
   } catch (...) {
     SPDLOG_ERROR(
-        "Session::init unknown fatal error (client_id={})", client_id_);
+        "ClientEndpoint::init unknown fatal error (client_id={})", client_id_);
   }
 }
 
-Session::~Session() { Close(); }
+ClientEndpoint::~ClientEndpoint() { Close(); }
 
-boost::asio::awaitable<void> Session::Run() {
+boost::asio::awaitable<void> ClientEndpoint::Run() {
   boost::system::error_code ec;
 
   running_ = true;
   if (!init_completed_) {
-    SPDLOG_ERROR("Session not initialized. Closing connection (client_id={})",
+    SPDLOG_ERROR(
+        "ClientEndpoint not initialized. Closing connection (client_id={})",
         client_id_);
     Close();
     co_return;
@@ -251,7 +287,8 @@ boost::asio::awaitable<void> Session::Run() {
   co_return;
 }
 
-boost::asio::awaitable<Session::ProbingResult> Session::DetectProbing() {
+boost::asio::awaitable<ClientEndpoint::ProbingResult>
+ClientEndpoint::DetectProbing() {
   try {
     auto& tcp_socket = boost::beast::get_lowest_layer(ws_).socket();
     // Peek data without consuming it from the socket buffer!!!
@@ -356,7 +393,7 @@ boost::asio::awaitable<Session::ProbingResult> Session::DetectProbing() {
       }
     }
 
-    // Get Session ID
+    // Get ClientEndpoint ID
     constexpr std::size_t kSessionLen = 32;
     std::size_t session_len = std::min(
         static_cast<std::uint8_t>(kSessionLen), hello->getSessionIDLength());
@@ -370,7 +407,7 @@ boost::asio::awaitable<Session::ProbingResult> Session::DetectProbing() {
     std::uint8_t session_id[kSessionLen] = {0};
     std::memcpy(session_id, hello->getSessionID(), session_len);
 
-    // Check Session ID
+    // Check ClientEndpoint ID
     const bool is_fptn_session_id =
         protocol::https::utils::IsFptnClientSessionID(session_id, session_len);
     const bool is_decoy_session_id =
@@ -378,7 +415,7 @@ boost::asio::awaitable<Session::ProbingResult> Session::DetectProbing() {
             session_id, session_len);
     if (!is_fptn_session_id && !is_decoy_session_id) {
       SPDLOG_ERROR(
-          "Session ID does not match FPTN client format (client_id={})",
+          "ClientEndpoint ID does not match FPTN client format (client_id={})",
           client_id_);
       co_return ProbingResult{
           .is_probing = true, .sni = sni, .should_close = false};
@@ -400,7 +437,7 @@ boost::asio::awaitable<Session::ProbingResult> Session::DetectProbing() {
 }
 
 // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
-boost::asio::awaitable<bool> Session::IsSniSelfProxyAttempt(
+boost::asio::awaitable<bool> ClientEndpoint::IsSniSelfProxyAttempt(
     const std::string& sni) const {
   // First check if SNI is already an IP address
   if (fptn::common::network::IsIpAddress(sni)) {
@@ -445,7 +482,8 @@ boost::asio::awaitable<bool> Session::IsSniSelfProxyAttempt(
   co_return false;
 }
 
-boost::asio::awaitable<Session::RealityResult> Session::IsRealityHandshake() {
+boost::asio::awaitable<ClientEndpoint::RealityResult>
+ClientEndpoint::IsRealityHandshake() {
   try {
     auto& tcp_socket = boost::beast::get_lowest_layer(ws_).socket();
 
@@ -529,7 +567,7 @@ boost::asio::awaitable<Session::RealityResult> Session::IsRealityHandshake() {
       .is_reality_mode = true, .sni = "", .should_close = true};
 }
 
-boost::asio::awaitable<bool> Session::HandleRealityMode(
+boost::asio::awaitable<bool> ClientEndpoint::HandleRealityMode(
     const std::string& sni) {
   try {
     auto& tcp_socket = boost::beast::get_lowest_layer(ws_).socket();
@@ -567,7 +605,7 @@ boost::asio::awaitable<bool> Session::HandleRealityMode(
   co_return false;
 }
 
-boost::asio::awaitable<bool> Session::HandleProxy(
+boost::asio::awaitable<bool> ClientEndpoint::HandleProxy(
     const std::string& sni, int port) {
   auto& tcp_socket = boost::beast::get_lowest_layer(ws_).socket();
   boost::asio::ip::tcp::socket target_socket(
@@ -667,7 +705,7 @@ boost::asio::awaitable<bool> Session::HandleProxy(
   co_return status;
 }
 
-boost::asio::awaitable<void> Session::RunReader() {
+boost::asio::awaitable<void> ClientEndpoint::RunReader() {
   boost::system::error_code ec;
   boost::beast::flat_buffer buffer;
   auto token = boost::asio::redirect_error(boost::asio::use_awaitable, ec);
@@ -700,7 +738,7 @@ boost::asio::awaitable<void> Session::RunReader() {
   co_return;
 }
 
-boost::asio::awaitable<void> Session::RunSender() {
+boost::asio::awaitable<void> ClientEndpoint::RunSender() {
   try {
     while (running_ && ws_.is_open()) {
       auto [ec, packet] = co_await write_channel_.async_receive(
@@ -730,7 +768,7 @@ boost::asio::awaitable<void> Session::RunSender() {
   co_return;
 }
 
-boost::asio::awaitable<bool> Session::ProcessRequest() {
+boost::asio::awaitable<bool> ClientEndpoint::ProcessRequest() {
   bool status = false;
 
   try {
@@ -751,13 +789,13 @@ boost::asio::awaitable<bool> Session::ProcessRequest() {
       status = co_await HandleHttp(request);
     }
   } catch (const boost::system::system_error& err) {
-    SPDLOG_ERROR("Session::handshake failed (client_id={}): {} [{}]",
+    SPDLOG_ERROR("ClientEndpoint::handshake failed (client_id={}): {} [{}]",
         client_id_, err.what(), err.code().message());
   }
   co_return status;
 }
 
-boost::asio::awaitable<bool> Session::HandleHttp(
+boost::asio::awaitable<bool> ClientEndpoint::HandleHttp(
     const boost::beast::http::request<boost::beast::http::string_body>&
         request) {
   const std::string url = request.target();
@@ -810,59 +848,69 @@ boost::asio::awaitable<bool> Session::HandleHttp(
     co_await boost::beast::http::async_write(
         ws_.next_layer(), *res_ptr, boost::asio::use_awaitable);
   } catch (const boost::beast::system_error& e) {
-    SPDLOG_ERROR("Session::HandleHttp write error (client_id={}): {}",
+    SPDLOG_ERROR("ClientEndpoint::HandleHttp write error (client_id={}): {}",
         client_id_, e.what());
   } catch (...) {
     SPDLOG_ERROR(
-        "Session::HandleHttp write unknown error (client_id={})", client_id_);
+        "ClientEndpoint::HandleHttp write unknown error (client_id={})",
+        client_id_);
   }
   co_return false;
 }
 
-boost::asio::awaitable<bool> Session::HandleWebSocket(
+boost::asio::awaitable<bool> ClientEndpoint::HandleWebSocket(
     const boost::beast::http::request<boost::beast::http::string_body>&
         request) {
-  boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::hours(12));
+  boost::system::error_code ec;
+  const std::string client_ip_str = boost::beast::get_lowest_layer(ws_)
+                                        .socket()
+                                        .remote_endpoint(ec)
+                                        .address()
+                                        .to_string();
+  if (ec) {
+    SPDLOG_ERROR("Failed to get remote endpoint: {}", ec.message());
+    co_return false;
+  }
+  const std::string client_vpn_ipv6_str = request.contains("ClientIPv6")
+                                              ? request["ClientIPv6"]
+                                              : FPTN_CLIENT_DEFAULT_ADDRESS_IP6;
 
   if (request.contains("Authorization") && request.contains("ClientIP")) {
-    std::string token = request["Authorization"];
-    boost::replace_first(token, "Bearer ", "");
-
-    const std::string client_vpn_ipv4_str = request["ClientIP"];
-
-    boost::system::error_code ec;
-    const std::string client_ip_str = boost::beast::get_lowest_layer(ws_)
-                                          .socket()
-                                          .remote_endpoint(ec)
-                                          .address()
-                                          .to_string();
-    if (ec) {
-      SPDLOG_ERROR("Failed to get remote endpoint: {}", ec.message());
-      co_return false;
-    }
-
     try {
-      const common::network::IPv4Address client_ip(client_ip_str);
-      const common::network::IPv4Address client_vpn_ipv4(client_vpn_ipv4_str);
+      fptn::nat::ConnectParams params = {};
+      params.client_id = client_id_;
 
-      const std::string client_vpn_ipv6_str =
-          (request.contains("ClientIPv6") ? request["ClientIPv6"]
-                                          : FPTN_CLIENT_DEFAULT_ADDRESS_IP6);
-      const common::network::IPv6Address client_vpn_ipv6(client_vpn_ipv6_str);
+      params.request.url = request.target();
+      params.request.session_id = ParseRequestStr(
+          request, "SessionID", common::utils::GenerateRandomString(32));
+      params.request.connection_weight =
+          ParseRequestUint(request, "ConnectionWeight", 1);
+      params.request.jwt_auth_token =
+          common::utils::RemoveSubstring(request["Authorization"], {"Bearer "});
 
-      const bool status =
-          ws_open_callback_(client_id_, client_ip, client_vpn_ipv4,
-              client_vpn_ipv6, shared_from_this(), request.target(), token);
-      ws_session_was_opened_ = true;
+      params.request.client_ipv4 = client_ip_str;
+      params.request.client_tun_vpn_ipv4 = request["ClientIP"];
+      params.request.client_tun_vpn_ipv6 = client_vpn_ipv6_str;
+
+      params.timings.SetExpireAfter(
+          ParseRequestUint(request, "ExpireAfterTimestamp", 0));
+      params.timings.SetExpireAfter(
+          ParseRequestUint(request, "SilenceModeUntilTimestamp", 0));
+
+      const bool status = ws_open_callback_(params, shared_from_this());
+      ws_session_was_opened_ = status;
+
       co_return status;
     } catch (const std::exception& ex) {
       SPDLOG_ERROR(
-          "Session::Open (client_id={}): Exception caught while creating IP "
+          "ClientEndpoint::Open (client_id={}): Exception caught while "
+          "creating IP "
           "addresses or running callback: {}",
           client_id_, ex.what());
     } catch (...) {
       SPDLOG_ERROR(
-          "Session::Open (client_id={}): Unknown fatal error caught while "
+          "ClientEndpoint::Open (client_id={}): Unknown fatal error caught "
+          "while "
           "creating IP addresses or running callback",
           client_id_);
     }
@@ -870,7 +918,7 @@ boost::asio::awaitable<bool> Session::HandleWebSocket(
   co_return false;
 }
 
-void Session::Close() {
+void ClientEndpoint::Close() {
   if (!running_) {
     return;
   }
@@ -893,27 +941,8 @@ void Session::Close() {
         "Failed to cancel session or close write_channel: {}", err.what());
   } catch (...) {
     SPDLOG_WARN(
-        "Session::Close unknown fatal error (client_id={})", client_id_);
+        "ClientEndpoint::Close unknown fatal error (client_id={})", client_id_);
   }
-
-  // Set socket linger option for fast close
-  /*
-  try {
-    auto& tcp_socket = boost::beast::get_lowest_layer(ws_).socket();
-    if (tcp_socket.is_open()) {
-      tcp_socket.set_option(boost::asio::socket_base::linger(true, 0));
-    }
-  } catch (const std::exception& err) {
-    SPDLOG_WARN(
-        "Session::Close exception setting linger option (client_id={}): {}",
-        client_id_, err.what());
-  } catch (...) {
-    SPDLOG_WARN(
-        "Session::Close unknown error setting linger option (client_id={})",
-        client_id_);
-  }
-  */
-
   // Close TCP socket first
   try {
     auto& tcp_layer = boost::beast::get_lowest_layer(ws_);
@@ -926,11 +955,11 @@ void Session::Close() {
       tcp_layer.socket().close(ec);
     }
   } catch (const std::exception& err) {
-    SPDLOG_WARN("Session::Close TCP socket error (client_id={}): {}",
+    SPDLOG_WARN("ClientEndpoint::Close TCP socket error (client_id={}): {}",
         client_id_, err.what());
   } catch (...) {
-    SPDLOG_WARN(
-        "Session::Close TCP socket unknown error (client_id={})", client_id_);
+    SPDLOG_WARN("ClientEndpoint::Close TCP socket unknown error (client_id={})",
+        client_id_);
   }
 
   // Close WebSocket
@@ -940,11 +969,11 @@ void Session::Close() {
       ws_.close(boost::beast::websocket::close_code::normal, ec);
     }
   } catch (const std::exception& err) {
-    SPDLOG_WARN("Session::Close WebSocket error (client_id={}): {}", client_id_,
-        err.what());
+    SPDLOG_WARN("ClientEndpoint::Close WebSocket error (client_id={}): {}",
+        client_id_, err.what());
   } catch (...) {
-    SPDLOG_WARN(
-        "Session::Close WebSocket unknown error (client_id={})", client_id_);
+    SPDLOG_WARN("ClientEndpoint::Close WebSocket unknown error (client_id={})",
+        client_id_);
   }
 
   // Close SSL
@@ -954,11 +983,13 @@ void Session::Close() {
       ::SSL_set_quiet_shutdown(ssl_layer.native_handle(), 1);
     }
   } catch (const std::exception& err) {
-    SPDLOG_ERROR("Session::Close SSL shutdown exception (client_id={}): {}",
+    SPDLOG_ERROR(
+        "ClientEndpoint::Close SSL shutdown exception (client_id={}): {}",
         client_id_, err.what());
   } catch (...) {
     SPDLOG_ERROR(
-        "Session::Close SSL shutdown unknown error (client_id={})", client_id_);
+        "ClientEndpoint::Close SSL shutdown unknown error (client_id={})",
+        client_id_);
   }
 
   if (ws_close_callback_ && ws_session_was_opened_) {
@@ -975,7 +1006,8 @@ void Session::Close() {
   }
 }
 
-boost::asio::awaitable<bool> Session::Send(common::network::IPPacketPtr pkt) {
+boost::asio::awaitable<bool> ClientEndpoint::Send(
+    common::network::IPPacketPtr pkt) {
   auto self = shared_from_this();
   boost::asio::post(strand_, [self, pkt = std::move(pkt)]() mutable {
     if (self->running_ && self->write_channel_.is_open()) {
@@ -983,15 +1015,15 @@ boost::asio::awaitable<bool> Session::Send(common::network::IPPacketPtr pkt) {
           boost::system::error_code(), std::move(pkt));
       if (!status && !self->full_queue_) {
         self->full_queue_ = true;
-        SPDLOG_WARN(
-            "Session::send queue is full (client_id={})", self->client_id_);
+        SPDLOG_WARN("ClientEndpoint::send queue is full (client_id={})",
+            self->client_id_);
       }
     }
   });
   co_return true;
 }
 
-boost::asio::awaitable<IObfuscator> Session::DetectObfuscator() {
+boost::asio::awaitable<IObfuscator> ClientEndpoint::DetectObfuscator() {
   try {
     auto& tcp_socket = boost::beast::get_lowest_layer(ws_).socket();
 

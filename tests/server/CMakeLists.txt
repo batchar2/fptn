@@ -32,7 +32,7 @@ set(LIBS
 include_directories(${FPTN_SERVER_PATH})
 
 # --- MetricTest test ---
-add_executable(MetricTest statistic/MetricTest.cpp ${FPTN_SERVER_PATH}/statistic/metrics.h ${FPTN_SERVER_PATH}/statistic/metrics.cpp)
+add_executable(MetricTest statistic/MetricTest.cpp ${FPTN_SERVER_PATH}/nat/statistic/metrics.h ${FPTN_SERVER_PATH}/nat/statistic/metrics.cpp)
 target_link_libraries(MetricTest PRIVATE ${LIBS})
 add_test(NAME MetricTest COMMAND MetricTest)
 

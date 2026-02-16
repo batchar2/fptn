@@ -10,14 +10,12 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <string>
 #include <unordered_map>
 
-#include <boost/asio.hpp>
-#include <boost/asio/ssl.hpp>
 #include <boost/beast.hpp>
-#include <boost/beast/ssl.hpp>
 
 #include "common/client_id.h"
-#include "common/network/ip_address.h"
 #include "common/network/ip_packet.h"
+
+#include "nat/connect_params.h"
 
 namespace fptn::web {
 namespace http {
@@ -53,20 +51,14 @@ inline ApiHandle GetApiHandle(const ApiHandleMap& m,
   return nullptr;
 }
 
-class Session;
+class ClientEndpoint;
 
 using WebSocketOpenConnectionCallback = std::function<bool(
-    fptn::ClientID client_id,
-    const fptn::common::network::IPv4Address& client_ip,
-    const fptn::common::network::IPv4Address& client_vpn_ipv4,
-    const fptn::common::network::IPv6Address& client_vpn_ipv6,
-    const std::shared_ptr<Session>& session,
-    const std::string& url,
-    const std::string& access_token)>;
+    fptn::nat::ConnectParams, const std::shared_ptr<ClientEndpoint>& session)>;
 
-using WebSocketNewIPPacketCallback = std::function<void(
-  fptn::common::network::IPPacketPtr packet)>;
+using WebSocketNewIPPacketCallback =
+    std::function<void(fptn::common::network::IPPacketPtr packet)>;
 
-using WebSocketCloseConnectionCallback = std::function<void(
-  fptn::ClientID client_id)>;
+using WebSocketCloseConnectionCallback =
+    std::function<void(fptn::ClientID client_id)>;
 }  // namespace fptn::web

@@ -18,9 +18,9 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include "common/jwt_token/token_manager.h"
 
-#include "web/api/handle.h"
+#include "web/client_endpoint/client_endpoint.h"
+#include "web/handle/handle.h"
 #include "web/handshake/handshake_cache_manager.h"
-#include "web/session/session.h"
 
 namespace fptn::web {
 

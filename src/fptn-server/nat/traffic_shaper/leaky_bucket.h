@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -7,16 +7,17 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #pragma once
 
 #include <chrono>
+#include <cstdio>
 #include <memory>
 #include <mutex>
 
 #include "common/network/ip_packet.h"
 
-namespace fptn::traffic_shaper {
+namespace fptn::nat::traffic_shaper {
 class LeakyBucket final {
  public:
   explicit LeakyBucket(std::size_t max_bites_per_second);
-  bool CheckSpeedLimit(std::size_t packet_size) noexcept;
+  bool CanProcessPacket(std::size_t packet_size) noexcept;
   std::size_t FullDataAmount() const noexcept;
 
  private:
@@ -29,4 +30,4 @@ class LeakyBucket final {
 };
 
 using LeakyBucketSPtr = std::shared_ptr<LeakyBucket>;
-}  // namespace fptn::traffic_shaper
+}  // namespace fptn::nat::traffic_shaper

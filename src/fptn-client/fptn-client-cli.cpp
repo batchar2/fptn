@@ -25,6 +25,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "common/network/net_interface.h"
 
 #include "config/config_file.h"
+#include "fptn-protocol-lib/connection/connection_manager_builder/connection_manager_builder.h"
 #include "fptn-protocol-lib/https/obfuscator/methods/detector.h"
 #include "fptn-protocol-lib/time/time_provider.h"
 #include "plugins/blacklist/domain_blacklist.h"
@@ -224,14 +225,14 @@ int main(int argc, char* argv[]) {
     }
 
     const auto bypass_method = args.get<std::string>("--bypass-method");
-    fptn::protocol::https::CensorshipStrategy censorship_strategy =
-        fptn::protocol::https::CensorshipStrategy::kSni;
+    fptn::protocol::https::HttpsInitConnectionStrategy censorship_strategy =
+        fptn::protocol::https::HttpsInitConnectionStrategy::kSni;
     if (bypass_method == "obfuscation") {
       censorship_strategy =
-          fptn::protocol::https::CensorshipStrategy::kTlsObfuscator;
+          fptn::protocol::https::HttpsInitConnectionStrategy::kTlsObfuscator;
     } else if (bypass_method == "sni-reality") {
       censorship_strategy =
-          fptn::protocol::https::CensorshipStrategy::kSniRealityMode;
+          fptn::protocol::https::HttpsInitConnectionStrategy::kSniRealityMode;
     }
 
     /* parse network lists */
@@ -314,17 +315,28 @@ int main(int argc, char* argv[]) {
         split_domains_str, blacklist_domains_str);
 
     /* auth & dns */
-    auto http_client = std::make_unique<fptn::vpn::http::Client>(server_ip,
-        selected_server.port, tun_interface_address_ipv4,
-        tun_interface_address_ipv6, sni, selected_server.md5_fingerprint,
-        censorship_strategy);
+    const auto strategy = fptn::protocol::connection::strategies::
+        ConnectionStrategy::kLongTermConnection;
+    auto connection_manager =
+        fptn::protocol::connection::ConnectionManagerBuilder()
+            .SetConnectionStrategyType(strategy)
+            .SetServer(server_ip, selected_server.port)
+            .SetTunInterface(
+                tun_interface_address_ipv4, tun_interface_address_ipv6)
+            .SetSNI(sni)
+            .SetServerFingerprint(selected_server.md5_fingerprint)
+            .SetCensorshipStrategy(censorship_strategy)
+            .SetMaxReconnections(5)
+            .SetConnectionTimeout(10000)
+            .Build();
+
     const bool status =
-        http_client->Login(config.GetUsername(), config.GetPassword());
+        connection_manager->Login(config.GetUsername(), config.GetPassword());
     if (!status) {
       SPDLOG_ERROR("The username or password you entered is incorrect");
       return EXIT_FAILURE;
     }
-    const auto [dnsServerIPv4, dnsServerIPv6] = http_client->GetDns();
+    const auto [dnsServerIPv4, dnsServerIPv6] = connection_manager->GetDns();
     if (dnsServerIPv4.IsEmpty() || dnsServerIPv6.IsEmpty()) {
       SPDLOG_ERROR("DNS server error! Check your connection!");
       return EXIT_FAILURE;
@@ -369,9 +381,8 @@ int main(int argc, char* argv[]) {
     }
 
     /* vpn client */
-    fptn::vpn::VpnClient vpn_client(std::move(http_client),
-        std::move(virtual_network_interface), dnsServerIPv4, dnsServerIPv6,
-        std::move(client_plugins));
+    fptn::vpn::VpnClient vpn_client(std::move(connection_manager),
+        std::move(virtual_network_interface), std::move(client_plugins));
     vpn_client.Start();
 
     // Wait for the WebSocket tunnel to establish
