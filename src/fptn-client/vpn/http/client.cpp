@@ -143,7 +143,7 @@ bool Client::Send(fptn::common::network::IPPacketPtr packet) const {
 
 void Client::Run() {
   // Time window for counting attempts (1 minute)
-  constexpr auto kReconnectionWindow = std::chrono::seconds(120);
+  constexpr auto kReconnectionWindow = std::chrono::seconds(60);
   // Delay between reconnection attempts
   constexpr auto kReconnectionDelay = std::chrono::milliseconds(300);
 
@@ -151,7 +151,7 @@ void Client::Run() {
   reconnection_attempts_ = kMaxReconnectionAttempts_;
   auto window_start_time = std::chrono::steady_clock::now();
 
-  while (running_ && reconnection_attempts_) {
+  while (running_ && reconnection_attempts_ > 0) {
     {
       const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
@@ -190,12 +190,13 @@ void Client::Run() {
     // Reconnection attempt counting logic
     if (elapsed >= kReconnectionWindow) {
       // Reset counter if we're past the time window
+      SPDLOG_INFO("Reconnection window reset. New attempt window started");
       reconnection_attempts_ = kMaxReconnectionAttempts_;
       window_start_time = current_time;
-    } else {
-      --reconnection_attempts_;  // Decrement counter if within time window
     }
-
+    if (reconnection_attempts_ > 0) {
+      --reconnection_attempts_;
+    }
     // Log connection failure and wait before retrying
     SPDLOG_ERROR(
         "Connection closed (attempt {}/{} in current window). Reconnecting in "
