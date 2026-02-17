@@ -27,26 +27,23 @@ std::string GetWindowsInterfaceNumber(const std::string& interface_name) {
   ULONG out_buf_len = 15000;
   ULONG flags = GAA_FLAG_INCLUDE_PREFIX | GAA_FLAG_INCLUDE_GATEWAYS;
 
-  PIP_ADAPTER_ADDRESSES adapter_addresses = nullptr;
+  std::unique_ptr<IP_ADAPTER_ADDRESSES[]> adapter_addresses;
   DWORD ret = ERROR_BUFFER_OVERFLOW;
 
   for (int i = 0; i < 3 && ret == ERROR_BUFFER_OVERFLOW; i++) {
-    adapter_addresses = static_cast<PIP_ADAPTER_ADDRESSES>(malloc(out_buf_len));
-    if (!adapter_addresses) {
-      break;
-    }
+    adapter_addresses = std::make_unique<IP_ADAPTER_ADDRESSES[]>(
+        out_buf_len / sizeof(IP_ADAPTER_ADDRESSES) + 1);
 
     ret = GetAdaptersAddresses(
-        AF_UNSPEC, flags, nullptr, adapter_addresses, &out_buf_len);
+        AF_UNSPEC, flags, nullptr, adapter_addresses.get(), &out_buf_len);
 
     if (ret == ERROR_BUFFER_OVERFLOW) {
-      free(adapter_addresses);
-      adapter_addresses = nullptr;
+      adapter_addresses.reset();
     }
   }
 
   if (ret == NO_ERROR && adapter_addresses) {
-    PIP_ADAPTER_ADDRESSES current = adapter_addresses;
+    PIP_ADAPTER_ADDRESSES current = adapter_addresses.get();
     DWORD if_index = 0;
 
     while (current) {
@@ -72,12 +69,7 @@ std::string GetWindowsInterfaceNumber(const std::string& interface_name) {
       current = current->Next;
     }
 
-    free(adapter_addresses);
     return if_index > 0 ? std::to_string(if_index) : std::string();
-  }
-
-  if (adapter_addresses) {
-    free(adapter_addresses);
   }
 
   return {};

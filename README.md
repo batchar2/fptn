@@ -133,7 +133,7 @@ You can also deploy your own management and monitoring tools:
 2. Install Conan (version 2.22.2):
 
 ```bash
-pip install conan==2.22.2
+pip install conan
 ```
 
 3. Detect and configure the Conan profile:
@@ -147,6 +147,7 @@ conan profile detect --force
 ```bash
 conan install . --output-folder=build --build=missing  -s compiler.cppstd=17 -o with_gui_client=True --settings build_type=Release
 
+cd build
 
 # Linux & macOS only
 cmake .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Debug
