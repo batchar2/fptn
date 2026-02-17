@@ -10,6 +10,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <string>
 #include <utility>
 #include <vector>
+#include <memory>
 
 #include <boost/asio/ip/address.hpp>
 #include <boost/asio/ip/tcp.hpp>
@@ -19,47 +20,60 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 namespace {
 #ifdef _WIN32
-
 std::string GetWindowsInterfaceNumber(const std::string& interface_name) {
   if (interface_name.empty()) {
     return {};
   }
 
-  ULONG out_buf_len = 0;
-  PIP_ADAPTER_INFO adapter_info = nullptr;
-  PIP_ADAPTER_INFO adapter = nullptr;
+  ULONG out_buf_len = 15000;
+  ULONG flags = GAA_FLAG_INCLUDE_PREFIX | GAA_FLAG_INCLUDE_GATEWAYS;
 
-  DWORD dw_ret = GetAdaptersInfo(nullptr, &out_buf_len);
-  if (dw_ret != ERROR_BUFFER_OVERFLOW) {
-    return {};
-  }
+  std::unique_ptr<IP_ADAPTER_ADDRESSES[]> adapter_addresses;
+  DWORD ret = ERROR_BUFFER_OVERFLOW;
 
-  adapter_info = static_cast<PIP_ADAPTER_INFO>(malloc(out_buf_len));
-  if (!adapter_info) {
-    return {};
-  }
+  for (int i = 0; i < 3 && ret == ERROR_BUFFER_OVERFLOW; i++) {
+    adapter_addresses = std::make_unique<IP_ADAPTER_ADDRESSES[]>(
+        out_buf_len / sizeof(IP_ADAPTER_ADDRESSES) + 1);
 
-  dw_ret = GetAdaptersInfo(adapter_info, &out_buf_len);
-  if (dw_ret != NO_ERROR) {
-    free(adapter_info);
-    return {};
-  }
+    ret = GetAdaptersAddresses(
+        AF_UNSPEC, flags, nullptr, adapter_addresses.get(), &out_buf_len);
 
-  DWORD if_index = 0;
-  adapter = adapter_info;
-
-  while (adapter) {
-    std::string adapter_name = adapter->AdapterName;
-    std::string description = adapter->Description;
-
-    if (interface_name == adapter_name || interface_name == description) {
-      if_index = adapter->Index;
-      break;
+    if (ret == ERROR_BUFFER_OVERFLOW) {
+      adapter_addresses.reset();
     }
-    adapter = adapter->Next;
   }
-  free(adapter_info);
-  return if_index > 0 ? std::to_string(if_index) : std::string();
+
+  if (ret == NO_ERROR && adapter_addresses) {
+    PIP_ADAPTER_ADDRESSES current = adapter_addresses.get();
+    DWORD if_index = 0;
+
+    while (current) {
+      std::string adapter_name = current->AdapterName;
+
+      int size_need = WideCharToMultiByte(
+          CP_UTF8, 0, current->FriendlyName, -1, nullptr, 0, nullptr, nullptr);
+      std::string friendly_name(size_need - 1, 0);
+      WideCharToMultiByte(CP_UTF8, 0, current->FriendlyName, -1,
+          &friendly_name[0], size_need, nullptr, nullptr);
+
+      size_need = WideCharToMultiByte(
+          CP_UTF8, 0, current->Description, -1, nullptr, 0, nullptr, nullptr);
+      std::string description(size_need - 1, 0);
+      WideCharToMultiByte(CP_UTF8, 0, current->Description, -1, &description[0],
+          size_need, nullptr, nullptr);
+
+      if (interface_name == adapter_name || interface_name == friendly_name ||
+          interface_name == description) {
+        if_index = current->IfIndex;
+        break;
+      }
+      current = current->Next;
+    }
+
+    return if_index > 0 ? std::to_string(if_index) : std::string();
+  }
+
+  return {};
 }
 
 std::pair<std::string, std::string> ParseIPv4CIDR(const std::string& network) {

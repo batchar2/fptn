@@ -132,10 +132,10 @@ FPTN — это VPN-технология, созданная с нуля для 
 - Для [Ubuntu](deploy/linux/deb/README.md)
 - Для [macOS](deploy/macos/README.md)
 
-2. Установите Conan (версия 2.22.2):
+2. Установите Conan (версия 2.24.0):
 
 ```bash
-pip install conan==2.22.2
+pip install conan==2.24.0
 ```
 
 3. Определите и настройте профиль Conan:
@@ -148,6 +148,8 @@ conan profile detect --force
 
 ```bash
 conan install . --output-folder=build --build=missing  -s compiler.cppstd=17 -o with_gui_client=True --settings build_type=Release
+
+cd build
 
 # Только Linux & macOS
 cmake .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Debug
