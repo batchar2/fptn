@@ -130,10 +130,10 @@ You can also deploy your own management and monitoring tools:
 - For [Ubuntu](deploy/linux/deb/README.md)
 - For [macOS](deploy/macos/README.md)
 
-2. Install Conan (version 2.22.2):
+2. Install Conan (version 2.24.0):
 
 ```bash
-pip install conan
+pip install conan==2.24.0
 ```
 
 3. Detect and configure the Conan profile:
