@@ -190,7 +190,7 @@ chmod 755 "$CLIENT_TMP_DIR/DEBIAN/postrm"
 
 
 # Build the Debian package
-dpkg-deb --build "$CLIENT_TMP_DIR" "fptn-client-cli-${VERSION}-${OS_NAME}${OS_VERSION}-$(dpkg --print-architecture).deb"
+dpkg-deb --root-owner-group --build "$CLIENT_TMP_DIR" "fptn-client-cli-${VERSION}-${OS_NAME}${OS_VERSION}-$(dpkg --print-architecture).deb"
 
 # Clean up temporary directories
 rm -rf "$CLIENT_TMP_DIR"
