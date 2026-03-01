@@ -18,9 +18,10 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 namespace fptn::protocol::https {
 
-WebsocketClient::WebsocketClient(
-    std::string jwt_access_token, ConnectionConfig config, int thread_number)
-    : ioc_(thread_number),
+WebsocketClient::WebsocketClient(std::string jwt_access_token,
+    ConnectionConfig config,
+    boost::asio::io_context& ioc)
+    : ioc_(ioc),
       ctx_(https::utils::CreateNewSslCtx()),
       resolver_(boost::asio::make_strand(ioc_)),
       ws_(ssl_stream_type(
@@ -79,19 +80,6 @@ WebsocketClient::~WebsocketClient() {
   } catch (...) {
     SPDLOG_WARN("Unknown error in ~WebsocketClient");
   }
-
-  // Stop io_context
-  try {
-    if (!ioc_.stopped()) {
-      SPDLOG_INFO("Stopping io_context...");
-      ioc_.stop();
-    }
-  } catch (const boost::system::system_error& err) {
-    SPDLOG_ERROR("Exception while stopping io_context: {}", err.what());
-  } catch (...) {
-    SPDLOG_ERROR("Unknown exception while stopping io_context");
-  }
-  SPDLOG_INFO("WebsocketClient removed");
 }
 
 void WebsocketClient::Run() {
@@ -115,19 +103,6 @@ void WebsocketClient::Run() {
         }
       },
       boost::asio::detached);
-  try {
-    while (running_ || !was_stopped_) {
-      const std::size_t processed = ioc_.poll_one();
-      if (processed == 0) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-      }
-    }
-    if (!ioc_.stopped()) {
-      ioc_.stop();
-    }
-  } catch (...) {
-    SPDLOG_WARN("Exception while running");
-  }
 }
 
 bool WebsocketClient::Stop() {

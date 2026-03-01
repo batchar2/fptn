@@ -15,6 +15,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
+#include "connection/strategies/connection_pool/connection_pool.h"
 #include "fptn-protocol-lib/connection/connection_manager_builder/connection_manager_builder.h"
 #include "fptn-protocol-lib/connection/strategies/long_term_connection/long_term_connection.h"
 #include "fptn-protocol-lib/https/api_client/api_client.h"
@@ -200,6 +201,11 @@ void ConnectionManager::Run() {
                           strategies::ConnectionStrategy::kLongTermConnection) {
         strategy_connection_ =
             strategies::LongTermConnection::Create(jwt_access_token_, config_);
+      } else if (running_ &&
+                 connection_strategy_type_ ==
+                     strategies::ConnectionStrategy::kConnectionPool) {
+        strategy_connection_ =
+            strategies::ConnectionPool::Create(jwt_access_token_, config_);
       }
     }
 

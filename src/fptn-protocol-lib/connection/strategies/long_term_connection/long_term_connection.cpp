@@ -18,12 +18,17 @@ LongTermConnection::~LongTermConnection() {
 
 void LongTermConnection::Start() {
   websocket_client_ = std::make_unique<fptn::protocol::https::WebsocketClient>(
-      JWTAccessToken(), Config());
+      JWTAccessToken(), Config(), GetIOContext());
+
+  SetRunningStatus(true);
   websocket_client_->Run();
+  RunEventLoop();
 }
 
 void LongTermConnection::Stop() {
   const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+  SetRunningStatus(false);
 
   if (websocket_client_) {
     websocket_client_->Stop();
@@ -35,12 +40,14 @@ bool LongTermConnection::Send(fptn::common::network::IPPacketPtr packet) {
   if (websocket_client_) {
     const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
-    // cppcheck-suppress knownConditionTrueFalse
-    return websocket_client_ && websocket_client_->Send(std::move(packet));
+    if (RunningStatus()) {
+      // cppcheck-suppress knownConditionTrueFalse
+      return websocket_client_ && websocket_client_->Send(std::move(packet));
+    }
   }
   return false;
 }
 
-bool LongTermConnection::IsStarted() { return true; }
+bool LongTermConnection::IsStarted() { return RunningStatus(); }
 
 }  // namespace fptn::protocol::connection::strategies

@@ -35,7 +35,7 @@ class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
  public:
   explicit WebsocketClient(std::string jwt_access_token,
       ConnectionConfig config,
-      int thread_number = 4);
+      boost::asio::io_context& ioc);
 
   virtual ~WebsocketClient();
 
@@ -69,7 +69,7 @@ class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
   std::atomic<bool> was_inited_{false};
   std::atomic<bool> was_connected_{false};
 
-  boost::asio::io_context ioc_;
+  boost::asio::io_context& ioc_;
   boost::asio::ssl::context ctx_;
   boost::asio::ip::tcp::resolver resolver_;
 

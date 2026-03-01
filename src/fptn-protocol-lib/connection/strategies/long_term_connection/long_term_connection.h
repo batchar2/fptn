@@ -38,6 +38,8 @@ class LongTermConnection : public BaseStrategyConnection {
 
  private:
   mutable std::mutex mutex_;
+
+
   fptn::protocol::https::WebsocketClientPtr websocket_client_;
 };
 

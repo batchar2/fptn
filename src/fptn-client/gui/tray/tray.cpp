@@ -784,8 +784,10 @@ bool TrayApp::startVpn(QString& err_msg) {
     return false;
   }
 
+  // const auto strategy = fptn::protocol::connection::strategies::
+  //     ConnectionStrategy::kLongTermConnection;
   const auto strategy = fptn::protocol::connection::strategies::
-      ConnectionStrategy::kLongTermConnection;
+      ConnectionStrategy::kConnectionPool;
   auto connection_manager =
       fptn::protocol::connection::ConnectionManagerBuilder()
           .SetConnectionStrategyType(strategy)
