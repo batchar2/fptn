@@ -649,7 +649,15 @@ void SettingsWidget::SetupUi() {
       "  - OlegPaRe<br>"
       "  - Norelax<br>"
       "  - Alligator<br>"
-      "  - vblll<br>";
+      "  - vblll<br>"
+      "  - Ayuemin<br>"
+      "  - Semchuk<br>"
+      "  - Barzas153<br>"
+      "  - machinefactor<br>"
+      "  - mahovmm<br>"
+      "  - KOTleta<br>"
+      "  - Arelost<br>"
+      "  - Хмурый<br>";
 
   sponsors_names_label_ = new QLabel(sponsors_list, this);
   sponsors_names_label_->setAlignment(Qt::AlignLeft);
