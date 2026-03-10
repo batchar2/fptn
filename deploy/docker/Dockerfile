@@ -10,7 +10,7 @@ ENV TZ=Etc/UTC
 
 RUN apt-get update && \
     apt-get upgrade -y && \
-    apt-get install -y unbound iproute2 iptables supervisor wget && \
+    apt-get install -y unbound iproute2 iptables supervisor wget dnsmasq && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -28,10 +28,10 @@ COPY deploy/docker/config/supervisor/*.conf /etc/supervisor/conf.d/
 
 # Copy scripts
 COPY deploy/docker/scripts/start-fptn.sh /usr/local/bin/start-fptn.sh
-COPY deploy/docker/scripts/start-unbound.sh /usr/local/bin/start-unbound.sh
+COPY deploy/docker/scripts/start-dns-server.sh /usr/local/bin/start-dns-server.sh
 COPY deploy/docker/scripts/token-generator.py /usr/local/bin/token-generator
 RUN chmod +x /usr/local/bin/start-fptn.sh && \
-    chmod +x /usr/local/bin/start-unbound.sh && \
-    chmod +x /usr/local/bin/token-generator
+    chmod +x /usr/local/bin/token-generator && \
+    chmod +x /usr/local/bin/start-dns-server.sh
 
 CMD ["/usr/bin/supervisord", "--nodaemon", "-c", "/etc/supervisor/supervisord.conf"]
