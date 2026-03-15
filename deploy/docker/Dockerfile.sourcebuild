@@ -1,0 +1,84 @@
+FROM ubuntu:24.04 AS builder
+
+ARG FPTN_VERSION=local
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Etc/UTC
+ENV CONAN_HOME=/tmp/conan
+ENV PIP_BREAK_SYSTEM_PACKAGES=1
+
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    apt-get install -y \
+      autoconf \
+      automake \
+      build-essential \
+      ca-certificates \
+      cmake \
+      curl \
+      git \
+      libelf-dev \
+      libpcap-dev \
+      libtool \
+      m4 \
+      meson \
+      ninja-build \
+      perl \
+      pkg-config \
+      python3 \
+      python3-pip \
+      unzip \
+      wget \
+      zip && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN pip3 install --no-cache-dir conan==2.24.0
+
+WORKDIR /src
+COPY . .
+
+RUN sed -i "s/^FPTN_VERSION = \".*\"/FPTN_VERSION = \"${FPTN_VERSION}\"/" conanfile.py && \
+    conan profile detect --force && \
+    conan install . \
+      --output-folder=build \
+      --build=missing \
+      -o with_gui_client=False \
+      --settings build_type=Release \
+      -s compiler.cppstd=17 && \
+    cmake -S . -B build \
+      -DCMAKE_TOOLCHAIN_FILE=build/conan_toolchain.cmake \
+      -DCMAKE_BUILD_TYPE=Release && \
+    cmake --build build --config Release --target fptn-server fptn-passwd -j"$(nproc)"
+
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Etc/UTC
+
+EXPOSE 443/tcp
+
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    apt-get install -y unbound iproute2 iptables supervisor wget dnsmasq && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /etc/supervisor/conf.d
+
+COPY --from=builder /src/build/src/fptn-server/fptn-server /usr/local/bin/fptn-server
+COPY --from=builder /src/build/src/fptn-passwd/fptn-passwd /usr/local/bin/fptn-passwd
+RUN chmod +x /usr/local/bin/fptn-server && \
+    chmod +x /usr/local/bin/fptn-passwd
+
+COPY deploy/docker/config/supervisord.conf /etc/supervisor/supervisord.conf
+COPY deploy/docker/config/supervisor/*.conf /etc/supervisor/conf.d/
+
+COPY deploy/docker/scripts/start-fptn.sh /usr/local/bin/start-fptn.sh
+COPY deploy/docker/scripts/start-dns-server.sh /usr/local/bin/start-dns-server.sh
+COPY deploy/docker/scripts/token-generator.py /usr/local/bin/token-generator
+RUN chmod +x /usr/local/bin/start-fptn.sh && \
+    chmod +x /usr/local/bin/token-generator && \
+    chmod +x /usr/local/bin/start-dns-server.sh
+
+CMD ["/usr/bin/supervisord", "--nodaemon", "-c", "/etc/supervisor/supervisord.conf"]

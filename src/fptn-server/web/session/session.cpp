@@ -95,7 +95,7 @@ Session::Session(std::uint16_t port,
       ws_(ssl_stream_type(
           obfuscator_socket_type(tcp_stream_type(std::move(socket))), ctx)),
       strand_(boost::asio::make_strand(ws_.get_executor())),
-      write_channel_(strand_, 128),
+      write_channel_(strand_, 8192),
       api_handles_(api_handles),
       handshake_cache_manager_(std::move(handshake_cache_manager)),
       ws_open_callback_(std::move(ws_open_callback)),
@@ -256,11 +256,16 @@ boost::asio::awaitable<Session::ProbingResult> Session::DetectProbing() {
     auto& tcp_socket = boost::beast::get_lowest_layer(ws_).socket();
     // Peek data without consuming it from the socket buffer!!!
     // This allows inspection without affecting subsequent reads!!!
-    std::array<std::uint8_t, 16384> buffer{};
+    std::array<std::uint8_t, 16384> buffer;
+    
+    // Set socket timeout for peek
+    boost::system::error_code ec;
     const std::size_t bytes_read =
         co_await tcp_socket.async_receive(boost::asio::buffer(buffer),
-            boost::asio::socket_base::message_peek, boost::asio::use_awaitable);
-    if (!bytes_read) {
+            boost::asio::socket_base::message_peek, 
+            boost::asio::redirect_error(boost::asio::use_awaitable, ec));
+            
+    if (ec || !bytes_read) {
       SPDLOG_ERROR("Peeked zero bytes from socket (client_id={})", client_id_);
       co_return ProbingResult{.is_probing = true,
           .sni = default_proxy_domain_,
@@ -290,6 +295,10 @@ boost::asio::awaitable<Session::ProbingResult> Session::DetectProbing() {
     // Check handshake
     // https://github.com/wiresock/ndisapi/blob/master/examples/cpp/pcapplusplus/pcapplusplus.cpp#L40
     const auto* handshake = dynamic_cast<pcpp::SSLHandshakeLayer*>(ssl_layer);
+    
+    // Cleanup memory!
+    std::unique_ptr<pcpp::SSLLayer> ssl_layer_ptr(ssl_layer);
+    
     if (!handshake) {
       SPDLOG_ERROR("Failed to cast to SSLHandshakeLayer");
       co_return ProbingResult{.is_probing = true,
