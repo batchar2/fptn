@@ -7,7 +7,7 @@ ENV TZ=Etc/UTC
 RUN apt-get update \
     && apt-get upgrade -y \
     && apt-get install -y cmake gcc g++ python3 python3-pip git \
-    && pip install conan==2.9.2 numpy --break-system-packages
+    && pip install conan==2.22.2 numpy --break-system-packages
 
 RUN conan profile detect --force
 
@@ -19,13 +19,13 @@ RUN git clone https://github.com/batchar2/fptn fptn-project \
     && echo 2
 
 COPY ./conanfile.py /code/
-RUN conan install . --output-folder=build --build=missing -s compiler.cppstd=17 --settings build_type=Release
+RUN conan install . --output-folder=build --build=missing -s compiler.cppstd=20 --settings build_type=Release
 
 COPY ./CMakeLists.txt /code/
 COPY ./src/ /code/src/
 
 RUN cd build \
-    && cmake .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release \
+    && cmake .. -DCMAKE_TOOLCHAIN_FILE=build/Release/generators/conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release \
     && cmake --build . --config Release
 
 

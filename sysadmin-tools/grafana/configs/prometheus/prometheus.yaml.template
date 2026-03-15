@@ -3,7 +3,11 @@ global:
 scrape_configs:
   - job_name: 'fptn-server'
     scrape_interval: 30s
-    metrics_path: '/api/v1/metrics/PROMETHEUS_SECRET_ACCESS_KEY'
+    metrics_path: '/metrics'
+    params:
+      host: ['FPTN_HOST']
+      port: ['FPTN_PORT']
+      key: ['PROMETHEUS_SECRET_ACCESS_KEY']
     static_configs:
       - targets: ['fptn-proxy-server:80']
   - job_name: 'node'
