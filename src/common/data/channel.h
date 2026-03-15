@@ -23,14 +23,17 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 namespace fptn::common::data {
 class Channel {
  public:
-  explicit Channel(std::size_t maxCapacity = 512) {
+  // Increase default capacity for high throughput
+  explicit Channel(std::size_t maxCapacity = 8192) {
     buffer_.set_capacity(maxCapacity);
   }
   void Push(network::IPPacketPtr pkt) noexcept {
     {
       const std::unique_lock<std::mutex> lock(mutex_);  // mutex
-
-      buffer_.push_back(std::move(pkt));
+      if (buffer_.size() < buffer_.capacity()) {
+          buffer_.push_back(std::move(pkt));
+      }
+      // If buffer full, drop packet (better than unbounded growth or blocking)
     }
     condvar_.notify_one();
   }

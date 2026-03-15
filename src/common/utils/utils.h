@@ -7,6 +7,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #pragma once
 
 #include <algorithm>
+#include <cstring>
 #include <ctime>
 #include <random>
 #include <ranges>
@@ -20,14 +21,31 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <boost/locale.hpp>
 
 namespace fptn::common::utils {
+
+inline void GenerateRandomBytes(std::uint8_t* buffer, std::size_t length) {
+    static thread_local std::mt19937 gen{std::random_device{}()};
+    std::uniform_int_distribution<std::uint64_t> dist;
+    
+    std::size_t i = 0;
+    for (; i + 8 <= length; i += 8) {
+        uint64_t rand_val = dist(gen);
+        std::memcpy(buffer + i, &rand_val, 8);
+    }
+    if (i < length) {
+        uint64_t rand_val = dist(gen);
+        std::memcpy(buffer + i, &rand_val, length - i);
+    }
+}
+
 inline std::string GenerateRandomString(int length) {
   const std::string characters =
       "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
-  std::mt19937 gen{std::random_device {}()};
+  static thread_local std::mt19937 gen{std::random_device {}()};
   std::uniform_int_distribution<std::size_t> dist(0, characters.size() - 1);
 
   std::string result;
+  result.reserve(length);
   for (int i = 0; i < length; i++) {
     result += characters[dist(gen)];
   }

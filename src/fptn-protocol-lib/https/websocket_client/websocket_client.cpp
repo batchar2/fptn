@@ -52,6 +52,9 @@ WebsocketClient::WebsocketClient(fptn::common::network::IPv4Address server_ip,
   https::utils::SetHandshakeSni(ssl, sni_);
   https::utils::SetHandshakeSessionID(ssl);
 
+  // Set SSL buffer sizes
+  SSL_set_mode(ssl, SSL_MODE_RELEASE_BUFFERS);
+
   if (censorship_strategy_ == CensorshipStrategy::kSni) {
     obfuscator_ = nullptr;
   }
@@ -81,9 +84,23 @@ WebsocketClient::WebsocketClient(fptn::common::network::IPv4Address server_ip,
   ws_.text(false);
   ws_.binary(true);
   ws_.auto_fragment(true);
-  ws_.read_message_max(128 * 1024);
+  ws_.read_message_max(4 * 1024 * 1024); // Increase max message size
   ws_.set_option(boost::beast::websocket::stream_base::timeout::suggested(
       boost::beast::role_type::client));
+      
+  // Optimize socket buffer sizes
+  try {
+    boost::beast::get_lowest_layer(ws_).socket().set_option(
+        boost::asio::socket_base::receive_buffer_size(4 * 1024 * 1024));
+    boost::beast::get_lowest_layer(ws_).socket().set_option(
+        boost::asio::socket_base::send_buffer_size(4 * 1024 * 1024));
+    
+    // Disable Nagle's algorithm for lower latency
+    boost::beast::get_lowest_layer(ws_).socket().set_option(
+        boost::asio::ip::tcp::no_delay(true));
+  } catch(const boost::system::system_error& e) {
+    SPDLOG_WARN("Failed to set socket options: {}", e.what());
+  }
 }
 
 WebsocketClient::~WebsocketClient() {
@@ -128,15 +145,8 @@ void WebsocketClient::Run() {
       },
       boost::asio::detached);
   try {
-    while (running_ || !was_stopped_) {
-      const std::size_t processed = ioc_.poll_one();
-      if (processed == 0) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-      }
-    }
-    if (!ioc_.stopped()) {
-      ioc_.stop();
-    }
+    ioc_.restart();
+    ioc_.run();
   } catch (...) {
     SPDLOG_WARN("Exception while running");
   }
@@ -327,8 +337,17 @@ boost::asio::awaitable<bool> WebsocketClient::Connect() {
     SPDLOG_INFO("Connected to {}:{}", server_ip_.ToString(), server_port_str_);
 
     // TCP options
-    boost::beast::get_lowest_layer(ws_).socket().set_option(
-        boost::asio::ip::tcp::no_delay(true));
+    auto& socket = boost::beast::get_lowest_layer(ws_).socket();
+    socket.set_option(boost::asio::ip::tcp::no_delay(true));
+    
+    // Optimize socket buffers
+    try {
+        const int buffer_size = 4 * 1024 * 1024;
+        socket.set_option(boost::asio::socket_base::receive_buffer_size(buffer_size));
+        socket.set_option(boost::asio::socket_base::send_buffer_size(buffer_size));
+    } catch (...) {
+        SPDLOG_WARN("Failed to set socket buffer sizes in Connect()");
+    }
 
     // Reality Mode: Enhanced stealth connection protocol
     // First, establishes a genuine TLS handshake as a decoy to bypass deep
@@ -518,22 +537,19 @@ boost::asio::awaitable<bool> WebsocketClient::PerformFakeHandshake() {
       SPDLOG_ERROR("Failed to send fake handshake: {}", ec.message());
       co_return false;
     }
-
-    SPDLOG_INFO("Successfully sent {} bytes of handshake data", bytes_sent);
-
-    do {
-      std::array<std::uint8_t, 16384> buffer{};
-      const std::size_t bytes_read = co_await tcp_socket.async_receive(
-          boost::asio::buffer(buffer), boost::asio::use_awaitable);
-      if (ec && ec != boost::asio::error::eof) {
+    
+    // Read response
+    std::array<std::uint8_t, 16384> buffer;
+    const std::size_t bytes_read = co_await tcp_socket.async_receive(
+          boost::asio::buffer(buffer), 
+          boost::asio::redirect_error(boost::asio::use_awaitable, ec));
+          
+    if (ec && ec != boost::asio::error::eof) {
         SPDLOG_WARN("Read during fake handshake failed: {}", ec.message());
-      }
-      if (bytes_read) {
-        break;
-      }
-    } while (true);
+        co_return false;
+    }
 
-    SPDLOG_INFO("Fake handshake completed successfully");
+    SPDLOG_INFO("Fake handshake completed successfully, read {} bytes", bytes_read);
     co_return true;
   } catch (const std::exception& e) {
     SPDLOG_ERROR("PerformFakeHandshake exception: {}", e.what());
