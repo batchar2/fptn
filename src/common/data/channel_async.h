@@ -32,24 +32,25 @@ using boost::asio::use_awaitable;
 
 class ChannelAsync {
  public:
-  // Increased defaults for high throughput
-  explicit ChannelAsync(boost::asio::io_context& ioc)
-      : ioc_(ioc) {
-    // Capacity 8192
-    buffer_.set_capacity(8192);
+  explicit ChannelAsync(
+      boost::asio::io_context& ioc, const std::size_t max_capacity = 8192)
+      : ioc_(ioc), notify_timer_(ioc) {
+    buffer_.set_capacity(max_capacity);
+    notify_timer_.expires_at(std::chrono::steady_clock::time_point::max());
   }
+
   void Push(network::IPPacketPtr pkt) {
     {
       const std::unique_lock<std::mutex> lock(mutex_);
       if (buffer_.size() < buffer_.capacity()) {
-          buffer_.push_back(std::move(pkt));
+        buffer_.push_back(std::move(pkt));
       }
     }
-    condvar_.notify_one();
-    
-    // Trigger async waiter if any
-    if (timer_) {
-        timer_->cancel();
+    try {
+      condvar_.notify_one();
+      notify_timer_.cancel();  // Trigger async waiter if any
+    } catch (...) {
+      SPDLOG_WARN("ChannelAsync::Push unexpected exception: ");
     }
   }
 
@@ -74,10 +75,9 @@ class ChannelAsync {
   }
 
   boost::asio::awaitable<std::optional<network::IPPacketPtr>>
-  WaitForPacketAsync() {
-    // Optimistic check without creating timer
+  WaitForPacketAsync(std::chrono::milliseconds timeout) {
     {
-      const std::unique_lock<std::mutex> lock(mutex_);
+      const std::lock_guard<std::mutex> lock(mutex_);  // mutex
       if (!buffer_.empty()) {
         auto pkt = std::move(buffer_.front());
         buffer_.pop_front();
@@ -85,18 +85,30 @@ class ChannelAsync {
       }
     }
 
-    // Wait for notification or timeout (e.g. 50ms to batch)
-    try {
-        timer_ = std::make_unique<boost::asio::steady_timer>(ioc_);
-        timer_->expires_after(std::chrono::milliseconds(50));
-        co_await timer_->async_wait(boost::asio::use_awaitable);
-    } catch (...) {
-        // Timer cancelled means data arrived
-    }
-    
-    // Check again
+    boost::asio::steady_timer timeout_timer(ioc_);
+    timeout_timer.expires_after(timeout);
+
+    boost::asio::steady_timer local_notify_timer(ioc_);
+    local_notify_timer.expires_at(std::chrono::steady_clock::time_point::max());
     {
-      const std::unique_lock<std::mutex> lock(mutex_);
+      std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+      if (!buffer_.empty()) {
+        auto pkt = std::move(buffer_.front());
+        buffer_.pop_front();
+        co_return pkt;
+      }
+      lock.unlock();
+
+      co_await boost::asio::experimental::make_parallel_group(
+          timeout_timer.async_wait(boost::asio::deferred),
+          local_notify_timer.async_wait(boost::asio::deferred))
+          .async_wait(
+              boost::asio::experimental::wait_for_one(), boost::asio::deferred);
+    }
+
+    {
+      const std::lock_guard<std::mutex> lock(mutex_);  // mutex
       if (!buffer_.empty()) {
         auto pkt = std::move(buffer_.front());
         buffer_.pop_front();
@@ -108,7 +120,7 @@ class ChannelAsync {
 
  protected:
   boost::asio::io_context& ioc_;
-  std::unique_ptr<boost::asio::steady_timer> timer_;
+  mutable boost::asio::steady_timer notify_timer_;
 
   mutable std::mutex mutex_;
   std::condition_variable condvar_;

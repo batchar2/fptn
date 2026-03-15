@@ -1,7 +1,7 @@
 services:
   fptn-server:
     restart: unless-stopped
-    image: astracat/fptn-vpn-server:latest
+    image: fptnvpn/fptn-vpn-server:latest
     cap_add:
       - NET_ADMIN
       - SYS_MODULE

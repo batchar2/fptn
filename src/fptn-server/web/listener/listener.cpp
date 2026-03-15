@@ -67,6 +67,7 @@ void Listener::AddApiHandle(const std::string& url,
 }
 
 boost::asio::awaitable<void> Listener::Run() {
+  constexpr int kBufferSize = 4 * 1024 * 1024;
   try {
     acceptor_.open(endpoint_.protocol());
     acceptor_.set_option(boost::asio::ip::tcp::no_delay(true));
@@ -74,9 +75,10 @@ boost::asio::awaitable<void> Listener::Run() {
 
     // Optimize socket buffers for high throughput (1 Gbit/s+)
     // Set send/recv buffers to 4MB (typical for high-speed WAN)
-    const int buffer_size = 4 * 1024 * 1024; 
-    acceptor_.set_option(boost::asio::socket_base::receive_buffer_size(buffer_size));
-    acceptor_.set_option(boost::asio::socket_base::send_buffer_size(buffer_size));
+    acceptor_.set_option(
+        boost::asio::socket_base::receive_buffer_size(kBufferSize));
+    acceptor_.set_option(
+        boost::asio::socket_base::send_buffer_size(kBufferSize));
 
     acceptor_.bind(endpoint_);
     acceptor_.listen(boost::asio::socket_base::max_listen_connections);
@@ -92,13 +94,15 @@ boost::asio::awaitable<void> Listener::Run() {
       boost::asio::ip::tcp::socket socket(ioc_);
       co_await acceptor_.async_accept(
           socket, boost::asio::redirect_error(boost::asio::use_awaitable, ec));
-          
+
       if (!ec) {
         // Propagate buffer settings to the accepted socket
         socket.set_option(boost::asio::ip::tcp::no_delay(true));
-        socket.set_option(boost::asio::socket_base::receive_buffer_size(buffer_size));
-        socket.set_option(boost::asio::socket_base::send_buffer_size(buffer_size));
-        
+        socket.set_option(
+            boost::asio::socket_base::receive_buffer_size(kBufferSize));
+        socket.set_option(
+            boost::asio::socket_base::send_buffer_size(kBufferSize));
+
         auto session = std::make_shared<Session>(port_,
             // probing settings
             enable_detect_probing_, default_proxy_domain_, allowed_sni_list_,

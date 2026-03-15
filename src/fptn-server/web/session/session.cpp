@@ -257,14 +257,13 @@ boost::asio::awaitable<Session::ProbingResult> Session::DetectProbing() {
     // Peek data without consuming it from the socket buffer!!!
     // This allows inspection without affecting subsequent reads!!!
     std::array<std::uint8_t, 16384> buffer;
-    
+
     // Set socket timeout for peek
     boost::system::error_code ec;
-    const std::size_t bytes_read =
-        co_await tcp_socket.async_receive(boost::asio::buffer(buffer),
-            boost::asio::socket_base::message_peek, 
-            boost::asio::redirect_error(boost::asio::use_awaitable, ec));
-            
+    const std::size_t bytes_read = co_await tcp_socket.async_receive(
+        boost::asio::buffer(buffer), boost::asio::socket_base::message_peek,
+        boost::asio::redirect_error(boost::asio::use_awaitable, ec));
+
     if (ec || !bytes_read) {
       SPDLOG_ERROR("Peeked zero bytes from socket (client_id={})", client_id_);
       co_return ProbingResult{.is_probing = true,
@@ -295,10 +294,10 @@ boost::asio::awaitable<Session::ProbingResult> Session::DetectProbing() {
     // Check handshake
     // https://github.com/wiresock/ndisapi/blob/master/examples/cpp/pcapplusplus/pcapplusplus.cpp#L40
     const auto* handshake = dynamic_cast<pcpp::SSLHandshakeLayer*>(ssl_layer);
-    
+
     // Cleanup memory!
-    std::unique_ptr<pcpp::SSLLayer> ssl_layer_ptr(ssl_layer);
-    
+    // std::unique_ptr<pcpp::SSLLayer> ssl_layer_ptr(ssl_layer);
+
     if (!handshake) {
       SPDLOG_ERROR("Failed to cast to SSLHandshakeLayer");
       co_return ProbingResult{.is_probing = true,
@@ -320,7 +319,7 @@ boost::asio::awaitable<Session::ProbingResult> Session::DetectProbing() {
           .should_close = true};
     }
 
-    // Set  SNI
+    // Set SNI
     std::string sni = default_proxy_domain_;
     auto* sni_ext =
         // cppcheck-suppress nullPointerRedundantCheck

@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -62,33 +62,31 @@ std::uint16_t NetworkToHost16(const std::uint16_t value) {
 }
 
 std::uint64_t GetRandomData() {
-  static thread_local std::mt19937 gen{std::random_device{}()};
-  std::uniform_int_distribution<std::uint64_t> dist;
+  static std::mt19937 gen{std::random_device {}()};
+  std::uniform_int_distribution<std::uint64_t> dist(1024, UINT64_MAX);
   return dist(gen);
 }
 
 std::uint8_t GetRandomByte(
     const std::uint8_t min = 0, const std::uint8_t max = UINT8_MAX) {
-  static thread_local std::mt19937 gen{std::random_device{}()};
+  static std::mt19937 gen{std::random_device {}()};
   std::uniform_int_distribution<std::uint16_t> dist(min, max);
   return static_cast<std::uint8_t>(dist(gen));
 }
 
-void GenerateRandomPadding(std::uint8_t* buffer, std::size_t length) {
-    static thread_local std::mt19937 gen{std::random_device{}()};
-    std::uniform_int_distribution<std::uint64_t> dist;
-    
-    std::size_t i = 0;
-    // Fill 8 bytes at a time
-    for (; i + 8 <= length; i += 8) {
-        uint64_t rand_val = dist(gen);
-        std::memcpy(buffer + i, &rand_val, 8);
-    }
-    // Fill remaining bytes
-    if (i < length) {
-        uint64_t rand_val = dist(gen);
-        std::memcpy(buffer + i, &rand_val, length - i);
-    }
+std::vector<std::uint8_t> GenerateRandomPadding(const std::size_t length) {
+  std::vector<std::uint8_t> padding(length);
+  for (std::size_t i = 0; i < length; ++i) {
+    padding[i] = GetRandomByte();
+  }
+  return padding;
+}
+
+void ApplyXorTransform(
+    std::uint8_t* data, const std::size_t size, const std::uint8_t key) {
+  for (std::size_t i = 0; i < size; ++i) {
+    data[i] ^= key;
+  }
 }
 
 }  // namespace
@@ -169,21 +167,21 @@ PreparedData TlsObfuscator::Deobfuscate() {
     const std::uint8_t* encrypted_payload =
         input_buffer_.data() + search_offset + sizeof(TLSAppDataRecordHeader);
 
-    // Decrypt directly into output
-    if (payload_length > 0) {
-        std::size_t current_output_size = output.size();
-        output.resize(current_output_size + payload_length);
-        std::uint8_t* dest = output.data() + current_output_size;
-        
-        for (std::size_t i = 0; i < payload_length; ++i) {
-            dest[i] = encrypted_payload[i] ^ header.xor_key;
-        }
-    }
+    // Copy encrypted payload to temporary buffer for XOR processing
+    std::vector<std::uint8_t> decrypted_payload(
+        encrypted_payload, encrypted_payload + payload_length);
 
-    // Remove garbage + processed record from buffer
-    input_buffer_.erase(input_buffer_.begin(),
+    // Apply XOR decryption
+    ApplyXorTransform(
+        decrypted_payload.data(), decrypted_payload.size(), header.xor_key);
+
+    // Add decrypted payload to output
+    output.insert(
+        output.end(), decrypted_payload.begin(), decrypted_payload.end());
+
+    // Remove the processed record from buffer starting from search_offset
+    input_buffer_.erase(input_buffer_.begin() + search_offset,
         input_buffer_.begin() + search_offset + full_record_size);
-    
     total_processed += full_record_size;
     break;
   }
@@ -205,9 +203,16 @@ PreparedData TlsObfuscator::Obfuscate(
     const std::uint8_t* data, std::size_t size) {
   // Generate random padding (0-255 bytes)
   const std::uint8_t padding_length = GetRandomByte(64, 255);
+  std::vector<std::uint8_t> random_padding =
+      GenerateRandomPadding(padding_length);
 
   // Generate XOR key
   const std::uint8_t xor_key = GetRandomByte();
+
+  // Prepare payload for XOR encryption
+  std::vector<std::uint8_t> encrypted_payload(data, data + size);
+  ApplyXorTransform(
+      encrypted_payload.data(), encrypted_payload.size(), xor_key);
 
   const std::uint16_t total_content_length =
       sizeof(TLSAppDataRecordHeader::random_data) +
@@ -218,37 +223,42 @@ PreparedData TlsObfuscator::Obfuscate(
       sizeof(TLSAppDataRecordHeader::padding_length) +
       static_cast<std::uint16_t>(size) + padding_length;
 
+  TLSAppDataRecordHeader header = {};
+  header.headertype = kFptnTlsApplicationHeaderType;
+  header.headermajor = kFptnTlsApplicationHeaderMajor;
+  header.headerminor = kFptnTlsApplicationHeaderMinor;
+
+  // Convert to network byte order
+  header.content_length = HostToNetwork16(total_content_length);
+  header.random_data = GetRandomData();
+  header.magic_flag = HostToNetwork16(kFptnTlsApplicationMagicFlag);
+  header.protocol_version = kFptnTlsApplicationProtocolVersion;
+  header.xor_key = xor_key;
+  header.payload_length = HostToNetwork16(static_cast<std::uint16_t>(size));
+  header.padding_length = padding_length;
+
   std::vector<std::uint8_t> result;
   result.resize(sizeof(TLSAppDataRecordHeader) + size + padding_length);
 
-  TLSAppDataRecordHeader* header = reinterpret_cast<TLSAppDataRecordHeader*>(result.data());
-  header->headertype = kFptnTlsApplicationHeaderType;
-  header->headermajor = kFptnTlsApplicationHeaderMajor;
-  header->headerminor = kFptnTlsApplicationHeaderMinor;
+  // Copy header
+  std::memcpy(result.data(), &header, sizeof(TLSAppDataRecordHeader));
 
-  // Convert to network byte order
-  header->content_length = HostToNetwork16(total_content_length);
-  header->random_data = GetRandomData();
-  header->magic_flag = HostToNetwork16(kFptnTlsApplicationMagicFlag);
-  header->protocol_version = kFptnTlsApplicationProtocolVersion;
-  header->xor_key = xor_key;
-  header->payload_length = HostToNetwork16(static_cast<std::uint16_t>(size));
-  header->padding_length = padding_length;
-
-  // Copy encrypted payload directly into result
+  // Copy encrypted payload
   if (size > 0) {
-    std::uint8_t* payload_dest = result.data() + sizeof(TLSAppDataRecordHeader);
-    for (std::size_t i = 0; i < size; ++i) {
-        payload_dest[i] = data[i] ^ xor_key;
-    }
+    std::memcpy(result.data() + sizeof(TLSAppDataRecordHeader),
+        encrypted_payload.data(), size);
   }
 
-  // Generate random padding directly into result
+  // Copy random padding
   if (padding_length > 0) {
-    GenerateRandomPadding(result.data() + sizeof(TLSAppDataRecordHeader) + size, padding_length);
+    std::memcpy(result.data() + sizeof(TLSAppDataRecordHeader) + size,
+        random_padding.data(), padding_length);
   }
 
-  return result;
+  if (!result.empty()) {
+    return result;
+  }
+  return std::nullopt;
 }
 
 void TlsObfuscator::Reset() { input_buffer_.clear(); }

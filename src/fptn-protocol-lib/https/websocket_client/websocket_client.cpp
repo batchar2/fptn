@@ -84,21 +84,21 @@ WebsocketClient::WebsocketClient(fptn::common::network::IPv4Address server_ip,
   ws_.text(false);
   ws_.binary(true);
   ws_.auto_fragment(true);
-  ws_.read_message_max(4 * 1024 * 1024); // Increase max message size
+  ws_.read_message_max(4 * 1024 * 1024);  // Increase max message size
   ws_.set_option(boost::beast::websocket::stream_base::timeout::suggested(
       boost::beast::role_type::client));
-      
+
   // Optimize socket buffer sizes
   try {
     boost::beast::get_lowest_layer(ws_).socket().set_option(
         boost::asio::socket_base::receive_buffer_size(4 * 1024 * 1024));
     boost::beast::get_lowest_layer(ws_).socket().set_option(
         boost::asio::socket_base::send_buffer_size(4 * 1024 * 1024));
-    
+
     // Disable Nagle's algorithm for lower latency
     boost::beast::get_lowest_layer(ws_).socket().set_option(
         boost::asio::ip::tcp::no_delay(true));
-  } catch(const boost::system::system_error& e) {
+  } catch (const boost::system::system_error& e) {
     SPDLOG_WARN("Failed to set socket options: {}", e.what());
   }
 }
@@ -339,14 +339,16 @@ boost::asio::awaitable<bool> WebsocketClient::Connect() {
     // TCP options
     auto& socket = boost::beast::get_lowest_layer(ws_).socket();
     socket.set_option(boost::asio::ip::tcp::no_delay(true));
-    
+
     // Optimize socket buffers
     try {
-        const int buffer_size = 4 * 1024 * 1024;
-        socket.set_option(boost::asio::socket_base::receive_buffer_size(buffer_size));
-        socket.set_option(boost::asio::socket_base::send_buffer_size(buffer_size));
+      const int buffer_size = 4 * 1024 * 1024;
+      socket.set_option(
+          boost::asio::socket_base::receive_buffer_size(buffer_size));
+      socket.set_option(
+          boost::asio::socket_base::send_buffer_size(buffer_size));
     } catch (...) {
-        SPDLOG_WARN("Failed to set socket buffer sizes in Connect()");
+      SPDLOG_WARN("Failed to set socket buffer sizes in Connect()");
     }
 
     // Reality Mode: Enhanced stealth connection protocol
@@ -533,23 +535,25 @@ boost::asio::awaitable<bool> WebsocketClient::PerformFakeHandshake() {
         boost::asio::buffer(handshake_data),
         boost::asio::redirect_error(boost::asio::use_awaitable, ec));
 
+    SPDLOG_INFO("Successfully sent {} bytes of handshake data", bytes_sent);
     if (ec) {
       SPDLOG_ERROR("Failed to send fake handshake: {}", ec.message());
       co_return false;
     }
-    
+
     // Read response
     std::array<std::uint8_t, 16384> buffer;
-    const std::size_t bytes_read = co_await tcp_socket.async_receive(
-          boost::asio::buffer(buffer), 
-          boost::asio::redirect_error(boost::asio::use_awaitable, ec));
-          
+    const std::size_t bytes_read =
+        co_await tcp_socket.async_receive(boost::asio::buffer(buffer),
+            boost::asio::redirect_error(boost::asio::use_awaitable, ec));
+
     if (ec && ec != boost::asio::error::eof) {
-        SPDLOG_WARN("Read during fake handshake failed: {}", ec.message());
-        co_return false;
+      SPDLOG_WARN("Read during fake handshake failed: {}", ec.message());
+      co_return false;
     }
 
-    SPDLOG_INFO("Fake handshake completed successfully, read {} bytes", bytes_read);
+    SPDLOG_INFO(
+        "Fake handshake completed successfully, read {} bytes", bytes_read);
     co_return true;
   } catch (const std::exception& e) {
     SPDLOG_ERROR("PerformFakeHandshake exception: {}", e.what());

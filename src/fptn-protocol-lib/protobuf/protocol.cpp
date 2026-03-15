@@ -10,6 +10,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <ctime>
 #include <random>
 #include <string>
+#include <utility>
 
 #include <protocol.pb.h>    // NOLINT(build/include_order)
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
@@ -73,7 +74,8 @@ std::string CreateProtoPayload(fptn::common::network::IPPacketPtr packet) {
         padding_buffer.resize(padding_size);
 
         fptn::common::utils::GenerateRandomBytes(
-            reinterpret_cast<std::uint8_t*>(padding_buffer.data()), padding_size);
+            reinterpret_cast<std::uint8_t*>(padding_buffer.data()),
+            padding_size);
 
         message.mutable_packet()->set_padding_data(
             padding_buffer.data(), padding_size);

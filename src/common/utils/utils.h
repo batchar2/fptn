@@ -23,31 +23,32 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 namespace fptn::common::utils {
 
 inline void GenerateRandomBytes(std::uint8_t* buffer, std::size_t length) {
-    static thread_local std::mt19937 gen{std::random_device{}()};
-    std::uniform_int_distribution<std::uint64_t> dist;
-    
-    std::size_t i = 0;
-    for (; i + 8 <= length; i += 8) {
-        uint64_t rand_val = dist(gen);
-        std::memcpy(buffer + i, &rand_val, 8);
-    }
-    if (i < length) {
-        uint64_t rand_val = dist(gen);
-        std::memcpy(buffer + i, &rand_val, length - i);
-    }
+  thread_local std::mt19937 gen{std::random_device {}()};
+  std::uniform_int_distribution<std::uint64_t> dist;
+
+  std::size_t i = 0;
+  for (; i + 8 <= length; i += 8) {
+    const std::uint64_t rand_val = dist(gen);
+    std::memcpy(buffer + i, &rand_val, 8);
+  }
+  if (i < length) {
+    const std::uint64_t rand_val = dist(gen);
+    std::memcpy(buffer + i, &rand_val, length - i);
+  }
 }
 
-inline std::string GenerateRandomString(int length) {
-  const std::string characters =
+inline std::string GenerateRandomString(const int length) {
+  static constexpr char kCharacters[] =
       "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  static constexpr std::size_t kCharCount = sizeof(kCharacters) - 1;
 
-  static thread_local std::mt19937 gen{std::random_device {}()};
-  std::uniform_int_distribution<std::size_t> dist(0, characters.size() - 1);
+  thread_local std::mt19937 gen{std::random_device {}()};
+  thread_local std::uniform_int_distribution<std::size_t> dist(
+      0, kCharCount - 1);
 
-  std::string result;
-  result.reserve(length);
-  for (int i = 0; i < length; i++) {
-    result += characters[dist(gen)];
+  std::string result(length, '\0');
+  for (int i = 0; i < length; ++i) {
+    result[i] = kCharacters[dist(gen)];
   }
   return result;
 }
