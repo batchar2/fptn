@@ -113,8 +113,8 @@ Session::Session(std::uint16_t port,
 
     ws_.text(false);
     ws_.binary(true);
-    ws_.auto_fragment(true);
-    ws_.read_message_max(128 * 1024);
+    ws_.auto_fragment(false);
+    ws_.read_message_max(4 * 1024 * 1024);  // 4MB
     ws_.set_option(boost::beast::websocket::stream_base::timeout::suggested(
         boost::beast::role_type::server));
     ws_.set_option(boost::beast::websocket::stream_base::timeout{

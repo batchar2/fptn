@@ -55,7 +55,7 @@ class Client final {
   void Run();
 
  private:
-  const int kMaxReconnectionAttempts_ = 5;
+  const int kMaxReconnectionAttempts_ = 35;
 
   std::thread th_;
   mutable std::mutex mutex_;
