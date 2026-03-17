@@ -143,7 +143,7 @@ bool Client::Send(fptn::common::network::IPPacketPtr packet) const {
 
 void Client::Run() {
   // Time window for counting attempts (1 minute)
-  constexpr auto kReconnectionWindow = std::chrono::seconds(60);
+  constexpr auto kReconnectionWindow = std::chrono::seconds(120);
   // Delay between reconnection attempts
   constexpr auto kReconnectionDelay = std::chrono::milliseconds(300);
 

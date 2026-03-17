@@ -32,18 +32,26 @@ using boost::asio::use_awaitable;
 
 class ChannelAsync {
  public:
-  explicit ChannelAsync(boost::asio::io_context& ioc,
-      std::size_t maxCapacity = 512,
-      std::size_t threadPoolSize = 4)
-      : ioc_(ioc), pool_(threadPoolSize) {
-    buffer_.set_capacity(maxCapacity);
+  explicit ChannelAsync(
+      boost::asio::io_context& ioc, const std::size_t max_capacity = 8192)
+      : ioc_(ioc), notify_timer_(ioc) {
+    buffer_.set_capacity(max_capacity);
+    notify_timer_.expires_at(std::chrono::steady_clock::time_point::max());
   }
+
   void Push(network::IPPacketPtr pkt) {
     {
       const std::unique_lock<std::mutex> lock(mutex_);
-      buffer_.push_back(std::move(pkt));
+      if (buffer_.size() < buffer_.capacity()) {
+        buffer_.push_back(std::move(pkt));
+      }
     }
-    condvar_.notify_one();
+    try {
+      condvar_.notify_one();
+      notify_timer_.cancel();  // Trigger async waiter if any
+    } catch (...) {
+      SPDLOG_WARN("ChannelAsync::Push unexpected exception: ");
+    }
   }
 
   network::IPPacketPtr WaitForPacket(
@@ -67,11 +75,9 @@ class ChannelAsync {
   }
 
   boost::asio::awaitable<std::optional<network::IPPacketPtr>>
-  WaitForPacketAsync(const std::chrono::milliseconds& duration) {
+  WaitForPacketAsync(std::chrono::milliseconds timeout) {
     {
-      const std::unique_lock<std::mutex> lock(mutex_);  // mutex
-
-      // exists
+      const std::lock_guard<std::mutex> lock(mutex_);  // mutex
       if (!buffer_.empty()) {
         auto pkt = std::move(buffer_.front());
         buffer_.pop_front();
@@ -79,12 +85,30 @@ class ChannelAsync {
       }
     }
 
-    // wait for timeout
-    co_await AsyncWaitUntil(duration);
+    boost::asio::steady_timer timeout_timer(ioc_);
+    timeout_timer.expires_after(timeout);
+
+    boost::asio::steady_timer local_notify_timer(ioc_);
+    local_notify_timer.expires_at(std::chrono::steady_clock::time_point::max());
+    {
+      std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+      if (!buffer_.empty()) {
+        auto pkt = std::move(buffer_.front());
+        buffer_.pop_front();
+        co_return pkt;
+      }
+      lock.unlock();
+
+      co_await boost::asio::experimental::make_parallel_group(
+          timeout_timer.async_wait(boost::asio::deferred),
+          local_notify_timer.async_wait(boost::asio::deferred))
+          .async_wait(
+              boost::asio::experimental::wait_for_one(), boost::asio::deferred);
+    }
 
     {
-      const std::unique_lock<std::mutex> lock(mutex_);  // mutex
-
+      const std::lock_guard<std::mutex> lock(mutex_);  // mutex
       if (!buffer_.empty()) {
         auto pkt = std::move(buffer_.front());
         buffer_.pop_front();
@@ -94,27 +118,9 @@ class ChannelAsync {
     co_return std::nullopt;
   }
 
-  boost::asio::awaitable<void> AsyncWaitUntil(
-      const std::chrono::steady_clock::duration& timeout) {
-    boost::asio::steady_timer timer(ioc_, timeout);
-
-    co_await timer.async_wait(boost::asio::use_awaitable);
-
-    // while (!mutex_.try_lock()) {
-    //     if (std::chrono::steady_clock::now() - start >
-    //     std::chrono::seconds(3)) {
-    //         spdlog::error("Session::send: failed to acquire lock within
-    //         timeout"); co_return false;
-    //     }
-    //     std::this_thread::yield();  // Yield to avoid busy waiting
-    // }
-
-    co_return;
-  }
-
  protected:
   boost::asio::io_context& ioc_;
-  boost::asio::thread_pool pool_;
+  mutable boost::asio::steady_timer notify_timer_;
 
   mutable std::mutex mutex_;
   std::condition_variable condvar_;

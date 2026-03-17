@@ -21,10 +21,9 @@ std::size_t LeakyBucket::FullDataAmount() const noexcept {
 bool LeakyBucket::CheckSpeedLimit(std::size_t packet_size) noexcept {
   const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
-  auto now = std::chrono::steady_clock::now();
-  auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-      now - last_leak_time_)
-                     .count();
+  const auto now = std::chrono::steady_clock::now();
+  const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+      now - last_leak_time_).count();
   if (elapsed < 1000) {
     if (current_amount_ + packet_size < max_bytes_per_second_) {
       current_amount_ += packet_size;
