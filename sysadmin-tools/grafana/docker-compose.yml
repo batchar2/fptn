@@ -17,11 +17,16 @@ services:
     restart: unless-stopped
     environment:
       - PROMETHEUS_SECRET_ACCESS_KEY=${PROMETHEUS_SECRET_ACCESS_KEY}
+      - FPTN_HOST=${FPTN_HOST}
+      - FPTN_PORT=${FPTN_PORT}
     entrypoint:
       - sh
       - -c
       - |
-        sed -e "s|PROMETHEUS_SECRET_ACCESS_KEY|${PROMETHEUS_SECRET_ACCESS_KEY}|g" /etc/prometheus/prometheus.yaml.template > /etc/prometheus/prometheus.yaml
+        sed -e "s|PROMETHEUS_SECRET_ACCESS_KEY|${PROMETHEUS_SECRET_ACCESS_KEY}|g" \
+            -e "s|FPTN_HOST|${FPTN_HOST}|g" \
+            -e "s|FPTN_PORT|${FPTN_PORT}|g" \
+            /etc/prometheus/prometheus.yaml.template > /etc/prometheus/prometheus.yaml
         exec prometheus --config.file=/etc/prometheus/prometheus.yaml --storage.tsdb.retention.time=30d
     volumes:
       - fptn_prometheus_data:/prometheus
@@ -36,9 +41,6 @@ services:
       - /:/host:ro,rslave
 
   fptn-proxy-server:
-    image: fptnvpn/fptn-proxy-server
+    image: fptnvpn/fptn-proxy-server:latest
     restart: unless-stopped
-    environment:
-      - FPTN_HOST=${FPTN_HOST}
-      - FPTN_PORT=${FPTN_PORT}
-    command: /usr/bin/fptn-proxy --target-host "${FPTN_HOST}" --target-port "${FPTN_PORT}" --listen-port 80
+    command: /usr/bin/fptn-proxy --listen-port 80
