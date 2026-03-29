@@ -14,11 +14,13 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include "common/network/ipv6_generator.h"
 
+namespace {
 // Helper: produce the canonical compressed IPv6 string for a given
 // full-hex address, so test expectations match inet_ntop / pcpp output.
-static std::string canonical(const std::string& full_hex) {
+std::string canonical(const std::string& full_hex) {
   return boost::asio::ip::make_address_v6(full_hex).to_string();
 }
+}  // namespace
 
 TEST(IPv6GeneratorTest, InitialAddress) {
   fptn::common::network::IPv6AddressGenerator generator(

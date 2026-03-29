@@ -52,7 +52,7 @@ TEST(IPv6UtilsTest, ServerDefaultSubnetMatchesPcpp) {
   // Generate a few addresses and verify they match pcpp's format
   for (int i = 1; i <= 5; i++) {
     const auto generated = generator.GetNextAddress();
-    const std::string gen_str = generated.ToString();
+    const auto& gen_str = generated.ToString();
 
     // Round-trip through pcpp (simulates what happens on packet receive)
     const pcpp::IPv6Address pcpp_addr(gen_str);
