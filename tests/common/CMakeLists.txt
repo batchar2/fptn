@@ -45,3 +45,8 @@ add_test(NAME IPv4GeneratorTest COMMAND IPv4GeneratorTest)
 add_executable(IPv6GeneratorTest network/IPv6GeneratorTest.cpp)
 target_link_libraries(IPv6GeneratorTest PRIVATE ${LIBS})
 add_test(NAME IPv6GeneratorTest COMMAND IPv6GeneratorTest)
+
+# --- IPv6 Utils test ---
+add_executable(IPv6UtilsTest network/IPv6UtilsTest.cpp)
+target_link_libraries(IPv6UtilsTest PRIVATE ${LIBS})
+add_test(NAME IPv6UtilsTest COMMAND IPv6UtilsTest)
