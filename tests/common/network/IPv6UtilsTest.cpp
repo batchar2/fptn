@@ -4,6 +4,9 @@ Copyright (c) 2024-2026 Pavel Shpilev
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
 
+#include <string>
+#include <vector>
+
 #include <gtest/gtest.h>  // NOLINT(build/include_order)
 
 #include <pcapplusplus/IPv6Layer.h>  // NOLINT(build/include_order)

@@ -4,6 +4,8 @@ Copyright (c) 2024-2025 Stas Skokov
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
 
+#include <string>
+
 #include <fmt/core.h>  // NOLINT(build/include_order)
 
 #include <gtest/gtest.h>  // NOLINT(build/include_order)
