@@ -4,11 +4,23 @@ Copyright (c) 2024-2025 Stas Skokov
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
 
+#include <string>
+
 #include <fmt/core.h>  // NOLINT(build/include_order)
 
 #include <gtest/gtest.h>  // NOLINT(build/include_order)
 
+#include <boost/asio/ip/address_v6.hpp>
+
 #include "common/network/ipv6_generator.h"
+
+namespace {
+// Helper: produce the canonical compressed IPv6 string for a given
+// full-hex address, so test expectations match inet_ntop / pcpp output.
+std::string canonical(const std::string& full_hex) {
+  return boost::asio::ip::make_address_v6(full_hex).to_string();
+}
+}  // namespace
 
 TEST(IPv6GeneratorTest, InitialAddress) {
   fptn::common::network::IPv6AddressGenerator generator(
@@ -18,13 +30,16 @@ TEST(IPv6GeneratorTest, InitialAddress) {
   EXPECT_EQ(generator.NumAvailableAddresses(), 254);
 
   const auto address1 = generator.GetNextAddress();
-  EXPECT_EQ(address1.ToString(), "2001:0db8:0000:0000:0000:0000:0000:0001");
+  EXPECT_EQ(address1.ToString(),
+      canonical("2001:0db8:0000:0000:0000:0000:0000:0001"));
 
   const auto address2 = generator.GetNextAddress();
-  EXPECT_EQ(address2.ToString(), "2001:0db8:0000:0000:0000:0000:0000:0002");
+  EXPECT_EQ(address2.ToString(),
+      canonical("2001:0db8:0000:0000:0000:0000:0000:0002"));
 
   const auto address3 = generator.GetNextAddress();
-  EXPECT_EQ(address3.ToString(), "2001:0db8:0000:0000:0000:0000:0000:0003");
+  EXPECT_EQ(address3.ToString(),
+      canonical("2001:0db8:0000:0000:0000:0000:0000:0003"));
 }
 
 TEST(IPv6GeneratorTest, NumAvaliableAddresses) {
@@ -37,12 +52,14 @@ TEST(IPv6GeneratorTest, NumAvaliableAddresses) {
   for (int i = 1; i <= 254; i++) {
     const auto address = generator.GetNextAddress();
     EXPECT_EQ(address.ToString(),
-        fmt::format("2001:0db8:0001:0000:0000:0000:0000:{:04x}", i));
+        canonical(
+            fmt::format("2001:0db8:0001:0000:0000:0000:0000:{:04x}", i)));
   }
 
   {  // Repeat test
     const auto address = generator.GetNextAddress();
-    EXPECT_EQ(address.ToString(), "2001:0db8:0001:0000:0000:0000:0000:0001");
+    EXPECT_EQ(address.ToString(),
+        canonical("2001:0db8:0001:0000:0000:0000:0000:0001"));
   }
 }
 
@@ -56,7 +73,8 @@ TEST(IPv6GeneratorTest, SmallDifficultNetsMask) {
   for (int i = 1; i <= 14; i++) {
     const auto address = generator.GetNextAddress();
     EXPECT_EQ(address.ToString(),
-        fmt::format("2001:0db8:0002:0000:0000:0000:0000:{:04x}", i));
+        canonical(
+            fmt::format("2001:0db8:0002:0000:0000:0000:0000:{:04x}", i)));
   }
 }
 
@@ -75,8 +93,9 @@ TEST(IPv6GeneratorTest, BigDifficultNetsMask) {
       }
       const auto address = generator.GetNextAddress();
       EXPECT_EQ(address.ToString(),
-          fmt::format("2001:0db8:0003:0000:0000:0000:{:02x}{:02x}:{:02x}{:02x}",
-              0, 0, i, j));
+          canonical(fmt::format(
+              "2001:0db8:0003:0000:0000:0000:{:02x}{:02x}:{:02x}{:02x}", 0, 0,
+              i, j)));
       counter += 1;
     }
   }
