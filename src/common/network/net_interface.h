@@ -182,6 +182,7 @@ class GenericTunInterface final
     const std::scoped_lock lock(mutex_);
 
     try {
+      // cppcheck-suppress knownConditionTrueFalse
       if (!device_.Open(this->Name())) {
         SPDLOG_ERROR("Failed to open TUN device");
         return false;
@@ -190,11 +191,13 @@ class GenericTunInterface final
       this->config_.name = device_.GetName();
 
       /* set IPv6 */
+      // cppcheck-suppress knownConditionTrueFalse
       if (!device_.ConfigureIPv6(
               this->IPv6Addr().ToString(), this->IPv6Netmask())) {
         SPDLOG_WARN("IPv6 configuration failed, continuing with IPv4 only");
       }
       /* set IPv4 */
+      // cppcheck-suppress knownConditionTrueFalse
       if (!device_.ConfigureIPv4(
               this->IPv4Addr().ToString(), this->IPv4Netmask())) {
         SPDLOG_ERROR("IPv4 configuration failed");

@@ -73,7 +73,7 @@ struct SharedMockState {
     if (read_queue.empty()) {
       return 0;
     }
-    auto& front = read_queue.front();
+    const auto& front = read_queue.front();
     const int sz = std::min(max_size, static_cast<int>(front.size()));
     std::memcpy(buffer, front.data(), sz);
     read_queue.pop();
@@ -107,23 +107,32 @@ class MockTunDevice {
     name_ = name;
     return true;
   }
+  // cppcheck-suppress functionStatic
   void Close() {}
-  [[nodiscard]] std::string GetName() const { return name_; }
+  [[nodiscard]] const std::string& GetName() const { return name_; }
+  // cppcheck-suppress functionStatic
   bool ConfigureIPv4(const std::string& /*addr*/, int /*mask*/) {
     return true;
   }
+  // cppcheck-suppress functionStatic
   bool ConfigureIPv6(const std::string& /*addr*/, int /*mask*/) {
     return true;
   }
+  // cppcheck-suppress functionStatic
   void SetNonBlocking(bool /*enabled*/) {}
+  // cppcheck-suppress functionStatic
   void SetMTU(int /*mtu*/) {}
+  // cppcheck-suppress functionStatic
   void BringUp() {}
+  // cppcheck-suppress functionStatic
   void SetStopFlag(const std::atomic<bool>* /*running*/) {}
 
+  // cppcheck-suppress functionStatic
   int Read(void* buffer, int size) {
     return g_mock_state->FeedRead(buffer, size);
   }
 
+  // cppcheck-suppress functionStatic
   int Write(const void* data, int size) {
     g_mock_state->RecordWrite(data, size);
     return size;
@@ -247,7 +256,9 @@ TEST_F(GenericTunInterfaceTest, ReceiveIPv4Packet) {
   iface.Stop();
 
   std::lock_guard<std::mutex> lock(callback_mutex);
+  ASSERT_FALSE(received.empty());
   ASSERT_EQ(received.size(), 1u);
+  // cppcheck-suppress containerOutOfBounds
   EXPECT_EQ(received[0], MakeMinimalIPv4Packet());
 }
 
@@ -285,7 +296,9 @@ TEST_F(GenericTunInterfaceTest, ReceiveIPv6Packet) {
   iface.Stop();
 
   std::lock_guard<std::mutex> lock(callback_mutex);
+  ASSERT_FALSE(received.empty());
   ASSERT_EQ(received.size(), 1u);
+  // cppcheck-suppress containerOutOfBounds
   EXPECT_EQ(received[0], MakeMinimalIPv6Packet());
 }
 

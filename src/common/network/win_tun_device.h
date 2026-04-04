@@ -75,7 +75,7 @@ class WinTunDevice {
     }
   }
 
-  [[nodiscard]] std::string GetName() const { return name_; }
+  [[nodiscard]] const std::string& GetName() const { return name_; }
 
   bool ConfigureIPv4(const std::string& addr, int mask) {
     return SetIPAddressEntry(AF_INET, addr, mask);
@@ -85,10 +85,12 @@ class WinTunDevice {
     return SetIPAddressEntry(AF_INET6, addr, mask);
   }
 
+  // cppcheck-suppress functionStatic
   void SetNonBlocking(bool /*enabled*/) {
     // Wintun uses event-based I/O, no-op
   }
 
+  // cppcheck-suppress functionStatic
   void SetMTU(int /*mtu*/) {
     // Wintun handles MTU internally, no-op
   }

@@ -109,7 +109,7 @@ class DarwinTunDevice {
     return true;
   }
 
-  [[nodiscard]] std::string GetName() const { return name_; }
+  [[nodiscard]] const std::string& GetName() const { return name_; }
 
   bool ConfigureIPv4(const std::string& addr, int mask) {
     // Use ifconfig to set IPv4 address
@@ -196,6 +196,7 @@ class DarwinTunDevice {
     return static_cast<int>(written) - kAfHeaderSize;
   }
 
+  // cppcheck-suppress functionStatic
   void SetStopFlag(const std::atomic<bool>* /*running*/) {}
 
  private:

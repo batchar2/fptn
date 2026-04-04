@@ -224,6 +224,7 @@ void VpnClient::ProcessWebSocketPackets() {
 
     if (running_ && packet) {
       const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+      // cppcheck-suppress knownConditionTrueFalse
       if (running_ && virtual_net_interface_) {
         virtual_net_interface_->Send(std::move(packet));
       }

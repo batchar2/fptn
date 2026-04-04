@@ -25,7 +25,7 @@ class LinuxTunDevice {
 
   void Close() { tun_.reset(); }
 
-  [[nodiscard]] std::string GetName() const { return name_; }
+  [[nodiscard]] const std::string& GetName() const { return name_; }
 
   bool ConfigureIPv4(const std::string& addr, int mask) {
     tun_->ip(addr, mask);
@@ -51,6 +51,7 @@ class LinuxTunDevice {
     return tun_->write(const_cast<void*>(data), static_cast<std::size_t>(size));
   }
 
+  // cppcheck-suppress functionStatic
   void SetStopFlag(const std::atomic<bool>* /*running*/) {}
 
  private:
