@@ -871,6 +871,10 @@ bool TrayApp::startVpn(QString& err_msg) {
 
   // Wait for the WebSocket tunnel to establish
   vpn_client_->Start();
+
+  // Update tun name to actual device name (may differ on macOS)
+  route_manager_->UpdateTunInterfaceName(vpn_client_->GetInterfaceName());
+
   constexpr auto kTimeout = std::chrono::seconds(10);
   const auto start = std::chrono::steady_clock::now();
   while (!vpn_client_->IsStarted()) {

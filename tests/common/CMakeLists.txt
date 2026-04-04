@@ -50,3 +50,8 @@ add_test(NAME IPv6GeneratorTest COMMAND IPv6GeneratorTest)
 add_executable(IPv6UtilsTest network/IPv6UtilsTest.cpp)
 target_link_libraries(IPv6UtilsTest PRIVATE ${LIBS})
 add_test(NAME IPv6UtilsTest COMMAND IPv6UtilsTest)
+
+# --- TUN Device test ---
+add_executable(TunDeviceTest network/TunDeviceTest.cpp)
+target_link_libraries(TunDeviceTest PRIVATE ${LIBS})
+add_test(NAME TunDeviceTest COMMAND TunDeviceTest)

@@ -445,24 +445,32 @@ bool RouteManager::Apply() {
           R"(bash -c "networksetup -listallnetworkservices | grep -v '^An asterisk' | xargs -I {{}} networksetup -setdnsservers '{{}}' empty")",
           dns_server_ipv4_.ToString()),  // clean DNS
       fmt::format("sysctl -w net.inet.ip.forwarding=1"),
+      fmt::format("sysctl -w net.inet6.ip6.forwarding=1"),
       fmt::format(
           R"(sh -c "echo 'nat on {findOutInterfaceName} from {tunInterfaceName}:network to any -> ({findOutInterfaceName})
                 pass out on {findOutInterfaceName} proto tcp from any to {vpnServerIP}
                 pass in on {findOutInterfaceName} proto tcp from {vpnServerIP} to any
                 pass in on {tunInterfaceName} proto tcp from any to any
-                pass out on {tunInterfaceName} proto tcp from any to any' > /tmp/pf.conf"
+                pass out on {tunInterfaceName} proto tcp from any to any
+                pass in on {tunInterfaceName} proto udp from any to any
+                pass out on {tunInterfaceName} proto udp from any to any' > /tmp/pf.conf"
             )",
           fmt::arg("findOutInterfaceName", detected_out_interface_name_),
           fmt::arg("tunInterfaceName", tun_interface_name_),
           fmt::arg("vpnServerIP", vpn_server_ip_.ToString())),
       fmt::format("pfctl -ef /tmp/pf.conf"),
-      // default & DNS route
+      // IPv4 default & DNS route
       fmt::format(
           "route add -net 0.0.0.0/1 -interface {}", tun_interface_name_),
       fmt::format(
           "route add -net 128.0.0.0/1 -interface {}", tun_interface_name_),
       fmt::format("route add -host {} -interface {}",
           dns_server_ipv4_.ToString(), tun_interface_name_),  // via TUN
+      // IPv6 default route (split into two halves to avoid overriding default)
+      fmt::format(
+          "route add -inet6 -net ::0/1 -interface {}", tun_interface_name_),
+      fmt::format(
+          "route add -inet6 -net 8000::/1 -interface {}", tun_interface_name_),
       // exclude vpn server & networks
       fmt::format("route add -host {} {}", vpn_server_ip_.ToString(),
           detected_gateway_ipv4_.ToString()),
@@ -731,6 +739,11 @@ bool RouteManager::Clean() {  // NOLINT(bugprone-exception-escape)
           "route delete -net 0.0.0.0/1 -interface {}", tun_interface_name_),
       fmt::format(
           "route delete -net 128.0.0.0/1 -interface {}", tun_interface_name_),
+      // del IPv6 routes
+      fmt::format(
+          "route delete -inet6 -net ::0/1 -interface {}", tun_interface_name_),
+      fmt::format("route delete -inet6 -net 8000::/1 -interface {}",
+          tun_interface_name_),
       fmt::format("route delete -host {} {}", vpn_server_ip_.ToString(),
           detected_gateway_ipv4_.ToString()),
       // DNS

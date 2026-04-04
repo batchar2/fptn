@@ -147,6 +147,13 @@ std::size_t VpnClient::GetReceiveRate() {
   return 0;
 }
 
+std::string VpnClient::GetInterfaceName() const {
+  if (virtual_net_interface_) {
+    return virtual_net_interface_->Name();
+  }
+  return {};
+}
+
 void VpnClient::HandlePacketFromVirtualNetworkInterface(
     fptn::common::network::IPPacketPtr packet) {
   if (!running_) {

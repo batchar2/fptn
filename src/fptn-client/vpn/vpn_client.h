@@ -35,6 +35,7 @@ class VpnClient final {
   std::size_t GetSendRate();
   std::size_t GetReceiveRate();
   bool IsStarted();
+  [[nodiscard]] std::string GetInterfaceName() const;
 
  protected:
   void HandlePacketFromVirtualNetworkInterface(
