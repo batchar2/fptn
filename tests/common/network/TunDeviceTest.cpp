@@ -63,13 +63,13 @@ struct SharedMockState {
   std::queue<std::vector<std::uint8_t>> read_queue;
 
   void RecordWrite(const void* data, int size) {
-    std::lock_guard<std::mutex> lock(mutex);
+    std::scoped_lock lock(mutex);
     written_packets.emplace_back(static_cast<const std::uint8_t*>(data),
         static_cast<const std::uint8_t*>(data) + size);
   }
 
   int FeedRead(void* buffer, int max_size) {
-    std::lock_guard<std::mutex> lock(mutex);
+    std::scoped_lock lock(mutex);
     if (read_queue.empty()) {
       return 0;
     }
@@ -81,12 +81,12 @@ struct SharedMockState {
   }
 
   void InjectPacket(std::vector<std::uint8_t> data) {
-    std::lock_guard<std::mutex> lock(mutex);
+    std::scoped_lock lock(mutex);
     read_queue.push(std::move(data));
   }
 
   void Clear() {
-    std::lock_guard<std::mutex> lock(mutex);
+    std::scoped_lock lock(mutex);
     written_packets.clear();
     while (!read_queue.empty()) {
       read_queue.pop();
@@ -108,31 +108,39 @@ class MockTunDevice {
     return true;
   }
   // cppcheck-suppress functionStatic
-  void Close() {}
+  void Close() {}  // NOLINT(readability-convert-member-functions-to-static)
   [[nodiscard]] const std::string& GetName() const { return name_; }
   // cppcheck-suppress functionStatic
+  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
   bool ConfigureIPv4(const std::string& /*addr*/, int /*mask*/) {
     return true;
   }
   // cppcheck-suppress functionStatic
+  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
   bool ConfigureIPv6(const std::string& /*addr*/, int /*mask*/) {
     return true;
   }
   // cppcheck-suppress functionStatic
+  // NOLINTNEXTLINE(readability-convert-member-*)
   void SetNonBlocking(bool /*enabled*/) {}
   // cppcheck-suppress functionStatic
+  // NOLINTNEXTLINE(readability-convert-member-*)
   void SetMTU(int /*mtu*/) {}
   // cppcheck-suppress functionStatic
+  // NOLINTNEXTLINE(readability-convert-member-*)
   void BringUp() {}
   // cppcheck-suppress functionStatic
+  // NOLINTNEXTLINE(readability-convert-member-*)
   void SetStopFlag(const std::atomic<bool>* /*running*/) {}
 
   // cppcheck-suppress functionStatic
+  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
   int Read(void* buffer, int size) {
     return g_mock_state->FeedRead(buffer, size);
   }
 
   // cppcheck-suppress functionStatic
+  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
   int Write(const void* data, int size) {
     g_mock_state->RecordWrite(data, size);
     return size;
@@ -194,7 +202,7 @@ TEST_F(GenericTunInterfaceTest, SendIPv4Packet) {
   std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
   auto written = g_mock_state->written_packets;
-  ASSERT_EQ(written.size(), 1u);
+  ASSERT_EQ(written.size(), 1U);
   EXPECT_EQ(written[0].size(), pkt_data.size());
   EXPECT_EQ(written[0], pkt_data);
 
@@ -215,7 +223,7 @@ TEST_F(GenericTunInterfaceTest, SendIPv6Packet) {
   std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
   auto written = g_mock_state->written_packets;
-  ASSERT_EQ(written.size(), 1u);
+  ASSERT_EQ(written.size(), 1U);
   EXPECT_EQ(written[0].size(), pkt_data.size());
   EXPECT_EQ(written[0], pkt_data);
 
@@ -231,7 +239,7 @@ TEST_F(GenericTunInterfaceTest, ReceiveIPv4Packet) {
   iface.SetRecvIPPacketCallback(
       [&](fptn::common::network::IPPacketPtr packet) {
         if (packet) {
-          std::lock_guard<std::mutex> lock(callback_mutex);
+          std::scoped_lock lock(callback_mutex);
           const auto* raw = packet->GetRawPacket();
           const auto* data =
               static_cast<const std::uint8_t*>(raw->getRawData());
@@ -247,7 +255,7 @@ TEST_F(GenericTunInterfaceTest, ReceiveIPv4Packet) {
   // Wait for the run loop to pick it up
   for (int i = 0; i < 100; ++i) {
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
-    std::lock_guard<std::mutex> lock(callback_mutex);
+    std::scoped_lock lock(callback_mutex);
     if (!received.empty()) {
       break;
     }
@@ -255,9 +263,9 @@ TEST_F(GenericTunInterfaceTest, ReceiveIPv4Packet) {
 
   iface.Stop();
 
-  std::lock_guard<std::mutex> lock(callback_mutex);
+  std::scoped_lock lock(callback_mutex);
   ASSERT_FALSE(received.empty());
-  ASSERT_EQ(received.size(), 1u);
+  ASSERT_EQ(received.size(), 1U);
   // cppcheck-suppress containerOutOfBounds
   EXPECT_EQ(received[0], MakeMinimalIPv4Packet());
 }
@@ -271,7 +279,7 @@ TEST_F(GenericTunInterfaceTest, ReceiveIPv6Packet) {
   iface.SetRecvIPPacketCallback(
       [&](fptn::common::network::IPPacketPtr packet) {
         if (packet) {
-          std::lock_guard<std::mutex> lock(callback_mutex);
+          std::scoped_lock lock(callback_mutex);
           const auto* raw = packet->GetRawPacket();
           const auto* data =
               static_cast<const std::uint8_t*>(raw->getRawData());
@@ -287,7 +295,7 @@ TEST_F(GenericTunInterfaceTest, ReceiveIPv6Packet) {
   // Wait for the run loop to pick it up
   for (int i = 0; i < 100; ++i) {
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
-    std::lock_guard<std::mutex> lock(callback_mutex);
+    std::scoped_lock lock(callback_mutex);
     if (!received.empty()) {
       break;
     }
@@ -295,9 +303,9 @@ TEST_F(GenericTunInterfaceTest, ReceiveIPv6Packet) {
 
   iface.Stop();
 
-  std::lock_guard<std::mutex> lock(callback_mutex);
+  std::scoped_lock lock(callback_mutex);
   ASSERT_FALSE(received.empty());
-  ASSERT_EQ(received.size(), 1u);
+  ASSERT_EQ(received.size(), 1U);
   // cppcheck-suppress containerOutOfBounds
   EXPECT_EQ(received[0], MakeMinimalIPv6Packet());
 }
@@ -322,7 +330,7 @@ TEST_F(GenericTunInterfaceTest, SendMultipleMixedPackets) {
   std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
   auto written = g_mock_state->written_packets;
-  ASSERT_EQ(written.size(), 2u);
+  ASSERT_EQ(written.size(), 2U);
   EXPECT_EQ(written[0], ipv4_data);
   EXPECT_EQ(written[1], ipv6_data);
 
@@ -340,7 +348,7 @@ TEST_F(GenericTunInterfaceTest, DeviceNameUpdatedAfterStart) {
 
 // ===== DarwinTunDevice AF header tests (macOS only) =====
 
-#if defined(__APPLE__)
+#ifdef __APPLE__
 
 #include <sys/socket.h>
 #include <unistd.h>

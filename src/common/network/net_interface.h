@@ -243,22 +243,26 @@ class GenericTunInterface final
       return false;
     }
 
-    const std::scoped_lock lock(mutex_);
+    try {
+      const std::scoped_lock lock(mutex_);
 
-    if (running_) {
-      const auto* raw_packet = packet->GetRawPacket();
-      if (!raw_packet) {
-        return false;
+      if (running_) {
+        const auto* raw_packet = packet->GetRawPacket();
+        if (!raw_packet) {
+          return false;
+        }
+        const auto* data = raw_packet->getRawData();
+        const auto len = raw_packet->getRawDataLen();
+
+        const int bytes_written =
+            device_.Write(data, static_cast<int>(len));
+
+        send_rate_calculator_.Update(bytes_written);
+
+        return bytes_written == len;
       }
-      const auto* data = raw_packet->getRawData();
-      const auto len = raw_packet->getRawDataLen();
-
-      const int bytes_written =
-          device_.Write(data, static_cast<int>(len));
-
-      send_rate_calculator_.Update(bytes_written);
-
-      return bytes_written == len;
+    } catch (const std::exception& ex) {
+      SPDLOG_ERROR("SendImpl error: {}", ex.what());
     }
     return false;
   }

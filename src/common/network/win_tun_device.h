@@ -72,6 +72,7 @@ class WinTunDevice {
     }
     if (wintun_) {
       WintunDeleteDriver();
+      wintun_ = nullptr;
     }
   }
 
