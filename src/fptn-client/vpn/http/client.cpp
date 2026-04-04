@@ -235,7 +235,6 @@ bool Client::Stop() {
 
   if (ws_) {
     ws_->Stop();
-    ws_.reset();
   }
 
   if (th_.joinable()) {
@@ -245,6 +244,8 @@ bool Client::Stop() {
       SPDLOG_WARN("Unexpected exception during thread join");
     }
   }
+
+  ws_.reset();
   return true;
 }
 
