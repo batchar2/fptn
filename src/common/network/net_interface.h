@@ -253,12 +253,12 @@ class GenericTunInterface final
       const auto* data = raw_packet->getRawData();
       const auto len = raw_packet->getRawDataLen();
 
-      const auto bytes_written =
+      const int bytes_written =
           device_.Write(data, static_cast<int>(len));
 
       send_rate_calculator_.Update(bytes_written);
 
-      return static_cast<std::size_t>(bytes_written) == len;
+      return bytes_written == len;
     }
     return false;
   }
