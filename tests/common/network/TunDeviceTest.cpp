@@ -4,6 +4,7 @@ Copyright (c) 2024-2026 Pavel Shpilev
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstdint>
@@ -13,6 +14,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <queue>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>  // NOLINT(build/include_order)
@@ -136,7 +138,8 @@ class MockTunDevice {
 // ===== GenericTunInterface tests with MockTunDevice =====
 
 using MockTunInterface =
-    fptn::common::network::GenericTunInterface<fptn::common::network::MockTunDevice>;
+    fptn::common::network::GenericTunInterface<
+        fptn::common::network::MockTunDevice>;
 
 class GenericTunInterfaceTest : public ::testing::Test {
  protected:
@@ -293,10 +296,10 @@ TEST_F(GenericTunInterfaceTest, SendMultipleMixedPackets) {
   auto ipv4_data = MakeMinimalIPv4Packet();
   auto ipv6_data = MakeMinimalIPv6Packet();
 
-  auto pkt4 =
-      fptn::common::network::IPPacket::Parse(ipv4_data.data(), ipv4_data.size());
-  auto pkt6 =
-      fptn::common::network::IPPacket::Parse(ipv6_data.data(), ipv6_data.size());
+  auto pkt4 = fptn::common::network::IPPacket::Parse(
+      ipv4_data.data(), ipv4_data.size());
+  auto pkt6 = fptn::common::network::IPPacket::Parse(
+      ipv6_data.data(), ipv6_data.size());
   ASSERT_NE(pkt4, nullptr);
   ASSERT_NE(pkt6, nullptr);
 

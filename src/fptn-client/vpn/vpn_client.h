@@ -10,6 +10,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <memory>
 #include <mutex>
 #include <queue>
+#include <string>
 #include <vector>
 
 #include <openssl/base.h>  // NOLINT(build/include_order)
