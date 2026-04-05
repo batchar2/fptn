@@ -310,11 +310,11 @@ class GenericTunInterface final
 
 // Platform-specific TUN device includes (outside namespace to avoid nesting)
 #if defined(__APPLE__)
-#include "common/network/darwin_tun_device.h"
+#include "common/network/tun/darwin_tun_device.h"
 #elif defined(__linux__)
-#include "common/network/linux_tun_device.h"
+#include "common/network/tun/linux_tun_device.h"
 #elif defined(_WIN32)
-#include "common/network/win_tun_device.h"
+#include "common/network/tun/win_tun_device.h"
 #endif
 
 namespace fptn::common::network {

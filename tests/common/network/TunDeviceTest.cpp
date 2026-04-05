@@ -353,7 +353,7 @@ TEST_F(GenericTunInterfaceTest, DeviceNameUpdatedAfterStart) {
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include "common/network/darwin_tun_device.h"
+#include "common/network/tun/darwin_tun_device.h"
 
 class DarwinAfHeaderTest : public ::testing::Test {
  protected:
