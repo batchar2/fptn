@@ -55,3 +55,8 @@ add_test(NAME IPv6UtilsTest COMMAND IPv6UtilsTest)
 add_executable(TunDeviceTest network/TunDeviceTest.cpp)
 target_link_libraries(TunDeviceTest PRIVATE ${LIBS})
 add_test(NAME TunDeviceTest COMMAND TunDeviceTest)
+
+# --- Client Stop race condition test ---
+add_executable(ClientStopRaceTest network/ClientStopRaceTest.cpp)
+target_link_libraries(ClientStopRaceTest PRIVATE GTest::gtest GTest::gtest_main)
+add_test(NAME ClientStopRaceTest COMMAND ClientStopRaceTest)
