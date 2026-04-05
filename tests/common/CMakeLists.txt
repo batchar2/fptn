@@ -50,3 +50,8 @@ add_test(NAME IPv6GeneratorTest COMMAND IPv6GeneratorTest)
 add_executable(IPv6UtilsTest network/IPv6UtilsTest.cpp)
 target_link_libraries(IPv6UtilsTest PRIVATE ${LIBS})
 add_test(NAME IPv6UtilsTest COMMAND IPv6UtilsTest)
+
+# --- Client Stop race condition test ---
+add_executable(ClientStopRaceTest network/ClientStopRaceTest.cpp)
+target_link_libraries(ClientStopRaceTest PRIVATE GTest::gtest GTest::gtest_main)
+add_test(NAME ClientStopRaceTest COMMAND ClientStopRaceTest)
