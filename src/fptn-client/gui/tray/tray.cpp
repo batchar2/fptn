@@ -476,13 +476,13 @@ void TrayApp::onDisconnectFromServer() {
   const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
   connection_state_ = ConnectionState::None;
-  if (vpn_client_) {
-    vpn_client_->Stop();
-    vpn_client_.reset();
-  }
   if (route_manager_) {
     route_manager_->Clean();
     route_manager_.reset();
+  }
+  if (vpn_client_) {
+    vpn_client_->Stop();
+    vpn_client_.reset();
   }
   UpdateTrayMenu();
 }
@@ -499,13 +499,13 @@ void TrayApp::handleDefaultState() {
     const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
     connection_state_ = ConnectionState::None;
-    if (vpn_client_) {
-      vpn_client_->Stop();
-      vpn_client_.reset();
-    }
     if (route_manager_) {
       route_manager_->Clean();
       route_manager_.reset();
+    }
+    if (vpn_client_) {
+      vpn_client_->Stop();
+      vpn_client_.reset();
     }
   }
   UpdateTrayMenu();
@@ -660,13 +660,13 @@ void TrayApp::RetranslateUi() {
 
 void TrayApp::stop() {
   SPDLOG_INFO("Stopping TrayApp");
-  if (vpn_client_) {
-    vpn_client_->Stop();
-    vpn_client_.reset();
-  }
   if (route_manager_) {
     route_manager_->Clean();
     route_manager_.reset();
+  }
+  if (vpn_client_) {
+    vpn_client_->Stop();
+    vpn_client_.reset();
   }
 }
 
@@ -908,13 +908,13 @@ bool TrayApp::startVpn(QString& err_msg) {
 
 bool TrayApp::stopVpn() {
   SPDLOG_INFO("Stopping vpn");
-  if (vpn_client_) {
-    vpn_client_->Stop();
-    vpn_client_.reset();
-  }
   if (route_manager_) {
     route_manager_->Clean();
     route_manager_.reset();
+  }
+  if (vpn_client_) {
+    vpn_client_->Stop();
+    vpn_client_.reset();
   }
   return true;
 }

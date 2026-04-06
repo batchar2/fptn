@@ -447,14 +447,7 @@ bool RouteManager::Apply() {
       fmt::format("sysctl -w net.inet.ip.forwarding=1"),
       fmt::format("sysctl -w net.inet6.ip6.forwarding=1"),
       fmt::format(
-          R"(sh -c "echo 'nat on {findOutInterfaceName} from {tunInterfaceName}:network to any -> ({findOutInterfaceName})
-                pass out on {findOutInterfaceName} proto tcp from any to {vpnServerIP}
-                pass in on {findOutInterfaceName} proto tcp from {vpnServerIP} to any
-                pass in on {tunInterfaceName} proto tcp from any to any
-                pass out on {tunInterfaceName} proto tcp from any to any
-                pass in on {tunInterfaceName} proto udp from any to any
-                pass out on {tunInterfaceName} proto udp from any to any' > /tmp/pf.conf"
-            )",
+          R"(bash -c "printf 'nat on {findOutInterfaceName} from {tunInterfaceName}:network to any -> ({findOutInterfaceName})\npass out on {findOutInterfaceName} proto tcp from any to {vpnServerIP}\npass in on {findOutInterfaceName} proto tcp from {vpnServerIP} to any\npass in on {tunInterfaceName} proto tcp from any to any\npass out on {tunInterfaceName} proto tcp from any to any\npass in on {tunInterfaceName} proto udp from any to any\npass out on {tunInterfaceName} proto udp from any to any\n' > /tmp/pf.conf")",
           fmt::arg("findOutInterfaceName", detected_out_interface_name_),
           fmt::arg("tunInterfaceName", tun_interface_name_),
           fmt::arg("vpnServerIP", vpn_server_ip_.ToString())),
@@ -1190,7 +1183,7 @@ fptn::routing::GetDefaultGatewayIPv6Address() {
         "ip -6 route | grep default | head -1 | awk '{print $3}'";
 #elif __APPLE__
     const std::string command =
-        "route -6 get default | grep gateway | awk '{print $2}'";
+        "route get -inet6 default | grep gateway | awk '{print $2}'";
 #elif _WIN32
     const std::string command =
         R"(netsh interface ipv6 show routes | find "::/0" | head -1 | awk "{print $3}")";
