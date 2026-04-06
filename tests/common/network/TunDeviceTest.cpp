@@ -385,7 +385,7 @@ TEST_F(DarwinAfHeaderTest, WriteIPv4PrependsCorrectAfHeader) {
   const ssize_t n = recv(fds_[1], raw_buf, sizeof(raw_buf), 0);
   ASSERT_GT(n, 4);
 
-  // First 4 bytes should be AF_INET in network byte order (as macOS utun expects)
+  // First 4 bytes: AF_INET in network byte order (utun)
   std::uint32_t af_header = 0;
   std::memcpy(&af_header, raw_buf, 4);
   EXPECT_EQ(af_header, htonl(AF_INET));
