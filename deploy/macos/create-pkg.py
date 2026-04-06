@@ -130,7 +130,7 @@ def create_app(
     except Exception as e:
         print(f"Error creating .app: {e}")
         raise e
-    return False
+    return True
 
 
 def create_pkg(app_path: pathlib.Path, version: str) -> bool:
