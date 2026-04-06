@@ -442,7 +442,7 @@ bool RouteManager::Apply() {
 #elif __APPLE__
   const std::vector<std::string> commands = {
       fmt::format(
-          R"(bash -c "networksetup -listallnetworkservices | grep -v '^An asterisk' | xargs -I {{}} networksetup -setdnsservers '{{}}' empty")",
+          R"(bash -c "networksetup -listallnetworkservices | grep -v '^An asterisk' | grep -v '^\* ' | xargs -I {{}} networksetup -setdnsservers '{{}}' empty")",
           dns_server_ipv4_.ToString()),  // clean DNS
       fmt::format("sysctl -w net.inet.ip.forwarding=1"),
       fmt::format("sysctl -w net.inet6.ip6.forwarding=1"),
@@ -477,7 +477,7 @@ bool RouteManager::Apply() {
       // DNS
       fmt::format("dscacheutil -flushcache"),
       fmt::format(
-          R"(bash -c "networksetup -listallnetworkservices | grep -v '^\* ' | xargs -I {{}} networksetup -setdnsservers '{{}}' {}")",
+          R"(bash -c "networksetup -listallnetworkservices | grep -v '^An asterisk' | grep -v '^\* ' | xargs -I {{}} networksetup -setdnsservers '{{}}' {}")",
           dns_server_ipv4_.ToString())};
 
 #elif _WIN32
@@ -729,7 +729,7 @@ bool RouteManager::Clean() {  // NOLINT(bugprone-exception-escape)
 #elif __APPLE__
   const std::vector<std::string> commands = {
       fmt::format(
-          R"(bash -c "networksetup -listallnetworkservices | grep -v '^An asterisk' | xargs -I {{}} networksetup -setdnsservers '{{}}' empty")"),  // clean DNS
+          R"(bash -c "networksetup -listallnetworkservices | grep -v '^An asterisk' | grep -v '^\* ' | xargs -I {{}} networksetup -setdnsservers '{{}}' empty")"),  // clean DNS
       fmt::format("pfctl -F all -f /etc/pf.conf"),
       // del routes
       fmt::format("route delete -host {} -interface {}",
@@ -748,7 +748,7 @@ bool RouteManager::Clean() {  // NOLINT(bugprone-exception-escape)
           detected_gateway_ipv4_.ToString()),
       // DNS
       fmt::format(
-          R"(bash -c "networksetup -listallnetworkservices | grep -v '^An asterisk' | xargs -I {{}} networksetup -setdnsservers '{{}}' empty")")  // clean DNS
+          R"(bash -c "networksetup -listallnetworkservices | grep -v '^An asterisk' | grep -v '^\* ' | xargs -I {{}} networksetup -setdnsservers '{{}}' empty")")  // clean DNS
   };
 #elif _WIN32
   std::string current_interface_name = detected_out_interface_name_;

@@ -350,6 +350,7 @@ TEST_F(GenericTunInterfaceTest, DeviceNameUpdatedAfterStart) {
 
 #ifdef __APPLE__
 
+#include <arpa/inet.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -384,10 +385,10 @@ TEST_F(DarwinAfHeaderTest, WriteIPv4PrependsCorrectAfHeader) {
   const ssize_t n = recv(fds_[1], raw_buf, sizeof(raw_buf), 0);
   ASSERT_GT(n, 4);
 
-  // First 4 bytes should be AF_INET in host byte order
+  // First 4 bytes should be AF_INET in network byte order (as macOS utun expects)
   std::uint32_t af_header = 0;
   std::memcpy(&af_header, raw_buf, 4);
-  EXPECT_EQ(af_header, static_cast<std::uint32_t>(AF_INET));
+  EXPECT_EQ(af_header, htonl(AF_INET));
 
   // Remaining bytes should be the original packet
   const auto payload_size = static_cast<std::size_t>(n) - 4;
@@ -413,8 +414,8 @@ TEST_F(DarwinAfHeaderTest, WriteIPv6PrependsCorrectAfHeader) {
 
   std::uint32_t af_header = 0;
   std::memcpy(&af_header, raw_buf, 4);
-  // AF_INET6 is 30 on macOS/Darwin (not 10 like Linux)
-  EXPECT_EQ(af_header, static_cast<std::uint32_t>(AF_INET6));
+  // AF_INET6 in network byte order (as macOS utun expects)
+  EXPECT_EQ(af_header, htonl(AF_INET6));
 
   const auto payload_size = static_cast<std::size_t>(n) - 4;
   EXPECT_EQ(payload_size, ipv6_pkt.size());
@@ -431,9 +432,9 @@ TEST_F(DarwinAfHeaderTest, ReadStripsAfHeaderIPv4) {
 
   auto ipv4_pkt = MakeMinimalIPv4Packet();
 
-  // Write raw data with AF header into the socketpair from the test side
+  // Write raw data with AF header in network byte order (as the kernel sends)
   std::vector<std::uint8_t> raw(4 + ipv4_pkt.size());
-  std::uint32_t af = AF_INET;
+  std::uint32_t af = htonl(AF_INET);
   std::memcpy(raw.data(), &af, 4);
   std::memcpy(raw.data() + 4, ipv4_pkt.data(), ipv4_pkt.size());
   ASSERT_EQ(send(fds_[1], raw.data(), raw.size(), 0),
@@ -456,7 +457,7 @@ TEST_F(DarwinAfHeaderTest, ReadStripsAfHeaderIPv6) {
   auto ipv6_pkt = MakeMinimalIPv6Packet();
 
   std::vector<std::uint8_t> raw(4 + ipv6_pkt.size());
-  std::uint32_t af = AF_INET6;
+  std::uint32_t af = htonl(AF_INET6);
   std::memcpy(raw.data(), &af, 4);
   std::memcpy(raw.data() + 4, ipv6_pkt.data(), ipv6_pkt.size());
   ASSERT_EQ(send(fds_[1], raw.data(), raw.size(), 0),

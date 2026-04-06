@@ -176,9 +176,9 @@ class DarwinTunDevice {
 
     std::uint32_t af_header = 0;
     if (version == 4) {
-      af_header = AF_INET;
+      af_header = htonl(AF_INET);
     } else if (version == 6) {
-      af_header = AF_INET6;
+      af_header = htonl(AF_INET6);
     } else {
       return 0;
     }
