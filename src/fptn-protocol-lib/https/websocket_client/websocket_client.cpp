@@ -85,16 +85,16 @@ WebsocketClient::WebsocketClient(fptn::common::network::IPv4Address server_ip,
   ws_.text(false);
   ws_.binary(true);
   ws_.auto_fragment(true);
-  ws_.read_message_max(4 * 1024 * 1024);  // Increase max message size
+  ws_.read_message_max(256 * 1024);
   ws_.set_option(boost::beast::websocket::stream_base::timeout::suggested(
       boost::beast::role_type::client));
 
   // Optimize socket buffer sizes
   try {
     boost::beast::get_lowest_layer(ws_).socket().set_option(
-        boost::asio::socket_base::receive_buffer_size(4 * 1024 * 1024));
+        boost::asio::socket_base::receive_buffer_size(1 * 1024 * 1024));
     boost::beast::get_lowest_layer(ws_).socket().set_option(
-        boost::asio::socket_base::send_buffer_size(4 * 1024 * 1024));
+        boost::asio::socket_base::send_buffer_size(1 * 1024 * 1024));
 
     // Disable Nagle's algorithm for lower latency
     boost::beast::get_lowest_layer(ws_).socket().set_option(
@@ -411,7 +411,7 @@ boost::asio::awaitable<bool> WebsocketClient::Connect() {
     // WebSocket options
     boost::beast::websocket::stream_base::timeout timeout_option;
     timeout_option.handshake_timeout = std::chrono::seconds(10);
-    timeout_option.idle_timeout = std::chrono::seconds(10);
+    timeout_option.idle_timeout = std::chrono::seconds(2);
     timeout_option.keep_alive_pings = true;
     ws_.set_option(timeout_option);
 
@@ -449,7 +449,7 @@ boost::asio::awaitable<bool> WebsocketClient::Connect() {
 boost::asio::awaitable<void> WebsocketClient::RunReader() {
   boost::system::error_code ec;
   boost::beast::flat_buffer buffer;
-
+  buffer.reserve(4 * 1024 * 1024);
   try {
     while (running_ && was_connected_ && ws_.is_open()) {
       co_await ws_.async_read(
@@ -461,14 +461,20 @@ boost::asio::awaitable<void> WebsocketClient::RunReader() {
         }
         break;
       }
-
-      if (buffer.size() > 0) {
-        std::string data = boost::beast::buffers_to_string(buffer.data());
-        std::string raw = protobuf::GetProtoPayload(std::move(data));
-        auto packet = fptn::common::network::IPPacket::Parse(std::move(raw));
-        if (running_ && packet && new_ip_pkt_callback_) {
-          new_ip_pkt_callback_(std::move(packet));
+      if (!buffer.size()) {
+        continue;
+      }
+      try {
+        auto raw_ip = protobuf::GetProtoPayload(buffer);
+        if (raw_ip.has_value()) {
+          auto packet =
+              fptn::common::network::IPPacket::Parse(std::move(raw_ip.value()));
+          if (running_ && packet && new_ip_pkt_callback_) {
+            new_ip_pkt_callback_(std::move(packet));
+          }
         }
+      } catch (const std::exception& e) {
+        SPDLOG_WARN("IP packet error: {}", e.what());
       }
       buffer.consume(buffer.size());
     }
@@ -487,19 +493,19 @@ boost::asio::awaitable<void> WebsocketClient::RunSender() {
       auto [ec, packet] = co_await write_channel_.async_receive(
           boost::asio::bind_cancellation_slot(cancel_signal_.slot(),
               boost::asio::as_tuple(boost::asio::use_awaitable)));
-
       if (packet != nullptr && running_ && ws_.is_open() && !ec) {
-        std::string msg =
+        auto msg =
             fptn::protocol::protobuf::CreateProtoPayload(std::move(packet));
-        if (!msg.empty()) {
-          co_await ws_.async_write(boost::asio::buffer(msg),
+        if (msg.has_value()) {
+          co_await ws_.async_write(boost::asio::buffer(msg.value()),
               boost::asio::redirect_error(boost::asio::use_awaitable, ec));
           if (ec) {
             SPDLOG_ERROR("WebSocket write error: {}", ec.message());
             break;
           }
         }
-      } else if (ec) {
+      }
+      if (ec) {
         break;
       }
     }
@@ -587,44 +593,80 @@ void WebsocketClient::StartWatchdog() {
 
 std::vector<std::uint8_t> WebsocketClient::GenerateHandshakePacket() const {
   auto builder = camouflage::tls::Builder::Create();
+
+  std::string browser_name;
+
   switch (censorship_strategy_) {
+    /* Chrome */
+    case CensorshipStrategy::kSniRealityModeChrome147:
+      browser_name = "Chrome 147";
+      builder.GoogleChrome(
+          camouflage::tls::google_chrome::Version::kV_147_0_7727_56);
+      break;
     case CensorshipStrategy::kSniRealityModeChrome146:
+      browser_name = "Chrome 146";
       builder.GoogleChrome(
           camouflage::tls::google_chrome::Version::kV_146_0_7680_178);
       break;
-
+    case CensorshipStrategy::kSniRealityModeChrome145:
+      browser_name = "Chrome 145";
+      builder.GoogleChrome(
+          camouflage::tls::google_chrome::Version::kV_145_0_7632_46);
+      break;
+    /* Firefox */
     case CensorshipStrategy::kSniRealityModeFirefox149:
+      browser_name = "Firefox 149";
       builder.Firefox(camouflage::tls::firefox::Version::kV_149_0);
       break;
-
+    /* Yandex */
     case CensorshipStrategy::kSniRealityModeYandex26:
+      browser_name = "Yandex 26";
       builder.YandexBrowser(
-          camouflage::tls::yandex_browser::Version::kV_26_3_0_2182);
+          camouflage::tls::yandex_browser::Version::kV_26_3_3_881);
       break;
-
     case CensorshipStrategy::kSniRealityModeYandex25:
+      browser_name = "Yandex 25";
       builder.YandexBrowser(
-          camouflage::tls::yandex_browser::Version::kV_25_2_0_2118);
+          camouflage::tls::yandex_browser::Version::kV_25_8_3_828);
       break;
-
+    case CensorshipStrategy::kSniRealityModeYandex24:
+      browser_name = "Yandex 24";
+      builder.YandexBrowser(
+          camouflage::tls::yandex_browser::Version::kV_24_12_0_1772);
+      break;
+    /* Safari */
+    case CensorshipStrategy::kSniRealityModeSafari26:
+      browser_name = "Safari 26";
+      builder.Safari(camouflage::tls::safari::Version::kV_26_4);
+      break;
+    /* Default */
     default:
+      SPDLOG_DEBUG("Using fallback handshake generator for SNI: {}", sni_);
       return utils::GenerateDecoyTlsHandshake(sni_);
   }
 
+  SPDLOG_INFO("Generating {} handshake for SNI: {}", browser_name, sni_);
+
   const auto session_id = utils::GenerateDecoyTlsSessionId();
-  if (session_id.has_value()) {
-    const auto handshake =
-        builder.SetSNI(sni_).SetSessionId(session_id.value()).Generate();
-    if (handshake.has_value()) {
-      SPDLOG_INFO("Generated {} handshake for SNI: {}, size: {} bytes",
-          static_cast<int>(censorship_strategy_), sni_,
-          handshake->handshake_packet.size());
-      return handshake->handshake_packet;
-    }
+  if (!session_id.has_value()) {
+    SPDLOG_WARN("Session ID generation failed for {} handshake, using fallback",
+        browser_name);
+    return utils::GenerateDecoyTlsHandshake(sni_);
   }
-  SPDLOG_WARN(
-      "Failed to generate custom handshake, using fallback for SNI: {}", sni_);
-  return utils::GenerateDecoyTlsHandshake(sni_);
+
+  const auto handshake =
+      builder.SetSNI(sni_).SetSessionId(session_id.value()).Generate();
+  if (!handshake.has_value()) {
+    SPDLOG_WARN("{} handshake generation failed for SNI: {}, using fallback",
+        browser_name, sni_);
+    return utils::GenerateDecoyTlsHandshake(sni_);
+  }
+
+  SPDLOG_INFO("{} handshake generated: SNI={}, size={} bytes", browser_name,
+      sni_, handshake->handshake_packet_size);
+
+  return std::vector<std::uint8_t>(handshake->handshake_packet,
+      handshake->handshake_packet + handshake->handshake_packet_size);
 }
 
 }  // namespace fptn::protocol::https

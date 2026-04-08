@@ -727,7 +727,7 @@ bool TrayApp::startVpn(QString& err_msg) {
                               ? settings_->SNI().toStdString()
                               : FPTN_DEFAULT_SNI;
   fptn::protocol::https::CensorshipStrategy censorship_strategy =
-      fptn::protocol::https::CensorshipStrategy::kSni;
+      fptn::protocol::https::CensorshipStrategy::kSniRealityModeYandex25;
 
   const auto& bypass_method = settings_->BypassMethod();
   if (bypass_method == SettingsModel::kBypassMethodObfuscation) {
@@ -735,19 +735,33 @@ bool TrayApp::startVpn(QString& err_msg) {
     censorship_strategy =
         fptn::protocol::https::CensorshipStrategy::kTlsObfuscator;
   } else if (bypass_method == SettingsModel::kBypassMethodSniReality) {
+    // DEPRECATED
     SPDLOG_INFO("Using generic reality mode to bypass censorship");
     censorship_strategy =
         fptn::protocol::https::CensorshipStrategy::kSniRealityMode;
+  }
+  /* chrome */
+  else if (bypass_method == SettingsModel::kBypassMethodSniRealityChrome147) {
+    SPDLOG_INFO("Using Chrome 147 reality mode to bypass censorship");
+    censorship_strategy =
+        fptn::protocol::https::CensorshipStrategy::kSniRealityModeChrome147;
   } else if (bypass_method == SettingsModel::kBypassMethodSniRealityChrome146) {
     SPDLOG_INFO("Using Chrome 146 reality mode to bypass censorship");
     censorship_strategy =
         fptn::protocol::https::CensorshipStrategy::kSniRealityModeChrome146;
-  } else if (bypass_method ==
-             SettingsModel::kBypassMethodSniRealityFirefox149) {
+  } else if (bypass_method == SettingsModel::kBypassMethodSniRealityChrome145) {
+    SPDLOG_INFO("Using Chrome 145 reality mode to bypass censorship");
+    censorship_strategy =
+        fptn::protocol::https::CensorshipStrategy::kSniRealityModeChrome145;
+  }
+  /* firefox */
+  else if (bypass_method == SettingsModel::kBypassMethodSniRealityFirefox149) {
     SPDLOG_INFO("Using Firefox 149 reality mode to bypass censorship");
     censorship_strategy =
         fptn::protocol::https::CensorshipStrategy::kSniRealityModeFirefox149;
-  } else if (bypass_method == SettingsModel::kBypassMethodSniRealityYandex26) {
+  }
+  /* Yandex */
+  else if (bypass_method == SettingsModel::kBypassMethodSniRealityYandex26) {
     SPDLOG_INFO("Using Yandex 26 reality mode to bypass censorship");
     censorship_strategy =
         fptn::protocol::https::CensorshipStrategy::kSniRealityModeYandex26;
@@ -755,9 +769,22 @@ bool TrayApp::startVpn(QString& err_msg) {
     SPDLOG_INFO("Using Yandex 25 reality mode to bypass censorship");
     censorship_strategy =
         fptn::protocol::https::CensorshipStrategy::kSniRealityModeYandex25;
-  } else {
-    SPDLOG_INFO("Using SNI spoofing to bypass censorship");
-    censorship_strategy = fptn::protocol::https::CensorshipStrategy::kSni;
+  } else if (bypass_method == SettingsModel::kBypassMethodSniRealityYandex24) {
+    SPDLOG_INFO("Using Yandex 24 reality mode to bypass censorship");
+    censorship_strategy =
+        fptn::protocol::https::CensorshipStrategy::kSniRealityModeYandex24;
+  }
+  /* Safari */
+  else if (bypass_method == SettingsModel::kBypassMethodSniRealitySafari26) {
+    SPDLOG_INFO("Using Safari 26 reality mode to bypass censorship");
+    censorship_strategy =
+        fptn::protocol::https::CensorshipStrategy::kSniRealityModeSafari26;
+  }
+  /* Default */
+  else {
+    SPDLOG_INFO("Using default SNI spoofing to bypass censorship");
+    censorship_strategy =
+        fptn::protocol::https::CensorshipStrategy::kSniRealityModeYandex25;
   }
 
   fptn::config::ConfigFile config(sni, censorship_strategy);  // SET SNI

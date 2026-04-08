@@ -896,31 +896,57 @@ std::vector<std::uint8_t> ApiClient::GenerateHandshakePacket() const {
   std::string browser_name;
 
   switch (censorship_strategy_) {
+    case CensorshipStrategy::kSniRealityModeChrome147:
+      browser_name = "Chrome 147";
+      builder.GoogleChrome(
+          camouflage::tls::google_chrome::Version::kV_147_0_7727_56);
+      break;
+
     case CensorshipStrategy::kSniRealityModeChrome146:
       browser_name = "Chrome 146";
       builder.GoogleChrome(
           camouflage::tls::google_chrome::Version::kV_146_0_7680_178);
       break;
+    case CensorshipStrategy::kSniRealityModeChrome145:
+      browser_name = "Chrome 145";
+      builder.GoogleChrome(
+          camouflage::tls::google_chrome::Version::kV_145_0_7632_46);
+      break;
+
     case CensorshipStrategy::kSniRealityModeFirefox149:
       browser_name = "Firefox 149";
       builder.Firefox(camouflage::tls::firefox::Version::kV_149_0);
       break;
+
+    case CensorshipStrategy::kSniRealityModeSafari26:
+      browser_name = "Safari 26";
+      builder.Safari(camouflage::tls::safari::Version::kV_26_4);
+      break;
+
     case CensorshipStrategy::kSniRealityModeYandex26:
       browser_name = "Yandex 26";
       builder.YandexBrowser(
-          camouflage::tls::yandex_browser::Version::kV_26_3_0_2182);
+          camouflage::tls::yandex_browser::Version::kV_26_3_3_881);
       break;
+
     case CensorshipStrategy::kSniRealityModeYandex25:
       browser_name = "Yandex 25";
       builder.YandexBrowser(
-          camouflage::tls::yandex_browser::Version::kV_25_2_0_2118);
+          camouflage::tls::yandex_browser::Version::kV_25_8_3_828);
       break;
+
+    case CensorshipStrategy::kSniRealityModeYandex24:
+      browser_name = "Yandex 24";
+      builder.YandexBrowser(
+          camouflage::tls::yandex_browser::Version::kV_24_12_0_1772);
+      break;
+
     default:
       SPDLOG_DEBUG("Using fallback handshake generator for SNI: {}", sni_);
       return utils::GenerateDecoyTlsHandshake(sni_);
   }
 
-  SPDLOG_DEBUG("Generating {} handshake for SNI: {}", browser_name, sni_);
+  SPDLOG_INFO("Generating {} handshake for SNI: {}", browser_name, sni_);
 
   const auto session_id = utils::GenerateDecoyTlsSessionId();
   if (!session_id.has_value()) {
@@ -938,7 +964,8 @@ std::vector<std::uint8_t> ApiClient::GenerateHandshakePacket() const {
   }
 
   SPDLOG_INFO("{} handshake generated: SNI={}, size={} bytes", browser_name,
-      sni_, handshake->handshake_packet.size());
-  return handshake->handshake_packet;
+      sni_, handshake->handshake_packet_size);
+  return std::vector<std::uint8_t>(handshake->handshake_packet,
+      handshake->handshake_packet + handshake->handshake_packet_size);
 }
 }  // namespace fptn::protocol::https

@@ -102,18 +102,34 @@ class SettingsModel : public QObject {
   static constexpr const char* kSplitTunnelModeExclude = "exclude";
   static constexpr const char* kSplitTunnelModeInclude = "include";
 
+  // DEPRECATED
   static constexpr const char* kBypassMethodSni = "SNI";
+
   static constexpr const char* kBypassMethodObfuscation = "OBFUSCATION";
+
+  // DEPRECATED
   static constexpr const char* kBypassMethodSniReality = "SNI-REALITY";
 
+  /* chrome */
+  static constexpr const char* kBypassMethodSniRealityChrome147 =
+      "SNI-REALITY-CHROME-147";
   static constexpr const char* kBypassMethodSniRealityChrome146 =
       "SNI-REALITY-CHROME-146";
+  static constexpr const char* kBypassMethodSniRealityChrome145 =
+      "SNI-REALITY-CHROME-145";
+  /* Firefox */
   static constexpr const char* kBypassMethodSniRealityFirefox149 =
       "SNI-REALITY-FIREFOX-149";
+  /* Yandex Browser */
   static constexpr const char* kBypassMethodSniRealityYandex26 =
       "SNI-REALITY-YANDEX-26";
   static constexpr const char* kBypassMethodSniRealityYandex25 =
-    "SNI-REALITY-YANDEX-25";
+      "SNI-REALITY-YANDEX-25";
+  static constexpr const char* kBypassMethodSniRealityYandex24 =
+      "SNI-REALITY-YANDEX-24";
+  /* Safari */
+  static constexpr const char* kBypassMethodSniRealitySafari26 =
+      "SNI-REALITY-SAFARI-26";
 
   explicit SettingsModel(const QMap<QString, QString>& languages,
       const QString& default_language = "en",

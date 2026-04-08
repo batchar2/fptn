@@ -293,8 +293,16 @@ This may cause network connectivity issues or prevent proper operation of FPTN.<
             <translation>Advanced domain spoofing (SNI + REALITY) - Generic</translation>
         </message>
         <message>
+            <source>SNI-REALITY (Chrome 147)</source>
+            <translation>Advanced domain spoofing (SNI + REALITY) - Chrome 146</translation>
+        </message>
+        <message>
             <source>SNI-REALITY (Chrome 146)</source>
             <translation>Advanced domain spoofing (SNI + REALITY) - Chrome 146</translation>
+        </message>
+        <message>
+            <source>SNI-REALITY (Chrome 145)</source>
+            <translation>Advanced domain spoofing (SNI + REALITY) - Chrome 145</translation>
         </message>
         <message>
             <source>SNI-REALITY (Firefox 149)</source>
@@ -307,6 +315,14 @@ This may cause network connectivity issues or prevent proper operation of FPTN.<
         <message>
             <source>SNI-REALITY (Yandex 25)</source>
             <translation>Advanced domain spoofing (SNI + REALITY) - Yandex 25</translation>
+        </message>
+        <message>
+            <source>SNI-REALITY (Yandex 24)</source>
+            <translation>Advanced domain spoofing (SNI + REALITY) - Yandex 24</translation>
+        </message>
+        <message>
+            <source>SNI-REALITY (Safari 26)</source>
+            <translation>Advanced domain spoofing (SNI + REALITY) - Safari 26</translation>
         </message>
 
         <message>

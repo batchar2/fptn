@@ -214,14 +214,30 @@ void SettingsModel::Load(bool dont_load_server) {
   if (service_obj.contains("bypass_method")) {
     bypass_method_ = service_obj["bypass_method"].toString();
   }
+
+  /* Replace DEPRECATED METHODS */
+  if (bypass_method_ == kBypassMethodSni ||
+      bypass_method_ == kBypassMethodSniReality) {
+    bypass_method_ = kBypassMethodSniRealityYandex25;
+  }
+
   if (bypass_method_.isEmpty() ||
       (bypass_method_ != kBypassMethodSni &&
           bypass_method_ != kBypassMethodObfuscation &&
           bypass_method_ != kBypassMethodSniReality &&
+          /* Chrome */
+          bypass_method_ != kBypassMethodSniRealityChrome147 &&
           bypass_method_ != kBypassMethodSniRealityChrome146 &&
+          bypass_method_ != kBypassMethodSniRealityChrome145 &&
+          /* Firefox */
           bypass_method_ != kBypassMethodSniRealityFirefox149 &&
-          bypass_method_ != kBypassMethodSniRealityYandex26)) {
-    bypass_method_ = kBypassMethodSni;
+          /* Yandex Browser */
+          bypass_method_ != kBypassMethodSniRealityYandex26 &&
+          bypass_method_ != kBypassMethodSniRealityYandex25 &&
+          bypass_method_ != kBypassMethodSniRealityYandex24 &&
+          /* Safari */
+          bypass_method_ != kBypassMethodSniRealitySafari26)) {
+    bypass_method_ = kBypassMethodSniRealityYandex25;  // BYDEFAULT
   }
 
   if (service_obj.contains("blacklist_domains")) {

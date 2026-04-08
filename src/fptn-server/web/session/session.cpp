@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -678,6 +678,7 @@ boost::asio::awaitable<bool> Session::HandleProxy(
 boost::asio::awaitable<void> Session::RunReader() {
   boost::system::error_code ec;
   boost::beast::flat_buffer buffer;
+  buffer.reserve(4 * 1024 * 1024);
   auto token = boost::asio::redirect_error(boost::asio::use_awaitable, ec);
   try {
     while (running_ && ws_.is_open()) {
@@ -686,13 +687,11 @@ boost::asio::awaitable<void> Session::RunReader() {
         break;
       }
       if (buffer.size() > 0 && running_ && ws_.is_open()) {
-        std::string raw_data = boost::beast::buffers_to_string(buffer.data());
-        std::string raw_ip =
-            fptn::protocol::protobuf::GetProtoPayload(std::move(raw_data));
-        if (!raw_ip.empty() && running_ && ws_.is_open()) {
+        auto raw_ip = fptn::protocol::protobuf::GetProtoPayload(buffer);
+        if (!raw_ip.has_value() && running_) {
           auto packet = fptn::common::network::IPPacket::Parse(
-              std::move(raw_ip), client_id_);
-          if (packet != nullptr && ws_new_ippacket_callback_) {
+              std::move(raw_ip.value()), client_id_);
+          if (packet != nullptr) {
             ws_new_ippacket_callback_(std::move(packet));
           }
         }
@@ -715,11 +714,11 @@ boost::asio::awaitable<void> Session::RunSender() {
           boost::asio::bind_cancellation_slot(cancel_signal_.slot(),
               boost::asio::as_tuple(boost::asio::use_awaitable)));
       if (running_ && ws_.is_open() && !ec && packet != nullptr) {
-        std::string msg =
+        auto msg =
             fptn::protocol::protobuf::CreateProtoPayload(std::move(packet));
-        if (!msg.empty()) {
+        if (!msg.has_value()) {
           co_await ws_.async_write(
-              boost::asio::buffer(msg), boost::asio::use_awaitable);
+              boost::asio::buffer(msg.value()), boost::asio::use_awaitable);
         }
       }
     }
