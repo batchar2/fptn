@@ -286,14 +286,29 @@ This may cause network connectivity issues or prevent proper operation of FPTN.<
             <translation>Подмена домена (SNI)</translation>
         </message>
         <message>
-            <source>SNI-REALITY</source>
-            <translation>Продвинутая подмена домена (SNI + REALITY)</translation>
-        </message>
-        <message>
             <source>OBFUSCATION</source>
             <translation>Маскировка трафика (обфускация)</translation>
         </message>
-
+        <message>
+            <source>SNI-REALITY (Generic)</source>
+            <translation>Продвинутая подмена домена (SNI + REALITY) - Обычный</translation>
+        </message>
+        <message>
+            <source>SNI-REALITY (Chrome 146)</source>
+            <translation>Продвинутая подмена домена (SNI + REALITY) - Chrome 146</translation>
+        </message>
+        <message>
+            <source>SNI-REALITY (Firefox 149)</source>
+            <translation>Продвинутая подмена домена (SNI + REALITY) - Firefox 149</translation>
+        </message>
+        <message>
+            <source>SNI-REALITY (Yandex 26)</source>
+            <translation>Продвинутая подмена домена (SNI + REALITY) - Яндекс 26</translation>
+        </message>
+        <message>
+            <source>SNI-REALITY (Yandex 25)</source>
+            <translation>Продвинутая подмена домена (SNI + REALITY) - Яндекс 25</translation>
+        </message>
         <message>
             <source>Support the project on</source>
             <translation>Поддержать проект можно на</translation>

@@ -728,17 +728,38 @@ bool TrayApp::startVpn(QString& err_msg) {
                               : FPTN_DEFAULT_SNI;
   fptn::protocol::https::CensorshipStrategy censorship_strategy =
       fptn::protocol::https::CensorshipStrategy::kSni;
-  if (settings_->BypassMethod() == "OBFUSCATION") {
+
+  const auto& bypass_method = settings_->BypassMethod();
+  if (bypass_method == SettingsModel::kBypassMethodObfuscation) {
     SPDLOG_INFO("Using obfuscation to bypass censorship");
     censorship_strategy =
         fptn::protocol::https::CensorshipStrategy::kTlsObfuscator;
-  } else if (settings_->BypassMethod() == "SNI-REALITY") {
-    SPDLOG_INFO("Using reality mode to bypass censorship");
+  } else if (bypass_method == SettingsModel::kBypassMethodSniReality) {
+    SPDLOG_INFO("Using generic reality mode to bypass censorship");
     censorship_strategy =
         fptn::protocol::https::CensorshipStrategy::kSniRealityMode;
+  } else if (bypass_method == SettingsModel::kBypassMethodSniRealityChrome146) {
+    SPDLOG_INFO("Using Chrome 146 reality mode to bypass censorship");
+    censorship_strategy =
+        fptn::protocol::https::CensorshipStrategy::kSniRealityModeChrome146;
+  } else if (bypass_method ==
+             SettingsModel::kBypassMethodSniRealityFirefox149) {
+    SPDLOG_INFO("Using Firefox 149 reality mode to bypass censorship");
+    censorship_strategy =
+        fptn::protocol::https::CensorshipStrategy::kSniRealityModeFirefox149;
+  } else if (bypass_method == SettingsModel::kBypassMethodSniRealityYandex26) {
+    SPDLOG_INFO("Using Yandex 26 reality mode to bypass censorship");
+    censorship_strategy =
+        fptn::protocol::https::CensorshipStrategy::kSniRealityModeYandex26;
+  } else if (bypass_method == SettingsModel::kBypassMethodSniRealityYandex25) {
+    SPDLOG_INFO("Using Yandex 25 reality mode to bypass censorship");
+    censorship_strategy =
+        fptn::protocol::https::CensorshipStrategy::kSniRealityModeYandex25;
   } else {
     SPDLOG_INFO("Using SNI spoofing to bypass censorship");
+    censorship_strategy = fptn::protocol::https::CensorshipStrategy::kSni;
   }
+
   fptn::config::ConfigFile config(sni, censorship_strategy);  // SET SNI
   if (smart_connect_) {  // find the best server
     for (const auto& service : settings_->Services()) {

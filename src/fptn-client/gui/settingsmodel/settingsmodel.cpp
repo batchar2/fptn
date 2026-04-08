@@ -217,7 +217,10 @@ void SettingsModel::Load(bool dont_load_server) {
   if (bypass_method_.isEmpty() ||
       (bypass_method_ != kBypassMethodSni &&
           bypass_method_ != kBypassMethodObfuscation &&
-          bypass_method_ != kBypassMethodSniReality)) {
+          bypass_method_ != kBypassMethodSniReality &&
+          bypass_method_ != kBypassMethodSniRealityChrome146 &&
+          bypass_method_ != kBypassMethodSniRealityFirefox149 &&
+          bypass_method_ != kBypassMethodSniRealityYandex26)) {
     bypass_method_ = kBypassMethodSni;
   }
 

@@ -4,6 +4,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 # include(${CMAKE_SOURCE_DIR}/depends/cmake/NtpClient.cmake)
 include(../../depends/cmake/NtpClient.cmake)
+include(../../depends/cmake/CamouflageTLS.cmake)
 if (IOS)
   find_library(SECURITY Security)
   find_library(CFNETWORK CFNetwork)
@@ -164,5 +165,6 @@ foreach(target "${PROJECT_NAME}_static")
     ${PCAP_LIB}
     ${LIBIDN2_LIB}
     ${IOS_LIBS}
+    camouflage-tls
   )
 endforeach()

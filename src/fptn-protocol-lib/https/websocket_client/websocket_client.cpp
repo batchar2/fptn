@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -11,6 +11,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <utility>
 #include <vector>
 
+#include <camouflage/tls/builder.hpp>
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
 #include "fptn-protocol-lib/https/api_client/api_client.h"
@@ -356,7 +357,7 @@ boost::asio::awaitable<bool> WebsocketClient::Connect() {
     // packet inspection Then resets the connection state and activates
     // obfuscation for the real encrypted tunnel This dual-handshake approach
     // makes traffic analysis significantly more difficult
-    if (censorship_strategy_ == CensorshipStrategy::kSniRealityMode) {
+    if (IsRealityModeWithFakeHandshake(censorship_strategy_)) {
       const bool status = co_await PerformFakeHandshake();
       if (!status) {
         co_return false;
@@ -519,7 +520,7 @@ boost::asio::awaitable<bool> WebsocketClient::PerformFakeHandshake() {
   boost::system::error_code ec;
   try {
     SPDLOG_INFO("Generating and sending fake TLS handshake to {}", sni_);
-    const auto handshake_data = utils::GenerateDecoyTlsHandshake(sni_);
+    const auto handshake_data = GenerateHandshakePacket();
     if (handshake_data.empty()) {
       SPDLOG_WARN("Failed to generate handshake data for SNI: {}", sni_);
       co_return false;
@@ -582,6 +583,48 @@ void WebsocketClient::StartWatchdog() {
       }
     }
   });
+}
+
+std::vector<std::uint8_t> WebsocketClient::GenerateHandshakePacket() const {
+  auto builder = camouflage::tls::Builder::Create();
+  switch (censorship_strategy_) {
+    case CensorshipStrategy::kSniRealityModeChrome146:
+      builder.GoogleChrome(
+          camouflage::tls::google_chrome::Version::kV_146_0_7680_178);
+      break;
+
+    case CensorshipStrategy::kSniRealityModeFirefox149:
+      builder.Firefox(camouflage::tls::firefox::Version::kV_149_0);
+      break;
+
+    case CensorshipStrategy::kSniRealityModeYandex26:
+      builder.YandexBrowser(
+          camouflage::tls::yandex_browser::Version::kV_26_3_0_2182);
+      break;
+
+    case CensorshipStrategy::kSniRealityModeYandex25:
+      builder.YandexBrowser(
+          camouflage::tls::yandex_browser::Version::kV_25_2_0_2118);
+      break;
+
+    default:
+      return utils::GenerateDecoyTlsHandshake(sni_);
+  }
+
+  const auto session_id = utils::GenerateDecoyTlsSessionId();
+  if (session_id.has_value()) {
+    const auto handshake =
+        builder.SetSNI(sni_).SetSessionId(session_id.value()).Generate();
+    if (handshake.has_value()) {
+      SPDLOG_INFO("Generated {} handshake for SNI: {}, size: {} bytes",
+          static_cast<int>(censorship_strategy_), sni_,
+          handshake->handshake_packet.size());
+      return handshake->handshake_packet;
+    }
+  }
+  SPDLOG_WARN(
+      "Failed to generate custom handshake, using fallback for SNI: {}", sni_);
+  return utils::GenerateDecoyTlsHandshake(sni_);
 }
 
 }  // namespace fptn::protocol::https

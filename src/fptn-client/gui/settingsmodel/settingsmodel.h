@@ -106,6 +106,15 @@ class SettingsModel : public QObject {
   static constexpr const char* kBypassMethodObfuscation = "OBFUSCATION";
   static constexpr const char* kBypassMethodSniReality = "SNI-REALITY";
 
+  static constexpr const char* kBypassMethodSniRealityChrome146 =
+      "SNI-REALITY-CHROME-146";
+  static constexpr const char* kBypassMethodSniRealityFirefox149 =
+      "SNI-REALITY-FIREFOX-149";
+  static constexpr const char* kBypassMethodSniRealityYandex26 =
+      "SNI-REALITY-YANDEX-26";
+  static constexpr const char* kBypassMethodSniRealityYandex25 =
+    "SNI-REALITY-YANDEX-25";
+
   explicit SettingsModel(const QMap<QString, QString>& languages,
       const QString& default_language = "en",
       QObject* parent = nullptr);

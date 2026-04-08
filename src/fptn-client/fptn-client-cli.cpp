@@ -40,8 +40,9 @@ int main(int argc, char* argv[]) {
   }
 #endif
   try {
-    const std::set<std::string> bypass_methods = {
-        "sni", "obfuscation", "sni-reality"};
+    const std::set<std::string> bypass_methods = {"sni", "obfuscation",
+        "sni-reality", "sni-reality-chrome146", "sni-reality-firefox149",
+        "sni-reality-yandex26", "sni-reality-yandex25"};
     const std::set<std::string> tunnel_modes = {"exclude", "include"};
 
     using fptn::protocol::https::obfuscator::GetObfuscatorByName;
@@ -88,7 +89,17 @@ int main(int argc, char* argv[]) {
     args.add_argument("--bypass-method")
         .default_value("sni")
         .help(fmt::format(
-            "Method to bypass censorship: {}", fmt::join(bypass_methods, ", ")))
+            "Method to bypass censorship:\n"
+            "  sni                    - Standard SNI spoofing\n"
+            "  obfuscation            - TLS obfuscation\n"
+            "  sni-reality            - Generic SNI reality mode\n"
+            "  sni-reality-chrome146  - SNI reality with Chrome 146 handshake\n"
+            "  sni-reality-firefox149 - SNI reality with Firefox 149 "
+            "handshake\n"
+            "  sni-reality-yandex26   - SNI reality with Yandex 26 handshake\n"
+            "  sni-reality-yandex25   - SNI reality with Yandex 25 handshake\n"
+            "Options: {}",
+            fmt::join(bypass_methods, ", ")))
         .action([&bypass_methods](const std::string& v) {
           if (!bypass_methods.contains(v)) {
             throw std::runtime_error(
@@ -232,6 +243,22 @@ int main(int argc, char* argv[]) {
     } else if (bypass_method == "sni-reality") {
       censorship_strategy =
           fptn::protocol::https::CensorshipStrategy::kSniRealityMode;
+    } else if (bypass_method == "sni-reality-chrome146") {
+      SPDLOG_INFO("Using Chrome 146 handshake for censorship bypass");
+      censorship_strategy =
+          fptn::protocol::https::CensorshipStrategy::kSniRealityModeChrome146;
+    } else if (bypass_method == "sni-reality-firefox149") {
+      SPDLOG_INFO("Using Firefox 149 handshake for censorship bypass");
+      censorship_strategy =
+          fptn::protocol::https::CensorshipStrategy::kSniRealityModeFirefox149;
+    } else if (bypass_method == "sni-reality-yandex26") {
+      SPDLOG_INFO("Using Yandex 26 handshake for censorship bypass");
+      censorship_strategy =
+          fptn::protocol::https::CensorshipStrategy::kSniRealityModeYandex26;
+    } else if (bypass_method == "sni-reality-yandex25") {
+      SPDLOG_INFO("Using Yandex 25 handshake for censorship bypass");
+      censorship_strategy =
+          fptn::protocol::https::CensorshipStrategy::kSniRealityModeYandex25;
     }
 
     /* parse network lists */

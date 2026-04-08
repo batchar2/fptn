@@ -285,12 +285,28 @@ This may cause network connectivity issues or prevent proper operation of FPTN.<
             <translation>Domain spoofing (SNI)</translation>
         </message>
         <message>
-            <source>SNI-REALITY</source>
-            <translation>Advanced domain spoofing (SNI + REALITY) </translation>
-        </message>
-        <message>
             <source>OBFUSCATION</source>
             <translation>Traffic masking (obfuscation)</translation>
+        </message>
+        <message>
+            <source>SNI-REALITY (Generic)</source>
+            <translation>Advanced domain spoofing (SNI + REALITY) - Generic</translation>
+        </message>
+        <message>
+            <source>SNI-REALITY (Chrome 146)</source>
+            <translation>Advanced domain spoofing (SNI + REALITY) - Chrome 146</translation>
+        </message>
+        <message>
+            <source>SNI-REALITY (Firefox 149)</source>
+            <translation>Advanced domain spoofing (SNI + REALITY) - Firefox 149</translation>
+        </message>
+        <message>
+            <source>SNI-REALITY (Yandex 26)</source>
+            <translation>Advanced domain spoofing (SNI + REALITY) - Yandex 26</translation>
+        </message>
+        <message>
+            <source>SNI-REALITY (Yandex 25)</source>
+            <translation>Advanced domain spoofing (SNI + REALITY) - Yandex 25</translation>
         </message>
 
         <message>
