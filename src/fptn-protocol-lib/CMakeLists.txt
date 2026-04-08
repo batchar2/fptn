@@ -160,11 +160,11 @@ foreach(target "${PROJECT_NAME}_static")
     nlohmann_json::nlohmann_json
     spdlog::spdlog
     fmt::fmt
-    ntp_client
     re2::re2
+    ntp_client
+    camouflage-tls
     ${PCAP_LIB}
     ${LIBIDN2_LIB}
     ${IOS_LIBS}
-    camouflage-tls
   )
 endforeach()
