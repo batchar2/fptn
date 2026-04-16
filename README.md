@@ -144,8 +144,10 @@ conan profile detect --force
 
 4. Install dependencies, build, and install:
 
+*(For debugging and development purposes, use Debug instead of Release.)*
+
 ```bash
-conan install . --output-folder=build --build=missing  -s compiler.cppstd=17 -o with_gui_client=True --settings build_type=Release
+conan install . --output-folder=build --build=missing  -s compiler.cppstd=17 -o with_gui_client=True --settings build_type=Debug
 
 cd build
 
@@ -154,12 +156,13 @@ cmake .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Debug
 # Windows only
 cmake .. -G "Visual Studio 17 2022" -DCMAKE_TOOLCHAIN_FILE="conan_toolchain.cmake" -DCMAKE_BUILD_TYPE=Debug
 
-cmake --build . --config Release
+cmake --build . --config Debug
 ctest
 ```
 
 5. Building the Installer
 
+*(For debugging and development purposes, use Debug instead of Release.)*
 
 - Windows
 
