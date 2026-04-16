@@ -59,7 +59,8 @@ Server::Server(std::uint16_t port,
   using std::placeholders::_6;
   using std::placeholders::_7;
 
-  handshake_cache_manager_ = std::make_shared<HandshakeCacheManager>(ioc_);
+  handshake_cache_manager_ =
+      std::make_shared<HandshakeCacheManager>(ioc_, default_proxy_domain_);
 
   listener_ = std::make_shared<Listener>(port_,
       // proxy settings

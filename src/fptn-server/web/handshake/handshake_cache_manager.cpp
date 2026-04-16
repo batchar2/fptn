@@ -61,15 +61,18 @@ std::string GetClientCacheKey(const std::string& sni,
 
 namespace fptn::web {
 
-HandshakeCacheManager::HandshakeCacheManager(
-    boost::asio::io_context& ioc, std::chrono::seconds cache_ttl)
-    : ioc_(ioc), cache_ttl_(cache_ttl) {}
+HandshakeCacheManager::HandshakeCacheManager(boost::asio::io_context& ioc,
+    std::string default_domain,
+    std::chrono::seconds cache_ttl)
+    : ioc_(ioc),
+      cache_ttl_(cache_ttl),
+      default_domain_(std::move(default_domain)) {}
 
 HandshakeResponse HandshakeCacheManager::CheckCache(
     const std::string& cache_key) {
   const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
-  auto it = cache_.find(cache_key);
+  const auto it = cache_.find(cache_key);
   if (it != cache_.end()) {
     const auto& entry = it->second;
     const auto now = std::chrono::steady_clock::now();
@@ -105,8 +108,22 @@ boost::asio::awaitable<HandshakeResponse> HandshakeCacheManager::GetHandshake(
     co_return cached_response;
   }
 
-  const auto response =
+  HandshakeResponse response =
       co_await FetchRealHandshake(sni, client_handshake_data, timeout);
+  if (!response) {
+    SPDLOG_WARN(
+        "Failed to fetch handshake from original SNI: {}, trying default "
+        "domain: {}",
+        sni, default_domain_);
+    response = co_await FetchRealHandshake(
+        default_domain_, client_handshake_data, timeout);
+
+    if (response) {
+      SPDLOG_INFO("Successfully fetched handshake from default domain: {}",
+          default_domain_);
+    }
+  }
+
   if (response) {
     const std::unique_lock<std::mutex> lock(mutex_);  // mutex
     cache_[cache_key] = CacheEntry{
@@ -150,21 +167,39 @@ HandshakeCacheManager::FetchRealHandshake(const std::string& sni,
     co_await boost::asio::steady_timer(ioc_, std::chrono::milliseconds(200))
         .async_wait(boost::asio::use_awaitable);
 
-    constexpr std::size_t kMaxSize = 16384;
-    std::array<std::uint8_t, kMaxSize> buffer{};
-    const std::size_t bytes_read =
-        co_await target_socket.async_read_some(boost::asio::buffer(buffer),
-            boost::asio::redirect_error(boost::asio::use_awaitable, ec));
+    boost::asio::steady_timer read_timer(ioc_);
+    read_timer.expires_after(timeout);
+    read_timer.async_wait([&](const boost::system::error_code& error) {
+      if (!error) {
+        target_socket.cancel();
+      }
+    });
 
-    if (bytes_read) {
-      full_response->insert(
-          full_response->end(), buffer.begin(), buffer.begin() + bytes_read);
+    constexpr std::size_t kMaxTotalSize = 65536;
+    while (full_response->size() < kMaxTotalSize) {
+      constexpr std::size_t kReadBufferSize = 4096;
+      std::array<std::uint8_t, kReadBufferSize> read_buffer{};
+      const std::size_t bytes_read = co_await target_socket.async_read_some(
+          boost::asio::buffer(read_buffer),
+          boost::asio::redirect_error(boost::asio::use_awaitable, ec));
+
+      if (ec || bytes_read == 0) {
+        break;
+      }
+      full_response->insert(full_response->end(), read_buffer.begin(),
+          read_buffer.begin() + bytes_read);
+      if (bytes_read < kReadBufferSize) {
+        break;
+      }
     }
-    SPDLOG_INFO("Received {} bytes from {}", bytes_read, sni);
+    read_timer.cancel();
+    SPDLOG_INFO("Received {} bytes from {}", full_response->size(), sni);
   } catch (const std::exception& e) {
     SPDLOG_ERROR("Error fetching handshake from {}: {}", sni, e.what());
   }
-  target_socket.close(ec);
+
+  boost::system::error_code close_ec;
+  target_socket.close(close_ec);
 
   if (!full_response->empty()) {
     co_return full_response;
