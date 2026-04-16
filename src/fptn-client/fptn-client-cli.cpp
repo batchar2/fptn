@@ -389,10 +389,11 @@ int main(int argc, char* argv[]) {
     auto virtual_network_interface =
         std::make_unique<fptn::common::network::TunInterface>(
             fptn::common::network::TunInterface::Config{
-                tun_interface_name, tun_interface_address_ipv4,
-                30,  // IPv4 netmask
-                tun_interface_address_ipv6,
-                126  // IPv6 netmask
+                .name = tun_interface_name,
+                .ipv4_addr = tun_interface_address_ipv4,
+                .ipv4_netmask = 30,  // IPv4 netmask
+                .ipv6_addr = tun_interface_address_ipv6,
+                .ipv6_netmask = 126  // IPv6 netmask
             });
 
     /* route manager */

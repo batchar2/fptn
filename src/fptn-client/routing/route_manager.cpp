@@ -7,10 +7,10 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "routing/route_manager.h"
 
 #include <algorithm>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
-#include <memory>
 
 #include <boost/asio/ip/address.hpp>
 #include <boost/asio/ip/tcp.hpp>
@@ -156,7 +156,7 @@ bool AddIPv4RouteToSystem(const std::string& destination,
   try {
 #ifdef __linux__
     const std::string command =
-        fmt::format("ip route add {} via \"{}\" dev \"{}\" ", destination,
+        fmt::format(R"(ip route add {} via "{}" dev "{}" )", destination,
             gateway_ip, out_interface);
 #elif __APPLE__
     const std::string command =
@@ -195,7 +195,7 @@ bool AddIPv6RouteToSystem(const std::string& destination,
   try {
 #ifdef __linux__
     const std::string command =
-        fmt::format("ip -6 route add {} via \"{}\" dev \"{}\" ", destination,
+        fmt::format(R"(ip -6 route add {} via "{}" dev "{}" )", destination,
             gateway_ip, out_interface);
 #elif __APPLE__
     const std::string command =
@@ -716,7 +716,7 @@ bool RouteManager::Clean() {  // NOLINT(bugprone-exception-escape)
         fmt::format("resolvectl revert {}", detected_out_interface_name_));
     SPDLOG_INFO("Reverting DNS to DHCP for {}", detected_out_interface_name_);
   }
-  commands.push_back("resolvectl flush-caches");
+  commands.emplace_back("resolvectl flush-caches");
 
 #elif __APPLE__
   const std::vector<std::string> commands = {
