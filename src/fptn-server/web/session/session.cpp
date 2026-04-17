@@ -543,7 +543,6 @@ boost::asio::awaitable<bool> Session::HandleRealityMode(
     auto& tcp_socket = boost::beast::get_lowest_layer(ws_).socket();
 
     std::vector<std::uint8_t> buffer(16384, '\0');
-    // std::string buffer(16384, '\0');
     const std::size_t bytes_read = co_await tcp_socket.async_receive(
         boost::asio::buffer(buffer), boost::asio::use_awaitable);
     if (!bytes_read || !handshake_cache_manager_) {

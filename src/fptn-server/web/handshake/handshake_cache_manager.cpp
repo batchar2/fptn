@@ -142,10 +142,12 @@ boost::asio::awaitable<HandshakeResponse>
 HandshakeCacheManager::FetchRealHandshake(const std::string& sni,
     const std::vector<std::uint8_t>& client_handshake_data,
     const std::chrono::seconds& timeout) const {
-  boost::asio::ip::tcp::socket target_socket(ioc_);
-  auto full_response = std::make_shared<std::vector<std::uint8_t>>();
   boost::system::error_code ec;
+  boost::asio::ip::tcp::socket target_socket(ioc_);
 
+  constexpr std::size_t kMaxTotalSize = 65536;
+  auto full_response = std::make_shared<std::vector<std::uint8_t>>();
+  full_response->reserve(kMaxTotalSize);
   try {
     // DNS resolution
     boost::asio::io_context resolve_ioc;
@@ -175,7 +177,6 @@ HandshakeCacheManager::FetchRealHandshake(const std::string& sni,
       }
     });
 
-    constexpr std::size_t kMaxTotalSize = 65536;
     while (full_response->size() < kMaxTotalSize) {
       constexpr std::size_t kReadBufferSize = 4096;
       std::array<std::uint8_t, kReadBufferSize> read_buffer{};

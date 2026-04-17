@@ -1268,11 +1268,7 @@ void SettingsWidget::onAutoGatewayChanged(bool checked) {
   }
 }
 void SettingsWidget::onBypassMethodChanged(const QString& method) {
-  const bool is_sni_mode = (method == QObject::tr("SNI") ||
-                            method == SettingsModel::kBypassMethodSni);
   const bool is_reality_mode =
-      // method == QObject::tr("SNI-REALITY (Generic)") ||
-      // method == SettingsModel::kBypassMethodSniReality ||
       /* Chrome */
       method == QObject::tr("SNI-REALITY (Chrome 147)") ||
       method == SettingsModel::kBypassMethodSniRealityChrome147 ||
@@ -1295,15 +1291,15 @@ void SettingsWidget::onBypassMethodChanged(const QString& method) {
       method == SettingsModel::kBypassMethodSniRealitySafari26;
 
   // Show/hide SNI field
-  sni_label_->setVisible(is_sni_mode || is_reality_mode);
-  sni_line_edit_->setVisible(is_sni_mode || is_reality_mode);
+  sni_label_->setVisible(is_reality_mode);
+  sni_line_edit_->setVisible(is_reality_mode);
 
   // Show/hide SNI files section based on mode
-  sni_files_list_widget_->setVisible(is_sni_mode);
-  sni_autoscan_button_->setVisible(is_sni_mode);
-  sni_import_button_->setVisible(is_sni_mode);
+  sni_files_list_widget_->setVisible(is_reality_mode);
+  sni_autoscan_button_->setVisible(is_reality_mode);
+  sni_import_button_->setVisible(is_reality_mode);
 
-  if (is_sni_mode || is_reality_mode) {
+  if (is_reality_mode) {
     grid_layout_->addWidget(sni_label_, 5, 0, Qt::AlignLeft | Qt::AlignVCenter);
     grid_layout_->addWidget(sni_line_edit_, 5, 1, 1, 2);
     grid_layout_->addLayout(sni_buttons_layout_, 7, 0);

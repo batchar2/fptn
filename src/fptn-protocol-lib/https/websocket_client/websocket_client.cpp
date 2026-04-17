@@ -14,6 +14,8 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <camouflage/tls/builder.hpp>
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
+#include "common/network/utils.h"
+
 #include "fptn-protocol-lib/https/api_client/api_client.h"
 #include "fptn-protocol-lib/https/obfuscator/methods/tls/tls_obfuscator.h"
 
@@ -89,19 +91,19 @@ WebsocketClient::WebsocketClient(fptn::common::network::IPv4Address server_ip,
   ws_.set_option(boost::beast::websocket::stream_base::timeout::suggested(
       boost::beast::role_type::client));
 
-  // Optimize socket buffer sizes
-  try {
-    boost::beast::get_lowest_layer(ws_).socket().set_option(
-        boost::asio::socket_base::receive_buffer_size(1 * 1024 * 1024));
-    boost::beast::get_lowest_layer(ws_).socket().set_option(
-        boost::asio::socket_base::send_buffer_size(1 * 1024 * 1024));
-
-    // Disable Nagle's algorithm for lower latency
-    boost::beast::get_lowest_layer(ws_).socket().set_option(
-        boost::asio::ip::tcp::no_delay(true));
-  } catch (const boost::system::system_error& e) {
-    SPDLOG_WARN("Failed to set socket options: {}", e.what());
-  }
+  // // Optimize socket buffer sizes
+  // try {
+  //   boost::beast::get_lowest_layer(ws_).socket().set_option(
+  //       boost::asio::socket_base::receive_buffer_size(1 * 1024 * 1024));
+  //   boost::beast::get_lowest_layer(ws_).socket().set_option(
+  //       boost::asio::socket_base::send_buffer_size(1 * 1024 * 1024));
+  //
+  //   // Disable Nagle's algorithm for lower latency
+  //   boost::beast::get_lowest_layer(ws_).socket().set_option(
+  //       boost::asio::ip::tcp::no_delay(true));
+  // } catch (const boost::system::system_error& e) {
+  //   SPDLOG_WARN("Failed to set socket options: {}", e.what());
+  // }
 }
 
 WebsocketClient::~WebsocketClient() {
@@ -291,6 +293,20 @@ boost::asio::awaitable<bool> WebsocketClient::RunInternal() {
     const bool connected = co_await Connect();
     if (!connected) {
       co_return false;
+    }
+
+    // Optimize socket buffer sizes
+    try {
+      boost::beast::get_lowest_layer(ws_).socket().set_option(
+          boost::asio::socket_base::receive_buffer_size(1 * 1024 * 1024));
+      boost::beast::get_lowest_layer(ws_).socket().set_option(
+          boost::asio::socket_base::send_buffer_size(1 * 1024 * 1024));
+
+      // Disable Nagle's algorithm for lower latency
+      boost::beast::get_lowest_layer(ws_).socket().set_option(
+          boost::asio::ip::tcp::no_delay(true));
+    } catch (const boost::system::system_error& e) {
+      SPDLOG_WARN("Failed to set socket options: {}", e.what());
     }
 
     boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::hours(24));
@@ -548,19 +564,23 @@ boost::asio::awaitable<bool> WebsocketClient::PerformFakeHandshake() {
       co_return false;
     }
 
-    // Read response
-    std::array<std::uint8_t, 16384> buffer;
-    const std::size_t bytes_read =
-        co_await tcp_socket.async_receive(boost::asio::buffer(buffer),
-            boost::asio::redirect_error(boost::asio::use_awaitable, ec));
+    // Drain response
+    const std::size_t resp_size =
+        co_await common::network::DrainSocketAsync(tcp_socket);
 
-    if (ec && ec != boost::asio::error::eof) {
+    // Wait
+    co_await boost::asio::steady_timer(
+        co_await boost::asio::this_coro::executor,
+        std::chrono::milliseconds(300))
+        .async_wait(boost::asio::use_awaitable);
+
+    if (resp_size == 0) {
       SPDLOG_WARN("Read during fake handshake failed: {}", ec.message());
       co_return false;
     }
 
     SPDLOG_INFO(
-        "Fake handshake completed successfully, read {} bytes", bytes_read);
+        "Fake handshake completed successfully, read {} bytes", resp_size);
     co_return true;
   } catch (const std::exception& e) {
     SPDLOG_ERROR("PerformFakeHandshake exception: {}", e.what());

@@ -9,6 +9,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <iostream>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -20,6 +21,8 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <fmt/format.h>     // NOLINT(build/include_order)
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 #include <zlib.h>           // NOLINT(build/include_order)
+
+#include "common/network/utils.h"
 
 #ifdef _WIN32
 #pragma warning(push)
@@ -315,7 +318,6 @@ ApiClient ApiClient::Clone() const {
 
 bool ApiClient::PerformFakeHandshake(
     boost::asio::ip::tcp::socket& socket) const {
-  boost::system::error_code ec;
   try {
     SPDLOG_INFO("Generating and sending fake TLS handshake to {}", sni_);
 
@@ -332,27 +334,9 @@ bool ApiClient::PerformFakeHandshake(
 
     SPDLOG_INFO("Successfully sent {} bytes of handshake data", bytes_sent);
 
-    std::vector<std::uint8_t> server_response(16384);
-    do {
-      const std::size_t bytes_read =
-          socket.read_some(boost::asio::buffer(server_response), ec);
-      if (bytes_read != 0) {
-        SPDLOG_INFO("Received {}", bytes_read);
-        break;
-      }
-      if (ec) {
-        SPDLOG_INFO("Received error: {}", ec.what());
-        break;
-      }
-    } while (true);
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
-
-    if (!ec) {
-      SPDLOG_INFO("Received {} bytes server response (ignored)",
-          server_response.size());
-    }
-    SPDLOG_INFO("Fake handshake completed successfully");
+    const std::size_t resp_size = common::network::DrainSocket(socket);
+    SPDLOG_INFO(
+        "Fake handshake completed successfully, read {} bytes", resp_size);
     return true;
   } catch (const std::exception& e) {
     SPDLOG_ERROR("PerformFakeHandshake exception: {}", e.what());
