@@ -24,6 +24,7 @@ using HandshakeResponse = std::shared_ptr<std::vector<std::uint8_t>>;
 class HandshakeCacheManager final {
  public:
   explicit HandshakeCacheManager(boost::asio::io_context& ioc,
+      std::string default_domain,
       std::chrono::seconds cache_ttl = std::chrono::seconds(180));
 
   boost::asio::awaitable<HandshakeResponse> GetHandshake(const std::string& sni,
@@ -49,6 +50,8 @@ class HandshakeCacheManager final {
 
   boost::asio::io_context& ioc_;
   std::chrono::seconds cache_ttl_;
+
+  const std::string default_domain_;
 
   std::unordered_map<std::string, CacheEntry> cache_;
 };

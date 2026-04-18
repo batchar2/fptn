@@ -20,6 +20,7 @@ set(LIBS
     GTest::gtest_main
     Boost::boost
     Boost::random
+    Boost::process
     Boost::filesystem
     OpenSSL::SSL
     OpenSSL::Crypto

@@ -11,7 +11,9 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <random>
 #include <string>
 #include <utility>
+#include <vector>
 
+#include <boost/beast/core/flat_buffer.hpp>
 #include <protocol.pb.h>    // NOLINT(build/include_order)
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
@@ -19,39 +21,75 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "common/utils/utils.h"
 
 namespace fptn::protocol::protobuf {
+ProtoPayloadOpt GetProtoPayload(boost::beast::flat_buffer& buffer) {
+  const std::size_t total_size = buffer.size();
+  if (total_size == 0) {
+    SPDLOG_ERROR("Failed to parse Protobuf message: empty buffer");
+    return std::nullopt;
+  }
 
-std::string GetProtoPayload(const std::string& raw) {
+  const void* data_ptr = static_cast<const char*>(buffer.cdata().data());
+
   fptn::protocol::Message message;
-  if (!message.ParseFromArray(raw.data(), static_cast<int>(raw.size()))) {
-    throw ProcessingError("Failed to parse Protobuf message.");
+  if (!message.ParseFromArray(data_ptr, static_cast<int>(total_size))) {
+    SPDLOG_ERROR("Failed to parse Protobuf message: parse error");
+    return std::nullopt;
   }
+
   if (message.protocol_version() != FPTN_PROTOBUF_PROTOCOL_VERSION) {
-    throw UnsupportedProtocolVersion("Unsupported protocol version.");
+    SPDLOG_ERROR(
+        "Unsupported protocol version: {}", message.protocol_version());
+    return std::nullopt;
   }
+
   switch (message.msg_type()) {
     case fptn::protocol::MSG_IP_PACKET:
       if (message.has_packet()) {
-        return std::move(*message.mutable_packet()->mutable_payload());
+        const auto& payload = message.packet().payload();
+        std::vector<std::uint8_t> result;
+        result.reserve(payload.size());
+        result.assign(payload.begin(), payload.end());
+        return result;
       }
-      throw ProcessingError("Malformed IP packet.");
+      SPDLOG_ERROR("Malformed IP packet: no packet field");
+      break;
     case fptn::protocol::MSG_ERROR:
       if (message.has_error()) {
-        throw MessageError("Message error: " + message.error().error_msg());
+        SPDLOG_ERROR("Message error: {}", message.error().error_msg());
+      } else {
+        SPDLOG_ERROR("Malformed error message: no error field");
       }
-      throw MessageError("Malformed error message.");
+      break;
     default:
-      throw ProcessingError("Unknown message type.");
+      SPDLOG_ERROR("Unknown message type");
   }
+  return std::nullopt;
 }
-std::string CreateProtoPayload(fptn::common::network::IPPacketPtr packet) {
+
+ProtoPayloadOpt CreateProtoPayload(fptn::common::network::IPPacketPtr packet) {
+  if (!packet) {
+    SPDLOG_ERROR("Cannot create proto payload: packet is null");
+    return std::nullopt;
+  }
+
   fptn::protocol::Message message;
   message.set_protocol_version(FPTN_PROTOBUF_PROTOCOL_VERSION);
   message.set_msg_type(fptn::protocol::MSG_IP_PACKET);
 
   const auto* raw_packet = packet->GetRawPacket();
+  if (!raw_packet) {
+    SPDLOG_ERROR("Cannot create proto payload: raw packet is null");
+    return std::nullopt;
+  }
+
   const void* data = raw_packet->getRawData();
   const auto current_size =
       static_cast<std::size_t>(raw_packet->getRawDataLen());
+
+  if (!data || current_size == 0) {
+    SPDLOG_ERROR("Cannot create proto payload: invalid packet data");
+    return std::nullopt;
+  }
 
   message.mutable_packet()->set_payload(data, current_size);
 
@@ -83,13 +121,20 @@ std::string CreateProtoPayload(fptn::common::network::IPPacketPtr packet) {
     }
   }
 #endif
+
   const std::size_t estimated_size = message.ByteSizeLong();
-  std::string serialized_data(estimated_size, '\0');
+  if (estimated_size == 0) {
+    SPDLOG_ERROR("Failed to serialize Message: estimated size is 0");
+    return std::nullopt;
+  }
+
+  std::vector<std::uint8_t> serialized_data(estimated_size);
   if (!message.SerializeToArray(
           serialized_data.data(), static_cast<int>(estimated_size))) {
     SPDLOG_ERROR("Failed to serialize Message.");
-    return {};
+    return std::nullopt;
   }
   return serialized_data;
 }
+
 }  // namespace fptn::protocol::protobuf

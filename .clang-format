@@ -35,6 +35,8 @@ IncludeCategories:
     Priority:        2
   - Regex:           '^<argparse/.*>'
     Priority:        2
+  - Regex:           '^<camouflage/.*>'
+    Priority:        2
   - Regex:           '^<boost/.*>'
     Priority:        2
   - Regex:           '^<pcpp/.*>'

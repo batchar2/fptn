@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -191,7 +191,7 @@ class PosixTunInterface final : public BaseNetInterface<PosixTunInterface> {
       tun_->mtu(FPTN_MTU_SIZE);
       tun_->up();
       running_ = true;
-      thread_ = std::thread(&PosixTunInterface::run, this);
+      thread_ = std::thread(&PosixTunInterface::Run, this);
       return thread_.joinable();
     } catch (const std::exception& ex) {
       SPDLOG_ERROR("Error start: {}", ex.what());
@@ -250,20 +250,20 @@ class PosixTunInterface final : public BaseNetInterface<PosixTunInterface> {
     return receive_rate_calculator_.GetRateForSecond();
   }
 
-  void run() {
-    auto data = std::make_unique<std::uint8_t[]>(mtu_);
-    std::uint8_t* buffer = data.get();
-
+  void Run() {
     const auto callback = GetRecvIPPacketCallback();
+
     while (running_) {
-      const int size = tun_->read(static_cast<void*>(buffer), mtu_);
+      std::vector<std::uint8_t> buffer(mtu_ + 256);  // just in case
+      const int size = tun_->read(static_cast<void*>(buffer.data()), mtu_);
       if (size > 0 && running_) {
-        auto packet = IPPacket::Parse(buffer, size);
+        buffer.resize(size);
+        auto packet = IPPacket::Parse(std::move(buffer));
         if (running_ && packet != nullptr && callback) {
-          receive_rate_calculator_.Update(packet->Size());  // calculate rate
+          receive_rate_calculator_.Update(packet->Size());
           callback(std::move(packet));
         }
-      } else {
+      } else if (size <= 0 && running_) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
       }
     }
@@ -292,6 +292,7 @@ class WindowsTunInterface final : public BaseNetInterface<WindowsTunInterface> {
 
   explicit WindowsTunInterface(Config config)
       : BaseNetInterface(std::move(config)),
+        mtu_(FPTN_MTU_SIZE),
         running_(false),
         wintun_(nullptr),
         adapter_(0),
@@ -339,7 +340,7 @@ class WindowsTunInterface final : public BaseNetInterface<WindowsTunInterface> {
     }
     // --- start thread ---
     running_ = true;
-    thread_ = std::thread(&WindowsTunInterface::run, this);
+    thread_ = std::thread(&WindowsTunInterface::Run, this);
     return thread_.joinable();
   }
 
@@ -463,15 +464,16 @@ class WindowsTunInterface final : public BaseNetInterface<WindowsTunInterface> {
     return true;
   }
 
-  void run() {
-    std::uint8_t buffer[65536] = {0};
-    DWORD size = sizeof(buffer);
+  void Run() {
     const auto callback = GetRecvIPPacketCallback();
     while (running_) {
-      if (ERROR_SUCCESS == ReadPacketNonblock(session_, buffer, &size)) {
-        auto packet = IPPacket::Parse(buffer, size);
+      std::vector<std::uint8_t> buffer(mtu_ + 256);  // just in case
+      DWORD size = static_cast<DWORD>(buffer.size());
+      if (ERROR_SUCCESS == ReadPacketNonblock(session_, buffer.data(), &size)) {
+        buffer.resize(size);
+        auto packet = IPPacket::Parse(std::move(buffer));
         if (running_ && packet != nullptr && callback) {
-          receive_rate_calculator_.Update(packet->Size());  // calculate rate
+          receive_rate_calculator_.Update(packet->Size());
           callback(std::move(packet));
         }
       }
@@ -489,7 +491,7 @@ class WindowsTunInterface final : public BaseNetInterface<WindowsTunInterface> {
 
   int ReadPacketNonblock(
       WINTUN_SESSION_HANDLE session, BYTE* buff, DWORD* size) {
-    static constexpr size_t retry_amount = 20;
+    static constexpr size_t retry_amount = 5;
     while (running_) {
       for (size_t i = 0; i < retry_amount; i++) {
         DWORD packet_size;
@@ -506,8 +508,8 @@ class WindowsTunInterface final : public BaseNetInterface<WindowsTunInterface> {
           return ERROR_INVALID_FUNCTION;
         }
       }
-      WaitForSingleObject(WintunGetReadWaitEvent(session),
-          10);  // Wait for a maximum of 10 milliseconds
+      // Wait for a maximum of 5 milliseconds
+      WaitForSingleObject(WintunGetReadWaitEvent(session), 5);
     }
     return ERROR_INVALID_FUNCTION;
   }
@@ -559,6 +561,8 @@ class WindowsTunInterface final : public BaseNetInterface<WindowsTunInterface> {
 
  private:
   mutable std::mutex mutex_;
+
+  const std::uint16_t mtu_;
 
   std::atomic<bool> running_;
   std::thread thread_;

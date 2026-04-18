@@ -212,6 +212,29 @@ class FPTN(ConanFile):
                     src=ntp_client_lib_src,
                     dst=os.path.join(self.package_folder, "lib"),
                 )
+            # copy camouflage-tls depends
+            camouflage_tls_build_include = os.path.join(self.build_folder, "_deps", "camouflagetls-src", "include")
+            if os.path.exists(camouflage_tls_build_include):
+                copy(
+                    self,
+                    "*.h",
+                    src=camouflage_tls_build_include,
+                    dst=os.path.join(self.package_folder, "include", "camouflage"),
+                )
+            camouflage_tls_lib_src = os.path.join(self.build_folder, "_deps", "camouflagetls-build")
+            if os.path.exists(camouflage_tls_lib_src):
+                copy(
+                    self,
+                    "*.a",
+                    src=camouflage_tls_lib_src,
+                    dst=os.path.join(self.package_folder, "lib"),
+                )
+                copy(
+                    self,
+                    "*.lib",
+                    src=camouflage_tls_lib_src,
+                    dst=os.path.join(self.package_folder, "lib"),
+                )
 
     def package_info(self):
         if self.options.build_only_fptn_lib:

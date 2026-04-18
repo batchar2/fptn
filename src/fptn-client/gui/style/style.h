@@ -9,7 +9,9 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <QString>
 
 namespace fptn::gui {
-extern QString macStyleSheet;
-extern QString ubuntuStyleSheet;
-extern QString windowsStyleSheet;
+
+QString GetMacStyleSheet();
+QString GetUbuntuStyleSheet();
+QString GetWindowsStyleSheet();
+
 }  // namespace fptn::gui

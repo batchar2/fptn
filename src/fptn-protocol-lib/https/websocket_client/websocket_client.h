@@ -71,6 +71,8 @@ class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
 
   void StartWatchdog();
 
+  std::vector<std::uint8_t> GenerateHandshakePacket() const;
+
  private:
   const std::string kUrlWebSocket_ = "/fptn";
   const std::size_t kMaxSizeOutQueue_ = 128;
