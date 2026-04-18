@@ -51,6 +51,7 @@ class MockIPv6Packet : public fptn::common::network::IPPacket {
 };
 
 /* IPv4 */
+// cppcheck-suppress syntaxError
 TEST(AntiScanTest, BlockScan) {
   /* IPv4 */
   const fptn::common::network::IPv4Address server_ipv4("192.168.1.1");

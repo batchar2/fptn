@@ -9,6 +9,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <iostream>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <boost/asio.hpp>
@@ -66,7 +67,7 @@ HandshakeCacheManager::HandshakeCacheManager(boost::asio::io_context& ioc,
     std::chrono::seconds cache_ttl)
     : ioc_(ioc),
       cache_ttl_(cache_ttl),
-      default_domain_(std::move(default_domain)) {}
+      default_domain_(std::move(default_domain)) {}  // NOLINT
 
 HandshakeResponse HandshakeCacheManager::CheckCache(
     const std::string& cache_key) {
@@ -117,7 +118,6 @@ boost::asio::awaitable<HandshakeResponse> HandshakeCacheManager::GetHandshake(
         sni, default_domain_);
     response = co_await FetchRealHandshake(
         default_domain_, client_handshake_data, timeout);
-
     if (response) {
       SPDLOG_INFO("Successfully fetched handshake from default domain: {}",
           default_domain_);
@@ -155,8 +155,7 @@ HandshakeCacheManager::FetchRealHandshake(const std::string& sni,
         resolve_ioc, sni, "443", timeout.count());
 
     if (!resolve_result.success()) {
-      SPDLOG_ERROR(
-          "DNS failed for {}: {}", sni, resolve_result.error.message());
+      SPDLOG_WARN("DNS failed for {}: {}", sni, resolve_result.error.message());
       co_return nullptr;
     }
 

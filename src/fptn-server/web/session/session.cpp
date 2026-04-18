@@ -428,7 +428,6 @@ boost::asio::awaitable<bool> Session::IsSniSelfProxyAttempt(
     if (!resolve_result.success()) {
       SPDLOG_WARN("DNS resolution failed for {}: {}", sni,
           resolve_result.error.message());
-      co_return true;  // Treat DNS failure as potential self-proxy attempt
     }
 
     // Iterate through resolved endpoints
@@ -552,7 +551,7 @@ boost::asio::awaitable<bool> Session::HandleRealityMode(
 
     const auto handshake_answer =
         co_await handshake_cache_manager_->GetHandshake(
-            sni, buffer.data(), bytes_read, std::chrono::seconds(3));
+            sni, buffer.data(), bytes_read, std::chrono::seconds(5));
 
     if (!handshake_answer) {
       co_return false;
@@ -562,10 +561,14 @@ boost::asio::awaitable<bool> Session::HandleRealityMode(
         co_await boost::asio::async_write(tcp_socket,
             boost::asio::buffer(*handshake_answer), boost::asio::use_awaitable);
 
+    // Drain data
+    const std::size_t drain_resp_size =
+        co_await common::network::DrainSocketAsync(
+            tcp_socket, std::chrono::milliseconds(300));
     SPDLOG_INFO(
         "Reality mode completed, ready for real handshake (client_id={}) "
-        "request_size = {} response_size: {}",
-        client_id_, bytes_read, bytes_wrote);
+        "request_size = {} response_size: {}, drain_resp_size: {}",
+        client_id_, bytes_read, bytes_wrote, drain_resp_size);
     co_return true;
   } catch (const std::exception& e) {
     SPDLOG_ERROR(
@@ -687,7 +690,7 @@ boost::asio::awaitable<void> Session::RunReader() {
       }
       if (buffer.size() > 0 && running_ && ws_.is_open()) {
         auto raw_ip = fptn::protocol::protobuf::GetProtoPayload(buffer);
-        if (!raw_ip.has_value() && running_) {
+        if (raw_ip.has_value() && running_) {
           auto packet = fptn::common::network::IPPacket::Parse(
               std::move(raw_ip.value()), client_id_);
           if (packet != nullptr) {
@@ -715,7 +718,7 @@ boost::asio::awaitable<void> Session::RunSender() {
       if (running_ && ws_.is_open() && !ec && packet != nullptr) {
         auto msg =
             fptn::protocol::protobuf::CreateProtoPayload(std::move(packet));
-        if (!msg.has_value()) {
+        if (msg.has_value()) {
           co_await ws_.async_write(
               boost::asio::buffer(msg.value()), boost::asio::use_awaitable);
         }

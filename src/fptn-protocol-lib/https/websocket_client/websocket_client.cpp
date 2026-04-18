@@ -90,20 +90,6 @@ WebsocketClient::WebsocketClient(fptn::common::network::IPv4Address server_ip,
   ws_.read_message_max(256 * 1024);
   ws_.set_option(boost::beast::websocket::stream_base::timeout::suggested(
       boost::beast::role_type::client));
-
-  // // Optimize socket buffer sizes
-  // try {
-  //   boost::beast::get_lowest_layer(ws_).socket().set_option(
-  //       boost::asio::socket_base::receive_buffer_size(1 * 1024 * 1024));
-  //   boost::beast::get_lowest_layer(ws_).socket().set_option(
-  //       boost::asio::socket_base::send_buffer_size(1 * 1024 * 1024));
-  //
-  //   // Disable Nagle's algorithm for lower latency
-  //   boost::beast::get_lowest_layer(ws_).socket().set_option(
-  //       boost::asio::ip::tcp::no_delay(true));
-  // } catch (const boost::system::system_error& e) {
-  //   SPDLOG_WARN("Failed to set socket options: {}", e.what());
-  // }
 }
 
 WebsocketClient::~WebsocketClient() {
@@ -301,10 +287,6 @@ boost::asio::awaitable<bool> WebsocketClient::RunInternal() {
           boost::asio::socket_base::receive_buffer_size(1 * 1024 * 1024));
       boost::beast::get_lowest_layer(ws_).socket().set_option(
           boost::asio::socket_base::send_buffer_size(1 * 1024 * 1024));
-
-      // Disable Nagle's algorithm for lower latency
-      boost::beast::get_lowest_layer(ws_).socket().set_option(
-          boost::asio::ip::tcp::no_delay(true));
     } catch (const boost::system::system_error& e) {
       SPDLOG_WARN("Failed to set socket options: {}", e.what());
     }
@@ -424,13 +406,16 @@ boost::asio::awaitable<bool> WebsocketClient::Connect() {
     ws_.next_layer().next_layer().set_obfuscator(nullptr);
     SPDLOG_INFO("SSL handshake completed");
 
-    // WebSocket options
-    boost::beast::websocket::stream_base::timeout timeout_option;
-    timeout_option.handshake_timeout = std::chrono::seconds(10);
-    timeout_option.idle_timeout = std::chrono::seconds(2);
-    timeout_option.keep_alive_pings = true;
-    ws_.set_option(timeout_option);
-
+    // WebSocket connection options
+    try {
+      boost::beast::websocket::stream_base::timeout timeout_option;
+      timeout_option.handshake_timeout = std::chrono::seconds(10);
+      timeout_option.idle_timeout = std::chrono::seconds(10);
+      timeout_option.keep_alive_pings = true;
+      ws_.set_option(timeout_option);
+    } catch (const std::exception& e) {
+      SPDLOG_ERROR("Failed to set timeout: {}", e.what());
+    }
     // WebSocket handshake
     ws_.set_option(boost::beast::websocket::stream_base::decorator(
         [this](boost::beast::websocket::request_type& req) {
@@ -452,6 +437,17 @@ boost::asio::awaitable<bool> WebsocketClient::Connect() {
 
     if (on_connected_callback_) {
       on_connected_callback_();
+    }
+
+    // WebSocket options
+    try {
+      boost::beast::websocket::stream_base::timeout timeout_option;
+      timeout_option.handshake_timeout = std::chrono::seconds(10);
+      timeout_option.idle_timeout = std::chrono::seconds(2);
+      timeout_option.keep_alive_pings = true;
+      ws_.set_option(timeout_option);
+    } catch (const std::exception& e) {
+      SPDLOG_ERROR("Failed to set timeout: {}", e.what());
     }
     co_return true;
   } catch (const std::exception& e) {
@@ -564,23 +560,23 @@ boost::asio::awaitable<bool> WebsocketClient::PerformFakeHandshake() {
       co_return false;
     }
 
-    // Drain response
-    const std::size_t resp_size =
-        co_await common::network::DrainSocketAsync(tcp_socket);
-
-    // Wait
-    co_await boost::asio::steady_timer(
-        co_await boost::asio::this_coro::executor,
-        std::chrono::milliseconds(300))
-        .async_wait(boost::asio::use_awaitable);
-
-    if (resp_size == 0) {
-      SPDLOG_WARN("Read during fake handshake failed: {}", ec.message());
+    // read and drain data
+    std::array<std::uint8_t, 4096> buffer{};
+    std::size_t drain_resp_size =
+        co_await tcp_socket.async_read_some(boost::asio::buffer(buffer),
+            boost::asio::redirect_error(boost::asio::use_awaitable, ec));
+    if (ec) {
+      SPDLOG_ERROR("Failed to read fake handshake response: {}", ec.message());
+      co_return false;
+    }
+    drain_resp_size += co_await common::network::DrainSocketAsync(tcp_socket);
+    if (drain_resp_size == 0) {
+      SPDLOG_ERROR("No data received during fake handshake");
       co_return false;
     }
 
-    SPDLOG_INFO(
-        "Fake handshake completed successfully, read {} bytes", resp_size);
+    SPDLOG_INFO("Fake handshake completed successfully, read {} bytes",
+        drain_resp_size);
     co_return true;
   } catch (const std::exception& e) {
     SPDLOG_ERROR("PerformFakeHandshake exception: {}", e.what());

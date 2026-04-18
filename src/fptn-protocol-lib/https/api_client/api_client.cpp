@@ -334,7 +334,19 @@ bool ApiClient::PerformFakeHandshake(
 
     SPDLOG_INFO("Successfully sent {} bytes of handshake data", bytes_sent);
 
-    const std::size_t resp_size = common::network::DrainSocket(socket);
+    // read and drain data
+    boost::system::error_code ec;
+    std::array<std::uint8_t, 4096> buffer{};
+    std::size_t resp_size = socket.read_some(boost::asio::buffer(buffer), ec);
+    if (ec) {
+      SPDLOG_WARN("Failed to read socket: {}", ec.message());
+    }
+
+    resp_size += common::network::DrainSocket(socket);
+    if (!resp_size) {
+      SPDLOG_WARN("Failed to drain socket");
+      return false;
+    }
     SPDLOG_INFO(
         "Fake handshake completed successfully, read {} bytes", resp_size);
     return true;
