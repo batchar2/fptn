@@ -192,8 +192,7 @@ TEST_F(GenericTunInterfaceTest, SendIPv4Packet) {
   ASSERT_TRUE(iface.Start());
 
   auto pkt_data = MakeMinimalIPv4Packet();
-  auto packet = fptn::common::network::IPPacket::Parse(
-      pkt_data.data(), pkt_data.size());
+  auto packet = fptn::common::network::IPPacket::Parse(pkt_data);
   ASSERT_NE(packet, nullptr);
 
   EXPECT_TRUE(iface.Send(std::move(packet)));
@@ -214,8 +213,7 @@ TEST_F(GenericTunInterfaceTest, SendIPv6Packet) {
   ASSERT_TRUE(iface.Start());
 
   auto pkt_data = MakeMinimalIPv6Packet();
-  auto packet = fptn::common::network::IPPacket::Parse(
-      pkt_data.data(), pkt_data.size());
+  auto packet = fptn::common::network::IPPacket::Parse(pkt_data);
   ASSERT_NE(packet, nullptr);
 
   EXPECT_TRUE(iface.Send(std::move(packet)));
@@ -317,10 +315,8 @@ TEST_F(GenericTunInterfaceTest, SendMultipleMixedPackets) {
   auto ipv4_data = MakeMinimalIPv4Packet();
   auto ipv6_data = MakeMinimalIPv6Packet();
 
-  auto pkt4 = fptn::common::network::IPPacket::Parse(
-      ipv4_data.data(), ipv4_data.size());
-  auto pkt6 = fptn::common::network::IPPacket::Parse(
-      ipv6_data.data(), ipv6_data.size());
+  auto pkt4 = fptn::common::network::IPPacket::Parse(ipv4_data);
+  auto pkt6 = fptn::common::network::IPPacket::Parse(ipv6_data);
   ASSERT_NE(pkt4, nullptr);
   ASSERT_NE(pkt6, nullptr);
 
