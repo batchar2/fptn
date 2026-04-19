@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -7,7 +7,9 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "gui/style/style.h"
 
 namespace fptn::gui {
-QString macStyleSheet = R"(
+
+QString GetMacStyleSheet() {
+  static const QString kStyleSheet = R"(
 QMenu {
     background-color: #333;
     color: #fff;
@@ -32,8 +34,11 @@ QWidgetAction {
     padding: 5px;
 }
 )";
+  return kStyleSheet;
+}
 
-QString ubuntuStyleSheet = R"(
+QString GetUbuntuStyleSheet() {
+  static const QString kStyleSheet = R"(
 QMenu {
     background-color: #ffffff;
     color: #333333;
@@ -127,7 +132,6 @@ QTabBar::tab:selected {
     border-radius: 4px 4px 0 0;
     font-weight: bold;
 }
-
 QTabBar::tab:!selected {
     background: #f0f0f0;
 }
@@ -144,8 +148,11 @@ QAction:disabled {
     color: #a0a0a0;
 }
 )";
+  return kStyleSheet;
+}
 
-QString windowsStyleSheet = R"(
+QString GetWindowsStyleSheet() {
+  static const QString kStyleSheet = R"(
 QMenu {
     background-color: #ffffff;
     color: #000000;
@@ -174,17 +181,19 @@ QAction {
 }
 QMenu QWidget {
     background-color: #ffffff;
-    color: #000000; 
+    color: #000000;
     border: none;
     padding: 1px 4px;
 }
 QMenu::item:disabled {
-    background-color: #ffffff; 
+    background-color: #ffffff;
     color: #a0a0a0;
 }
 QAction:disabled {
     color: #a0a0a0;
 }
 )";
+  return kStyleSheet;
+}
 
 }  // namespace fptn::gui

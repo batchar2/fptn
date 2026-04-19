@@ -6,8 +6,10 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <functional>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -36,6 +38,8 @@ std::string ChromeCiphers();
 std::string GetCertificateMD5Fingerprint(const X509* cert);
 
 std::vector<std::uint8_t> GenerateDecoyTlsHandshake(const std::string& sni);
+
+std::optional<std::array<std::uint8_t, 32>> GenerateDecoyTlsSessionId();
 
 // Callbacks
 using CertificateVerificationCallback = std::function<bool(const std::string&)>;

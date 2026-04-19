@@ -79,11 +79,11 @@ TrayApp::TrayApp(const SettingsModelPtr& settings, QObject* parent)
       inactive_icon_path_(":/icons/inactive.ico") {
   (void)parent;
 #ifdef __linux__
-  qApp->setStyleSheet(fptn::gui::ubuntuStyleSheet);
+  qApp->setStyleSheet(fptn::gui::GetUbuntuStyleSheet());
 #elif __APPLE__
-  qApp->setStyleSheet(fptn::gui::macStyleSheet);
+  qApp->setStyleSheet(fptn::gui::GetMacStyleSheet());
 #elif _WIN32
-  qApp->setStyleSheet(fptn::gui::windowsStyleSheet);
+  qApp->setStyleSheet(fptn::gui::GetWindowsStyleSheet());
 #else
 #error "Unsupported system!"
 #endif
@@ -727,18 +727,66 @@ bool TrayApp::startVpn(QString& err_msg) {
                               ? settings_->SNI().toStdString()
                               : FPTN_DEFAULT_SNI;
   fptn::protocol::https::CensorshipStrategy censorship_strategy =
-      fptn::protocol::https::CensorshipStrategy::kSni;
-  if (settings_->BypassMethod() == "OBFUSCATION") {
+      fptn::protocol::https::CensorshipStrategy::kSniRealityModeYandex25;
+
+  const auto& bypass_method = settings_->BypassMethod();
+  if (bypass_method == SettingsModel::kBypassMethodObfuscation) {
     SPDLOG_INFO("Using obfuscation to bypass censorship");
     censorship_strategy =
         fptn::protocol::https::CensorshipStrategy::kTlsObfuscator;
-  } else if (settings_->BypassMethod() == "SNI-REALITY") {
-    SPDLOG_INFO("Using reality mode to bypass censorship");
+  } else if (bypass_method == SettingsModel::kBypassMethodSniReality) {
+    // DEPRECATED
+    SPDLOG_INFO("Using generic reality mode to bypass censorship");
     censorship_strategy =
         fptn::protocol::https::CensorshipStrategy::kSniRealityMode;
-  } else {
-    SPDLOG_INFO("Using SNI spoofing to bypass censorship");
   }
+  /* chrome */
+  else if (bypass_method == SettingsModel::kBypassMethodSniRealityChrome147) {
+    SPDLOG_INFO("Using Chrome 147 reality mode to bypass censorship");
+    censorship_strategy =
+        fptn::protocol::https::CensorshipStrategy::kSniRealityModeChrome147;
+  } else if (bypass_method == SettingsModel::kBypassMethodSniRealityChrome146) {
+    SPDLOG_INFO("Using Chrome 146 reality mode to bypass censorship");
+    censorship_strategy =
+        fptn::protocol::https::CensorshipStrategy::kSniRealityModeChrome146;
+  } else if (bypass_method == SettingsModel::kBypassMethodSniRealityChrome145) {
+    SPDLOG_INFO("Using Chrome 145 reality mode to bypass censorship");
+    censorship_strategy =
+        fptn::protocol::https::CensorshipStrategy::kSniRealityModeChrome145;
+  }
+  /* firefox */
+  else if (bypass_method == SettingsModel::kBypassMethodSniRealityFirefox149) {
+    SPDLOG_INFO("Using Firefox 149 reality mode to bypass censorship");
+    censorship_strategy =
+        fptn::protocol::https::CensorshipStrategy::kSniRealityModeFirefox149;
+  }
+  /* Yandex */
+  else if (bypass_method == SettingsModel::kBypassMethodSniRealityYandex26) {
+    SPDLOG_INFO("Using Yandex 26 reality mode to bypass censorship");
+    censorship_strategy =
+        fptn::protocol::https::CensorshipStrategy::kSniRealityModeYandex26;
+  } else if (bypass_method == SettingsModel::kBypassMethodSniRealityYandex25) {
+    SPDLOG_INFO("Using Yandex 25 reality mode to bypass censorship");
+    censorship_strategy =
+        fptn::protocol::https::CensorshipStrategy::kSniRealityModeYandex25;
+  } else if (bypass_method == SettingsModel::kBypassMethodSniRealityYandex24) {
+    SPDLOG_INFO("Using Yandex 24 reality mode to bypass censorship");
+    censorship_strategy =
+        fptn::protocol::https::CensorshipStrategy::kSniRealityModeYandex24;
+  }
+  /* Safari */
+  else if (bypass_method == SettingsModel::kBypassMethodSniRealitySafari26) {
+    SPDLOG_INFO("Using Safari 26 reality mode to bypass censorship");
+    censorship_strategy =
+        fptn::protocol::https::CensorshipStrategy::kSniRealityModeSafari26;
+  }
+  /* Default */
+  else {
+    SPDLOG_INFO("Using default SNI spoofing to bypass censorship");
+    censorship_strategy =
+        fptn::protocol::https::CensorshipStrategy::kSniRealityModeYandex25;
+  }
+
   fptn::config::ConfigFile config(sni, censorship_strategy);  // SET SNI
   if (smart_connect_) {  // find the best server
     for (const auto& service : settings_->Services()) {
@@ -858,10 +906,11 @@ bool TrayApp::startVpn(QString& err_msg) {
   auto virtual_network_interface =
       std::make_unique<fptn::common::network::TunInterface>(
           fptn::common::network::TunInterface::Config{
-              tun_interface_name, tun_interface_address_ipv4,
-              30,  // IPv4 netmask
-              tun_interface_address_ipv6,
-              126  // IPv6 netmask
+              .name = tun_interface_name,
+              .ipv4_addr = tun_interface_address_ipv4,
+              .ipv4_netmask = 30,  // IPv4 netmask
+              .ipv6_addr = tun_interface_address_ipv6,
+              .ipv6_netmask = 126  // IPv6 netmask
           });
 
   // setup vpn client с плагинами

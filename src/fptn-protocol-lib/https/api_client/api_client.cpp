@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -9,6 +9,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <iostream>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -20,6 +21,8 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <fmt/format.h>     // NOLINT(build/include_order)
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 #include <zlib.h>           // NOLINT(build/include_order)
+
+#include "common/network/utils.h"
 
 #ifdef _WIN32
 #pragma warning(push)
@@ -40,6 +43,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <boost/beast/http.hpp>
 #include <boost/beast/ssl.hpp>
 #include <boost/nowide/convert.hpp>
+#include <camouflage/tls/builder.hpp>
 
 #include "common/network/resolv.h"
 
@@ -314,16 +318,14 @@ ApiClient ApiClient::Clone() const {
 
 bool ApiClient::PerformFakeHandshake(
     boost::asio::ip::tcp::socket& socket) const {
-  boost::system::error_code ec;
   try {
     SPDLOG_INFO("Generating and sending fake TLS handshake to {}", sni_);
 
-    const auto handshake_data = utils::GenerateDecoyTlsHandshake(sni_);
+    const auto handshake_data = GenerateHandshakePacket();
     if (handshake_data.empty()) {
       SPDLOG_WARN("Failed to generate handshake data for SNI: {}", sni_);
       return false;
     }
-
     SPDLOG_INFO(
         "Sending {} bytes of handshake data over TCP", handshake_data.size());
 
@@ -332,27 +334,21 @@ bool ApiClient::PerformFakeHandshake(
 
     SPDLOG_INFO("Successfully sent {} bytes of handshake data", bytes_sent);
 
-    std::vector<std::uint8_t> server_response(16384);
-    do {
-      const std::size_t bytes_read =
-          socket.read_some(boost::asio::buffer(server_response), ec);
-      if (bytes_read != 0) {
-        SPDLOG_INFO("Received {}", bytes_read);
-        break;
-      }
-      if (ec) {
-        SPDLOG_INFO("Received error: {}", ec.what());
-        break;
-      }
-    } while (true);
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
-
-    if (!ec) {
-      SPDLOG_INFO("Received {} bytes server response (ignored)",
-          server_response.size());
+    // read and drain data
+    boost::system::error_code ec;
+    std::array<std::uint8_t, 4096> buffer{};
+    std::size_t resp_size = socket.read_some(boost::asio::buffer(buffer), ec);
+    if (ec) {
+      SPDLOG_WARN("Failed to read socket: {}", ec.message());
     }
-    SPDLOG_INFO("Fake handshake completed successfully");
+
+    resp_size += common::network::DrainSocket(socket);
+    if (!resp_size) {
+      SPDLOG_WARN("Failed to drain socket");
+      return false;
+    }
+    SPDLOG_INFO(
+        "Fake handshake completed successfully, read {} bytes", resp_size);
     return true;
   } catch (const std::exception& e) {
     SPDLOG_ERROR("PerformFakeHandshake exception: {}", e.what());
@@ -413,7 +409,7 @@ Response ApiClient::GetImpl(const std::string& handle, int timeout) const {
       SetSocketTimeouts(socket, timeout);
 
       // Perform fake handshake if enabled
-      if (censorship_strategy_ == CensorshipStrategy::kSniRealityMode) {
+      if (IsRealityModeWithFakeHandshake(censorship_strategy_)) {
         const bool perform_status = PerformFakeHandshake(socket);
         if (!perform_status) {
           SPDLOG_WARN(
@@ -592,7 +588,7 @@ Response ApiClient::PostImpl(const std::string& handle,
       SetSocketTimeouts(socket, timeout);
 
       // Perform fake handshake if enabled
-      if (censorship_strategy_ == CensorshipStrategy::kSniRealityMode) {
+      if (IsRealityModeWithFakeHandshake(censorship_strategy_)) {
         const bool perform_status = PerformFakeHandshake(socket);
         if (!perform_status) {
           SPDLOG_WARN(
@@ -780,7 +776,7 @@ bool ApiClient::TestHandshakeImpl(int timeout) const {
     SetSocketTimeouts(socket, timeout);
 
     // Perform fake handshake if enabled
-    if (censorship_strategy_ == CensorshipStrategy::kSniRealityMode) {
+    if (IsRealityModeWithFakeHandshake(censorship_strategy_)) {
       SPDLOG_INFO("TestHandshake - Performing fake handshake");
       if (!PerformFakeHandshake(socket)) {
         SPDLOG_WARN(
@@ -788,7 +784,6 @@ bool ApiClient::TestHandshakeImpl(int timeout) const {
             "handshake");
       }
     }
-
     utils::SetHandshakeSessionID(stream.native_handle());
     utils::SetHandshakeSni(stream.native_handle(), sni_);
 
@@ -891,4 +886,82 @@ bool ApiClient::onVerifyCertificate(
   return false;
 }
 
+std::vector<std::uint8_t> ApiClient::GenerateHandshakePacket() const {
+  auto builder = camouflage::tls::Builder::Create();
+
+  std::string browser_name;
+
+  switch (censorship_strategy_) {
+    case CensorshipStrategy::kSniRealityModeChrome147:
+      browser_name = "Chrome 147";
+      builder.GoogleChrome(
+          camouflage::tls::google_chrome::Version::kV_147_0_7727_56);
+      break;
+
+    case CensorshipStrategy::kSniRealityModeChrome146:
+      browser_name = "Chrome 146";
+      builder.GoogleChrome(
+          camouflage::tls::google_chrome::Version::kV_146_0_7680_178);
+      break;
+    case CensorshipStrategy::kSniRealityModeChrome145:
+      browser_name = "Chrome 145";
+      builder.GoogleChrome(
+          camouflage::tls::google_chrome::Version::kV_145_0_7632_46);
+      break;
+
+    case CensorshipStrategy::kSniRealityModeFirefox149:
+      browser_name = "Firefox 149";
+      builder.Firefox(camouflage::tls::firefox::Version::kV_149_0);
+      break;
+
+    case CensorshipStrategy::kSniRealityModeSafari26:
+      browser_name = "Safari 26";
+      builder.Safari(camouflage::tls::safari::Version::kV_26_4);
+      break;
+
+    case CensorshipStrategy::kSniRealityModeYandex26:
+      browser_name = "Yandex 26";
+      builder.YandexBrowser(
+          camouflage::tls::yandex_browser::Version::kV_26_3_3_881);
+      break;
+
+    case CensorshipStrategy::kSniRealityModeYandex25:
+      browser_name = "Yandex 25";
+      builder.YandexBrowser(
+          camouflage::tls::yandex_browser::Version::kV_25_8_3_828);
+      break;
+
+    case CensorshipStrategy::kSniRealityModeYandex24:
+      browser_name = "Yandex 24";
+      builder.YandexBrowser(
+          camouflage::tls::yandex_browser::Version::kV_24_12_0_1772);
+      break;
+
+    default:
+      SPDLOG_DEBUG("Using fallback handshake generator for SNI: {}", sni_);
+      return utils::GenerateDecoyTlsHandshake(sni_);
+  }
+
+  SPDLOG_INFO("Generating {} handshake for SNI: {}", browser_name, sni_);
+
+  const auto session_id = utils::GenerateDecoyTlsSessionId();
+  if (!session_id.has_value()) {
+    SPDLOG_WARN("Session ID generation failed for {} handshake, using fallback",
+        browser_name);
+    return utils::GenerateDecoyTlsHandshake(sni_);
+  }
+
+  const auto handshake =
+      builder.SetSNI(sni_).SetSessionId(session_id.value()).Generate();
+  if (!handshake.has_value()) {
+    SPDLOG_WARN("{} handshake generation failed for SNI: {}, using fallback",
+        browser_name, sni_);
+    return utils::GenerateDecoyTlsHandshake(sni_);
+  }
+
+  SPDLOG_INFO("{} handshake generated: SNI={}, size={} bytes", browser_name,
+      sni_, handshake->handshake_packet_size);
+  return std::vector<std::uint8_t>(handshake->handshake_packet,
+      handshake->handshake_packet + handshake->handshake_packet_size);
+}
 }  // namespace fptn::protocol::https

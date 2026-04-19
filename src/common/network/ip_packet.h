@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -66,7 +66,6 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #ifdef FPTN_WITH_LIBIDN2
 #include <idn2.h>
-// #include <libidn2/idn2.h>  // NOLINT(build/include_order)
 #endif
 
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
@@ -74,26 +73,20 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "common/client_id.h"
 #include "common/network/ip_address.h"
 
-// #ifndef INET_ADDRSTRLEN
-// #define INET_ADDRSTRLEN 16
-// #endif
-//
-// #ifndef INET6_ADDRSTRLEN
-// #define INET6_ADDRSTRLEN 46
-// #endif
-
 namespace fptn::common::network {
 
 #define FPTN_PACKET_UNDEFINED_CLIENT_ID MAX_CLIENT_ID
 
 #ifndef FPTN_IP_ADDRESS_WITHOUT_PCAP
 
-inline bool CheckIPv4(const std::string& buffer) {
-  return (static_cast<uint8_t>(buffer[0]) >> 4) == 4;
+using IPPacketData = std::vector<std::uint8_t>;
+
+inline bool CheckIPv4(const IPPacketData& buffer) {
+  return (static_cast<std::uint8_t>(buffer[0]) >> 4) == 4;
 }
 
-inline bool CheckIPv6(const std::string& buffer) {
-  return (static_cast<uint8_t>(buffer[0]) >> 4) == 6;
+inline bool CheckIPv6(const IPPacketData& buffer) {
+  return (static_cast<std::uint8_t>(buffer[0]) >> 4) == 6;
 }
 
 #ifdef FPTN_WITH_LIBIDN2
@@ -124,9 +117,10 @@ inline std::string ConvertDomainToUnicode(const std::string& domain) {
 
 class IPPacket {
  public:
-  static std::unique_ptr<IPPacket> Parse(std::string buffer,
+  static std::unique_ptr<IPPacket> Parse(IPPacketData buffer,
       fptn::ClientID client_id = FPTN_PACKET_UNDEFINED_CLIENT_ID) {
-    if (buffer.empty() || buffer.size() < 20) {  // Minimum IPv4 header size
+    // Minimum IPv4 header size
+    if (buffer.empty() || buffer.size() < 20) {
       return nullptr;
     }
     if (CheckIPv4(buffer)) {
@@ -145,16 +139,10 @@ class IPPacket {
     return nullptr;
   }
 
-  static std::unique_ptr<IPPacket> Parse(const std::uint8_t* data,
-      const std::size_t size,
-      fptn::ClientID client_id = FPTN_PACKET_UNDEFINED_CLIENT_ID) {
-    std::string buffer(reinterpret_cast<const char*>(data), size);
-    return Parse(std::move(buffer), client_id);
-  }
-
  public:
-  IPPacket(
-      std::string data, fptn::ClientID client_id, pcpp::LinkLayerType ip_type)
+  IPPacket(IPPacketData data,
+      fptn::ClientID client_id,
+      const pcpp::LinkLayerType& ip_type)
       : packet_data_(std::move(data)), client_id_(client_id) {
     try {
       raw_packet_ = pcpp::RawPacket(
@@ -384,7 +372,7 @@ class IPPacket {
   IPPacket() : client_id_(FPTN_PACKET_UNDEFINED_CLIENT_ID) {}
 
  private:
-  std::string packet_data_;
+  std::vector<std::uint8_t> packet_data_;
   fptn::ClientID client_id_;
   pcpp::RawPacket raw_packet_;
   pcpp::Packet parsed_packet_;
@@ -403,7 +391,7 @@ using IPPacketPtr = std::unique_ptr<IPPacket>;
  */
 class LightIPv4Packet {
  public:
-  static std::unique_ptr<LightIPv4Packet> Parse(std::string buffer,
+  static std::unique_ptr<LightIPv4Packet> Parse(IPPacketData buffer,
       std::uint64_t client_id = FPTN_PACKET_UNDEFINED_CLIENT_ID) {
     if (buffer.empty() || buffer.size() < 20) {  // Minimum IPv4 header size
       return nullptr;
@@ -411,14 +399,7 @@ class LightIPv4Packet {
     return std::make_unique<LightIPv4Packet>(std::move(buffer), client_id);
   }
 
-  static std::unique_ptr<LightIPv4Packet> Parse(const std::uint8_t* data,
-      const std::size_t size,
-      const fptn::ClientID client_id = FPTN_PACKET_UNDEFINED_CLIENT_ID) {
-    std::string buffer(reinterpret_cast<const char*>(data), size);
-    return Parse(std::move(buffer), client_id);
-  }
-
-  LightIPv4Packet(std::string buffer, const fptn::ClientID client_id)
+  LightIPv4Packet(IPPacketData buffer, const fptn::ClientID client_id)
       : ip_packet_(std::move(buffer)) {
     (void)client_id;
   }
@@ -431,7 +412,7 @@ class LightIPv4Packet {
   const void* getRawData() const { return ip_packet_.data(); }
 
  private:
-  const std::string ip_packet_;
+  const IPPacketData ip_packet_;
 };
 
 using IPPacket = LightIPv4Packet;

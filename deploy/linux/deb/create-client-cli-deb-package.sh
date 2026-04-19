@@ -64,11 +64,17 @@ GATEWAY_IPv6=
 
 # Censorship Bypass Settings
 # Optional: Method to bypass censorship mechanisms
-# Available options: sni, obfuscation, sni-reality
-# - sni:         Domain spoofing (SNI) [default]
-# - obfuscation: Traffic masking (obfuscation)
-# - sni-reality: Advanced domain spoofing (SNI + REALITY)
-BYPASS_METHOD=sni
+# Available options:
+#   - obfuscation            - Masks traffic as regular HTTPS using TLS obfuscation
+#   - sni-reality-chrome147  - SNI reality with Chrome 147 browser fingerprint
+#   - sni-reality-chrome146  - SNI reality with Chrome 146 browser fingerprint
+#   - sni-reality-chrome145  - SNI reality with Chrome 145 browser fingerprint
+#   - sni-reality-firefox149 - SNI reality with Firefox 149 browser fingerprint
+#   - sni-reality-yandex26   - SNI reality with Yandex Browser 26 fingerprint
+#   - sni-reality-yandex25   - SNI reality with Yandex Browser 25 fingerprint
+#   - sni-reality-yandex24   - SNI reality with Yandex Browser 24 fingerprint
+#   - sni-reality-safari26   - SNI reality with Safari 26 browser fingerprint
+BYPASS_METHOD=sni-reality-yandex25
 
 
 # Blacklist domains - always blocked regardless of other settings

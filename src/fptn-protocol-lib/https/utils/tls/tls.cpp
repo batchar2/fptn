@@ -6,6 +6,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include "fptn-protocol-lib/https/utils/tls/tls.h"
 
+#include <algorithm>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -322,6 +323,22 @@ std::vector<std::uint8_t> GenerateDecoyTlsHandshake(const std::string& sni) {
         "GenerateTlsHandshake exception for SNI {}: {}", sni, e.what());
   }
   return handshake_data;
+}
+
+std::optional<std::array<std::uint8_t, 32>> GenerateDecoyTlsSessionId() {
+  std::array<std::uint8_t, kSessionLen> session_id{};
+  if (::RAND_bytes(session_id.data(), session_id.size()) != 1) {
+    return std::nullopt;
+  }
+
+  // Get timestamp and generate key
+  const auto timestamp = fptn::time::TimeProvider::Instance()->NowTimestamp();
+  const std::string key = GenerateFptnKey(timestamp);
+  const std::size_t copy_size =
+      std::min(key.size(), session_id.size() - kDecoyHandshakeSessionIDShift);
+  std::memcpy(session_id.data() + kDecoyHandshakeSessionIDShift, key.c_str(),
+      copy_size);
+  return session_id;
 }
 
 // MAYBE IT WILL REFACTOR

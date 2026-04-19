@@ -44,7 +44,7 @@ inline ResolveResult ResolveWithTimeout(boost::asio::io_context& ioc,
     auto address = boost::asio::ip::make_address(host, ec);
     if (ec) {
       result.error = ec;
-      SPDLOG_ERROR(
+      SPDLOG_WARN(
           "DNS resolution - Invalid IP address {}: {}", host, ec.message());
       return result;
     }
@@ -56,7 +56,7 @@ inline ResolveResult ResolveWithTimeout(boost::asio::io_context& ioc,
       result.error =
           boost::system::error_code(boost::system::errc::invalid_argument,
               boost::system::system_category());
-      SPDLOG_ERROR(
+      SPDLOG_WARN(
           "DNS resolution - Invalid port number {}: {}", port, e.what());
       return result;
     }
@@ -80,7 +80,7 @@ inline ResolveResult ResolveWithTimeout(boost::asio::io_context& ioc,
           if (!ec) {
             result.results = std::move(results);
           } else {
-            SPDLOG_ERROR("DNS resolution - Failed for {}:{}: {}", host, port,
+            SPDLOG_WARN("DNS resolution - Failed for {}:{}: {}", host, port,
                 ec.message());
           }
           operation_completed = true;
