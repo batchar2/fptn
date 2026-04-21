@@ -21,7 +21,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "common/utils/utils.h"
 
 namespace fptn::protocol::protobuf {
-ProtoPayloadOpt GetProtoPayload(boost::beast::flat_buffer& buffer) {
+ProtoPayloadOpt GetProtoPayload(const boost::beast::flat_buffer& buffer) {
   const std::size_t total_size = buffer.size();
   if (total_size == 0) {
     SPDLOG_ERROR("Failed to parse Protobuf message: empty buffer");
@@ -98,7 +98,7 @@ ProtoPayloadOpt CreateProtoPayload(fptn::common::network::IPPacketPtr packet) {
    * Fill with random data to prevent issues related to TLS-inside-TLS.
    */
   if (current_size < FPTN_IP_PACKET_MAX_SIZE) {
-    constexpr std::size_t kMaxPaddingBytes = 128;
+    constexpr std::size_t kMaxPaddingBytes = FPTN_IP_PACKET_MAX_SIZE;
     const std::size_t available_space = FPTN_IP_PACKET_MAX_SIZE - current_size;
     const std::size_t max_padding = std::min(kMaxPaddingBytes, available_space);
 

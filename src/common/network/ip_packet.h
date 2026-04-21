@@ -121,7 +121,6 @@ class IPPacket {
   static std::unique_ptr<IPPacket> Parse(IPPacketData buffer,
       fptn::ClientID client_id = FPTN_PACKET_UNDEFINED_CLIENT_ID) {
     // Minimum IPv4 header size
-    std::cerr << "SIZE:" <<buffer.size() << std::endl;
     if (buffer.empty() || buffer.size() < 20) {
       return nullptr;
     }

@@ -18,6 +18,6 @@ namespace fptn::protocol::protobuf {
 
 using ProtoPayloadOpt = std::optional<std::vector<std::uint8_t>>;
 
-ProtoPayloadOpt GetProtoPayload(boost::beast::flat_buffer& buffer);
+ProtoPayloadOpt GetProtoPayload(const boost::beast::flat_buffer& buffer);
 ProtoPayloadOpt CreateProtoPayload(fptn::common::network::IPPacketPtr packet);
 }  // namespace fptn::protocol::protobuf

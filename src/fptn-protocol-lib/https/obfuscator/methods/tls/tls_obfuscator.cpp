@@ -9,6 +9,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <cstring>
 #include <memory>
 #include <random>
+#include <utility>
 #include <vector>
 
 #include <boost/fusion/container/list/cons.hpp>
@@ -62,7 +63,7 @@ std::uint16_t NetworkToHost16(const std::uint16_t value) {
 }
 
 std::uint64_t GetRandomData() {
-  static std::mt19937 gen{std::random_device {}()};
+  static std::mt19937 gen{std::random_device {} ()};
   std::uniform_int_distribution<std::uint64_t> dist(1024, UINT64_MAX);
   return dist(gen);
 }
@@ -94,6 +95,8 @@ void ApplyXorTransform(
 namespace fptn::protocol::https::obfuscator {
 
 bool TlsObfuscator::AddData(const std::uint8_t* data, std::size_t size) {
+  const std::scoped_lock<std::mutex> lock(mutex_);  // mutex
+
   if (data && size > 0) {
     // Limit total buffer size to 64KB to prevent memory exhaustion
     if (input_buffer_.size() + size > kMmaxBufferSize) {
@@ -113,6 +116,8 @@ bool TlsObfuscator::AddData(const std::uint8_t* data, std::size_t size) {
 }
 
 PreparedData TlsObfuscator::Deobfuscate() {
+  const std::scoped_lock<std::mutex> lock(mutex_);  // mutex
+
   if (input_buffer_.size() < sizeof(TLSAppDataRecordHeader)) {
     return std::nullopt;
   }
@@ -136,17 +141,25 @@ PreparedData TlsObfuscator::Deobfuscate() {
     const std::uint16_t payload_length = NetworkToHost16(header.payload_length);
     const std::uint8_t padding_length = header.padding_length;
 
-    // Validate header fields
-    bool is_valid_header =
-        (header.headertype == kFptnTlsApplicationHeaderType) &&
-        (header.headermajor == kFptnTlsApplicationHeaderMajor) &&
-        (header.headerminor == kFptnTlsApplicationHeaderMinor) &&
-        (header.protocol_version == kFptnTlsApplicationProtocolVersion) &&
+    const bool is_fptn_protocol =
         (magic_flag == kFptnTlsApplicationMagicFlag) &&
+        (header.protocol_version == kFptnTlsApplicationProtocolVersion) &&
+        (header.headermajor == kFptnTlsApplicationHeaderMajor) &&
+        (header.headerminor == kFptnTlsApplicationHeaderMinor);
+
+    // Если данные не нашего протокола - возвращаем как есть
+    if (!is_fptn_protocol) {
+      std::vector<std::uint8_t> result = std::move(input_buffer_);
+      input_buffer_.clear();
+      return result;
+    }
+
+    // Validate header fields
+    const bool is_valid_header =
+        is_fptn_protocol &&
         (total_content_length >= 11 + sizeof(header.xor_key) +
                                      sizeof(header.payload_length) +
                                      sizeof(header.padding_length));
-
     if (!is_valid_header) {
       // Invalid header - shift search position by 1 byte and continue searching
       search_offset++;
@@ -201,6 +214,8 @@ PreparedData TlsObfuscator::Deobfuscate() {
 
 PreparedData TlsObfuscator::Obfuscate(
     const std::uint8_t* data, std::size_t size) {
+  const std::scoped_lock<std::mutex> lock(mutex_);  // mutex
+
   // Generate random padding (0-255 bytes)
   const std::uint8_t padding_length = GetRandomByte(64, 255);
   std::vector<std::uint8_t> random_padding =
@@ -264,6 +279,8 @@ PreparedData TlsObfuscator::Obfuscate(
 void TlsObfuscator::Reset() { input_buffer_.clear(); }
 
 bool TlsObfuscator::CheckProtocol(const std::uint8_t* data, std::size_t size) {
+  const std::scoped_lock<std::mutex> lock(mutex_);  // mutex
+
   if (data == nullptr || size < sizeof(TLSAppDataRecordHeader)) {
     return false;
   }
@@ -292,6 +309,8 @@ bool TlsObfuscator::CheckProtocol(const std::uint8_t* data, std::size_t size) {
 }
 
 bool TlsObfuscator::HasPendingData() const {
+  const std::scoped_lock<std::mutex> lock(mutex_);  // mutex
+
   bool result = !input_buffer_.empty();
   return result;
 }
