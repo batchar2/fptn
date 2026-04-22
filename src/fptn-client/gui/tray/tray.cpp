@@ -816,10 +816,9 @@ bool TrayApp::startVpn(QString& err_msg) {
     const std::uint64_t time = config.GetDownloadTimeMs(
         selected_server_, sni, 30, selected_server_.md5_fingerprint);
     if (time == UINT64_MAX) {
-      err_msg = QString(
-          QObject::tr("The server is unavailable. Please select another server "
-                      "or use Auto-connect to find the best available server."))
-                    .arg(QString::fromStdString(selected_server_.host));
+      err_msg = QObject::tr(
+          "The server is unavailable. Please select another server "
+          "or use Auto-connect to find the best available server.");
       return false;
     }
   }

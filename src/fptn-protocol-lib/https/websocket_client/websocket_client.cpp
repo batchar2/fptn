@@ -14,7 +14,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <camouflage/tls/builder.hpp>
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
-#include "common/network/utils.h"
+#include "common/network/utils.h"  // NOLINT(build/include_order)
 
 #include "fptn-protocol-lib/https/api_client/api_client.h"
 #include "fptn-protocol-lib/https/obfuscator/methods/tls/tls_obfuscator.h"
@@ -374,36 +374,31 @@ boost::asio::awaitable<bool> WebsocketClient::Connect() {
     // timeout
     co_await boost::asio::steady_timer{
         co_await boost::asio::this_coro::executor,
-        std::chrono::milliseconds(100)}
+        std::chrono::milliseconds(1000)}
         .async_wait(boost::asio::use_awaitable);
 
     co_await ws_.next_layer().async_handshake(
         boost::asio::ssl::stream_base::client,
         boost::asio::redirect_error(boost::asio::use_awaitable, ec));
+
     if (ec) {
       SPDLOG_ERROR("SSL handshake error: {}", ec.message());
       co_return false;
     }
 
+    // CLEAN WEBSOCKET
+    common::network::CleanSocket(socket);
+    common::network::CleanSsl(ws_.next_layer().native_handle());
+
     // Reset obfuscator after TLS-handshake
-    if (obfuscator_ != nullptr) {
-      constexpr int kMaxRetries = 10;
-      int retry_count = 0;
-      do {
-        co_await boost::asio::steady_timer(
-            co_await boost::asio::this_coro::executor,
-            std::chrono::milliseconds(200))
-            .async_wait(boost::asio::use_awaitable);
-        retry_count += 1;
-      } while (obfuscator_->HasPendingData() && retry_count < kMaxRetries);
-      if (retry_count >= kMaxRetries) {
-        SPDLOG_WARN(
-            "Failed to clear obfuscator pending data within {} attempts. ",
-            retry_count);
-        co_return false;
-      }
-    }
     ws_.next_layer().next_layer().set_obfuscator(nullptr);
+
+    // timeout
+    co_await boost::asio::steady_timer{
+        co_await boost::asio::this_coro::executor,
+        std::chrono::milliseconds(100)}
+        .async_wait(boost::asio::use_awaitable);
+
     SPDLOG_INFO("SSL handshake completed");
 
     // WebSocket connection options
@@ -425,6 +420,7 @@ boost::asio::awaitable<bool> WebsocketClient::Connect() {
           req.set("Client-Agent",
               fmt::format("FptnClient({}/{})", FPTN_USER_OS, FPTN_VERSION));
         }));
+    // Websocket handshake
     co_await ws_.async_handshake(server_ip_.ToString(), kUrlWebSocket_,
         boost::asio::redirect_error(boost::asio::use_awaitable, ec));
     if (ec) {
@@ -534,52 +530,51 @@ boost::asio::awaitable<void> WebsocketClient::RunSender() {
 }
 
 boost::asio::awaitable<bool> WebsocketClient::PerformFakeHandshake() {
-  boost::system::error_code ec;
   try {
-    SPDLOG_INFO("Generating and sending fake TLS handshake to {}", sni_);
-    const auto handshake_data = GenerateHandshakePacket();
-    if (handshake_data.empty()) {
-      SPDLOG_WARN("Failed to generate handshake data for SNI: {}", sni_);
+    boost::system::error_code ec;
+    SPDLOG_INFO("Fake TLS handshake started for SNI: {}", sni_);
+
+    const auto client_hello = GenerateHandshakePacket();
+    if (client_hello.empty()) {
+      SPDLOG_WARN("Failed to generate ClientHello for SNI: {}", sni_);
       co_return false;
     }
-
-    SPDLOG_INFO(
-        "Sending {} bytes of handshake data over TCP", handshake_data.size());
 
     auto& tcp_layer = boost::beast::get_lowest_layer(ws_);
     auto& tcp_socket = tcp_layer.socket();
 
     const std::size_t bytes_sent = co_await boost::asio::async_write(tcp_socket,
-        boost::asio::buffer(handshake_data),
+        boost::asio::buffer(client_hello),
         boost::asio::redirect_error(boost::asio::use_awaitable, ec));
 
-    SPDLOG_INFO("Successfully sent {} bytes of handshake data", bytes_sent);
     if (ec) {
-      SPDLOG_ERROR("Failed to send fake handshake: {}", ec.message());
+      SPDLOG_ERROR("Failed to send ClientHello to {}: {}", sni_, ec.message());
       co_return false;
     }
 
-    // read and drain data
-    std::array<std::uint8_t, 4096> buffer{};
-    std::size_t drain_resp_size =
-        co_await tcp_socket.async_read_some(boost::asio::buffer(buffer),
-            boost::asio::redirect_error(boost::asio::use_awaitable, ec));
-    if (ec) {
-      SPDLOG_ERROR("Failed to read fake handshake response: {}", ec.message());
-      co_return false;
-    }
-    drain_resp_size += co_await common::network::DrainSocketAsync(
-        tcp_socket, std::chrono::milliseconds(1200));
-    if (drain_resp_size == 0) {
-      SPDLOG_ERROR("No data received during fake handshake");
+    if (bytes_sent != client_hello.size()) {
+      SPDLOG_ERROR("Partial ClientHello sent: {} of {} bytes", bytes_sent,
+          client_hello.size());
       co_return false;
     }
 
-    SPDLOG_INFO("Fake handshake completed successfully, read {} bytes",
-        drain_resp_size);
+    const auto server_hello =
+        common::network::WaitForServerTlsHello(tcp_socket);
+    if (!server_hello.has_value()) {
+      SPDLOG_ERROR("Failed to receive ServerHello from {}", sni_);
+      co_return false;
+    }
+
+    boost::asio::steady_timer timer(co_await boost::asio::this_coro::executor,
+        std::chrono::milliseconds(200));
+    co_await timer.async_wait(boost::asio::use_awaitable);
+
+    SPDLOG_INFO(
+        "Fake TLS handshake completed for {}, received {} bytes from server",
+        sni_, server_hello.value().size());
     co_return true;
   } catch (const std::exception& e) {
-    SPDLOG_ERROR("PerformFakeHandshake exception: {}", e.what());
+    SPDLOG_ERROR("Fake TLS handshake exception for {}: {}", sni_, e.what());
   }
   co_return false;
 }

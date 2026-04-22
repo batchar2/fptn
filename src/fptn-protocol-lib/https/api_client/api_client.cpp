@@ -319,39 +319,37 @@ ApiClient ApiClient::Clone() const {
 bool ApiClient::PerformFakeHandshake(
     boost::asio::ip::tcp::socket& socket) const {
   try {
-    SPDLOG_INFO("Generating and sending fake TLS handshake to {}", sni_);
+    SPDLOG_INFO("Fake TLS handshake started for SNI: {}", sni_);
 
-    const auto handshake_data = GenerateHandshakePacket();
-    if (handshake_data.empty()) {
-      SPDLOG_WARN("Failed to generate handshake data for SNI: {}", sni_);
+    const auto client_hello = GenerateHandshakePacket();
+    if (client_hello.empty()) {
+      SPDLOG_WARN("Failed to generate ClientHello for SNI: {}", sni_);
       return false;
     }
-    SPDLOG_INFO(
-        "Sending {} bytes of handshake data over TCP", handshake_data.size());
 
     const std::size_t bytes_sent =
-        boost::asio::write(socket, boost::asio::buffer(handshake_data));
+        boost::asio::write(socket, boost::asio::buffer(client_hello));
 
-    SPDLOG_INFO("Successfully sent {} bytes of handshake data", bytes_sent);
-
-    // read and drain data
-    boost::system::error_code ec;
-    std::array<std::uint8_t, 4096> buffer{};
-    std::size_t resp_size = socket.read_some(boost::asio::buffer(buffer), ec);
-    if (ec) {
-      SPDLOG_WARN("Failed to read socket: {}", ec.message());
-    }
-
-    resp_size += common::network::DrainSocket(socket);
-    if (!resp_size) {
-      SPDLOG_WARN("Failed to drain socket");
+    if (bytes_sent != client_hello.size()) {
+      SPDLOG_ERROR("Partial ClientHello sent: {} of {} bytes", bytes_sent,
+          client_hello.size());
       return false;
     }
+
+    const auto server_hello = common::network::WaitForServerTlsHello(socket);
+    if (!server_hello.has_value()) {
+      SPDLOG_ERROR("Failed to receive ServerHello from {}", sni_);
+      return false;
+    }
+
+    // sleep
+
     SPDLOG_INFO(
-        "Fake handshake completed successfully, read {} bytes", resp_size);
+        "Fake TLS handshake completed for {}, received {} bytes from server",
+        sni_, server_hello.value().size());
     return true;
   } catch (const std::exception& e) {
-    SPDLOG_ERROR("PerformFakeHandshake exception: {}", e.what());
+    SPDLOG_ERROR("Fake TLS handshake exception for {}: {}", sni_, e.what());
   }
   return false;
 }
@@ -437,24 +435,13 @@ Response ApiClient::GetImpl(const std::string& handle, int timeout) const {
 
       stream.handshake(boost::asio::ssl::stream_base::client);
 
-      if (obfuscator != nullptr) {
-        constexpr int kMaxRetries = 5;
-        int retry_count = 0;
-        do {
-          std::this_thread::sleep_for(std::chrono::milliseconds(200));
-          retry_count += 1;
-        } while (obfuscator->HasPendingData() && retry_count < kMaxRetries);
-        if (retry_count >= kMaxRetries) {
-          SPDLOG_WARN(
-              "GET [{}] - Failed to clear obfuscator pending data within {} "
-              "attempts for server: {}",
-              handle, retry_count, host_);
-        }
-      }
+      // Reset obfuscator after TLS-handshake
       stream.next_layer().set_obfuscator(nullptr);
-
       // timeout
-      std::this_thread::sleep_for(std::chrono::milliseconds(50));
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      // Clean
+      common::network::CleanSocket(socket);
+      common::network::CleanSsl(ssl);
 
       boost::beast::http::request<boost::beast::http::string_body> req{
           boost::beast::http::verb::get, handle, 11};
@@ -616,24 +603,13 @@ Response ApiClient::PostImpl(const std::string& handle,
 
       stream.handshake(boost::asio::ssl::stream_base::client);
 
-      if (obfuscator != nullptr) {
-        constexpr int kMaxRetries = 5;
-        int retry_count = 0;
-        do {
-          std::this_thread::sleep_for(std::chrono::milliseconds(200));
-          retry_count += 1;
-        } while (obfuscator->HasPendingData() && retry_count < kMaxRetries);
-        if (retry_count >= kMaxRetries) {
-          SPDLOG_WARN(
-              "POST [{}] - Failed to clear obfuscator pending data within {} "
-              "attempts for server: {}",
-              handle, retry_count, host_);
-        }
-      }
+      // Reset obfuscator after TLS-handshake
       stream.next_layer().set_obfuscator(nullptr);
-
       // timeout
-      std::this_thread::sleep_for(std::chrono::milliseconds(50));
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      // Clean
+      common::network::CleanSocket(socket);
+      common::network::CleanSsl(ssl);
 
       boost::beast::http::request<boost::beast::http::string_body> req{
           boost::beast::http::verb::post, handle, 11};

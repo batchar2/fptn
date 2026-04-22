@@ -19,13 +19,12 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 namespace fptn::web {
 
 using HandshakeResponse = std::shared_ptr<std::vector<std::uint8_t>>;
-// using OptionalHandshakeResponse = std::optional<HandshakeResponse>;
 
 class HandshakeCacheManager final {
  public:
   explicit HandshakeCacheManager(boost::asio::io_context& ioc,
       std::string default_domain,
-      std::chrono::seconds cache_ttl = std::chrono::seconds(180));
+      std::chrono::seconds cache_ttl = std::chrono::seconds(1200));
 
   boost::asio::awaitable<HandshakeResponse> GetHandshake(const std::string& sni,
       const std::uint8_t* buffer_ptr,

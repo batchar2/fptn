@@ -541,18 +541,18 @@ boost::asio::awaitable<bool> Session::HandleRealityMode(
   try {
     auto& tcp_socket = boost::beast::get_lowest_layer(ws_).socket();
 
-    std::vector<std::uint8_t> buffer(16384, '\0');
-    const std::size_t bytes_read = co_await tcp_socket.async_receive(
-        boost::asio::buffer(buffer), boost::asio::use_awaitable);
-    if (!bytes_read || !handshake_cache_manager_) {
+    const auto client_hello =
+        co_await common::network::WaitForClientTlsHelloAsync(tcp_socket);
+
+    if (!client_hello.has_value()) {
+      SPDLOG_ERROR("Empty client hello");
       co_return false;
     }
-    buffer.resize(bytes_read);
-
+    const auto client_hello_size = client_hello.value().size();
     const auto handshake_answer =
-        co_await handshake_cache_manager_->GetHandshake(
-            sni, buffer.data(), bytes_read, std::chrono::seconds(5));
-
+        co_await handshake_cache_manager_->GetHandshake(sni,
+            client_hello.value().data(), client_hello_size,
+            std::chrono::seconds(5));
     if (!handshake_answer) {
       co_return false;
     }
@@ -561,14 +561,12 @@ boost::asio::awaitable<bool> Session::HandleRealityMode(
         co_await boost::asio::async_write(tcp_socket,
             boost::asio::buffer(*handshake_answer), boost::asio::use_awaitable);
 
-    // Drain data
-    const std::size_t drain_resp_size =
-        co_await common::network::DrainSocketAsync(
-            tcp_socket, std::chrono::milliseconds(500));
+    common::network::CleanSocket(tcp_socket);
+
     SPDLOG_INFO(
         "Reality mode completed, ready for real handshake (client_id={}) "
-        "request_size = {} response_size: {}, drain_resp_size: {}",
-        client_id_, bytes_read, bytes_wrote, drain_resp_size);
+        "request_size = {} response_size: {}",
+        client_id_, client_hello_size, bytes_wrote);
     co_return true;
   } catch (const std::exception& e) {
     SPDLOG_ERROR(

@@ -33,6 +33,8 @@ class TlsObfuscator : public IObfuscator {
   std::shared_ptr<IObfuscator> Clone() const override;
 
  private:
+  mutable std::mutex mutex_;
+
   std::vector<uint8_t> input_buffer_;
 };
 
