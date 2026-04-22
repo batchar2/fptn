@@ -23,12 +23,12 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 namespace fptn::common::network {
 
 #ifndef __ANDROID__
-  inline std::vector<std::string> GetServerIpAddresses() {
-    std::vector<std::string> cmd_stdout;
-    fptn::common::system::command::run(
-            "ip -o addr show | awk '{print $4}' | cut -d'/' -f1", cmd_stdout);
-    return cmd_stdout;
-  }
+inline std::vector<std::string> GetServerIpAddresses() {
+  std::vector<std::string> cmd_stdout;
+  fptn::common::system::command::run(
+      "ip -o addr show | awk '{print $4}' | cut -d'/' -f1", cmd_stdout);
+  return cmd_stdout;
+}
 #endif
 
 inline void CleanSocket(boost::asio::ip::tcp::socket& socket) {
@@ -207,7 +207,6 @@ inline bool IsClientHelloComplete(const std::vector<uint8_t>& data) {
   }
   return false;
 }
-
 
 using TlsData = std::optional<std::vector<std::uint8_t>>;
 
