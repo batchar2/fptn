@@ -76,11 +76,11 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 namespace fptn::common::network {
 
+using IPPacketData = std::vector<std::uint8_t>;
+
 #define FPTN_PACKET_UNDEFINED_CLIENT_ID MAX_CLIENT_ID
 
 #ifndef FPTN_IP_ADDRESS_WITHOUT_PCAP
-
-using IPPacketData = std::vector<std::uint8_t>;
 
 inline bool CheckIPv4(const IPPacketData& buffer) {
   return (static_cast<std::uint8_t>(buffer[0]) >> 4) == 4;

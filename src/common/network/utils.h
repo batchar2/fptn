@@ -16,9 +16,20 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <openssl/ssl.h>    // NOLINT(build/include_order)
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
+#ifndef __ANDROID__
 #include "common/system/command.h"
+#endif
 
 namespace fptn::common::network {
+
+#ifndef __ANDROID__
+  inline std::vector<std::string> GetServerIpAddresses() {
+    std::vector<std::string> cmd_stdout;
+    fptn::common::system::command::run(
+            "ip -o addr show | awk '{print $4}' | cut -d'/' -f1", cmd_stdout);
+    return cmd_stdout;
+  }
+#endif
 
 inline void CleanSocket(boost::asio::ip::tcp::socket& socket) {
   try {
@@ -197,12 +208,6 @@ inline bool IsClientHelloComplete(const std::vector<uint8_t>& data) {
   return false;
 }
 
-inline std::vector<std::string> GetServerIpAddresses() {
-  std::vector<std::string> cmd_stdout;
-  fptn::common::system::command::run(
-      "ip -o addr show | awk '{print $4}' | cut -d'/' -f1", cmd_stdout);
-  return cmd_stdout;
-}
 
 using TlsData = std::optional<std::vector<std::uint8_t>>;
 
