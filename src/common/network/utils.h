@@ -6,6 +6,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #pragma once
 
+#include <fptn-protocol-lib/https/utils/change_cipher_spec.h>
 #include <string>
 #include <vector>
 
@@ -310,10 +311,57 @@ inline boost::asio::awaitable<TlsData> WaitForServerTlsHelloAsync(
   co_return std::nullopt;
 }
 
+inline boost::asio::awaitable<bool> WaitForClientChangeCipherSpec(
+    boost::asio::ip::tcp::socket& socket,
+    const std::chrono::milliseconds drain_timeout = std::chrono::milliseconds(
+        5000)) {
+  const auto target_ccs = protocol::https::utils::MakeClientChangeCipherSpec();
+  const std::size_t target_size = target_ccs.size();
+
+  std::vector<std::uint8_t> buffer(target_size);
+  try {
+    boost::system::error_code ec;
+    const auto start_time = std::chrono::steady_clock::now();
+    std::size_t total_read = 0;
+
+    while (std::chrono::steady_clock::now() - start_time < drain_timeout) {
+      if (socket.available() == 0) {
+        boost::asio::steady_timer timer(
+            co_await boost::asio::this_coro::executor,
+            std::chrono::milliseconds(10));
+        co_await timer.async_wait(boost::asio::use_awaitable);
+        continue;
+      }
+
+      const std::size_t bytes_read = co_await socket.async_read_some(
+          boost::asio::buffer(
+              buffer.data() + total_read, target_size - total_read),
+          boost::asio::redirect_error(boost::asio::use_awaitable, ec));
+
+      total_read += bytes_read;
+
+      if (total_read == target_size) {
+        co_return buffer == target_ccs;
+      }
+
+      if (ec == boost::asio::error::eof) {
+        break;
+      }
+      if (ec) {
+        SPDLOG_ERROR("Socket error during drain: {}", ec.message());
+        break;
+      }
+    }
+  } catch (const std::exception& e) {
+    SPDLOG_ERROR("Exception during socket drain: {}", e.what());
+  }
+  co_return false;
+}
+
 inline boost::asio::awaitable<TlsData> WaitForClientTlsHelloAsync(
     boost::asio::ip::tcp::socket& socket,
     const std::chrono::milliseconds drain_timeout = std::chrono::milliseconds(
-        1000)) {
+        5000)) {
   std::vector<std::uint8_t> data;
   data.reserve(65536);
 

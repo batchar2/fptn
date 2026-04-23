@@ -21,7 +21,13 @@ std::string GetSHA1Hash(std::uint32_t number);
 std::string GenerateFptnKey(std::uint32_t timestamp);
 
 bool SetDecoyHandshakeSessionID(SSL* ssl);
+
+// DEPRECATED
 bool IsDecoyHandshakeSessionID(
+    const std::uint8_t* session, std::size_t session_len);
+
+
+bool IsDecoyHandshakeSessionID2(
     const std::uint8_t* session, std::size_t session_len);
 
 bool SetHandshakeSessionID(SSL* ssl);
@@ -39,7 +45,10 @@ std::string GetCertificateMD5Fingerprint(const X509* cert);
 
 std::vector<std::uint8_t> GenerateDecoyTlsHandshake(const std::string& sni);
 
+// DEPRECATED
 std::optional<std::array<std::uint8_t, 32>> GenerateDecoyTlsSessionId();
+
+std::optional<std::array<std::uint8_t, 32>> GenerateDecoyTlsSessionId2();
 
 // Callbacks
 using CertificateVerificationCallback = std::function<bool(const std::string&)>;

@@ -6,6 +6,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include "fptn-protocol-lib/https/websocket_client/websocket_client.h"
 
+#include <https/utils/change_cipher_spec.h>
 #include <memory>
 #include <string>
 #include <utility>
@@ -532,32 +533,32 @@ boost::asio::awaitable<void> WebsocketClient::RunSender() {
 boost::asio::awaitable<bool> WebsocketClient::PerformFakeHandshake() {
   try {
     boost::system::error_code ec;
+    auto& tcp_layer = boost::beast::get_lowest_layer(ws_);
+    auto& tcp_socket = tcp_layer.socket();
+
     SPDLOG_INFO("Fake TLS handshake started for SNI: {}", sni_);
 
+    /* Send client hello */
     const auto client_hello = GenerateHandshakePacket();
     if (client_hello.empty()) {
       SPDLOG_WARN("Failed to generate ClientHello for SNI: {}", sni_);
       co_return false;
     }
-
-    auto& tcp_layer = boost::beast::get_lowest_layer(ws_);
-    auto& tcp_socket = tcp_layer.socket();
-
-    const std::size_t bytes_sent = co_await boost::asio::async_write(tcp_socket,
-        boost::asio::buffer(client_hello),
-        boost::asio::redirect_error(boost::asio::use_awaitable, ec));
-
+    const std::size_t client_hello_bytes_sent =
+        co_await boost::asio::async_write(tcp_socket,
+            boost::asio::buffer(client_hello),
+            boost::asio::redirect_error(boost::asio::use_awaitable, ec));
     if (ec) {
       SPDLOG_ERROR("Failed to send ClientHello to {}: {}", sni_, ec.message());
       co_return false;
     }
-
-    if (bytes_sent != client_hello.size()) {
-      SPDLOG_ERROR("Partial ClientHello sent: {} of {} bytes", bytes_sent,
-          client_hello.size());
+    if (client_hello_bytes_sent != client_hello.size()) {
+      SPDLOG_ERROR("Error ClientHello sent: {} of {} bytes",
+          client_hello_bytes_sent, client_hello.size());
       co_return false;
     }
 
+    /* Wait for server answer */
     const auto server_hello =
         common::network::WaitForServerTlsHello(tcp_socket);
     if (!server_hello.has_value()) {
@@ -565,9 +566,22 @@ boost::asio::awaitable<bool> WebsocketClient::PerformFakeHandshake() {
       co_return false;
     }
 
-    boost::asio::steady_timer timer(co_await boost::asio::this_coro::executor,
-        std::chrono::milliseconds(200));
-    co_await timer.async_wait(boost::asio::use_awaitable);
+    /* Send change cipher spec */
+    const auto change_cipher_spec =
+        fptn::protocol::https::utils::MakeClientChangeCipherSpec();
+    const std::size_t change_cipher_spec_sent =
+        co_await boost::asio::async_write(tcp_socket,
+            boost::asio::buffer(change_cipher_spec),
+            boost::asio::redirect_error(boost::asio::use_awaitable, ec));
+    if (ec) {
+      SPDLOG_ERROR("Failed to send ClientHello to {}: {}", sni_, ec.message());
+      co_return false;
+    }
+    if (change_cipher_spec_sent != change_cipher_spec.size()) {
+      SPDLOG_ERROR("Failed to send ClientHello to {}: {}",
+          change_cipher_spec_sent, change_cipher_spec.size());
+      co_return false;
+    }
 
     SPDLOG_INFO(
         "Fake TLS handshake completed for {}, received {} bytes from server",
@@ -604,50 +618,39 @@ void WebsocketClient::StartWatchdog() {
 
 std::vector<std::uint8_t> WebsocketClient::GenerateHandshakePacket() const {
   auto builder = camouflage::tls::Builder::Create();
-
-  std::string browser_name;
-
   switch (censorship_strategy_) {
     /* Chrome */
     case CensorshipStrategy::kSniRealityModeChrome147:
-      browser_name = "Chrome 147";
       builder.GoogleChrome(
           camouflage::tls::google_chrome::Version::kV_147_0_7727_56);
       break;
     case CensorshipStrategy::kSniRealityModeChrome146:
-      browser_name = "Chrome 146";
       builder.GoogleChrome(
           camouflage::tls::google_chrome::Version::kV_146_0_7680_178);
       break;
     case CensorshipStrategy::kSniRealityModeChrome145:
-      browser_name = "Chrome 145";
       builder.GoogleChrome(
           camouflage::tls::google_chrome::Version::kV_145_0_7632_46);
       break;
     /* Firefox */
     case CensorshipStrategy::kSniRealityModeFirefox149:
-      browser_name = "Firefox 149";
       builder.Firefox(camouflage::tls::firefox::Version::kV_149_0);
       break;
     /* Yandex */
     case CensorshipStrategy::kSniRealityModeYandex26:
-      browser_name = "Yandex 26";
       builder.YandexBrowser(
           camouflage::tls::yandex_browser::Version::kV_26_3_3_881);
       break;
     case CensorshipStrategy::kSniRealityModeYandex25:
-      browser_name = "Yandex 25";
       builder.YandexBrowser(
           camouflage::tls::yandex_browser::Version::kV_25_8_3_828);
       break;
     case CensorshipStrategy::kSniRealityModeYandex24:
-      browser_name = "Yandex 24";
       builder.YandexBrowser(
           camouflage::tls::yandex_browser::Version::kV_24_12_0_1772);
       break;
     /* Safari */
     case CensorshipStrategy::kSniRealityModeSafari26:
-      browser_name = "Safari 26";
       builder.Safari(camouflage::tls::safari::Version::kV_26_4);
       break;
     /* Default */
@@ -656,25 +659,22 @@ std::vector<std::uint8_t> WebsocketClient::GenerateHandshakePacket() const {
       return utils::GenerateDecoyTlsHandshake(sni_);
   }
 
-  SPDLOG_INFO("Generating {} handshake for SNI: {}", browser_name, sni_);
-
-  const auto session_id = utils::GenerateDecoyTlsSessionId();
+  const auto session_id = utils::GenerateDecoyTlsSessionId2();
   if (!session_id.has_value()) {
-    SPDLOG_WARN("Session ID generation failed for {} handshake, using fallback",
-        browser_name);
+    SPDLOG_WARN("Session ID generation failed");
     return utils::GenerateDecoyTlsHandshake(sni_);
   }
 
   const auto handshake =
       builder.SetSNI(sni_).SetSessionId(session_id.value()).Generate();
   if (!handshake.has_value()) {
-    SPDLOG_WARN("{} handshake generation failed for SNI: {}, using fallback",
-        browser_name, sni_);
+    SPDLOG_WARN(
+        "Handshake generation failed for SNI: {}, using fallback", sni_);
     return utils::GenerateDecoyTlsHandshake(sni_);
   }
 
-  SPDLOG_INFO("{} handshake generated: SNI={}, size={} bytes", browser_name,
-      sni_, handshake->handshake_packet_size);
+  SPDLOG_INFO("Handshake generated: SNI={}, size={} bytes", sni_,
+      handshake->handshake_packet_size);
 
   return std::vector<std::uint8_t>(handshake->handshake_packet,
       handshake->handshake_packet + handshake->handshake_packet_size);
