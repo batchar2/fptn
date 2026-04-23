@@ -11,11 +11,12 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <cstring>
 #include <memory>
 #include <mutex>
-#include <queue>
 #include <string>
 #include <thread>
 #include <utility>
 #include <vector>
+
+#include <queue>
 
 #include <gtest/gtest.h>  // NOLINT(build/include_order)
 
@@ -29,25 +30,74 @@ namespace {
 // Minimal valid IPv4 header (20 bytes): src=10.0.0.1, dst=10.0.0.2
 std::vector<std::uint8_t> MakeMinimalIPv4Packet() {
   return {
-      0x45, 0x00, 0x00, 0x14,  // ver=4, IHL=5, total_len=20
-      0x00, 0x01, 0x00, 0x00,  // id=1, flags=0, frag=0
-      0x40, 0x00, 0xf5, 0xc2,  // TTL=64, proto=HOPOPT, checksum
-      0x0a, 0x00, 0x00, 0x01,  // src: 10.0.0.1
-      0x0a, 0x00, 0x00, 0x02,  // dst: 10.0.0.2
+      0x45,
+      0x00,
+      0x00,
+      0x14,  // ver=4, IHL=5, total_len=20
+      0x00,
+      0x01,
+      0x00,
+      0x00,  // id=1, flags=0, frag=0
+      0x40,
+      0x00,
+      0xf5,
+      0xc2,  // TTL=64, proto=HOPOPT, checksum
+      0x0a,
+      0x00,
+      0x00,
+      0x01,  // src: 10.0.0.1
+      0x0a,
+      0x00,
+      0x00,
+      0x02,  // dst: 10.0.0.2
   };
 }
 
 // Minimal valid IPv6 header (40 bytes): src=fc00:1::1, dst=fc00:1::2
 std::vector<std::uint8_t> MakeMinimalIPv6Packet() {
   return {
-      0x60, 0x00, 0x00, 0x00,  // ver=6, traffic class, flow label
-      0x00, 0x00, 0x3b, 0x40,  // payload_len=0, next=NoNext(59), hop=64
+      0x60,
+      0x00,
+      0x00,
+      0x00,  // ver=6, traffic class, flow label
+      0x00,
+      0x00,
+      0x3b,
+      0x40,  // payload_len=0, next=NoNext(59), hop=64
       // src: fc00:1::1
-      0xfc, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00,
-      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
+      0xfc,
+      0x00,
+      0x00,
+      0x01,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x01,
       // dst: fc00:1::2
-      0xfc, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00,
-      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02,
+      0xfc,
+      0x00,
+      0x00,
+      0x01,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x02,
   };
 }
 
@@ -97,10 +147,6 @@ struct SharedMockState {
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 std::shared_ptr<SharedMockState> g_mock_state;
 
-}  // namespace
-
-namespace fptn::common::network {
-
 class MockTunDevice {
  public:
   bool Open(const std::string& name) {
@@ -112,14 +158,10 @@ class MockTunDevice {
   [[nodiscard]] const std::string& GetName() const { return name_; }
   // cppcheck-suppress functionStatic
   // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
-  bool ConfigureIPv4(const std::string& /*addr*/, int /*mask*/) {
-    return true;
-  }
+  bool ConfigureIPv4(const std::string& /*addr*/, int /*mask*/) { return true; }
   // cppcheck-suppress functionStatic
   // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
-  bool ConfigureIPv6(const std::string& /*addr*/, int /*mask*/) {
-    return true;
-  }
+  bool ConfigureIPv6(const std::string& /*addr*/, int /*mask*/) { return true; }
   // cppcheck-suppress functionStatic
   // NOLINTNEXTLINE(readability-convert-member-*)
   void SetNonBlocking(bool /*enabled*/) {}
@@ -150,19 +192,23 @@ class MockTunDevice {
   std::string name_;
 };
 
-}  // namespace fptn::common::network
+}  // namespace
 
-// ===== GenericTunInterface tests with MockTunDevice =====
+namespace fptn::common::network {
+
+template <typename TunDevice>
+class GenericTunInterface;
+
+}
 
 using MockTunInterface =
-    fptn::common::network::GenericTunInterface<
-        fptn::common::network::MockTunDevice>;
+    fptn::common::network::GenericTunInterface<MockTunDevice>;
+
+namespace {
 
 class GenericTunInterfaceTest : public ::testing::Test {
  protected:
-  void SetUp() override {
-    g_mock_state = std::make_shared<SharedMockState>();
-  }
+  void SetUp() override { g_mock_state = std::make_shared<SharedMockState>(); }
 
   void TearDown() override {
     g_mock_state->Clear();
@@ -171,14 +217,16 @@ class GenericTunInterfaceTest : public ::testing::Test {
 
   static MockTunInterface::Config MakeConfig() {
     return MockTunInterface::Config{
-        "mock0",
-        fptn::common::network::IPv4Address("10.0.0.1"),
-        24,
-        fptn::common::network::IPv6Address("fc00:1::1"),
-        112,
+        .name = "mock0",
+        .ipv4_addr = fptn::common::network::IPv4Address("10.0.0.1"),
+        .ipv4_netmask = 24,
+        .ipv6_addr = fptn::common::network::IPv6Address("fc00:1::1"),
+        .ipv6_netmask = 112,
     };
   }
 };
+
+}  // namespace
 
 TEST_F(GenericTunInterfaceTest, StartAndStop) {
   MockTunInterface iface(MakeConfig());
@@ -197,7 +245,6 @@ TEST_F(GenericTunInterfaceTest, SendIPv4Packet) {
 
   EXPECT_TRUE(iface.Send(std::move(packet)));
 
-  // Give the system a moment then check what the mock received
   std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
   auto written = g_mock_state->written_packets;
@@ -234,23 +281,19 @@ TEST_F(GenericTunInterfaceTest, ReceiveIPv4Packet) {
   std::mutex callback_mutex;
   std::vector<std::vector<std::uint8_t>> received;
 
-  iface.SetRecvIPPacketCallback(
-      [&](fptn::common::network::IPPacketPtr packet) {
-        if (packet) {
-          std::scoped_lock lock(callback_mutex);
-          const auto* raw = packet->GetRawPacket();
-          const auto* data =
-              static_cast<const std::uint8_t*>(raw->getRawData());
-          received.emplace_back(data, data + raw->getRawDataLen());
-        }
-      });
+  iface.SetRecvIPPacketCallback([&](fptn::common::network::IPPacketPtr packet) {
+    if (packet) {
+      std::scoped_lock lock(callback_mutex);
+      const auto* raw = packet->GetRawPacket();
+      const auto* data = static_cast<const std::uint8_t*>(raw->getRawData());
+      received.emplace_back(data, data + raw->getRawDataLen());
+    }
+  });
 
   ASSERT_TRUE(iface.Start());
 
-  // Inject an IPv4 packet into the mock device's read queue
   g_mock_state->InjectPacket(MakeMinimalIPv4Packet());
 
-  // Wait for the run loop to pick it up
   for (int i = 0; i < 100; ++i) {
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
     std::scoped_lock lock(callback_mutex);
@@ -274,23 +317,19 @@ TEST_F(GenericTunInterfaceTest, ReceiveIPv6Packet) {
   std::mutex callback_mutex;
   std::vector<std::vector<std::uint8_t>> received;
 
-  iface.SetRecvIPPacketCallback(
-      [&](fptn::common::network::IPPacketPtr packet) {
-        if (packet) {
-          std::scoped_lock lock(callback_mutex);
-          const auto* raw = packet->GetRawPacket();
-          const auto* data =
-              static_cast<const std::uint8_t*>(raw->getRawData());
-          received.emplace_back(data, data + raw->getRawDataLen());
-        }
-      });
+  iface.SetRecvIPPacketCallback([&](fptn::common::network::IPPacketPtr packet) {
+    if (packet) {
+      std::scoped_lock lock(callback_mutex);
+      const auto* raw = packet->GetRawPacket();
+      const auto* data = static_cast<const std::uint8_t*>(raw->getRawData());
+      received.emplace_back(data, data + raw->getRawDataLen());
+    }
+  });
 
   ASSERT_TRUE(iface.Start());
 
-  // Inject an IPv6 packet into the mock device's read queue
   g_mock_state->InjectPacket(MakeMinimalIPv6Packet());
 
-  // Wait for the run loop to pick it up
   for (int i = 0; i < 100; ++i) {
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
     std::scoped_lock lock(callback_mutex);
@@ -334,15 +373,12 @@ TEST_F(GenericTunInterfaceTest, SendMultipleMixedPackets) {
 }
 
 TEST_F(GenericTunInterfaceTest, DeviceNameUpdatedAfterStart) {
-  // Verify GenericTunInterface picks up the device's actual name
   MockTunInterface iface(MakeConfig());
-  EXPECT_EQ(iface.Name(), "mock0");  // config name before start
+  EXPECT_EQ(iface.Name(), "mock0");
   ASSERT_TRUE(iface.Start());
-  EXPECT_EQ(iface.Name(), "mock0");  // mock returns same name
+  EXPECT_EQ(iface.Name(), "mock0");
   iface.Stop();
 }
-
-// ===== DarwinTunDevice AF header tests (macOS only) =====
 
 #ifdef __APPLE__
 
@@ -355,7 +391,6 @@ TEST_F(GenericTunInterfaceTest, DeviceNameUpdatedAfterStart) {
 class DarwinAfHeaderTest : public ::testing::Test {
  protected:
   void SetUp() override {
-    // Create a socketpair for bidirectional communication
     ASSERT_EQ(socketpair(AF_UNIX, SOCK_DGRAM, 0, fds_), 0);
   }
 
@@ -369,30 +404,24 @@ class DarwinAfHeaderTest : public ::testing::Test {
 
 TEST_F(DarwinAfHeaderTest, WriteIPv4PrependsCorrectAfHeader) {
   fptn::common::network::DarwinTunDevice device;
-  // fds_[0] is the device's fd, fds_[1] is our test fd
   ASSERT_TRUE(device.OpenWithFd(fds_[0], "test0"));
 
   auto ipv4_pkt = MakeMinimalIPv4Packet();
   const int written = device.Write(ipv4_pkt.data(), ipv4_pkt.size());
   EXPECT_EQ(written, static_cast<int>(ipv4_pkt.size()));
 
-  // Read raw data from the other end of the socketpair
   std::uint8_t raw_buf[256] = {};
   const ssize_t n = recv(fds_[1], raw_buf, sizeof(raw_buf), 0);
   ASSERT_GT(n, 4);
 
-  // First 4 bytes: AF_INET in network byte order (utun)
   std::uint32_t af_header = 0;
   std::memcpy(&af_header, raw_buf, 4);
   EXPECT_EQ(af_header, htonl(AF_INET));
 
-  // Remaining bytes should be the original packet
   const auto payload_size = static_cast<std::size_t>(n) - 4;
   EXPECT_EQ(payload_size, ipv4_pkt.size());
-  EXPECT_EQ(
-      std::memcmp(raw_buf + 4, ipv4_pkt.data(), ipv4_pkt.size()), 0);
+  EXPECT_EQ(std::memcmp(raw_buf + 4, ipv4_pkt.data(), ipv4_pkt.size()), 0);
 
-  // Prevent DarwinTunDevice destructor from closing our test fd
   device.OpenWithFd(-1, "");
 }
 
@@ -410,13 +439,11 @@ TEST_F(DarwinAfHeaderTest, WriteIPv6PrependsCorrectAfHeader) {
 
   std::uint32_t af_header = 0;
   std::memcpy(&af_header, raw_buf, 4);
-  // AF_INET6 in network byte order (as macOS utun expects)
   EXPECT_EQ(af_header, htonl(AF_INET6));
 
   const auto payload_size = static_cast<std::size_t>(n) - 4;
   EXPECT_EQ(payload_size, ipv6_pkt.size());
-  EXPECT_EQ(
-      std::memcmp(raw_buf + 4, ipv6_pkt.data(), ipv6_pkt.size()), 0);
+  EXPECT_EQ(std::memcmp(raw_buf + 4, ipv6_pkt.data(), ipv6_pkt.size()), 0);
 
   device.OpenWithFd(-1, "");
 }
@@ -428,7 +455,6 @@ TEST_F(DarwinAfHeaderTest, ReadStripsAfHeaderIPv4) {
 
   auto ipv4_pkt = MakeMinimalIPv4Packet();
 
-  // Write raw data with AF header in network byte order (as the kernel sends)
   std::vector<std::uint8_t> raw(4 + ipv4_pkt.size());
   std::uint32_t af = htonl(AF_INET);
   std::memcpy(raw.data(), &af, 4);
@@ -436,7 +462,6 @@ TEST_F(DarwinAfHeaderTest, ReadStripsAfHeaderIPv4) {
   ASSERT_EQ(send(fds_[1], raw.data(), raw.size(), 0),
       static_cast<ssize_t>(raw.size()));
 
-  // DarwinTunDevice should strip the AF header
   std::uint8_t read_buf[256] = {};
   const int bytes_read = device.Read(read_buf, sizeof(read_buf));
   EXPECT_EQ(bytes_read, static_cast<int>(ipv4_pkt.size()));
@@ -468,8 +493,6 @@ TEST_F(DarwinAfHeaderTest, ReadStripsAfHeaderIPv6) {
 }
 
 TEST_F(DarwinAfHeaderTest, RoundTripIPv6Preserved) {
-  // Write IPv6 packet through one device, read through another
-  // simulating the full utun read/write cycle
   fptn::common::network::DarwinTunDevice writer;
   fptn::common::network::DarwinTunDevice reader;
   ASSERT_TRUE(writer.OpenWithFd(fds_[0], "writer0"));
@@ -480,12 +503,10 @@ TEST_F(DarwinAfHeaderTest, RoundTripIPv6Preserved) {
   const int written = writer.Write(original.data(), original.size());
   EXPECT_EQ(written, static_cast<int>(original.size()));
 
-  // Reader gets the raw AF-prefixed data and strips the header
   std::uint8_t read_buf[256] = {};
   const int bytes_read = reader.Read(read_buf, sizeof(read_buf));
   ASSERT_EQ(bytes_read, static_cast<int>(original.size()));
 
-  // The round-tripped data should exactly match the original
   std::vector<std::uint8_t> result(read_buf, read_buf + bytes_read);
   EXPECT_EQ(result, original);
 
