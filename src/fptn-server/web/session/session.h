@@ -72,13 +72,18 @@ class Session : public std::enable_shared_from_this<Session> {
       const std::string& sni) const;
 
   struct RealityResult {
-    bool is_reality_mode;
+    bool is_reality_mode;  // DEPRICATED
+    bool is_reality_mode2;
     std::string sni;
     bool should_close;
   };
 
   boost::asio::awaitable<RealityResult> IsRealityHandshake();
+
+  // DEPRECATED
   boost::asio::awaitable<bool> HandleRealityMode(const std::string& sni);
+
+  boost::asio::awaitable<bool> HandleRealityMode2(const std::string& sni);
 
   boost::asio::awaitable<bool> HandleProxy(const std::string& sni, int port);
 
