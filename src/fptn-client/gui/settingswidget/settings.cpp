@@ -93,7 +93,7 @@ void SettingsWidget::SetupUi() {
   settings_scroll_area->setFrameShape(QFrame::NoFrame);
 
   auto* settings_content_widget = new QWidget();
-  settings_content_widget->setMinimumWidth(500);
+  settings_content_widget->setMinimumWidth(600);
   auto* settings_layout = new QVBoxLayout(settings_content_widget);
   settings_layout->setContentsMargins(5, 5, 5, 5);
 
@@ -103,7 +103,7 @@ void SettingsWidget::SetupUi() {
   grid_layout_->setVerticalSpacing(10);
   grid_layout_->setColumnStretch(0, 1);
   grid_layout_->setColumnStretch(1, 3);
-  grid_layout_->setColumnMinimumWidth(0, 350);
+  grid_layout_->setColumnMinimumWidth(0, 380);
 
 #ifdef __linux__
   autostart_label_ = new QLabel(QObject::tr("Autostart"), this);
@@ -861,10 +861,11 @@ void SettingsWidget::SetupUi() {
 
   UpdateSniFilesList();
 
-  resize(620, 450);
+  resize(680, 500);
   if (tab_widget_) {
     tab_widget_->setCurrentIndex(0);
   }
+  UpdateServerTableVisibility();
 }
 
 // NOLINTNEXTLINE(bugprone-branch-clone)
@@ -1015,6 +1016,7 @@ void SettingsWidget::onLoadNewConfig() {
       QMessageBox::critical(this, QObject::tr("Error!"), err.what());
     }
   }
+  UpdateServerTableVisibility();
 }
 
 void SettingsWidget::onRemoveServer(int row) {
@@ -1024,6 +1026,7 @@ void SettingsWidget::onRemoveServer(int row) {
     QMessageBox::information(this, QObject::tr("Delete Successful"),
         QObject::tr("The data has been successfully removed"));
   }
+  UpdateServerTableVisibility();
 }
 
 void SettingsWidget::closeEvent(QCloseEvent* event) {
@@ -1492,4 +1495,11 @@ void SettingsWidget::onAutoscanClicked() {
   SniAutoscanDialog dialog(settings_, this);
   dialog.exec();
   sni_line_edit_->setText(settings_->SNI());
+}
+
+void SettingsWidget::UpdateServerTableVisibility() {
+  if (server_table_) {
+    const bool has_data = (server_table_->rowCount() > 0);
+    server_table_->setVisible(has_data);
+  }
 }

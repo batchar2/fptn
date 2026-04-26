@@ -35,6 +35,7 @@ class SettingsWidget : public QDialog {
  protected:
   void SetupUi();
   void UpdateSniFilesList();
+  void UpdateServerTableVisibility();
 
   // cppcheck-suppress unknownMacro
  private slots:
