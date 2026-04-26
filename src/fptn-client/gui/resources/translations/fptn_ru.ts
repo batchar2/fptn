@@ -211,11 +211,6 @@
         </message>
 
         <message>
-            <source>Fake domain to bypass blocking (MUST ACTUALLY EXIST!)</source>
-            <translation>Фейковый домен для обхода блокировок (ДОЛЖЕН РЕАЛЬНО СУЩЕСТОВАТЬ!)</translation>
-        </message>
-
-        <message>
             <source>FPTN_DESCRIPTION</source>
             <translation>FPTN — это полностью разработанная с нуля технология VPN, включая собственный протокол, сервер и кроссплатформенные клиенты. Это некоммерческий проект с открытым исходным кодом, развиваемый волонтерами и предназначенный для обхода цензуры. Исходный код проекта доступен на Github.</translation>
         </message>
@@ -287,43 +282,43 @@ This may cause network connectivity issues or prevent proper operation of FPTN.<
         </message>
         <message>
             <source>OBFUSCATION</source>
-            <translation>Маскировка трафика (обфускация)</translation>
+            <translation>Маскировка трафика (Обфускация)</translation>
         </message>
         <message>
             <source>SNI-REALITY (Generic)</source>
-            <translation>Продвинутая подмена домена (SNI + REALITY) - Обычный</translation>
+            <translation>Подмена домена</translation>
         </message>
         <message>
             <source>SNI-REALITY (Chrome 147)</source>
-            <translation>Продвинутая подмена домена (SNI + REALITY) - Chrome 147</translation>
+            <translation>Подмена домена (Chrome 147)</translation>
         </message>
         <message>
             <source>SNI-REALITY (Chrome 146)</source>
-            <translation>Продвинутая подмена домена (SNI + REALITY) - Chrome 146</translation>
+            <translation>Подмена домена (Chrome 146)</translation>
         </message>
         <message>
             <source>SNI-REALITY (Chrome 145)</source>
-            <translation>Продвинутая подмена домена (SNI + REALITY) - Chrome 145</translation>
+            <translation>Подмена домена (Chrome 145)</translation>
         </message>
         <message>
             <source>SNI-REALITY (Firefox 149)</source>
-            <translation>Продвинутая подмена домена (SNI + REALITY) - Firefox 149</translation>
+            <translation>Подмена домена (Firefox 149)</translation>
         </message>
         <message>
             <source>SNI-REALITY (Yandex 26)</source>
-            <translation>Продвинутая подмена домена (SNI + REALITY) - Яндекс 26</translation>
+            <translation>Подмена домена (Яндекс 26)</translation>
         </message>
         <message>
             <source>SNI-REALITY (Yandex 25)</source>
-            <translation>Продвинутая подмена домена (SNI + REALITY) - Яндекс 25</translation>
+            <translation>Подмена домена (Яндекс 25)</translation>
         </message>
         <message>
             <source>SNI-REALITY (Yandex 24)</source>
-            <translation>Продвинутая подмена домена (SNI + REALITY) - Яндекс 24</translation>
+            <translation>Подмена домена (Яндекс 24)</translation>
         </message>
         <message>
             <source>SNI-REALITY (Safari 26)</source>
-            <translation>Продвинутая подмена домена (SNI + REALITY) - Safari 26</translation>
+            <translation>Подмена домена (Safari 26)</translation>
         </message>
         <message>
             <source>Support the project on</source>

@@ -211,11 +211,6 @@
         </message>
 
         <message>
-            <source>Fake domain to bypass blocking (MUST ACTUALLY EXIST!)</source>
-            <translation>Fake domain to bypass blocking (MUST ACTUALLY EXIST!)</translation>
-        </message>
-
-        <message>
             <source>FPTN_DESCRIPTION</source>
             <translation>FPTN is a fully custom-built VPN technology — developed from scratch, including the core protocol, server implementation, and cross-platform clients. It is a non-commercial, open-source project developed by volunteers and designed to bypass censorship. The project's source code is available on GitHub.</translation>
         </message>
@@ -290,39 +285,39 @@ This may cause network connectivity issues or prevent proper operation of FPTN.<
         </message>
         <message>
             <source>SNI-REALITY (Generic)</source>
-            <translation>Advanced domain spoofing (SNI + REALITY) - Generic</translation>
+            <translation>Domain spoofing</translation>
         </message>
         <message>
             <source>SNI-REALITY (Chrome 147)</source>
-            <translation>Advanced domain spoofing (SNI + REALITY) - Chrome 146</translation>
+            <translation>Domain spoofing (Chrome 147)</translation>
         </message>
         <message>
             <source>SNI-REALITY (Chrome 146)</source>
-            <translation>Advanced domain spoofing (SNI + REALITY) - Chrome 146</translation>
+            <translation>Domain spoofing (Chrome 146)</translation>
         </message>
         <message>
             <source>SNI-REALITY (Chrome 145)</source>
-            <translation>Advanced domain spoofing (SNI + REALITY) - Chrome 145</translation>
+            <translation>Domain spoofing (Chrome 145)</translation>
         </message>
         <message>
             <source>SNI-REALITY (Firefox 149)</source>
-            <translation>Advanced domain spoofing (SNI + REALITY) - Firefox 149</translation>
+            <translation>Domain spoofing (Firefox 149)</translation>
         </message>
         <message>
             <source>SNI-REALITY (Yandex 26)</source>
-            <translation>Advanced domain spoofing (SNI + REALITY) - Yandex 26</translation>
+            <translation>Domain spoofing (Yandex 26)</translation>
         </message>
         <message>
             <source>SNI-REALITY (Yandex 25)</source>
-            <translation>Advanced domain spoofing (SNI + REALITY) - Yandex 25</translation>
+            <translation>Domain spoofing (Yandex 25)</translation>
         </message>
         <message>
             <source>SNI-REALITY (Yandex 24)</source>
-            <translation>Advanced domain spoofing (SNI + REALITY) - Yandex 24</translation>
+            <translation>Domain spoofing (Yandex 24)</translation>
         </message>
         <message>
             <source>SNI-REALITY (Safari 26)</source>
-            <translation>Advanced domain spoofing (SNI + REALITY) - Safari 26</translation>
+            <translation>Domain spoofing (Safari 26)</translation>
         </message>
 
         <message>
