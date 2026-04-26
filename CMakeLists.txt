@@ -59,9 +59,9 @@ add_compile_definitions(FPTN_SERVER_DEFAULT_NET_ADDRESS_IP6=\"fc00:1::\")
 add_compile_definitions(FPTN_SERVER_DEFAULT_ADDRESS_IP4=\"172.20.0.1\")
 add_compile_definitions(FPTN_SERVER_DEFAULT_NET_ADDRESS_IP4=\"172.20.0.0\")
 # github
-add_compile_definitions(FPTN_GITHUB_USERNAME=\"batchar2\")
+add_compile_definitions(FPTN_GITHUB_USERNAME=\"fptn-project\")
 add_compile_definitions(FPTN_GITHUB_REPOSITORY=\"fptn\")
-add_compile_definitions(FPTN_GITHUB_PAGE_LINK=\"https://batchar2.github.io/fptn/\")
+add_compile_definitions(FPTN_GITHUB_PAGE_LINK=\"https://storage.googleapis.com/fptn.org/index.html\")
 # Boost
 add_compile_definitions(BOOST_MPL_CFG_NO_PREPROCESSED_HEADERS)
 add_compile_definitions(BOOST_IOSTREAMS_USE_BZIP2)
