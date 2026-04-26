@@ -136,7 +136,9 @@ void WebsocketClient::Run() {
       boost::asio::detached);
   try {
     ioc_.restart();
-    ioc_.run();
+    while (running_) {
+      ioc_.run_one();
+    }
   } catch (...) {
     SPDLOG_WARN("Exception while running");
   }
@@ -153,6 +155,7 @@ bool WebsocketClient::Stop() {
   if (!running_) {  // Double-check after acquiring lock
     return false;
   }
+
   SPDLOG_INFO("Marked client as stopped and disconnected");
 
   running_ = false;
@@ -164,9 +167,7 @@ bool WebsocketClient::Stop() {
   boost::system::error_code ec;
 
   try {
-    if (was_inited_) {
-      watchdog_timer_.cancel();
-    }
+    watchdog_timer_.cancel();
   } catch (const boost::system::system_error&) {
     SPDLOG_WARN("Cancellation timer error");
   } catch (...) {
@@ -210,7 +211,12 @@ bool WebsocketClient::Stop() {
   try {
     if (was_inited_) {
       SPDLOG_INFO("Shutting down TCP socket...");
+
       auto& tcp = boost::beast::get_lowest_layer(ws_);
+
+      boost::asio::socket_base::linger linger(true, 0);
+      tcp.socket().set_option(linger);
+
       if (tcp.socket().is_open()) {
         tcp.socket().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
         if (ec && ec != boost::asio::error::not_connected) {
@@ -256,8 +262,10 @@ bool WebsocketClient::Stop() {
   if (auto* ssl = ws_.next_layer().native_handle()) {
     https::utils::AttachCertificateVerificationCallbackDelete(ssl);
   }
+
   was_stopped_ = true;
   SPDLOG_INFO("WebSocket client stopped successfully");
+
   return true;
 }
 
@@ -314,11 +322,12 @@ boost::asio::awaitable<bool> WebsocketClient::RunInternal() {
 }
 
 boost::asio::awaitable<bool> WebsocketClient::Connect() {
-  boost::system::error_code ec;
   try {
+    boost::system::error_code ec;
+
     // DNS resolution
     boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::seconds(30));
-    auto results = co_await resolver_.async_resolve(server_ip_.ToString(),
+    const auto results = co_await resolver_.async_resolve(server_ip_.ToString(),
         server_port_str_,
         boost::asio::redirect_error(boost::asio::use_awaitable, ec));
     if (ec) {
@@ -334,19 +343,33 @@ boost::asio::awaitable<bool> WebsocketClient::Connect() {
       co_return false;
     }
 
-    SPDLOG_INFO("Connected to {}:{}", server_ip_.ToString(), server_port_str_);
+    auto& socket = boost::beast::get_lowest_layer(ws_).socket();
+    if (!socket.is_open()) {
+      SPDLOG_ERROR("Socket not open after connect");
+      co_return false;
+    }
+
+    const auto remote_ep = socket.remote_endpoint(ec);
+    if (ec) {
+      SPDLOG_ERROR("Socket reported connected but remote_endpoint() failed: {}",
+          ec.message());
+      co_return false;
+    }
+
+    SPDLOG_INFO("Successfully connected to {}:{}",
+        remote_ep.address().to_string(), remote_ep.port());
 
     // TCP options
-    auto& socket = boost::beast::get_lowest_layer(ws_).socket();
     socket.set_option(boost::asio::ip::tcp::no_delay(true));
+    socket.set_option(boost::asio::socket_base::reuse_address(true));
 
     // Optimize socket buffers
     try {
-      const int buffer_size = 4 * 1024 * 1024;
+      constexpr int kBufferSize = 4 * 1024 * 1024;
       socket.set_option(
-          boost::asio::socket_base::receive_buffer_size(buffer_size));
+          boost::asio::socket_base::receive_buffer_size(kBufferSize));
       socket.set_option(
-          boost::asio::socket_base::send_buffer_size(buffer_size));
+          boost::asio::socket_base::send_buffer_size(kBufferSize));
     } catch (...) {
       SPDLOG_WARN("Failed to set socket buffer sizes in Connect()");
     }
@@ -357,7 +380,7 @@ boost::asio::awaitable<bool> WebsocketClient::Connect() {
     // obfuscation for the real encrypted tunnel This dual-handshake approach
     // makes traffic analysis significantly more difficult
     if (IsRealityModeWithFakeHandshake(censorship_strategy_)) {
-      const bool status = co_await PerformFakeHandshake();
+      const bool status = co_await PerformFakeHandshake2();
       if (!status) {
         co_return false;
       }
@@ -440,7 +463,8 @@ boost::asio::awaitable<bool> WebsocketClient::Connect() {
     try {
       boost::beast::websocket::stream_base::timeout timeout_option;
       timeout_option.handshake_timeout = std::chrono::seconds(10);
-      timeout_option.idle_timeout = std::chrono::seconds(2);
+      timeout_option.idle_timeout = std::chrono::seconds(10);
+      // timeout_option.idle_timeout = std::chrono::seconds(2);
       timeout_option.keep_alive_pings = true;
       ws_.set_option(timeout_option);
     } catch (const std::exception& e) {
@@ -456,10 +480,10 @@ boost::asio::awaitable<bool> WebsocketClient::Connect() {
 }
 
 boost::asio::awaitable<void> WebsocketClient::RunReader() {
-  boost::system::error_code ec;
   boost::beast::flat_buffer buffer;
   buffer.reserve(4 * 1024 * 1024);
   try {
+    boost::system::error_code ec;
     while (running_ && was_connected_ && ws_.is_open()) {
       co_await ws_.async_read(
           buffer, boost::asio::redirect_error(boost::asio::use_awaitable, ec));
@@ -507,7 +531,7 @@ boost::asio::awaitable<void> WebsocketClient::RunSender() {
         auto msg =
             fptn::protocol::protobuf::CreateProtoPayload(std::move(packet));
         if (msg.has_value()) {
-          co_await ws_.async_write(boost::asio::buffer(msg.value()),
+          co_await ws_.async_write(boost::asio::buffer(std::move(msg.value())),
               boost::asio::redirect_error(boost::asio::use_awaitable, ec));
         }
       }
@@ -530,7 +554,7 @@ boost::asio::awaitable<void> WebsocketClient::RunSender() {
   co_return;
 }
 
-boost::asio::awaitable<bool> WebsocketClient::PerformFakeHandshake() {
+boost::asio::awaitable<bool> WebsocketClient::PerformFakeHandshake2() {
   try {
     boost::system::error_code ec;
     auto& tcp_layer = boost::beast::get_lowest_layer(ws_);
@@ -544,7 +568,7 @@ boost::asio::awaitable<bool> WebsocketClient::PerformFakeHandshake() {
       SPDLOG_WARN("Failed to generate ClientHello for SNI: {}", sni_);
       co_return false;
     }
-    const std::size_t client_hello_bytes_sent =
+    const std::size_t client_hello_bytes_size =
         co_await boost::asio::async_write(tcp_socket,
             boost::asio::buffer(client_hello),
             boost::asio::redirect_error(boost::asio::use_awaitable, ec));
@@ -552,15 +576,15 @@ boost::asio::awaitable<bool> WebsocketClient::PerformFakeHandshake() {
       SPDLOG_ERROR("Failed to send ClientHello to {}: {}", sni_, ec.message());
       co_return false;
     }
-    if (client_hello_bytes_sent != client_hello.size()) {
+    if (client_hello_bytes_size != client_hello.size()) {
       SPDLOG_ERROR("Error ClientHello sent: {} of {} bytes",
-          client_hello_bytes_sent, client_hello.size());
+          client_hello_bytes_size, client_hello.size());
       co_return false;
     }
 
     /* Wait for server answer */
     const auto server_hello =
-        common::network::WaitForServerTlsHello(tcp_socket);
+        co_await common::network::WaitForServerTlsHelloAsync(tcp_socket);
     if (!server_hello.has_value()) {
       SPDLOG_ERROR("Failed to receive ServerHello from {}", sni_);
       co_return false;
@@ -569,7 +593,7 @@ boost::asio::awaitable<bool> WebsocketClient::PerformFakeHandshake() {
     /* Send change cipher spec */
     const auto change_cipher_spec =
         fptn::protocol::https::utils::MakeClientChangeCipherSpec();
-    const std::size_t change_cipher_spec_sent =
+    const std::size_t change_cipher_spec_size =
         co_await boost::asio::async_write(tcp_socket,
             boost::asio::buffer(change_cipher_spec),
             boost::asio::redirect_error(boost::asio::use_awaitable, ec));
@@ -577,11 +601,14 @@ boost::asio::awaitable<bool> WebsocketClient::PerformFakeHandshake() {
       SPDLOG_ERROR("Failed to send ClientHello to {}: {}", sni_, ec.message());
       co_return false;
     }
-    if (change_cipher_spec_sent != change_cipher_spec.size()) {
+    if (change_cipher_spec_size != change_cipher_spec.size()) {
       SPDLOG_ERROR("Failed to send ClientHello to {}: {}",
-          change_cipher_spec_sent, change_cipher_spec.size());
+          change_cipher_spec_size, change_cipher_spec.size());
       co_return false;
     }
+
+    // timeout
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
     SPDLOG_INFO(
         "Fake TLS handshake completed for {}, received {} bytes from server",

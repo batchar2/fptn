@@ -213,9 +213,9 @@ boost::asio::awaitable<void> Session::Run() {
       bool reality_success = false;
       if (result.is_reality_mode) {
         // DEPRECATED
-        reality_success = co_await HandleRealityMode(result.sni);
+        reality_success = co_await PerformFakeHandshake(result.sni);
       } else {
-        reality_success = co_await HandleRealityMode2(result.sni);
+        reality_success = co_await PerformFakeHandshake2(result.sni);
       }
 
       if (!reality_success) {
@@ -574,7 +574,7 @@ boost::asio::awaitable<Session::RealityResult> Session::IsRealityHandshake() {
 }
 
 // DEPRECATED
-boost::asio::awaitable<bool> Session::HandleRealityMode(
+boost::asio::awaitable<bool> Session::PerformFakeHandshake(
     const std::string& sni) {
   try {
     auto& tcp_socket = boost::beast::get_lowest_layer(ws_).socket();
@@ -612,7 +612,7 @@ boost::asio::awaitable<bool> Session::HandleRealityMode(
   co_return false;
 }
 
-boost::asio::awaitable<bool> Session::HandleRealityMode2(
+boost::asio::awaitable<bool> Session::PerformFakeHandshake2(
     const std::string& sni) {
   try {
     auto& tcp_socket = boost::beast::get_lowest_layer(ws_).socket();
@@ -623,7 +623,10 @@ boost::asio::awaitable<bool> Session::HandleRealityMode2(
       SPDLOG_ERROR("Empty client hello");
       co_return false;
     }
+
     const auto client_hello_size = client_hello.value().size();
+
+    common::network::CleanSocket(tcp_socket);
 
     /* Send server hello */
     const auto handshake_answer =
@@ -633,14 +636,15 @@ boost::asio::awaitable<bool> Session::HandleRealityMode2(
     if (!handshake_answer) {
       co_return false;
     }
-    const std::size_t bytes_wrote =
+
+    const std::size_t handshake_answer_size =
         co_await boost::asio::async_write(tcp_socket,
             boost::asio::buffer(*handshake_answer), boost::asio::use_awaitable);
 
     /* Wait for ChangeCipherSpec */
-    const bool change_cipher_spec_received =
+    const bool change_cipher_spec_size =
         co_await common::network::WaitForClientChangeCipherSpec(tcp_socket);
-    if (!change_cipher_spec_received) {
+    if (!change_cipher_spec_size) {
       SPDLOG_ERROR("Failed to receive Client ChangeCipherSpec");
       co_return false;
     }
@@ -648,7 +652,7 @@ boost::asio::awaitable<bool> Session::HandleRealityMode2(
     SPDLOG_INFO(
         "Reality mode2 completed, ready for real handshake (client_id={}) "
         "request_size = {} response_size: {}",
-        client_id_, client_hello_size, bytes_wrote);
+        client_id_, client_hello_size, handshake_answer_size);
     co_return true;
   } catch (const std::exception& e) {
     SPDLOG_ERROR("HandleRealityMode2 exception (client_id={}): {}", client_id_,
@@ -799,8 +803,8 @@ boost::asio::awaitable<void> Session::RunSender() {
         auto msg =
             fptn::protocol::protobuf::CreateProtoPayload(std::move(packet));
         if (msg.has_value()) {
-          co_await ws_.async_write(
-              boost::asio::buffer(msg.value()), boost::asio::use_awaitable);
+          co_await ws_.async_write(boost::asio::buffer(std::move(msg.value())),
+              boost::asio::use_awaitable);
         }
       }
     }
@@ -984,24 +988,6 @@ void Session::Close() {
     SPDLOG_WARN(
         "Session::Close unknown fatal error (client_id={})", client_id_);
   }
-
-  // Set socket linger option for fast close
-  /*
-  try {
-    auto& tcp_socket = boost::beast::get_lowest_layer(ws_).socket();
-    if (tcp_socket.is_open()) {
-      tcp_socket.set_option(boost::asio::socket_base::linger(true, 0));
-    }
-  } catch (const std::exception& err) {
-    SPDLOG_WARN(
-        "Session::Close exception setting linger option (client_id={}): {}",
-        client_id_, err.what());
-  } catch (...) {
-    SPDLOG_WARN(
-        "Session::Close unknown error setting linger option (client_id={})",
-        client_id_);
-  }
-  */
 
   // Close TCP socket first
   try {

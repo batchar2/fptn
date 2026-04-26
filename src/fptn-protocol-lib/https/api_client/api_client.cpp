@@ -317,7 +317,7 @@ ApiClient ApiClient::Clone() const {
   return temp_client;
 }
 
-bool ApiClient::PerformFakeHandshake(
+bool ApiClient::PerformFakeHandshake2(
     boost::asio::ip::tcp::socket& socket) const {
   try {
     SPDLOG_INFO("Fake TLS handshake started for SNI: {}", sni_);
@@ -328,11 +328,11 @@ bool ApiClient::PerformFakeHandshake(
       SPDLOG_WARN("Failed to generate ClientHello for SNI: {}", sni_);
       return false;
     }
-    const std::size_t client_hello_bytes_sent =
+    const std::size_t client_hello_bytes_size =
         boost::asio::write(socket, boost::asio::buffer(client_hello));
-    if (client_hello_bytes_sent != client_hello.size()) {
+    if (client_hello_bytes_size != client_hello.size()) {
       SPDLOG_ERROR("Error ClientHello sent: {} of {} bytes",
-          client_hello_bytes_sent, client_hello.size());
+          client_hello_bytes_size, client_hello.size());
       return false;
     }
 
@@ -343,16 +343,22 @@ bool ApiClient::PerformFakeHandshake(
       return false;
     }
 
+    // clean
+    common::network::CleanSocket(socket);
+
     /* Send change cipher spec */
     const auto change_cipher_spec =
         fptn::protocol::https::utils::MakeClientChangeCipherSpec();
-    const std::size_t change_cipher_spec_sent =
+    const std::size_t change_cipher_spec_size =
         boost::asio::write(socket, boost::asio::buffer(change_cipher_spec));
-    if (change_cipher_spec_sent != change_cipher_spec.size()) {
+    if (change_cipher_spec_size != change_cipher_spec.size()) {
       SPDLOG_ERROR("Failed to send ClientHello to {}: {}",
-          change_cipher_spec_sent, change_cipher_spec.size());
+          change_cipher_spec_size, change_cipher_spec.size());
       return false;
     }
+
+    // timeout
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
     SPDLOG_INFO(
         "Fake TLS handshake completed for {}, received {} bytes from server",
@@ -418,7 +424,7 @@ Response ApiClient::GetImpl(const std::string& handle, int timeout) const {
 
       // Perform fake handshake if enabled
       if (IsRealityModeWithFakeHandshake(censorship_strategy_)) {
-        const bool perform_status = PerformFakeHandshake(socket);
+        const bool perform_status = PerformFakeHandshake2(socket);
         if (!perform_status) {
           SPDLOG_WARN(
               "GET [{}] - Fake handshake failed, continuing with real "
@@ -585,7 +591,7 @@ Response ApiClient::PostImpl(const std::string& handle,
 
       // Perform fake handshake if enabled
       if (IsRealityModeWithFakeHandshake(censorship_strategy_)) {
-        const bool perform_status = PerformFakeHandshake(socket);
+        const bool perform_status = PerformFakeHandshake2(socket);
         if (!perform_status) {
           SPDLOG_WARN(
               "GET [{}] - Fake handshake failed, continuing with real "
@@ -762,7 +768,7 @@ bool ApiClient::TestHandshakeImpl(int timeout) const {
     // Perform fake handshake if enabled
     if (IsRealityModeWithFakeHandshake(censorship_strategy_)) {
       SPDLOG_INFO("TestHandshake - Performing fake handshake");
-      if (!PerformFakeHandshake(socket)) {
+      if (!PerformFakeHandshake2(socket)) {
         SPDLOG_WARN(
             "TestHandshake - Fake handshake failed, continuing with real "
             "handshake");
