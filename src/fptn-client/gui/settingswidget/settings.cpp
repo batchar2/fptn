@@ -82,17 +82,28 @@ void SettingsWidget::SetupUi() {
   tab_widget_ = new QTabWidget(this);
   tab_widget_->setContextMenuPolicy(Qt::ActionsContextMenu);
 
+  // ==================== Settings Tab ====================
   settings_tab_ = new QWidget();
-  auto* settings_layout = new QVBoxLayout(settings_tab_);
-  settings_layout->setContentsMargins(10, 10, 10, 10);
+  auto* main_settings_layout = new QVBoxLayout(settings_tab_);
+  main_settings_layout->setContentsMargins(0, 0, 0, 0);
+  auto* settings_scroll_area = new QScrollArea(this);
+  settings_scroll_area->setWidgetResizable(true);
+  settings_scroll_area->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+  settings_scroll_area->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
+  settings_scroll_area->setFrameShape(QFrame::NoFrame);
+
+  auto* settings_content_widget = new QWidget();
+  settings_content_widget->setMinimumWidth(500);
+  auto* settings_layout = new QVBoxLayout(settings_content_widget);
+  settings_layout->setContentsMargins(5, 5, 5, 5);
 
   grid_layout_ = new QGridLayout();
   grid_layout_->setContentsMargins(0, 0, 0, 0);
   grid_layout_->setHorizontalSpacing(10);
   grid_layout_->setVerticalSpacing(10);
-
   grid_layout_->setColumnStretch(0, 1);
-  grid_layout_->setColumnStretch(1, 4);
+  grid_layout_->setColumnStretch(1, 3);
+  grid_layout_->setColumnMinimumWidth(0, 350);
 
 #ifdef __linux__
   autostart_label_ = new QLabel(QObject::tr("Autostart"), this);
@@ -140,24 +151,19 @@ void SettingsWidget::SetupUi() {
       &SettingsWidget::onAutoGatewayChanged);
 
   auto* gateway_layout = new QHBoxLayout();
-  gateway_layout->addWidget(gateway_auto_checkbox_, Qt::AlignLeft);
-  gateway_layout->setStretch(0, 1);
+  gateway_layout->addWidget(gateway_auto_checkbox_);
+  gateway_layout->addWidget(gateway_line_edit_);
+  gateway_layout->setStretch(0, 0);
+  gateway_layout->setStretch(1, 1);
 
-  gateway_layout->addWidget(gateway_line_edit_, Qt::AlignLeft);
-  gateway_layout->setStretch(1, 4);
-
-  grid_layout_->addWidget(gateway_label_, 3, 0);
-  grid_layout_->addLayout(gateway_layout, 3, 1, 1, 2);
+  grid_layout_->addWidget(gateway_label_, 3, 0, Qt::AlignLeft);
+  grid_layout_->addLayout(gateway_layout, 3, 1);
 
   bypass_method_label_ =
       new QLabel(QObject::tr("Bypass blocking method"), this);
   bypass_method_combo_box_ = new QComboBox(this);
-  // bypass_method_combo_box_->addItem(
-  //     QObject::tr("SNI"), SettingsModel::kBypassMethodSni);
   bypass_method_combo_box_->addItem(
       QObject::tr("OBFUSCATION"), SettingsModel::kBypassMethodObfuscation);
-  // bypass_method_combo_box_->addItem(QObject::tr("SNI-REALITY (Generic)"),
-  //     SettingsModel::kBypassMethodSniReality);
   /* Chrome */
   bypass_method_combo_box_->addItem(QObject::tr("SNI-REALITY (Chrome 147)"),
       SettingsModel::kBypassMethodSniRealityChrome147);
@@ -181,6 +187,7 @@ void SettingsWidget::SetupUi() {
 
   bypass_method_combo_box_->setSizePolicy(
       QSizePolicy::Expanding, QSizePolicy::Fixed);
+  bypass_method_combo_box_->setMinimumWidth(200);
 
   const QString current_method = settings_->BypassMethod();
   if (current_method == SettingsModel::kBypassMethodObfuscation) {
@@ -224,7 +231,7 @@ void SettingsWidget::SetupUi() {
         QObject::tr("SNI-REALITY (Safari 26)"));
   }
   /* Default */
-  else {  // NOLINT(bugprone-branch-clone)
+  else {
     bypass_method_combo_box_->setCurrentText(
         QObject::tr("SNI-REALITY (Yandex 25)"));
   }
@@ -233,20 +240,17 @@ void SettingsWidget::SetupUi() {
       &SettingsWidget::onBypassMethodChanged);
 
   grid_layout_->addWidget(bypass_method_label_, 4, 0, Qt::AlignLeft);
-  grid_layout_->addWidget(bypass_method_combo_box_, 4, 1, 1, 2);
+  grid_layout_->addWidget(bypass_method_combo_box_, 4, 1);
 
   sni_label_ = new QLabel(this);
   if (settings_->BypassMethod() == SettingsModel::kBypassMethodSniReality) {
-    sni_label_->setText(
-        QObject::tr("Fake domain to bypass blocking (MUST ACTUALLY EXIST!)"));
-  } else {
     sni_label_->setText(QObject::tr("Fake domain to bypass blocking"));
   }
   sni_label_->setMinimumHeight(40);
-
   sni_label_->setWordWrap(true);
   sni_line_edit_ = new QLineEdit(this);
   sni_line_edit_->setText(settings_->SNI());
+  sni_line_edit_->setMinimumWidth(200);
   sni_label_->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
   sni_line_edit_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
   connect(sni_line_edit_, &QLineEdit::textChanged, this,
@@ -265,7 +269,7 @@ void SettingsWidget::SetupUi() {
       });
 
   grid_layout_->addWidget(sni_label_, 5, 0, Qt::AlignLeft | Qt::AlignVCenter);
-  grid_layout_->addWidget(sni_line_edit_, 5, 1, 1, 2);
+  grid_layout_->addWidget(sni_line_edit_, 5, 1);
 
   sni_files_list_widget_ = new QListWidget(this);
   sni_files_list_widget_->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
@@ -276,11 +280,16 @@ void SettingsWidget::SetupUi() {
   sni_autoscan_button_ = new QPushButton(QObject::tr("Autoscan SNI"), this);
   sni_import_button_ = new QPushButton(QObject::tr("Import SNI file"), this);
 
-  sni_buttons_layout_->addWidget(sni_autoscan_button_, 0, Qt::AlignLeft);
-  sni_buttons_layout_->addWidget(sni_import_button_, 0, Qt::AlignRight);
+  sni_buttons_layout_->addWidget(sni_autoscan_button_);
+  sni_buttons_layout_->addSpacing(10);
+  sni_buttons_layout_->addWidget(sni_import_button_);
+  sni_buttons_layout_->addStretch(1);
 
-  grid_layout_->addLayout(sni_buttons_layout_, 7, 0);
-  grid_layout_->addWidget(sni_files_list_widget_, 7, 1, 1, 2);
+  sni_autoscan_button_->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
+  sni_import_button_->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
+
+  grid_layout_->addLayout(sni_buttons_layout_, 7, 0, 1, 2);
+  grid_layout_->addWidget(sni_files_list_widget_, 8, 0, 1, 2);
   connect(sni_autoscan_button_, &QPushButton::clicked, this,
       &SettingsWidget::onAutoscanClicked);
 
@@ -288,26 +297,50 @@ void SettingsWidget::SetupUi() {
       &SettingsWidget::onImportSniFile);
 
   settings_layout->addLayout(grid_layout_);
-  settings_layout->addStretch(0);
 
   server_table_ = new QTableWidget(0, 4, this);
   server_table_->setHorizontalHeaderLabels({QObject::tr("Name"),
       QObject::tr("User"), QObject::tr("Servers"), QObject::tr("Action")});
-  server_table_->horizontalHeader()->setStretchLastSection(true);
-  server_table_->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+  server_table_->horizontalHeader()->setStretchLastSection(false);
+  server_table_->horizontalHeader()->setSectionResizeMode(
+      0, QHeaderView::Stretch);
+  server_table_->horizontalHeader()->setSectionResizeMode(
+      1, QHeaderView::Stretch);
+  server_table_->horizontalHeader()->setSectionResizeMode(
+      2, QHeaderView::Stretch);
+  server_table_->horizontalHeader()->setSectionResizeMode(
+      3, QHeaderView::ResizeToContents);
+
   server_table_->setEditTriggers(QAbstractItemView::NoEditTriggers);
   server_table_->setSelectionBehavior(QAbstractItemView::SelectRows);
+  server_table_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+  server_table_->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
   server_table_->verticalHeader()->setSectionResizeMode(
       QHeaderView::ResizeToContents);
-  server_table_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+  server_table_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+  server_table_->setSizeAdjustPolicy(QAbstractScrollArea::AdjustToContents);
 
-  settings_layout->addWidget(server_table_, 1);
+  settings_layout->addWidget(server_table_);
+  settings_layout->addStretch(1);
+
+  settings_scroll_area->setWidget(settings_content_widget);
+  main_settings_layout->addWidget(settings_scroll_area);
 
   tab_widget_->addTab(settings_tab_, QObject::tr("Settings"));
 
   // ==================== Routing Tab ====================
   routing_tab_ = new QWidget();
-  auto* routing_layout = new QVBoxLayout(routing_tab_);
+  auto* main_routing_layout = new QVBoxLayout(routing_tab_);
+  main_routing_layout->setContentsMargins(0, 0, 0, 0);
+
+  auto* routing_scroll_area = new QScrollArea(this);
+  routing_scroll_area->setWidgetResizable(true);
+  routing_scroll_area->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+  routing_scroll_area->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
+  routing_scroll_area->setFrameShape(QFrame::NoFrame);
+
+  auto* routing_content_widget = new QWidget();
+  auto* routing_layout = new QVBoxLayout(routing_content_widget);
   routing_layout->setContentsMargins(10, 10, 10, 10);
   routing_layout->setSpacing(5);
 
@@ -321,14 +354,14 @@ void SettingsWidget::SetupUi() {
   int current_row = 0;
 
 #ifdef _WIN32
-  constexpr char kInfoLabelStyle[] = "color: #888888; font-size: 7pt;";
+  constexpr char kInfoLabelStyle[] = "color: #111111; font-size: 7pt;";
 #elif defined(__APPLE__)
   constexpr char kInfoLabelStyle[] = "color: #888888; font-size: 9pt;";
 #elif defined(__linux__)
-  constexpr char kInfoLabelStyle[] = "color: #888888; font-size: 8pt;";
+  constexpr char kInfoLabelStyle[] = "color: #111111; font-size: 8pt;";
 #endif
 
-  // Routing
+// Routing
 #if _WIN32
   // DNS Management
   enable_dns_management_label_ =
@@ -363,6 +396,7 @@ void SettingsWidget::SetupUi() {
       1, Qt::AlignLeft | Qt::AlignTop);
   current_row++;
 #endif
+
   blacklist_domains_label_ = new QLabel(QObject::tr("Blacklist domains"), this);
   blacklist_domains_info_label_ = new QLabel(
       QObject::tr("Completely block access to the main domain AND all its "
@@ -631,36 +665,55 @@ void SettingsWidget::SetupUi() {
   split_tunnel_domains_info_label_->setVisible(split_enabled);
   split_tunnel_domains_text_edit_->setVisible(split_enabled);
 
-  routing_layout->addLayout(routing_grid_layout_, 1);
+  routing_layout->addLayout(routing_grid_layout_);
+
+  routing_layout->addStretch(1);
+
+  routing_scroll_area->setWidget(routing_content_widget);
+  main_routing_layout->addWidget(routing_scroll_area);
 
   tab_widget_->addTab(routing_tab_, QObject::tr("Routing"));
 
-  // About
+  // ==================== About Tab ====================
   about_tab_ = new QWidget();
-  auto* about_layout = new QVBoxLayout(about_tab_);
-  about_layout->setContentsMargins(10, 10, 10, 10);
+  auto* main_about_layout = new QVBoxLayout(about_tab_);
+  main_about_layout->setContentsMargins(0, 0, 0, 0);
+
+  auto* about_scroll_area = new QScrollArea(this);
+  about_scroll_area->setWidgetResizable(true);
+  about_scroll_area->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+  about_scroll_area->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
+  about_scroll_area->setFrameShape(QFrame::NoFrame);
+
+  auto* about_content_widget = new QWidget();
+  auto* about_layout = new QVBoxLayout(about_content_widget);
+  about_layout->setContentsMargins(5, 5, 5, 5);
   about_layout->setSpacing(10);
+
   auto* fptn_label = new QLabel("FPTN", this);
   fptn_label->setAlignment(Qt::AlignCenter);
   about_layout->addWidget(fptn_label);
+
   version_label_ = new QLabel(
       QString(QObject::tr("Version") + ": %1").arg(FPTN_VERSION), this);
   version_label_->setAlignment(Qt::AlignCenter);
   about_layout->addWidget(version_label_);
+
   project_info_label_ = new QLabel(QObject::tr("FPTN_DESCRIPTION"), this);
   project_info_label_->setWordWrap(true);
   project_info_label_->setAlignment(Qt::AlignJustify);
   about_layout->addWidget(project_info_label_);
+
   website_link_label_ =
       new QLabel(QObject::tr("FPTN_WEBSITE_DESCRIPTION"), this);
   website_link_label_->setOpenExternalLinks(true);
   about_layout->addWidget(website_link_label_);
+
   telegram_group_label_ =
       new QLabel(QObject::tr("FPTN_TELEGRAM_DESCRIPTION"), this);
   telegram_group_label_->setTextFormat(Qt::RichText);
   telegram_group_label_->setTextInteractionFlags(Qt::TextBrowserInteraction);
   telegram_group_label_->setOpenExternalLinks(true);
-
   about_layout->addWidget(telegram_group_label_);
 
   boosty_link_label_ =
@@ -674,6 +727,7 @@ void SettingsWidget::SetupUi() {
   sponsors_label_ = new QLabel(QObject::tr("Project Sponsors"), this);
   sponsors_label_->setAlignment(Qt::AlignLeft);
   about_layout->addWidget(sponsors_label_);
+
   const QString sponsors_list =
       "  - Brebor<br>"
       "  - miklefox<br>"
@@ -723,19 +777,16 @@ void SettingsWidget::SetupUi() {
   sponsors_names_label_->setAlignment(Qt::AlignLeft);
   sponsors_names_label_->setTextInteractionFlags(Qt::TextSelectableByMouse);
   sponsors_names_label_->setWordWrap(true);
-
-  auto* scroll_area = new QScrollArea(this);
-  scroll_area->setWidget(sponsors_names_label_);
-  scroll_area->setWidgetResizable(true);
-  scroll_area->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-  scroll_area->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-  scroll_area->setFrameShape(QFrame::NoFrame);
-
-  about_layout->addWidget(scroll_area);
+  about_layout->addWidget(sponsors_names_label_);
 
   about_layout->addStretch(1);
+
+  about_scroll_area->setWidget(about_content_widget);
+  main_about_layout->addWidget(about_scroll_area);
+
   tab_widget_->addTab(about_tab_, QObject::tr("About"));
 
+  // Setup tabs
   auto* main_layout = new QVBoxLayout(this);
   main_layout->setContentsMargins(5, 5, 5, 5);
   main_layout->addWidget(tab_widget_);
@@ -758,25 +809,26 @@ void SettingsWidget::SetupUi() {
   setLayout(main_layout);
 
   const QVector<ServiceConfig>& services = settings_->Services();
-  server_table_->setRowCount(services.size());
-  for (int i = 0; i < services.size(); ++i) {
-    const ServiceConfig& service = services[i];
-    server_table_->setItem(i, 0, new QTableWidgetItem(service.service_name));
-    server_table_->setItem(i, 1, new QTableWidgetItem(service.username));
+  if (server_table_) {
+    server_table_->setRowCount(services.size());
+    for (int i = 0; i < services.size(); ++i) {
+      const ServiceConfig& service = services[i];
+      server_table_->setItem(i, 0, new QTableWidgetItem(service.service_name));
+      server_table_->setItem(i, 1, new QTableWidgetItem(service.username));
 
-    QString servers_text_list = "";
-    for (const auto& s : service.servers) {
-      servers_text_list += QString("%1\n").arg(s.name);
-    }
-    auto* item = new QTableWidgetItem(servers_text_list);
-    item->setTextAlignment(Qt::AlignLeft | Qt::AlignVCenter);
-    item->setFlags(item->flags() | Qt::ItemIsEnabled);
-    item->setData(Qt::DisplayRole, servers_text_list);
-    server_table_->setItem(i, 2, item);
+      QString servers_text_list = "";
+      for (const auto& s : service.servers) {
+        servers_text_list += QString("%1\n").arg(s.name);
+      }
+      auto* item = new QTableWidgetItem(servers_text_list);
+      item->setTextAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+      item->setFlags(item->flags() | Qt::ItemIsEnabled);
+      item->setData(Qt::DisplayRole, servers_text_list);
+      server_table_->setItem(i, 2, item);
 
-    auto* delete_button = new QPushButton(QObject::tr("X"), this);
-    delete_button->setFixedSize(24, 24);
-    delete_button->setStyleSheet(R"(
+      auto* delete_button = new QPushButton(QObject::tr("X"), this);
+      delete_button->setFixedSize(24, 24);
+      delete_button->setStyleSheet(R"(
         QPushButton {
             background-color: #444444;
             color: white;
@@ -792,23 +844,24 @@ void SettingsWidget::SetupUi() {
             background-color: #990000;
         }
     )");
-    delete_button->setToolTip(QObject::tr("Delete"));
-    connect(delete_button, &QPushButton::clicked,
-        [this, i]() { onRemoveServer(i); });
+      delete_button->setToolTip(QObject::tr("Delete"));
+      connect(delete_button, &QPushButton::clicked,
+          [this, i]() { onRemoveServer(i); });
 
-    auto* button_container = new QWidget(this);
-    auto* action_layout = new QHBoxLayout(button_container);
-    action_layout->setContentsMargins(0, 0, 0, 0);
-    action_layout->setAlignment(Qt::AlignCenter);
-    action_layout->addWidget(delete_button);
-    server_table_->setCellWidget(i, 3, button_container);
+      auto* button_container = new QWidget(this);
+      auto* action_layout = new QHBoxLayout(button_container);
+      action_layout->setContentsMargins(0, 0, 0, 0);
+      action_layout->setAlignment(Qt::AlignCenter);
+      action_layout->addWidget(delete_button);
+      server_table_->setCellWidget(i, 3, button_container);
+    }
   }
 
   onBypassMethodChanged(bypass_method_combo_box_->currentText());
 
   UpdateSniFilesList();
 
-  resize(500, 450);
+  resize(620, 450);
   if (tab_widget_) {
     tab_widget_->setCurrentIndex(0);
   }
@@ -893,14 +946,14 @@ void SettingsWidget::onLoadNewConfig() {
     try {
       ServiceConfig config = settings_->ParseToken(token);
       int exists_index = settings_->GetExistServiceIndex(config.service_name);
-      if (exists_index != -1) {
+      if (exists_index != -1 && server_table_ != nullptr) {
         // remove previous settings
         settings_->RemoveServer(exists_index);
         server_table_->removeRow(exists_index);
       }
       settings_->AddService(config);
       const bool saving_status = settings_->Save();
-      if (saving_status) {
+      if (saving_status && server_table_ != nullptr) {
         // Insert a new row into the server table
         const int new_row = server_table_->rowCount();
         server_table_->insertRow(new_row);
@@ -965,7 +1018,7 @@ void SettingsWidget::onLoadNewConfig() {
 }
 
 void SettingsWidget::onRemoveServer(int row) {
-  if (row >= 0 && row < server_table_->rowCount()) {
+  if (row >= 0 && row < server_table_->rowCount() && server_table_ != nullptr) {
     server_table_->removeRow(row);
     settings_->RemoveServer(row);
     QMessageBox::information(this, QObject::tr("Delete Successful"),
@@ -1106,9 +1159,6 @@ void SettingsWidget::onLanguageChanged(const QString&) {
 
   if (sni_label_) {
     if (settings_->BypassMethod() == SettingsModel::kBypassMethodSniReality) {
-      sni_label_->setText(
-          QObject::tr("Fake domain to bypass blocking (MUST ACTUALLY EXIST!)"));
-    } else {
       sni_label_->setText(QObject::tr("Fake domain to bypass blocking"));
     }
   }
@@ -1361,9 +1411,6 @@ void SettingsWidget::onBypassMethodChanged(const QString& method) {
 
   if (sni_label_) {
     if (settings_->BypassMethod() != SettingsModel::kBypassMethodSni) {
-      sni_label_->setText(
-          QObject::tr("Fake domain to bypass blocking (MUST ACTUALLY EXIST!)"));
-    } else {
       sni_label_->setText(QObject::tr("Fake domain to bypass blocking"));
     }
   }
