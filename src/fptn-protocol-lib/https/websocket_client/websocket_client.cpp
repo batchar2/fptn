@@ -398,7 +398,7 @@ boost::asio::awaitable<bool> WebsocketClient::Connect() {
     // timeout
     co_await boost::asio::steady_timer{
         co_await boost::asio::this_coro::executor,
-        std::chrono::milliseconds(1000)}
+        std::chrono::milliseconds(10)}
         .async_wait(boost::asio::use_awaitable);
 
     co_await ws_.next_layer().async_handshake(
@@ -463,13 +463,19 @@ boost::asio::awaitable<bool> WebsocketClient::Connect() {
     try {
       boost::beast::websocket::stream_base::timeout timeout_option;
       timeout_option.handshake_timeout = std::chrono::seconds(10);
-      timeout_option.idle_timeout = std::chrono::seconds(10);
-      // timeout_option.idle_timeout = std::chrono::seconds(2);
+      timeout_option.idle_timeout = std::chrono::seconds(4);
       timeout_option.keep_alive_pings = true;
       ws_.set_option(timeout_option);
     } catch (const std::exception& e) {
       SPDLOG_ERROR("Failed to set timeout: {}", e.what());
     }
+
+    // timeout
+    co_await boost::asio::steady_timer{
+        co_await boost::asio::this_coro::executor,
+        std::chrono::milliseconds(10)}
+        .async_wait(boost::asio::use_awaitable);
+
     co_return true;
   } catch (const std::exception& e) {
     SPDLOG_ERROR("Connect exception: {}", e.what());

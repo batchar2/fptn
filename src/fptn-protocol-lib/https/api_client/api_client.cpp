@@ -457,6 +457,8 @@ Response ApiClient::GetImpl(const std::string& handle, int timeout) const {
       // Clean
       common::network::CleanSocket(socket);
       common::network::CleanSsl(ssl);
+      // timeout
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
       boost::beast::http::request<boost::beast::http::string_body> req{
           boost::beast::http::verb::get, handle, 11};
@@ -624,6 +626,8 @@ Response ApiClient::PostImpl(const std::string& handle,
       // Clean
       common::network::CleanSocket(socket);
       common::network::CleanSsl(ssl);
+      // timeout
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
       boost::beast::http::request<boost::beast::http::string_body> req{
           boost::beast::http::verb::post, handle, 11};
