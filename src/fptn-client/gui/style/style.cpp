@@ -67,7 +67,7 @@ QWidgetAction {
 }
 QWidget {
     font-family: 'Ubuntu', 'Segoe UI', Tahoma, Verdana, Arial, sans-serif;
-    font-size: 11pt;
+    font-size: 10pt;
     color: #333333;
     background-color: #f0f0f0;
 }
