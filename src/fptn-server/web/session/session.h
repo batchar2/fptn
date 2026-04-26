@@ -81,9 +81,9 @@ class Session : public std::enable_shared_from_this<Session> {
   boost::asio::awaitable<RealityResult> IsRealityHandshake();
 
   // DEPRECATED
-  boost::asio::awaitable<bool> HandleRealityMode(const std::string& sni);
+  boost::asio::awaitable<bool> PerformFakeHandshake(const std::string& sni);
 
-  boost::asio::awaitable<bool> HandleRealityMode2(const std::string& sni);
+  boost::asio::awaitable<bool> PerformFakeHandshake2(const std::string& sni);
 
   boost::asio::awaitable<bool> HandleProxy(const std::string& sni, int port);
 
