@@ -18,7 +18,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "common/network/utils.h"  // NOLINT(build/include_order)
 
 #include "fptn-protocol-lib/https/api_client/api_client.h"
-#include "fptn-protocol-lib/https/obfuscator/methods/tls/tls_obfuscator.h"
+#include "fptn-protocol-lib/https/obfuscator/methods/tls2/tls_obfuscator2.h"
 
 namespace fptn::protocol::https {
 
@@ -64,7 +64,7 @@ WebsocketClient::WebsocketClient(fptn::common::network::IPv4Address server_ip,
   }
   if (censorship_strategy_ == CensorshipStrategy::kTlsObfuscator) {
     obfuscator_ =
-        std::make_shared<fptn::protocol::https::obfuscator::TlsObfuscator>();
+        std::make_shared<fptn::protocol::https::obfuscator::TlsObfuscator2>();
     ws_.next_layer().next_layer().set_obfuscator(obfuscator_);
   }
 
@@ -387,7 +387,7 @@ boost::asio::awaitable<bool> WebsocketClient::Connect() {
       // For Reality Mode we use TLS obfuscator after fake handshake
       // This provides additional encryption layer for the real connection
       ws_.next_layer().next_layer().set_obfuscator(
-          std::make_shared<protocol::https::obfuscator::TlsObfuscator>());
+          std::make_shared<protocol::https::obfuscator::TlsObfuscator2>());
     } else if (obfuscator_ != nullptr) {  // Set obfuscator
       ws_.next_layer().next_layer().set_obfuscator(obfuscator_);
     }

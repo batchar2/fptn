@@ -31,6 +31,8 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "common/network/utils.h"
 
 #include "fptn-protocol-lib/https/obfuscator/methods/detector.h"
+#include "fptn-protocol-lib/https/obfuscator/methods/tls/tls_obfuscator.h"
+#include "fptn-protocol-lib/https/obfuscator/methods/tls2/tls_obfuscator2.h"
 #include "fptn-protocol-lib/https/utils/tls/tls.h"
 #include "fptn-protocol-lib/protobuf/protocol.h"
 #include "fptn-protocol-lib/time/time_provider.h"
@@ -214,8 +216,16 @@ boost::asio::awaitable<void> Session::Run() {
       if (result.is_reality_mode) {
         // DEPRECATED
         reality_success = co_await PerformFakeHandshake(result.sni);
+        // For Reality Mode we use TLS obfuscator after fake handshake
+        // This provides additional encryption layer for the real connection
+        ws_.next_layer().next_layer().set_obfuscator(
+            std::make_shared<protocol::https::obfuscator::TlsObfuscator>());
       } else {
         reality_success = co_await PerformFakeHandshake2(result.sni);
+        // For Reality Mode we use TLS obfuscator after fake handshake
+        // This provides additional encryption layer for the real connection
+        ws_.next_layer().next_layer().set_obfuscator(
+            std::make_shared<protocol::https::obfuscator::TlsObfuscator2>());
       }
 
       if (!reality_success) {
@@ -223,10 +233,6 @@ boost::asio::awaitable<void> Session::Run() {
         Close();
         co_return;
       }
-      // For Reality Mode we use TLS obfuscator after fake handshake
-      // This provides additional encryption layer for the real connection
-      ws_.next_layer().next_layer().set_obfuscator(
-          std::make_shared<protocol::https::obfuscator::TlsObfuscator>());
     }
   }
   // SSL handshake

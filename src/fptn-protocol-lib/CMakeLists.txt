@@ -94,6 +94,8 @@ set(FPTN_CLIENT_PROTOCOL_SOURCES
     https/api_client/api_client.cpp
     https/obfuscator/methods/tls/tls_obfuscator.cpp
     https/obfuscator/methods/tls/tls_obfuscator.h
+    https/obfuscator/methods/tls2/tls_obfuscator2.cpp
+    https/obfuscator/methods/tls2/tls_obfuscator2.h
     https/obfuscator/methods/obfuscator_interface.h
     https/obfuscator/tcp_stream/tcp_stream.h
     https/utils/tls/tls.h

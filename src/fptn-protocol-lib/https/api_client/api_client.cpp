@@ -47,7 +47,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include "common/network/resolv.h"
 
-#include "fptn-protocol-lib/https/obfuscator/methods/tls/tls_obfuscator.h"
+#include "fptn-protocol-lib/https/obfuscator/methods/tls2/tls_obfuscator2.h"
 #include "fptn-protocol-lib/https/obfuscator/tcp_stream/tcp_stream.h"
 #include "fptn-protocol-lib/https/utils/change_cipher_spec.h"
 #include "fptn-protocol-lib/https/utils/tls/tls.h"
@@ -388,7 +388,7 @@ Response ApiClient::GetImpl(const std::string& handle, int timeout) const {
     fptn::protocol::https::obfuscator::IObfuscatorSPtr obfuscator = nullptr;
     if (censorship_strategy_ == CensorshipStrategy::kTlsObfuscator) {
       obfuscator =
-          std::make_shared<fptn::protocol::https::obfuscator::TlsObfuscator>();
+          std::make_shared<fptn::protocol::https::obfuscator::TlsObfuscator2>();
     }
 
     tcp_stream_type tcp_stream(ioc);
@@ -434,7 +434,7 @@ Response ApiClient::GetImpl(const std::string& handle, int timeout) const {
         // For Reality Mode we use TLS obfuscator after fake handshake
         // This provides additional encryption layer for the real connection
         stream.next_layer().set_obfuscator(
-            std::make_shared<protocol::https::obfuscator::TlsObfuscator>());
+            std::make_shared<protocol::https::obfuscator::TlsObfuscator2>());
       }
 
       utils::SetHandshakeSessionID(stream.native_handle());
@@ -557,7 +557,7 @@ Response ApiClient::PostImpl(const std::string& handle,
     fptn::protocol::https::obfuscator::IObfuscatorSPtr obfuscator = nullptr;
     if (censorship_strategy_ == CensorshipStrategy::kTlsObfuscator) {
       obfuscator =
-          std::make_shared<fptn::protocol::https::obfuscator::TlsObfuscator>();
+          std::make_shared<fptn::protocol::https::obfuscator::TlsObfuscator2>();
     }
 
     tcp_stream_type tcp_stream(ioc);
@@ -603,7 +603,7 @@ Response ApiClient::PostImpl(const std::string& handle,
         // For Reality Mode we use TLS obfuscator after fake handshake
         // This provides additional encryption layer for the real connection
         stream.next_layer().set_obfuscator(
-            std::make_shared<protocol::https::obfuscator::TlsObfuscator>());
+            std::make_shared<protocol::https::obfuscator::TlsObfuscator2>());
       }
 
       utils::SetHandshakeSessionID(stream.native_handle());
@@ -726,7 +726,7 @@ bool ApiClient::TestHandshakeImpl(int timeout) const {
     fptn::protocol::https::obfuscator::IObfuscatorSPtr obfuscator = nullptr;
     if (censorship_strategy_ == CensorshipStrategy::kTlsObfuscator) {
       obfuscator =
-          std::make_shared<fptn::protocol::https::obfuscator::TlsObfuscator>();
+          std::make_shared<fptn::protocol::https::obfuscator::TlsObfuscator2>();
     }
 
     tcp_stream_type tcp_stream(ioc);
