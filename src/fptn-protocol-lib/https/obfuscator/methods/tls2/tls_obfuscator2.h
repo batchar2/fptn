@@ -15,12 +15,10 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 namespace fptn::protocol::https::obfuscator {
 
-
-// DEPRECATED
-class TlsObfuscator : public IObfuscator {
+class TlsObfuscator2 : public IObfuscator {
  public:
-  TlsObfuscator() = default;
-  ~TlsObfuscator() override = default;
+  TlsObfuscator2() = default;
+  ~TlsObfuscator2() override = default;
 
   bool AddData(const std::uint8_t* data, std::size_t size) override;
 
