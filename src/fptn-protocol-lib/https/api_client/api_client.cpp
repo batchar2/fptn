@@ -358,7 +358,7 @@ bool ApiClient::PerformFakeHandshake2(
     }
 
     // timeout
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     SPDLOG_INFO(
         "Fake TLS handshake completed for {}, received {} bytes from server",
@@ -458,7 +458,7 @@ Response ApiClient::GetImpl(const std::string& handle, int timeout) const {
       common::network::CleanSocket(socket);
       common::network::CleanSsl(ssl);
       // timeout
-      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
       boost::beast::http::request<boost::beast::http::string_body> req{
           boost::beast::http::verb::get, handle, 11};
@@ -627,7 +627,7 @@ Response ApiClient::PostImpl(const std::string& handle,
       common::network::CleanSocket(socket);
       common::network::CleanSsl(ssl);
       // timeout
-      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
       boost::beast::http::request<boost::beast::http::string_body> req{
           boost::beast::http::verb::post, handle, 11};

@@ -398,7 +398,7 @@ boost::asio::awaitable<bool> WebsocketClient::Connect() {
     // timeout
     co_await boost::asio::steady_timer{
         co_await boost::asio::this_coro::executor,
-        std::chrono::milliseconds(10)}
+        std::chrono::milliseconds(100)}
         .async_wait(boost::asio::use_awaitable);
 
     co_await ws_.next_layer().async_handshake(
