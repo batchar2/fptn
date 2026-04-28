@@ -146,6 +146,8 @@ WarningsAsErrors: ''
     gui/sni_manager/sni_manager.cpp
     gui/sni_autoscan_dialog/sni_autoscan_dialog.h
     gui/sni_autoscan_dialog/sni_autoscan_dialog.cpp
+    gui/server_menu_item_widget/server_menu_item_widget.h
+    gui/server_menu_item_widget/server_menu_item_widget.cpp
     gui/style/style.h
     gui/style/style.cpp
     gui/autostart/autostart.h

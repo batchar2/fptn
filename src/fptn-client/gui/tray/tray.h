@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -73,6 +73,7 @@ class TrayApp : public QWidget {
 
  protected:
   void UpdateTrayMenu();
+  void UpdatePings();
   void OpenWebBrowser(const std::string& url);
 
  protected:
@@ -119,6 +120,7 @@ class TrayApp : public QWidget {
 
   // connecting
   std::atomic<bool> connecting_in_progress_{false};
-  // std::future<bool> connecting_;
+
+  QTimer* ping_update_timer_{nullptr};
 };
 }  // namespace fptn::gui

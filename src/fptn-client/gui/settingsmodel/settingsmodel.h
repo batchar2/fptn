@@ -7,14 +7,20 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #pragma once
 
 #include <memory>
+#include <mutex>
+
+#include <boost/asio/post.hpp>
+#include <boost/asio/thread_pool.hpp>
 
 #include <QFile>          // NOLINT(build/include_order)
 #include <QJsonArray>     // NOLINT(build/include_order)
 #include <QJsonDocument>  // NOLINT(build/include_order)
 #include <QJsonObject>    // NOLINT(build/include_order)
 #include <QMap>           // NOLINT(build/include_order)
+#include <QMutex>         // NOLINT(build/include_order)
 #include <QObject>        // NOLINT(build/include_order)
 #include <QString>        // NOLINT(build/include_order)
+#include <QTimer>         // NOLINT(build/include_order)
 #include <QVector>        // NOLINT(build/include_order)
 
 #include "gui/sni_manager/sni_manager.h"
@@ -67,6 +73,7 @@ struct ServerConfig {
   int port;
   bool is_using;
   QString md5_fingerprint;
+  int ping_ms = -1;
 
   static ServerConfig parse(const QJsonObject& server_obj, bool& status) {
     status = false;
@@ -81,6 +88,7 @@ struct ServerConfig {
     server.port = server_obj["port"].toInt();
     server.md5_fingerprint = server_obj["md5_fingerprint"].toString();
     server.is_using = true;
+    server.ping_ms = -1;
     status = true;
     return server;
   }
@@ -131,12 +139,17 @@ class SettingsModel : public QObject {
   static constexpr const char* kBypassMethodSniRealitySafari26 =
       "SNI-REALITY-SAFARI-26";
 
+ public:
   explicit SettingsModel(const QMap<QString, QString>& languages,
       const QString& default_language = "en",
+      std::size_t ping_thread_pool_size = 4,
       QObject* parent = nullptr);
 
   void Load(bool dont_load_server = false);
   bool Save();
+
+  void StartPingMonitoring();
+  void StopPingMonitoring();
 
   QString UsingNetworkInterface() const;
 
@@ -194,7 +207,7 @@ class SettingsModel : public QObject {
   QString SplitTunnelMode() const;
   void SetSplitTunnelMode(const QString& mode);
 
-  QVector<QString> SplitTunnelDomains() const;
+  QVector<QString> SplitTunnelDomains();
   void SetSplitTunnelDomains(const QVector<QString>& domains);
 
 #if _WIN32
@@ -202,15 +215,25 @@ class SettingsModel : public QObject {
   void SetEnableAdvancedDnsManagement(bool enable);
 #endif
 
+ protected:
+  void PingServer(const QString& host, int port);
+
  signals:
   void dataChanged();
 
  private:
+  std::mutex mutex_;
+
   QMap<QString, QString> languages_;
 
   QString default_language_;
 
   QString selected_language_;
+
+  boost::asio::thread_pool ping_thread_pool_;
+  QTimer ping_timer_;
+  std::atomic<bool> start_pinging_{false};
+  std::atomic<int> pending_pings_{0};
 
   QVector<ServiceConfig> services_;
   QString network_interface_;

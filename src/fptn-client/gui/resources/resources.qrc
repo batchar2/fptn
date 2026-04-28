@@ -5,6 +5,11 @@
         <file>icons/active.ico</file>
         <file>icons/inactive.ico</file>
 
+        <file>icons/ping_green_circle.png</file>
+        <file>icons/ping_orange_circle.png</file>
+        <file>icons/ping_red_circle.png</file>
+        <file>icons/ping_yellow_circle.png</file>
+
         <file>translations/fptn_ru.qm</file>
         <file>translations/fptn_en.qm</file>
     </qresource>

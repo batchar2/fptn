@@ -18,6 +18,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include <boost/asio.hpp>
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
@@ -29,6 +30,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <QJsonObject>        // NOLINT(build/include_order)
 #include <QNetworkInterface>  // NOLINT(build/include_order)
 #include <QStandardPaths>     // NOLINT(build/include_order)
+#include <QTcpSocket>         // NOLINT(build/include_order)
 
 #include "routing//route_manager.h"
 #include "utils/brotli/brotli.h"
@@ -76,11 +78,14 @@ QString JoinVectorToString(const QVector<QString>& vec) {
 
 SettingsModel::SettingsModel(const QMap<QString, QString>& languages,
     const QString& default_language,
+    std::size_t ping_thread_pool_size,
     QObject* parent)
     : QObject(parent),
       languages_(languages),
       default_language_(default_language),
       selected_language_(default_language),
+      ping_thread_pool_(ping_thread_pool_size),
+      ping_timer_(this),
 #if _WIN32
       enable_advanced_dns_management_(false),
 #endif
@@ -142,6 +147,8 @@ QString SettingsModel::GetSettingsFolderPath() const {
 }
 
 void SettingsModel::Load(bool dont_load_server) {
+  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
   services_.clear();
 
   const QString file_path = GetSettingsFilePath();
@@ -333,6 +340,8 @@ bool SettingsModel::ExistsTranslation(const QString& language_code) const {
 }
 
 bool SettingsModel::Save() {
+  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
   QString file_path = GetSettingsFilePath();
   QFile file(file_path);
   if (!file.open(QIODevice::WriteOnly)) {
@@ -472,10 +481,14 @@ const QVector<ServiceConfig>& SettingsModel::Services() const {
 }
 
 void SettingsModel::AddService(const ServiceConfig& server) {
+  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
   services_.append(server);
 }
 
 void SettingsModel::RemoveServer(int index) {
+  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
   if (index >= 0 && index < services_.size()) {
     services_.removeAt(index);
   }
@@ -574,7 +587,9 @@ void SettingsModel::SetSplitTunnelMode(const QString& mode) {
   Save();
 }
 
-QVector<QString> SettingsModel::SplitTunnelDomains() const {
+QVector<QString> SettingsModel::SplitTunnelDomains() {
+  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
   if (split_tunnel_domains_.isEmpty()) {
     return SplitStringToVector(FPTN_CLIENT_DEFAULT_SPLIT_TUNNEL_DOMAINS);
   }
@@ -594,3 +609,109 @@ void SettingsModel::SetEnableAdvancedDnsManagement(const bool enable) {
   enable_advanced_dns_management_ = enable;
 }
 #endif
+
+void SettingsModel::StartPingMonitoring() {
+  const std::unique_lock<std::mutex> lock(mutex_);
+
+  if (start_pinging_) {
+    return;
+  }
+
+  start_pinging_ = true;
+  connect(&ping_timer_, &QTimer::timeout, [this]() {
+    if (!start_pinging_ || pending_pings_ > 0) {
+      return;
+    }
+
+    QSet<QPair<QString, int>> servers_to_check;
+    {
+      const std::unique_lock<std::mutex> lock(mutex_);
+      for (const auto& service : services_) {
+        for (const auto& server : service.servers) {
+          servers_to_check.insert({server.host, server.port});
+        }
+        for (const auto& server : service.censored_zone_servers) {
+          servers_to_check.insert({server.host, server.port});
+        }
+      }
+    }
+
+    pending_pings_ = servers_to_check.size();
+
+    for (const auto& [host, port] : servers_to_check) {
+      boost::asio::post(ping_thread_pool_, [this, host, port]() {
+        PingServer(host, port);
+        pending_pings_--;
+      });
+    }
+  });
+
+  ping_timer_.start(1000);
+}
+
+void SettingsModel::StopPingMonitoring() {
+  if (!start_pinging_) {
+    return;
+  }
+
+  {
+    const std::unique_lock<std::mutex> lock(mutex_);
+
+    // cppcheck-suppress identicalConditionAfterEarlyExit
+    if (!start_pinging_) {
+      return;
+    }
+
+    start_pinging_ = false;
+    ping_timer_.stop();
+  }
+
+  ping_thread_pool_.stop();
+  ping_thread_pool_.join();
+}
+
+void SettingsModel::PingServer(const QString& host, int port) {
+  std::vector<int> results;
+
+  for (int i = 0; start_pinging_ && i < 3; ++i) {
+    const auto start_time = std::chrono::steady_clock::now();
+    int ping_ms = -1;
+
+    QTcpSocket socket;
+    socket.connectToHost(host, port);
+    if (socket.waitForConnected(2000)) {
+      const auto end_time = std::chrono::steady_clock::now();
+      ping_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+          end_time - start_time)
+                    .count();
+    }
+    socket.close();
+    results.push_back(ping_ms);
+  }
+
+  const bool has_error =
+      std::ranges::any_of(results, [](int ping) { return ping == -1; });
+
+  int final_ping_ms = -1;
+  if (!has_error) {
+    int sum = std::accumulate(results.begin(), results.end(), 0);
+    final_ping_ms = sum / static_cast<int>(results.size());
+  }
+
+  const std::unique_lock<std::mutex> lock(mutex_);
+
+  if (start_pinging_) {
+    for (auto& service : services_) {
+      for (auto& server : service.servers) {
+        if (server.host == host && server.port == port) {
+          server.ping_ms = final_ping_ms;
+        }
+      }
+      for (auto& server : service.censored_zone_servers) {
+        if (server.host == host && server.port == port) {
+          server.ping_ms = final_ping_ms;
+        }
+      }
+    }
+  }
+}

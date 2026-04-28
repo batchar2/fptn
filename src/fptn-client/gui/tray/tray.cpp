@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -30,6 +30,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "fptn-protocol-lib/https/obfuscator/methods/tls/tls_obfuscator.h"
 #include "fptn-protocol-lib/time/time_provider.h"
 #include "gui/autoupdate/autoupdate.h"
+#include "gui/server_menu_item_widget/server_menu_item_widget.h"
 #include "gui/style/style.h"
 #include "gui/translations/translations.h"
 #include "plugins/blacklist/domain_blacklist.h"
@@ -206,6 +207,13 @@ TrayApp::TrayApp(const SettingsModelPtr& settings, QObject* parent)
     ShowWarning(QObject::tr("VPN Conflict Detected"), message);
   }
 #endif
+  // start pinging
+  settings_->StartPingMonitoring();
+
+  // Show pings
+  ping_update_timer_ = new QTimer(this);
+  connect(ping_update_timer_, &QTimer::timeout, [this]() { UpdatePings(); });
+  ping_update_timer_->start(1000);
 }
 
 void TrayApp::CheckForUpdatesAsync() {
@@ -277,39 +285,42 @@ void TrayApp::UpdateTrayMenu() {
       if (0 != servers_number) {
         smart_connect_action_ =
             new QAction(QObject::tr("Smart Connect"), connect_menu_);
+        smart_connect_action_->setIcon(QIcon(":/icons/ping_green_circle.png"));
         connect(smart_connect_action_, &QAction::triggered, [this]() {
           smart_connect_ = true;
           onConnectToServer();
         });
+
         connect_menu_->addAction(smart_connect_action_);
         connect_menu_->addSeparator();
         // servers
         for (const auto& service : services) {
           // usual servers
           for (const auto& server : service.servers) {
-            auto* server_connect = new QAction(server.name, connect_menu_);
+            auto* action = new ServerMenuItemWidget(
+                server.name, server.ping_ms, connect_menu_);
+            // auto* widget_action = new QWidgetAction(connect_menu_);
+            // widget_action->setDefaultWidget(widget);
+            connect_menu_->addAction(action);
 
             // FIXME
-            connect(
-                server_connect, &QAction::triggered, [this, server, service]() {
-                  smart_connect_ = false;
-                  fptn::utils::speed_estimator::ServerInfo cfg_server;
-                  {
-                    cfg_server.name = server.name.toStdString();
-                    cfg_server.host = server.host.toStdString();
-                    cfg_server.port = server.port;
-                    cfg_server.is_using = server.is_using;
-                    cfg_server.service_name =
-                        service.service_name.toStdString();
-                    cfg_server.username = service.username.toStdString();
-                    cfg_server.password = service.password.toStdString();
-                    cfg_server.md5_fingerprint =
-                        server.md5_fingerprint.toStdString();
-                  }
-                  selected_server_ = cfg_server;
-                  onConnectToServer();
-                });
-            connect_menu_->addAction(server_connect);
+            connect(action, &QAction::triggered, [this, server, service]() {
+              smart_connect_ = false;
+              fptn::utils::speed_estimator::ServerInfo cfg_server;
+              {
+                cfg_server.name = server.name.toStdString();
+                cfg_server.host = server.host.toStdString();
+                cfg_server.port = server.port;
+                cfg_server.is_using = server.is_using;
+                cfg_server.service_name = service.service_name.toStdString();
+                cfg_server.username = service.username.toStdString();
+                cfg_server.password = service.password.toStdString();
+                cfg_server.md5_fingerprint =
+                    server.md5_fingerprint.toStdString();
+              }
+              selected_server_ = cfg_server;
+              onConnectToServer();
+            });
           }
           // Censored zone servers
           for (const auto& server : service.censored_zone_servers) {
@@ -498,6 +509,8 @@ void TrayApp::handleDefaultState() {
   {
     const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
+    settings_->StartPingMonitoring();
+
     connection_state_ = ConnectionState::None;
     if (route_manager_) {
       route_manager_->Clean();
@@ -513,7 +526,10 @@ void TrayApp::handleDefaultState() {
 
 void TrayApp::handleConnecting() {
   SPDLOG_INFO("Signal: connecting to server");
+
   const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+  settings_->StopPingMonitoring();
 
   connection_state_ = ConnectionState::Connecting;
   UpdateTrayMenu();
@@ -556,6 +572,8 @@ void TrayApp::handleConnected() {
 void TrayApp::handleDisconnecting() {
   {
     const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+    settings_->StartPingMonitoring();
 
     connection_state_ = ConnectionState::None;
     UpdateTrayMenu();
@@ -660,6 +678,8 @@ void TrayApp::RetranslateUi() {
 
 void TrayApp::stop() {
   SPDLOG_INFO("Stopping TrayApp");
+  settings_->StopPingMonitoring();
+
   if (route_manager_) {
     route_manager_->Clean();
     route_manager_.reset();
@@ -974,5 +994,26 @@ void TrayApp::handleVpnStarted(bool success, const QString& err_msg) {
     ShowError(QObject::tr("FPTN Connection Error"), err_msg);
 
     emit disconnecting();
+  }
+}
+
+void TrayApp::UpdatePings() {
+  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+  if (connection_state_ == ConnectionState::Connected) {
+    return;
+  }
+
+  for (auto* action : connect_menu_->actions()) {
+    if (auto* server_action = qobject_cast<ServerMenuItemWidget*>(action)) {
+      for (const auto& service : settings_->Services()) {
+        for (const auto& server : service.servers) {
+          if (server.name == server_action->ServerName()) {
+            server_action->UpdatePing(server.ping_ms);
+            break;
+          }
+        }
+      }
+    }
   }
 }
