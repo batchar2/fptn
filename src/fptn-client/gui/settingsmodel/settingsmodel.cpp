@@ -689,20 +689,12 @@ void SettingsModel::PingServer(const QString& host, int port) {
     results.push_back(ping_ms);
   }
 
-  int final_ping_ms = -1;
-  bool has_error = false;
-  for (const int ping : results) {
-    if (ping == -1) {
-      has_error = true;
-      break;
-    }
-  }
+  const bool has_error =
+      std::ranges::any_of(results, [](int ping) { return ping == -1; });
 
+  int final_ping_ms = -1;
   if (!has_error) {
-    int sum = 0;
-    for (int ping : results) {
-      sum += ping;
-    }
+    int sum = std::accumulate(results.begin(), results.end(), 0);
     final_ping_ms = sum / static_cast<int>(results.size());
   }
 

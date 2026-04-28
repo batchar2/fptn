@@ -72,13 +72,13 @@ ServerMenuItemWidget::ServerMenuItemWidget(
   widget->setMouseTracking(true);
   widget->setStyleSheet(R"(
     QWidget:hover {
-      background-color: palette(highlight);
+      background-color: #e0e0e0;
     }
   )");
 
   auto* layout = new QHBoxLayout(widget);
   layout->setContentsMargins(2, 2, 2, 2);
-  // layout->setSpacing(8);
+  layout->setSpacing(2);
 
   icon_label_ = new QLabel();
   icon_label_->setFixedSize(16, 16);
@@ -92,7 +92,7 @@ ServerMenuItemWidget::ServerMenuItemWidget(
   name_label_->setSizePolicy(
       QSizePolicy::MinimumExpanding, QSizePolicy::Preferred);
   name_label_->setMinimumWidth(
-      QFontMetrics(name_label_->font()).horizontalAdvance(name_) + 30);
+      QFontMetrics(name_label_->font()).horizontalAdvance(name_) + 40);
 
   ping_label_ = new QLabel();
   ping_label_->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Preferred);

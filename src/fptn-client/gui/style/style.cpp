@@ -58,7 +58,7 @@ QMenu::item:selected {
     color: #333333;
 }
 QMenu::item:hover {
-    background-color: palette(highlight);
+    background-color: #e0e0e0;
 }
 QMenu::icon {
     margin-right: 4px;
@@ -170,7 +170,7 @@ QPushButton {
 QMenu::item {
     background-color: #ffffff;
     color: #000000;
-    padding: 2px 3px;
+    padding: 2px 1px;
     border-radius: 3px;
 }
 QMenu::item:selected {
@@ -178,7 +178,7 @@ QMenu::item:selected {
     color: #000000;
 }
 QMenu::item:hover {
-    background-color: palette(highlight);
+    background-color: #e0e0e0;
 }
 QMenu::icon {
     margin-right: 4px;
@@ -199,6 +199,7 @@ QMenu::item:disabled {
 QAction:disabled {
     color: #a0a0a0;
 }
+
 )";
   return kStyleSheet;
 }
