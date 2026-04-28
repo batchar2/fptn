@@ -1,39 +1,37 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
 
 #pragma once
 
-#include <QEnterEvent>    // NOLINT(build/include_order)
+#include <QAction>        // NOLINT(build/include_order)
 #include <QLabel>         // NOLINT(build/include_order)
 #include <QMouseEvent>    // NOLINT(build/include_order)
-#include <QWidget>        // NOLINT(build/include_order)
 #include <QWidgetAction>  // NOLINT(build/include_order)
 
 namespace fptn::gui {
-class ServerMenuItemWidget : public QWidget {
+
+#ifdef __APPLE__
+// QWidgetAction doesn't work fopr macos
+class ServerMenuItemWidget : public QAction {
+#else
+class ServerMenuItemWidget : public QWidgetAction {
+#endif
   Q_OBJECT
  public:
   explicit ServerMenuItemWidget(
-      const QString& name, int ping_ms = -1, QWidget* parent = nullptr);
-
+      QString name, int ping_ms, QObject* parent = nullptr);
   void UpdatePing(int ping_ms);
-  QString ServerName() const { return name_; }
-
- signals:
-  void clicked();
-
- protected:
-  void enterEvent(QEnterEvent* event) override;
-  void leaveEvent(QEvent* event) override;
-  void mouseReleaseEvent(QMouseEvent* event) override;
+  QString ServerName() const;
 
  private:
-  QLabel* icon_label_;
-  QLabel* ping_label_;
-  QLabel* name_label_;
   QString name_;
+
+  QLabel* icon_label_{nullptr};
+  QLabel* name_label_{nullptr};
+  QLabel* ping_label_{nullptr};
 };
+
 }  // namespace fptn::gui

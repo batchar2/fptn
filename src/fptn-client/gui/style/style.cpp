@@ -25,9 +25,10 @@ QMenu::item:selected {
     color: #fff;
 }
 QMenu::icon {
-    margin-right: 10px;
+    margin-right: 4px;
 }
 QAction {
+    padding: 2px 2px;
     color: #fff;
 }
 QWidgetAction {
@@ -44,26 +45,29 @@ QMenu {
     color: #333333;
     border: 1px solid #d0d0d0;
     border-radius: 8px;
-    padding: 0;
+    padding: 5px;
 }
 QMenu::item {
     background-color: #ffffff;
     color: #333333;
-    padding: 8px 12px;
+    padding: 2px 3px;
     border-radius: 4px;
 }
 QMenu::item:selected {
     background-color: #e0e0e0;
     color: #333333;
 }
+QMenu::item:hover {
+    background-color: palette(highlight);
+}
 QMenu::icon {
-    margin-right: 8px;
+    margin-right: 4px;
 }
 QAction {
     color: #333333;
 }
 QWidgetAction {
-    padding: 8px 12px;
+    padding: 2px 4px;
 }
 QWidget {
     font-family: 'Ubuntu', 'Segoe UI', Tahoma, Verdana, Arial, sans-serif;
@@ -158,7 +162,7 @@ QMenu {
     color: #000000;
     border: 1px solid #bfbfbf;
     border-radius: 4px;
-    padding: 4px 8px;
+    padding: 5px;
 }
 QPushButton {
     padding: 6px 12px;
@@ -166,15 +170,18 @@ QPushButton {
 QMenu::item {
     background-color: #ffffff;
     color: #000000;
-    padding: 2px 8px;
+    padding: 2px 3px;
     border-radius: 3px;
 }
 QMenu::item:selected {
     background-color: #e0e0e0;
     color: #000000;
 }
+QMenu::item:hover {
+    background-color: palette(highlight);
+}
 QMenu::icon {
-    margin-right: 8px;
+    margin-right: 4px;
 }
 QAction {
     color: #000000;

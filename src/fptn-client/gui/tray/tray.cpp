@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -285,6 +285,7 @@ void TrayApp::UpdateTrayMenu() {
       if (0 != servers_number) {
         smart_connect_action_ =
             new QAction(QObject::tr("Smart Connect"), connect_menu_);
+        smart_connect_action_->setIcon(QIcon(":/icons/ping_green_circle.png"));
         connect(smart_connect_action_, &QAction::triggered, [this]() {
           smart_connect_ = true;
           onConnectToServer();
@@ -296,32 +297,30 @@ void TrayApp::UpdateTrayMenu() {
         for (const auto& service : services) {
           // usual servers
           for (const auto& server : service.servers) {
-            auto* widget = new ServerMenuItemWidget(
+            auto* action = new ServerMenuItemWidget(
                 server.name, server.ping_ms, connect_menu_);
-            auto* widget_action = new QWidgetAction(connect_menu_);
-            widget_action->setDefaultWidget(widget);
-            connect_menu_->addAction(widget_action);
+            // auto* widget_action = new QWidgetAction(connect_menu_);
+            // widget_action->setDefaultWidget(widget);
+            connect_menu_->addAction(action);
 
             // FIXME
-            connect(
-                widget_action, &QAction::triggered, [this, server, service]() {
-                  smart_connect_ = false;
-                  fptn::utils::speed_estimator::ServerInfo cfg_server;
-                  {
-                    cfg_server.name = server.name.toStdString();
-                    cfg_server.host = server.host.toStdString();
-                    cfg_server.port = server.port;
-                    cfg_server.is_using = server.is_using;
-                    cfg_server.service_name =
-                        service.service_name.toStdString();
-                    cfg_server.username = service.username.toStdString();
-                    cfg_server.password = service.password.toStdString();
-                    cfg_server.md5_fingerprint =
-                        server.md5_fingerprint.toStdString();
-                  }
-                  selected_server_ = cfg_server;
-                  onConnectToServer();
-                });
+            connect(action, &QAction::triggered, [this, server, service]() {
+              smart_connect_ = false;
+              fptn::utils::speed_estimator::ServerInfo cfg_server;
+              {
+                cfg_server.name = server.name.toStdString();
+                cfg_server.host = server.host.toStdString();
+                cfg_server.port = server.port;
+                cfg_server.is_using = server.is_using;
+                cfg_server.service_name = service.service_name.toStdString();
+                cfg_server.username = service.username.toStdString();
+                cfg_server.password = service.password.toStdString();
+                cfg_server.md5_fingerprint =
+                    server.md5_fingerprint.toStdString();
+              }
+              selected_server_ = cfg_server;
+              onConnectToServer();
+            });
           }
           // Censored zone servers
           for (const auto& server : service.censored_zone_servers) {
@@ -999,22 +998,19 @@ void TrayApp::handleVpnStarted(bool success, const QString& err_msg) {
 }
 
 void TrayApp::UpdatePings() {
-  const std::unique_lock<std::mutex> lock(mutex_);
+  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
   if (connection_state_ == ConnectionState::Connected) {
     return;
   }
 
   for (auto* action : connect_menu_->actions()) {
-    if (auto* widget_action = qobject_cast<QWidgetAction*>(action)) {
-      if (auto* widget = qobject_cast<ServerMenuItemWidget*>(
-              widget_action->defaultWidget())) {
-        for (const auto& service : settings_->Services()) {
-          for (const auto& server : service.servers) {
-            if (server.name == widget->ServerName()) {
-              widget->UpdatePing(server.ping_ms);
-              break;
-            }
+    if (auto* server_action = qobject_cast<ServerMenuItemWidget*>(action)) {
+      for (const auto& service : settings_->Services()) {
+        for (const auto& server : service.servers) {
+          if (server.name == server_action->ServerName()) {
+            server_action->UpdatePing(server.ping_ms);
+            break;
           }
         }
       }

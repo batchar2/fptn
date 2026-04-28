@@ -9,6 +9,9 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <memory>
 #include <mutex>
 
+#include <boost/asio/post.hpp>
+#include <boost/asio/thread_pool.hpp>
+
 #include <QFile>          // NOLINT(build/include_order)
 #include <QJsonArray>     // NOLINT(build/include_order)
 #include <QJsonDocument>  // NOLINT(build/include_order)
@@ -139,6 +142,7 @@ class SettingsModel : public QObject {
  public:
   explicit SettingsModel(const QMap<QString, QString>& languages,
       const QString& default_language = "en",
+      std::size_t ping_thread_pool_size = 4,
       QObject* parent = nullptr);
 
   void Load(bool dont_load_server = false);
@@ -226,6 +230,11 @@ class SettingsModel : public QObject {
 
   QString selected_language_;
 
+  boost::asio::thread_pool ping_thread_pool_;
+  QTimer ping_timer_;
+  std::atomic<bool> start_pinging_{false};
+  std::atomic<int> pending_pings_{0};
+
   QVector<ServiceConfig> services_;
   QString network_interface_;
   QString gateway_ip_;
@@ -246,10 +255,6 @@ class SettingsModel : public QObject {
   QString split_tunnel_domains_;
 
   SNIManagerSPtr sni_manager_;
-
-  QTimer* ping_timer_ = nullptr;
-  std::atomic<bool> monitoring_{false};
-  std::atomic<int> pending_pings_{0};
 };
 
 using SettingsModelPtr = std::shared_ptr<SettingsModel>;

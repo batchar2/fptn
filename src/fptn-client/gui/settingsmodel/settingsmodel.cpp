@@ -6,8 +6,6 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include "gui/settingsmodel/settingsmodel.h"
 
-#include <qtconcurrentrun.h>
-
 #if _WIN32
 #include <Windows.h>   // NOLINT(build/include_order)
 #include <Ws2tcpip.h>  // NOLINT(build/include_order)
@@ -20,6 +18,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include <boost/asio.hpp>
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
@@ -79,11 +78,14 @@ QString JoinVectorToString(const QVector<QString>& vec) {
 
 SettingsModel::SettingsModel(const QMap<QString, QString>& languages,
     const QString& default_language,
+    std::size_t ping_thread_pool_size,
     QObject* parent)
     : QObject(parent),
       languages_(languages),
       default_language_(default_language),
       selected_language_(default_language),
+      ping_thread_pool_(ping_thread_pool_size),
+      ping_timer_(this),
 #if _WIN32
       enable_advanced_dns_management_(false),
 #endif
@@ -609,23 +611,21 @@ void SettingsModel::SetEnableAdvancedDnsManagement(const bool enable) {
 #endif
 
 void SettingsModel::StartPingMonitoring() {
-  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+  const std::unique_lock<std::mutex> lock(mutex_);
 
-  if (ping_timer_) {
+  if (start_pinging_) {
     return;
   }
-  QThreadPool::globalInstance()->setMaxThreadCount(8);
-  monitoring_ = true;
-  ping_timer_ = new QTimer(this);
-  connect(ping_timer_, &QTimer::timeout, [this]() {
-    if (!monitoring_ || pending_pings_ > 0) {
+
+  start_pinging_ = true;
+  connect(&ping_timer_, &QTimer::timeout, [this]() {
+    if (!start_pinging_ || pending_pings_ > 0) {
       return;
     }
 
     QSet<QPair<QString, int>> servers_to_check;
     {
-      const std::unique_lock<std::mutex> lock(mutex_);  // mutex
-
+      const std::unique_lock<std::mutex> lock(mutex_);
       for (const auto& service : services_) {
         for (const auto& server : service.servers) {
           servers_to_check.insert({server.host, server.port});
@@ -639,47 +639,51 @@ void SettingsModel::StartPingMonitoring() {
     pending_pings_ = servers_to_check.size();
 
     for (const auto& [host, port] : servers_to_check) {
-      (void)QtConcurrent::run([this, host, port]() {
+      boost::asio::post(ping_thread_pool_, [this, host, port]() {
         PingServer(host, port);
-        --pending_pings_;
+        pending_pings_--;
       });
     }
   });
-  ping_timer_->start(1000);
+
+  ping_timer_.start(1000);
 }
 
 void SettingsModel::StopPingMonitoring() {
-  if (!monitoring_) {
+  if (!start_pinging_) {
     return;
   }
 
-  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+  {
+    const std::unique_lock<std::mutex> lock(mutex_);
 
-  if (!monitoring_) {
-    return;
+    // cppcheck-suppress identicalConditionAfterEarlyExit
+    if (!start_pinging_) {
+      return;
+    }
+
+    start_pinging_ = false;
+    ping_timer_.stop();
   }
 
-  monitoring_ = false;
-  if (ping_timer_) {
-    ping_timer_->stop();
-    delete ping_timer_;
-    ping_timer_ = nullptr;
-  }
+  ping_thread_pool_.stop();
+  ping_thread_pool_.join();
 }
 
 void SettingsModel::PingServer(const QString& host, int port) {
   std::vector<int> results;
 
-  for (int i = 0; i < 3; ++i) {
+  for (int i = 0; start_pinging_ && i < 3; ++i) {
     const auto start_time = std::chrono::steady_clock::now();
     int ping_ms = -1;
 
     QTcpSocket socket;
     socket.connectToHost(host, port);
-    if (socket.waitForConnected(5000)) {
+    if (socket.waitForConnected(2000)) {
       const auto end_time = std::chrono::steady_clock::now();
       ping_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-          end_time - start_time).count();
+          end_time - start_time)
+                    .count();
     }
     socket.close();
     results.push_back(ping_ms);
@@ -699,12 +703,12 @@ void SettingsModel::PingServer(const QString& host, int port) {
     for (int ping : results) {
       sum += ping;
     }
-    final_ping_ms = sum / results.size();
+    final_ping_ms = sum / static_cast<int>(results.size());
   }
 
   const std::unique_lock<std::mutex> lock(mutex_);
 
-  if (monitoring_) {
+  if (start_pinging_) {
     for (auto& service : services_) {
       for (auto& server : service.servers) {
         if (server.host == host && server.port == port) {
