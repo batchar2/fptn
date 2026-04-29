@@ -29,7 +29,7 @@ QString FormatSpeed(std::size_t bytes_per_sec) {
 }
 
 QString FormatSpeedLabel(const QString& text, std::size_t speed) {
-  return "    " + text + ": " + FormatSpeed(speed);
+  return "       " + text + ": " + FormatSpeed(speed);
 }
 
 }  // namespace
