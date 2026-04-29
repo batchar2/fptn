@@ -43,6 +43,15 @@ using fptn::gui::TrayApp;
 
 namespace {
 
+QPixmap LoadIcon(const QString& icon_path, int size = 12) {
+  QPixmap pixmap(icon_path);
+  if (pixmap.isNull()) {
+    return QPixmap();
+  }
+  return pixmap.scaled(
+      size, size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+}
+
 void ShowError(const QString& title, const QString& msg) {
   QMessageBox msg_box;
   msg_box.setWindowIcon(QIcon(":/icons/app.ico"));
@@ -136,6 +145,7 @@ TrayApp::TrayApp(const SettingsModelPtr& settings, QObject* parent)
 
   // Disconect
   disconnect_action_ = new QAction(QObject::tr("Disconnect"), this);
+  disconnect_action_->setIcon(LoadIcon(":/icons/menu_disconnect.png"));
   connect(disconnect_action_, &QAction::triggered, this,
       &TrayApp::onDisconnectFromServer);
 
@@ -150,6 +160,7 @@ TrayApp::TrayApp(const SettingsModelPtr& settings, QObject* parent)
 
   // Settings
   settings_action_ = new QAction(QObject::tr("Settings"), this);
+  settings_action_->setIcon(LoadIcon(":/icons/menu_settings.png"));
   connect(
       settings_action_, &QAction::triggered, this, &TrayApp::onShowSettings);
 
@@ -157,12 +168,15 @@ TrayApp::TrayApp(const SettingsModelPtr& settings, QObject* parent)
   auto_update_action_ = new QAction(
       QObject::tr("New version available") + " " + auto_available_version_,
       this);
+  auto_update_action_->setIcon(
+      LoadIcon(":/icons/menu_new_version_download.png"));
   connect(auto_update_action_, &QAction::triggered, this,
       [this] { OpenWebBrowser(FPTN_GITHUB_PAGE_LINK); });
   auto_update_action_->setVisible(false);
 
   // Quit
   quit_action_ = new QAction(QObject::tr("Quit"), this);
+  quit_action_->setIcon(LoadIcon(":/icons/menu_exit.png"));
   connect(quit_action_, &QAction::triggered, this, &QCoreApplication::quit);
 
   // Show menu
@@ -327,6 +341,7 @@ void TrayApp::UpdateTrayMenu() {
             if (!limited_zone_connect_menu_) {
               limited_zone_connect_menu_ = new QMenu(
                   QObject::tr("Limited access servers") + "  ", connect_menu_);
+              connect_menu_->setIcon(LoadIcon(":/icons/menu_server_list.png"));
               connect_menu_->addMenu(limited_zone_connect_menu_);
             }
             auto* server_connect =
