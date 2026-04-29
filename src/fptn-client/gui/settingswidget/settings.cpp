@@ -771,7 +771,16 @@ void SettingsWidget::SetupUi() {
       "  - mahovmm<br>"
       "  - KOTleta<br>"
       "  - Arelost<br>"
-      "  - Хмурый<br>";
+      "  - Хмурый<br>"
+      "  - 弐式炎雷<br>"
+      "  - ☸️Bhagos☸️<br>"
+      "  - Pavel<br>"
+      "  - zoomzoom<br>"
+      "  - Kovalskij<br>"
+      "  - Yumarictx<br>"
+      "  - ББ<br>"
+      "  - huko<br>"
+      "  - @UNBREAKABLE189<br>";
 
   sponsors_names_label_ = new QLabel(sponsors_list, this);
   sponsors_names_label_->setAlignment(Qt::AlignLeft);
