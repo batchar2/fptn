@@ -390,8 +390,11 @@ bool RouteManager::Apply() {
       fmt::format("ip route add default dev {}", tun_interface_name_),
       fmt::format("ip route add {} dev {}", dns_server_ipv4_.ToString(),
           tun_interface_name_),  // via TUN
-      // IPv6 default
-      fmt::format("ip -6 route add default dev {}", tun_interface_name_),
+                                 // IPv6 default
+      fmt::format("ip -6 route add {} dev {}", dns_server_ipv6_.ToString(),
+          tun_interface_name_),
+      fmt::format("ip -6 route add default via {} dev {}",
+          dns_server_ipv6_.ToString(), tun_interface_name_),
       // exclude vpn server
       fmt::format("ip route add {} via {} dev {}", vpn_server_ip_.ToString(),
           detected_gateway_ipv4_.ToString(), detected_out_interface_name_),
@@ -430,6 +433,7 @@ bool RouteManager::Apply() {
       fmt::format("iptables -A OUTPUT -d {} -p tcp --dport 53 -j ACCEPT",
           dns_server_ipv4_.ToString()),
       // DNS via resolvectl
+      fmt::format("resolvectl resolv-conf false"),
       fmt::format("resolvectl dns {} {}", detected_out_interface_name_,
           dns_server_ipv4_.ToString()),
       fmt::format(
@@ -437,6 +441,15 @@ bool RouteManager::Apply() {
       fmt::format("resolvectl dns {} {}", tun_interface_name_,
           dns_server_ipv4_.ToString()),
       fmt::format("resolvectl default-route {} true", tun_interface_name_),
+      fmt::format("resolvectl domain {} ~.", tun_interface_name_),
+      fmt::format(R"(bash -c "chattr -i /etc/resolv.conf")"),
+      fmt::format(
+          R"(bash -c "grep -q '^nameserver {}$' /etc/resolv.conf || sed -i '1i nameserver {}' /etc/resolv.conf")",
+          dns_server_ipv6_.ToString(), dns_server_ipv6_.ToString()),
+      fmt::format(
+          R"(bash -c "grep -q '^nameserver {}$' /etc/resolv.conf || sed -i '1i nameserver {}' /etc/resolv.conf")",
+          dns_server_ipv4_.ToString(), dns_server_ipv4_.ToString()),
+      fmt::format(R"(bash -c "chattr +i /etc/resolv.conf")"),
       fmt::format("resolvectl flush-caches")};
 
 #elif __APPLE__
@@ -666,6 +679,9 @@ bool RouteManager::Clean() {  // NOLINT(bugprone-exception-escape)
       // Delete DNS server route
       fmt::format("ip route del {} dev {}", dns_server_ipv4_.ToString(),
           tun_interface_name_),
+      fmt::format(
+          R"(bash -c "chattr -i /etc/resolv.conf; sed -i '/^nameserver {}$/d' /etc/resolv.conf; sed -i '/^nameserver {}$/d' /etc/resolv.conf")",
+          dns_server_ipv4_.ToString(), dns_server_ipv6_.ToString()),
       // Delete DNS to specific DNS server IP rules
       fmt::format("iptables -D OUTPUT -d {} -p udp --dport 53 -j ACCEPT",
           dns_server_ipv4_.ToString()),
