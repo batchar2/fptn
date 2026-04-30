@@ -225,7 +225,7 @@ inline TlsData WaitForServerTlsHello(boost::asio::ip::tcp::socket& socket,
 
     while (std::chrono::steady_clock::now() - start_time < drain_timeout) {
       if (socket.available() == 0) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
         continue;
       }
 
@@ -272,7 +272,7 @@ inline boost::asio::awaitable<TlsData> WaitForServerTlsHelloAsync(
       if (socket.available() == 0) {
         boost::asio::steady_timer timer(
             co_await boost::asio::this_coro::executor,
-            std::chrono::milliseconds(10));
+            std::chrono::milliseconds(100));
         co_await timer.async_wait(boost::asio::use_awaitable);
         continue;
       }
@@ -328,7 +328,7 @@ inline boost::asio::awaitable<bool> WaitForClientChangeCipherSpec(
       if (socket.available() == 0) {
         boost::asio::steady_timer timer(
             co_await boost::asio::this_coro::executor,
-            std::chrono::milliseconds(10));
+            std::chrono::milliseconds(100));
         co_await timer.async_wait(boost::asio::use_awaitable);
         continue;
       }
@@ -373,7 +373,7 @@ inline boost::asio::awaitable<TlsData> WaitForClientTlsHelloAsync(
       if (socket.available() == 0) {
         boost::asio::steady_timer timer(
             co_await boost::asio::this_coro::executor,
-            std::chrono::milliseconds(10));
+            std::chrono::milliseconds(100));
         co_await timer.async_wait(boost::asio::use_awaitable);
         continue;
       }

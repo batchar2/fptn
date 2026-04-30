@@ -144,6 +144,7 @@ class SettingsModel : public QObject {
       const QString& default_language = "en",
       std::size_t ping_thread_pool_size = 4,
       QObject* parent = nullptr);
+  ~SettingsModel();
 
   void Load(bool dont_load_server = false);
   bool Save();

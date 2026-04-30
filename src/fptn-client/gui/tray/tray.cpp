@@ -510,6 +510,9 @@ void TrayApp::onDisconnectFromServer() {
     vpn_client_->Stop();
     vpn_client_.reset();
   }
+
+  settings_->StartPingMonitoring();
+
   UpdateTrayMenu();
 }
 
@@ -723,8 +726,6 @@ void TrayApp::OpenWebBrowser(const std::string& url) {
 bool TrayApp::startVpn(QString& err_msg) {
   SPDLOG_DEBUG("Handling connecting state");
 
-  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
-
   const fptn::common::network::IPv4Address tun_interface_address_ipv4(
       FPTN_CLIENT_DEFAULT_ADDRESS_IP4);
   const fptn::common::network::IPv6Address tun_interface_address_ipv6(
@@ -846,7 +847,9 @@ bool TrayApp::startVpn(QString& err_msg) {
       err_msg = QObject::tr("Config error: ") + err.what();
       return false;
     }
-  } else {
+  }
+  /*
+  else {
     // check connection to selected server
     const std::uint64_t time = config.GetDownloadTimeMs(
         selected_server_, sni, 30, selected_server_.md5_fingerprint);
@@ -857,11 +860,13 @@ bool TrayApp::startVpn(QString& err_msg) {
       return false;
     }
   }
+  */
 
   const auto server_ip = fptn::routing::ResolveDomain(selected_server_.host);
   if (server_ip == fptn::common::network::IPv4Address()) {
-    err_msg = QString(QObject::tr("DNS resolution error") + ": %1")
-                  .arg(QString::fromStdString(selected_server_.host));
+    err_msg = QObject::tr(
+        "The server is unavailable. Please select another server "
+        "or use Auto-connect to find the best available server.");
     return false;
   }
 
@@ -947,7 +952,7 @@ bool TrayApp::startVpn(QString& err_msg) {
               .ipv6_netmask = 126  // IPv6 netmask
           });
 
-  // setup vpn client с плагинами
+  // setup vpn client
   vpn_client_ = std::make_unique<fptn::vpn::VpnClient>(std::move(http_client),
       std::move(virtual_network_interface), dns_server_ipv4, dns_server_ipv6,
       std::move(client_plugins));
@@ -1007,15 +1012,18 @@ void TrayApp::handleVpnStarted(bool success, const QString& err_msg) {
     emit connected();
   } else {
     ShowError(QObject::tr("FPTN Connection Error"), err_msg);
-
     emit disconnecting();
+
+    settings_->StartPingMonitoring();
   }
 }
 
 void TrayApp::UpdatePings() {
   const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
-  if (connection_state_ == ConnectionState::Connected) {
+  if (connection_state_ == ConnectionState::Connected ||
+      connection_state_ == ConnectionState::Connecting ||
+      connection_state_ == ConnectionState::Disconnecting) {
     return;
   }
 

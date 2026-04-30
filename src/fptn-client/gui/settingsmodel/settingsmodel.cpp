@@ -125,6 +125,13 @@ SettingsModel::SettingsModel(const QMap<QString, QString>& languages,
   Load(true);
 }
 
+SettingsModel::~SettingsModel()
+{
+  StopPingMonitoring();
+  ping_thread_pool_.stop();
+  ping_thread_pool_.join();
+}
+
 QString SettingsModel::GetSettingsFilePath() const {
   const QString directory = GetSettingsFolderPath();
   return directory + "/fptn-settings-4.json";
@@ -665,9 +672,6 @@ void SettingsModel::StopPingMonitoring() {
     start_pinging_ = false;
     ping_timer_.stop();
   }
-
-  ping_thread_pool_.stop();
-  ping_thread_pool_.join();
 }
 
 void SettingsModel::PingServer(const QString& host, int port) {
