@@ -15,13 +15,8 @@ services:
       net.ipv6.conf.default.forwarding: "1"
       net.ipv4.conf.all.rp_filter: "0"
       net.ipv4.conf.default.rp_filter: "0"
-      # Network optimizations
       net.ipv4.ip_local_port_range: "1024 65535"
-      #net.ipv4.tcp_tw_reuse: "1"
-      #net.ipv4.tcp_fin_timeout: "15"
       net.core.somaxconn: "65535"
-      #net.ipv4.tcp_max_syn_backlog: "16384"
-      #net.ipv4.tcp_slow_start_after_idle: "0"
     ulimits:
       nproc:
         soft: 524288
@@ -50,6 +45,7 @@ services:
       - MAX_ACTIVE_SESSIONS_PER_USER=${MAX_ACTIVE_SESSIONS_PER_USER}
       - SERVER_EXTERNAL_IPS=${SERVER_EXTERNAL_IPS}
       - USING_DNS_SERVER=${USING_DNS_SERVER:-dnsmasq}
+      - DNS_IPV6_ENABLE=${DNS_IPV6_ENABLE:-false}
       - DNS_IPV4_PRIMARY=${DNS_IPV4_PRIMARY:-8.8.8.8}
       - DNS_IPV4_SECONDARY=${DNS_IPV4_SECONDARY:-8.8.4.4}
       - DNS_IPV6_PRIMARY=${DNS_IPV6_PRIMARY:-2001:4860:4860::8888}
