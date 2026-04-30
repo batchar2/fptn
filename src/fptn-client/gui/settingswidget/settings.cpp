@@ -780,7 +780,8 @@ void SettingsWidget::SetupUi() {
       "  - Yumarictx<br>"
       "  - ББ<br>"
       "  - huko<br>"
-      "  - @UNBREAKABLE189<br>";
+      "  - @UNBREAKABLE189<br>"
+      "  - TheChosenOne<br>";
 
   sponsors_names_label_ = new QLabel(sponsors_list, this);
   sponsors_names_label_->setAlignment(Qt::AlignLeft);
