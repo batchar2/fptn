@@ -614,7 +614,9 @@ boost::asio::awaitable<bool> WebsocketClient::PerformFakeHandshake2() {
     }
 
     // timeout
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    boost::asio::steady_timer timer(co_await boost::asio::this_coro::executor,
+        std::chrono::milliseconds(150));
+    co_await timer.async_wait(boost::asio::use_awaitable);
 
     SPDLOG_INFO(
         "Fake TLS handshake completed for {}, received {} bytes from server",

@@ -145,6 +145,8 @@ class SettingsModel : public QObject {
       std::size_t ping_thread_pool_size = 4,
       QObject* parent = nullptr);
 
+  ~SettingsModel() override;
+
   void Load(bool dont_load_server = false);
   bool Save();
 
