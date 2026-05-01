@@ -15,6 +15,7 @@
         <file>icons/menu_new_version_download.png</file>
         <file>icons/menu_exit.png</file>
         <file>icons/menu_disconnect.png</file>
+        <file>icons/menu_connection.png</file>
 
         <file>translations/fptn_ru.qm</file>
         <file>translations/fptn_en.qm</file>

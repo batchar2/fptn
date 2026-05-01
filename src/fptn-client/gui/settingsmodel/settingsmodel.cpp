@@ -125,9 +125,9 @@ SettingsModel::SettingsModel(const QMap<QString, QString>& languages,
   Load(true);
 }
 
-SettingsModel::~SettingsModel()
-{
+SettingsModel::~SettingsModel() {
   StopPingMonitoring();
+
   ping_thread_pool_.stop();
   ping_thread_pool_.join();
 }
@@ -653,7 +653,9 @@ void SettingsModel::StartPingMonitoring() {
     }
   });
 
-  ping_timer_.start(1000);
+  if (!ping_timer_.isActive()) {
+    ping_timer_.start(1000);
+  }
 }
 
 void SettingsModel::StopPingMonitoring() {
@@ -668,9 +670,7 @@ void SettingsModel::StopPingMonitoring() {
     if (!start_pinging_) {
       return;
     }
-
     start_pinging_ = false;
-    ping_timer_.stop();
   }
 }
 
@@ -697,8 +697,8 @@ void SettingsModel::PingServer(const QString& host, int port) {
       std::ranges::any_of(results, [](int ping) { return ping == -1; });
 
   int final_ping_ms = -1;
-  if (!has_error) {
-    int sum = std::accumulate(results.begin(), results.end(), 0);
+  if (!has_error && !results.empty()) {
+    const int sum = std::accumulate(results.begin(), results.end(), 0);
     final_ping_ms = sum / static_cast<int>(results.size());
   }
 

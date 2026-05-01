@@ -139,6 +139,10 @@ TrayApp::TrayApp(const SettingsModelPtr& settings, QObject* parent)
 
   // Show connection... label
   connecting_label_action_ = new QAction(QObject::tr("Connecting..."), this);
+  connecting_label_action_->setIcon(LoadIcon(":/icons/menu_connection.png"));
+  connect(connecting_label_action_, &QAction::triggered, this,
+      &TrayApp::handleDefaultState);
+
   // Show Disconnecting... label
   disconnecting_label_action_ =
       new QAction(QObject::tr("Disconnecting..."), this);
@@ -428,10 +432,8 @@ void TrayApp::UpdateTrayMenu() {
     case ConnectionState::Connected: {
       tray_icon_->setIcon(QIcon(active_icon_path_));
       if (disconnect_action_) {
-        disconnect_action_->setText(
-            QString(QObject::tr("Disconnect") + ": %1 (%2)")
-                .arg(QString::fromStdString(selected_server_.name))
-                .arg(QString::fromStdString(selected_server_.service_name)));
+        disconnect_action_->setText(QString(QObject::tr("Disconnect") + ": %1")
+                .arg(QString::fromStdString(selected_server_.name)));
         disconnect_action_->setVisible(true);
       }
       if (speed_widget_) {
@@ -527,6 +529,7 @@ void TrayApp::handleDefaultState() {
   {
     const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
+    cancel_connecting_ = true;
     settings_->StartPingMonitoring();
 
     connection_state_ = ConnectionState::None;
@@ -553,11 +556,12 @@ void TrayApp::handleConnecting() {
   UpdateTrayMenu();
 
   if (!connecting_in_progress_) {  // only once!
+    cancel_connecting_ = false;
     connecting_in_progress_ = true;
 
     QFuture<std::tuple<bool, QString>> future = QtConcurrent::run([this]() {
       QString err_msg;
-      auto status = startVpn(err_msg);
+      const auto status = startVpn(err_msg);
       return std::make_tuple(status, std::move(err_msg));
     });
 
@@ -567,10 +571,11 @@ void TrayApp::handleConnecting() {
           const std::tuple<bool, QString> result = watcher->result();
           watcher->deleteLater();
 
-          bool status = std::get<0>(result);
-          const QString err_msg = std::get<1>(result);
-          emit this->vpnStarted(status, err_msg);
-
+          if (!cancel_connecting_) {
+            const bool status = std::get<0>(result);
+            const QString err_msg = std::get<1>(result);
+            emit this->vpnStarted(status, err_msg);
+          }
           connecting_in_progress_ = false;
         });
     watcher->setFuture(future);
@@ -683,9 +688,8 @@ void TrayApp::RetranslateUi() {
 
   if (disconnect_action_) {
     const QString disconnect_text =
-        QString(QObject::tr("Disconnect") + ": %1 (%2)")
-            .arg(QString::fromStdString(selected_server_.name))
-            .arg(QString::fromStdString(selected_server_.service_name));
+        QString(QObject::tr("Disconnect") + ": %1")
+            .arg(QString::fromStdString(selected_server_.name));
     disconnect_action_->setText(disconnect_text);
   }
   if (auto_update_action_) {
@@ -823,6 +827,10 @@ bool TrayApp::startVpn(QString& err_msg) {
         fptn::protocol::https::CensorshipStrategy::kSniRealityModeYandex25;
   }
 
+  if (cancel_connecting_) {
+    return false;
+  }
+
   fptn::config::ConfigFile config(sni, censorship_strategy);  // SET SNI
   if (smart_connect_) {  // find the best server
     for (const auto& service : settings_->Services()) {
@@ -870,6 +878,10 @@ bool TrayApp::startVpn(QString& err_msg) {
     return false;
   }
 
+  if (cancel_connecting_) {
+    return false;
+  }
+
   auto http_client = std::make_unique<fptn::vpn::http::Client>(server_ip,
       selected_server_.port, tun_interface_address_ipv4,
       tun_interface_address_ipv6, sni, selected_server_.md5_fingerprint,
@@ -888,12 +900,20 @@ bool TrayApp::startVpn(QString& err_msg) {
     return false;
   }
 
+  if (cancel_connecting_) {
+    return false;
+  }
+
   // get dns
   const auto [dns_server_ipv4, dns_server_ipv6] = http_client->GetDns();
   if (dns_server_ipv4.IsEmpty() || dns_server_ipv6.IsEmpty()) {
     const std::string error = http_client->LatestError();
     err_msg = QObject::tr("DNS server error! Check your connection!") + "\n\n" +
               QObject::tr("Error message: ") + QString::fromStdString(error);
+    return false;
+  }
+
+  if (cancel_connecting_) {
     return false;
   }
 
@@ -914,6 +934,10 @@ bool TrayApp::startVpn(QString& err_msg) {
       settings_->EnableAdvancedDnsManagement()
 #endif
   );  // NOLINT
+
+  if (cancel_connecting_) {
+    return false;
+  }
 
   // setup plugins
   std::vector<fptn::plugin::BasePluginPtr> client_plugins;
@@ -941,6 +965,10 @@ bool TrayApp::startVpn(QString& err_msg) {
     client_plugins.push_back(std::move(split_tunnel_plugin));
   }
 
+  if (cancel_connecting_) {
+    return false;
+  }
+
   // setup tun interface
   auto virtual_network_interface =
       std::make_unique<fptn::common::network::TunInterface>(
@@ -957,8 +985,16 @@ bool TrayApp::startVpn(QString& err_msg) {
       std::move(virtual_network_interface), dns_server_ipv4, dns_server_ipv6,
       std::move(client_plugins));
 
+  if (cancel_connecting_) {
+    return false;
+  }
+
   // Wait for the WebSocket tunnel to establish
   vpn_client_->Start();
+
+  if (cancel_connecting_) {
+    return false;
+  }
 
   // Update tun name to actual device name (may differ on macOS)
   route_manager_->UpdateTunInterfaceName(vpn_client_->GetInterfaceName());
@@ -971,6 +1007,10 @@ bool TrayApp::startVpn(QString& err_msg) {
       return false;
     }
     std::this_thread::sleep_for(std::chrono::microseconds(300));
+  }
+
+  if (cancel_connecting_) {
+    return false;
   }
 
   route_manager_->Apply();
@@ -990,6 +1030,9 @@ bool TrayApp::startVpn(QString& err_msg) {
     }
     route_manager_->AddIncludeNetworks(include_networks_std);
   }
+  if (cancel_connecting_) {
+    return false;
+  }
 
   return true;
 }
@@ -1008,6 +1051,7 @@ bool TrayApp::stopVpn() {
 }
 
 void TrayApp::handleVpnStarted(bool success, const QString& err_msg) {
+  cancel_connecting_ = false;
   if (success) {
     emit connected();
   } else {

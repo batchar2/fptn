@@ -122,5 +122,7 @@ class TrayApp : public QWidget {
   std::atomic<bool> connecting_in_progress_{false};
 
   QTimer* ping_update_timer_{nullptr};
+
+  std::atomic<bool> cancel_connecting_{false};
 };
 }  // namespace fptn::gui
