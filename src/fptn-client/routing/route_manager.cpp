@@ -460,7 +460,19 @@ bool RouteManager::Apply() {
       fmt::format("sysctl -w net.inet.ip.forwarding=1"),
       fmt::format("sysctl -w net.inet6.ip6.forwarding=1"),
       fmt::format(
-          R"(bash -c "printf 'nat on {findOutInterfaceName} from {tunInterfaceName}:network to any -> ({findOutInterfaceName})\npass out on {findOutInterfaceName} proto tcp from any to {vpnServerIP}\npass in on {findOutInterfaceName} proto tcp from {vpnServerIP} to any\npass in on {tunInterfaceName} proto tcp from any to any\npass out on {tunInterfaceName} proto tcp from any to any\npass in on {tunInterfaceName} proto udp from any to any\npass out on {tunInterfaceName} proto udp from any to any\n' > /tmp/pf.conf")",
+          R"(bash -c "printf 'nat on {findOutInterfaceName} from {tunInterfaceName}:network to any -> ({findOutInterfaceName})
+nat on {findOutInterfaceName} inet6 from {tunInterfaceName}:network to any -> ({findOutInterfaceName})
+pass out on {findOutInterfaceName} proto tcp from any to {vpnServerIP}
+pass in on {findOutInterfaceName} proto tcp from {vpnServerIP} to any
+pass in on {tunInterfaceName} proto tcp from any to any
+pass out on {tunInterfaceName} proto tcp from any to any
+pass in on {tunInterfaceName} proto udp from any to any
+pass out on {tunInterfaceName} proto udp from any to any
+pass in on {tunInterfaceName} proto udp from any to any port 53
+pass out on {tunInterfaceName} proto udp from any to any port 53
+pass in on {tunInterfaceName} proto tcp from any to any port 53
+pass out on {tunInterfaceName} proto tcp from any to any port 53
+' > /tmp/pf.conf")",
           fmt::arg("findOutInterfaceName", detected_out_interface_name_),
           fmt::arg("tunInterfaceName", tun_interface_name_),
           fmt::arg("vpnServerIP", vpn_server_ip_.ToString())),
@@ -479,6 +491,8 @@ bool RouteManager::Apply() {
           "route add -inet6 -net 8000::/1 -interface {}", tun_interface_name_),
       fmt::format("route add -inet6 default -interface {} 2>/dev/null || true",
           tun_interface_name_),
+      fmt::format("route add -inet6 -host {} -interface {}",
+          dns_server_ipv6_.ToString(), tun_interface_name_),
       // DNS IPv6 route
       fmt::format("route add -inet6 -host {} -interface {}",
           dns_server_ipv6_.ToString(), tun_interface_name_),
@@ -488,8 +502,8 @@ bool RouteManager::Apply() {
       // DNS
       fmt::format("dscacheutil -flushcache"),
       fmt::format(
-          R"(bash -c "networksetup -listallnetworkservices | grep -v '^An asterisk' | grep -v '^\* ' | xargs -I {{}} networksetup -setdnsservers '{{}}' {}")",
-          dns_server_ipv4_.ToString())};
+          R"(bash -c "networksetup -listallnetworkservices | grep -v '^An asterisk' | grep -v '^\* ' | xargs -I {{}} networksetup -setdnsservers '{{}}' {} {}")",
+          dns_server_ipv6_.ToString(), dns_server_ipv4_.ToString())};
 
 #elif _WIN32
   const std::string win_interface_number =
