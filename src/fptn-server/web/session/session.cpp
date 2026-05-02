@@ -124,7 +124,7 @@ Session::Session(std::uint16_t port,
         .idle_timeout = std::chrono::seconds(60),
         .keep_alive_pings = true});
 
-    boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::seconds(15));
+    boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::seconds(10));
     init_completed_ = true;
   } catch (const boost::system::system_error& err) {
     SPDLOG_ERROR("Session::init failed (client_id={}): {} [{}]", client_id_,
@@ -154,7 +154,6 @@ boost::asio::awaitable<void> Session::Run() {
   // Setup traffic obfuscator
   auto obfuscator_opt = co_await DetectObfuscator();
   if (!obfuscator_opt.has_value()) {
-    SPDLOG_ERROR("Failed to initialize traffic obfuscator");
     Close();
     co_return;
   }
@@ -981,9 +980,7 @@ void Session::Close() {
     return;
   }
 
-  SPDLOG_INFO("Close session {}", client_id_);
   running_ = false;
-
   try {
     cancel_signal_.emit(boost::asio::cancellation_type::all);
     write_channel_.close();
@@ -1073,19 +1070,18 @@ boost::asio::awaitable<bool> Session::Send(common::network::IPPacketPtr pkt) {
 }
 
 boost::asio::awaitable<IObfuscator> Session::DetectObfuscator() {
+  boost::system::error_code ec;
   try {
     auto& tcp_socket = boost::beast::get_lowest_layer(ws_).socket();
 
     // Peek data without consuming it from the socket buffer
     // This allows inspection without affecting subsequent reads
     std::array<std::uint8_t, 16384> buffer{};
-    const std::size_t bytes_read =
-        co_await tcp_socket.async_receive(boost::asio::buffer(buffer),
-            boost::asio::socket_base::message_peek, boost::asio::use_awaitable);
+    const std::size_t bytes_read = co_await tcp_socket.async_receive(
+        boost::asio::buffer(buffer), boost::asio::socket_base::message_peek,
+        boost::asio::redirect_error(boost::asio::use_awaitable, ec));
 
-    if (!bytes_read) {
-      SPDLOG_WARN("No data received for obfuscator detection [client_id: {}]",
-          client_id_);
+    if (ec || !bytes_read) {
       co_return std::nullopt;
     }
 
