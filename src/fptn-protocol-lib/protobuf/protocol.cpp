@@ -20,7 +20,20 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "common/network/ip_packet.h"
 #include "common/utils/utils.h"
 
+namespace {
+const std::vector<std::uint8_t>& RandomPaddingData() {
+  static const std::vector<std::uint8_t> kRandomData = [] {
+    std::vector<std::uint8_t> data(FPTN_IP_PACKET_MAX_SIZE, 0);
+    fptn::common::utils::GenerateRandomBytes(data.data(), data.size());
+    return data;
+  }();
+  return kRandomData;
+}
+
+}  // namespace
+
 namespace fptn::protocol::protobuf {
+
 ProtoPayloadOpt GetProtoPayload(const boost::beast::flat_buffer& buffer) {
   const std::size_t total_size = buffer.size();
   if (total_size == 0) {
@@ -93,35 +106,20 @@ ProtoPayloadOpt CreateProtoPayload(fptn::common::network::IPPacketPtr packet) {
 
   message.mutable_packet()->set_payload(data, current_size);
 
-#ifdef FPTN_ENABLE_PACKET_PADDING
-  /**
-   * Fill with random data to prevent issues related to TLS-inside-TLS.
-   */
   if (current_size < FPTN_IP_PACKET_MAX_SIZE) {
-    constexpr std::size_t kMaxPaddingBytes = FPTN_IP_PACKET_MAX_SIZE;
+    /**
+     * Fill with random data to prevent issues related to TLS-inside-TLS.
+     */
+    constexpr std::size_t kMaxPaddingBytes = 128;
     const std::size_t available_space = FPTN_IP_PACKET_MAX_SIZE - current_size;
-    const std::size_t max_padding = std::min(kMaxPaddingBytes, available_space);
-
-    if (max_padding > 0) {
-      static thread_local std::mt19937 gen{std::random_device{}()};
-      std::uniform_int_distribution<std::size_t> dist(0, max_padding);
-
-      const std::size_t padding_size = dist(gen);
-      if (padding_size > 0) {
-        std::string padding_buffer;
-        padding_buffer.resize(padding_size);
-
-        fptn::common::utils::GenerateRandomBytes(
-            reinterpret_cast<std::uint8_t*>(padding_buffer.data()),
-            padding_size);
-
-        message.mutable_packet()->set_padding_data(
-            padding_buffer.data(), padding_size);
-      }
+    const std::size_t padding_size =
+        std::min(kMaxPaddingBytes, available_space);
+    if (padding_size > 0) {
+      const auto& padding_data = RandomPaddingData();
+      message.mutable_packet()->set_padding_data(
+          reinterpret_cast<const char*>(padding_data.data()), padding_size);
     }
   }
-#endif
-
   const std::size_t estimated_size = message.ByteSizeLong();
   if (estimated_size == 0) {
     SPDLOG_ERROR("Failed to serialize Message: estimated size is 0");

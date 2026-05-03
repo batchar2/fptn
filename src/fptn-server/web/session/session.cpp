@@ -97,7 +97,7 @@ Session::Session(std::uint16_t port,
       ws_(ssl_stream_type(
           obfuscator_socket_type(tcp_stream_type(std::move(socket))), ctx)),
       strand_(boost::asio::make_strand(ws_.get_executor())),
-      write_channel_(strand_, 8192),
+      write_channel_(strand_, 128),
       api_handles_(api_handles),
       handshake_cache_manager_(std::move(handshake_cache_manager)),
       ws_open_callback_(std::move(ws_open_callback)),
@@ -115,8 +115,8 @@ Session::Session(std::uint16_t port,
 
     ws_.text(false);
     ws_.binary(true);
-    ws_.auto_fragment(false);
-    ws_.read_message_max(4 * 1024 * 1024);  // 4MB
+    ws_.auto_fragment(true);
+    ws_.read_message_max(128 * 1024);
     ws_.set_option(boost::beast::websocket::stream_base::timeout::suggested(
         boost::beast::role_type::server));
     ws_.set_option(boost::beast::websocket::stream_base::timeout{
@@ -258,12 +258,14 @@ boost::asio::awaitable<void> Session::Run() {
           return self->RunReader();
         },
         boost::asio::detached);
+
     boost::asio::co_spawn(
         strand_,
         [self]() mutable -> boost::asio::awaitable<void> {
           return self->RunSender();
         },
         boost::asio::detached);
+
   } else {
     Close();
   }
@@ -769,15 +771,12 @@ boost::asio::awaitable<bool> Session::HandleProxy(
 boost::asio::awaitable<void> Session::RunReader() {
   boost::system::error_code ec;
   boost::beast::flat_buffer buffer;
-  buffer.reserve(4 * 1024 * 1024);
+  buffer.reserve(16384);
   auto token = boost::asio::redirect_error(boost::asio::use_awaitable, ec);
   try {
-    while (running_ && ws_.is_open()) {
+    while (running_ && !ec) {
       co_await ws_.async_read(buffer, token);
-      if (ec) {
-        break;
-      }
-      if (buffer.size() > 0 && running_ && ws_.is_open()) {
+      if (buffer.size() > 0 && running_) {
         auto raw_ip = fptn::protocol::protobuf::GetProtoPayload(buffer);
         if (raw_ip.has_value() && running_) {
           auto packet = fptn::common::network::IPPacket::Parse(
@@ -786,8 +785,8 @@ boost::asio::awaitable<void> Session::RunReader() {
             ws_new_ippacket_callback_(std::move(packet));
           }
         }
+        buffer.consume(buffer.size());
       }
-      buffer.consume(buffer.size());
     }
   } catch (const std::exception& e) {
     SPDLOG_ERROR(
@@ -800,11 +799,11 @@ boost::asio::awaitable<void> Session::RunReader() {
 
 boost::asio::awaitable<void> Session::RunSender() {
   try {
+    auto token = boost::asio::bind_cancellation_slot(cancel_signal_.slot(),
+        boost::asio::as_tuple(boost::asio::use_awaitable));
     while (running_ && ws_.is_open()) {
-      auto [ec, packet] = co_await write_channel_.async_receive(
-          boost::asio::bind_cancellation_slot(cancel_signal_.slot(),
-              boost::asio::as_tuple(boost::asio::use_awaitable)));
-      if (running_ && ws_.is_open() && !ec && packet != nullptr) {
+      auto [ec, packet] = co_await write_channel_.async_receive(token);
+      if (running_ && !ec && packet) {
         auto msg =
             fptn::protocol::protobuf::CreateProtoPayload(std::move(packet));
         if (msg.has_value()) {
