@@ -1,12 +1,20 @@
 #!/bin/bash
 
+
 start_unbound() {
     echo "Starting unbound..."
 
+    DO_IP6="no"
+    [ "${DNS_IPV6_ENABLE:-false}" = "true" ] && DO_IP6="yes"
+
     CONFIG_FILE="/etc/unbound/unbound.conf"
     ROOT_HINTS="/etc/unbound/root.hints"
+    echo "Using DNS settings:"
+    echo "  IPv4: yes"
+    echo "  IPv6: $DO_IP6"
 
-    cat > "$CONFIG_FILE" << 'EOF'
+    if [ "${DNS_IPV6_ENABLE:-false}" = "true" ]; then
+        cat > "$CONFIG_FILE" << 'EOF'
 server:
     interface: 0.0.0.0
     interface: ::0
@@ -27,9 +35,35 @@ server:
     hide-identity: yes
     hide-version: yes
 EOF
+    else
+        cat > "$CONFIG_FILE" << 'EOF'
+server:
+    interface: 0.0.0.0
+    port: 53
+    do-ip4: yes
+    do-ip6: no
+    do-udp: yes
+    do-tcp: yes
+
+    access-control: 0.0.0.0/0 allow
+
+    root-hints: "/etc/unbound/root.hints"
+
+    cache-max-ttl: 86400
+    cache-min-ttl: 3600
+
+    hide-identity: yes
+    hide-version: yes
+    prefer-ip4: yes
+    prefer-ip6: no
+
+    private-address: ::/0
+    do-not-query-localhost: no
+    unwanted-reply-threshold: 0
+EOF
+    fi
 
     wget -q -O "$ROOT_HINTS" https://www.internic.net/domain/named.root
-
     exec unbound -d -c "$CONFIG_FILE"
 }
 
@@ -37,36 +71,43 @@ start_dnsmasq() {
     echo "Starting dnsmasq..."
 
     CONFIG_FILE="/etc/dnsmasq.conf"
+    DNS_IPV6_ENABLE="${DNS_IPV6_ENABLE:-false}"
 
     rm -f "$CONFIG_FILE"
 
-    if [ -n "$DNS_IPV4_PRIMARY" ]; then
-        echo "server=$DNS_IPV4_PRIMARY" >> "$CONFIG_FILE"
+    if [ "$DNS_IPV6_ENABLE" = "true" ]; then
+        if [ -n "$DNS_IPV4_PRIMARY" ]; then
+            echo "server=$DNS_IPV4_PRIMARY" >> "$CONFIG_FILE"
+        fi
+        if [ -n "$DNS_IPV4_SECONDARY" ]; then
+            echo "server=$DNS_IPV4_SECONDARY" >> "$CONFIG_FILE"
+        fi
+        if [ -n "$DNS_IPV6_PRIMARY" ]; then
+            echo "server=$DNS_IPV6_PRIMARY" >> "$CONFIG_FILE"
+        fi
+        if [ -n "$DNS_IPV6_SECONDARY" ]; then
+            echo "server=$DNS_IPV6_SECONDARY" >> "$CONFIG_FILE"
+        fi
+        if [ ! -s "$CONFIG_FILE" ]; then
+            echo "server=8.8.8.8" >> "$CONFIG_FILE"
+            echo "server=8.8.4.4" >> "$CONFIG_FILE"
+            echo "server=2001:4860:4860::8888" >> "$CONFIG_FILE"
+            echo "server=2001:4860:4860::8844" >> "$CONFIG_FILE"
+        fi
+    else
+        if [ -n "$DNS_IPV4_PRIMARY" ]; then
+            echo "server=$DNS_IPV4_PRIMARY" >> "$CONFIG_FILE"
+        fi
+        if [ -n "$DNS_IPV4_SECONDARY" ]; then
+            echo "server=$DNS_IPV4_SECONDARY" >> "$CONFIG_FILE"
+        fi
+        if [ ! -s "$CONFIG_FILE" ]; then
+            echo "server=8.8.8.8" >> "$CONFIG_FILE"
+            echo "server=8.8.4.4" >> "$CONFIG_FILE"
+        fi
+        echo "filter-AAAA" >> "$CONFIG_FILE"
     fi
 
-    if [ -n "$DNS_IPV4_SECONDARY" ]; then
-        echo "server=$DNS_IPV4_SECONDARY" >> "$CONFIG_FILE"
-    fi
-
-    if [ -n "$DNS_IPV6_PRIMARY" ]; then
-        echo "server=$DNS_IPV6_PRIMARY" >> "$CONFIG_FILE"
-    fi
-
-    if [ -n "$DNS_IPV6_SECONDARY" ]; then
-        echo "server=$DNS_IPV6_SECONDARY" >> "$CONFIG_FILE"
-    fi
-
-    # default value
-    if [ ! -s "$CONFIG_FILE" ]; then
-        cat > "$CONFIG_FILE" << EOF
-server=8.8.8.8
-server=8.8.4.4
-server=2001:4860:4860::8888
-server=2001:4860:4860::8844
-EOF
-    fi
-
-    # Additional options
     cat >> "$CONFIG_FILE" << EOF
 dns-forward-max=512
 cache-size=16384
@@ -77,13 +118,21 @@ no-poll
 EOF
 
     echo "Using DNS servers:"
-    echo "  IPv4 Primary: $DNS_IPV4_PRIMARY"
-    echo "  IPv4 Secondary: $DNS_IPV4_SECONDARY"
-    echo "  IPv6 Primary: $DNS_IPV6_PRIMARY"
-    echo "  IPv6 Secondary: $DNS_IPV6_SECONDARY"
+    echo "  IPv4: ENABLED"
+    echo "    Primary:   ${DNS_IPV4_PRIMARY:-8.8.8.8 (default)}"
+    echo "    Secondary: ${DNS_IPV4_SECONDARY:-8.8.4.4 (default)}"
+
+    if [ "$DNS_IPV6_ENABLE" = "true" ]; then
+        echo "  IPv6: ENABLED"
+        echo "    Primary:   ${DNS_IPV6_PRIMARY:-2001:4860:4860::8888 (default)}"
+        echo "    Secondary: ${DNS_IPV6_SECONDARY:-2001:4860:4860::8844 (default)}"
+    else
+        echo "  IPv6: DISABLED"
+    fi
 
     exec /usr/sbin/dnsmasq --no-daemon
 }
+
 
 case "$USING_DNS_SERVER" in
     "unbound")
