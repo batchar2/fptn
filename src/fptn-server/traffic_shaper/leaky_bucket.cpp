@@ -6,7 +6,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include "traffic_shaper/leaky_bucket.h"
 
-using fptn::traffic_shaper::LeakyBucket;
+namespace fptn::traffic_shaper {
 
 LeakyBucket::LeakyBucket(std::size_t max_bites_per_second)
     : current_amount_(0),
@@ -36,3 +36,4 @@ bool LeakyBucket::CheckSpeedLimit(std::size_t packet_size) noexcept {
   current_amount_ = packet_size;
   return true;
 }
+}  // namespace fptn::traffic_shaper

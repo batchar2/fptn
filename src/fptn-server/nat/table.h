@@ -8,6 +8,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include <chrono>
 #include <memory>
+#include <shared_mutex>
 #include <string>
 #include <unordered_map>
 
@@ -59,7 +60,7 @@ class Table final {
   fptn::common::network::IPv6Address GetUniqueIPv6Address();
 
  private:
-  mutable std::mutex mutex_;
+  mutable std::shared_mutex mutex_;
   std::uint32_t client_number_;
 
   const fptn::common::network::IPv4Address tun_ipv4_;
@@ -73,7 +74,6 @@ class Table final {
 
   fptn::common::network::IPv4AddressGenerator ipv4_generator_;
   fptn::common::network::IPv6AddressGenerator ipv6_generator_;
-
 
   std::unordered_map<IPv4INT, fptn::client::SessionSPtr>
       ipv4_to_sessions_;  // ipv4

@@ -36,7 +36,7 @@ fptn::client::SessionSPtr Table::CreateClientSession(ClientID client_id,
     const fptn::common::network::IPv6Address& client_ipv6,
     const fptn::traffic_shaper::LeakyBucketSPtr& to_client,
     const fptn::traffic_shaper::LeakyBucketSPtr& from_client) {
-  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+  const std::unique_lock<std::shared_mutex> lock(mutex_);  // mutex
 
   if (!client_id_to_sessions_.contains(client_id)) {
     if (client_number_ >= ipv4_generator_.NumAvailableAddresses()) {
@@ -73,7 +73,7 @@ bool Table::DelClientSession(ClientID client_id) {
   fptn::client::SessionSPtr ipv4_session;
   fptn::client::SessionSPtr ipv6_session;
   {
-    const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+    const std::unique_lock<std::shared_mutex> lock(mutex_);  // mutex
 
     auto it = client_id_to_sessions_.find(client_id);
     if (it != client_id_to_sessions_.end()) {
@@ -104,7 +104,7 @@ bool Table::DelClientSession(ClientID client_id) {
 
 fptn::client::SessionSPtr Table::GetSessionByFakeIPv4(
     const fptn::common::network::IPv4Address& ip) noexcept {
-  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+  const std::unique_lock<std::shared_mutex> lock(mutex_);  // mutex
 
   const auto it = ipv4_to_sessions_.find(ip.ToInt());
   if (it != ipv4_to_sessions_.end()) {
@@ -115,7 +115,7 @@ fptn::client::SessionSPtr Table::GetSessionByFakeIPv4(
 
 fptn::client::SessionSPtr Table::GetSessionByFakeIPv6(
     const fptn::common::network::IPv6Address& ip) noexcept {
-  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+  const std::unique_lock<std::shared_mutex> lock(mutex_);  // mutex
 
   auto it = ipv6_to_sessions_.find(ip.ToString());
   if (it != ipv6_to_sessions_.end()) {
@@ -126,7 +126,7 @@ fptn::client::SessionSPtr Table::GetSessionByFakeIPv6(
 
 fptn::client::SessionSPtr Table::GetSessionByClientId(
     ClientID clientId) noexcept {
-  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+  const std::unique_lock<std::shared_mutex> lock(mutex_);  // mutex
 
   auto it = client_id_to_sessions_.find(clientId);
   if (it != client_id_to_sessions_.end()) {
@@ -137,11 +137,12 @@ fptn::client::SessionSPtr Table::GetSessionByClientId(
 
 std::size_t Table::GetNumberActiveSessionByUsername(
     const std::string& username) {
-  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+  const std::unique_lock<std::shared_mutex> lock(mutex_);  // mutex
 
-  return std::count_if(ipv4_to_sessions_.begin(), ipv4_to_sessions_.end(),
-      [&username](
-          const auto& pair) { return pair.second->UserName() == username; });
+  return std::ranges::count_if(
+      ipv4_to_sessions_, [&username](const auto& pair) {
+        return pair.second->UserName() == username;
+      });
 }
 
 fptn::common::network::IPv4Address Table::GetUniqueIPv4Address() {
@@ -165,7 +166,7 @@ fptn::common::network::IPv6Address Table::GetUniqueIPv6Address() {
 }
 
 void Table::UpdateStatistic(const fptn::statistic::MetricsSPtr& prometheus) {
-  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+  const std::unique_lock<std::shared_mutex> lock(mutex_);  // mutex
 
   prometheus->UpdateActiveSessions(client_id_to_sessions_.size());
   for (const auto& client : client_id_to_sessions_) {

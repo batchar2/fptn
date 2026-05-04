@@ -142,16 +142,16 @@ void Manager::RunFromClient() const noexcept {
 }
 
 void Manager::RunCollectStatistics() noexcept {
-  const std::chrono::milliseconds timeout{300};
-  const std::chrono::seconds collect_interval{2};
+  constexpr std::chrono::milliseconds kTtimeout{300};
+  constexpr std::chrono::seconds kCollectInterval{2};
 
   std::chrono::steady_clock::time_point last_collection_time;
   while (running_) {
-    auto now = std::chrono::steady_clock::now();
-    if (now - last_collection_time > collect_interval) {
+    const auto now = std::chrono::steady_clock::now();
+    if (now - last_collection_time > kCollectInterval) {
       nat_->UpdateStatistic(prometheus_);
       last_collection_time = now;
     }
-    std::this_thread::sleep_for(timeout);
+    std::this_thread::sleep_for(kTtimeout);
   }
 }
