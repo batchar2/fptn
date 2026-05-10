@@ -46,10 +46,9 @@ ProtoPayloadOpt GetProtoPayload(const boost::beast::flat_buffer& buffer) {
 
   // Arena optimization
   static thread_local google::protobuf::Arena pb_arena;
-  static thread_local size_t pb_usage_count = 0;
-  if (++pb_usage_count >= 500) {
+  constexpr std::uint64_t kMaxArenaSizeBytes = 15 * 1024 * 1024;
+  if (pb_arena.SpaceUsed() > kMaxArenaSizeBytes) {
     pb_arena.Reset();
-    pb_usage_count = 0;
   }
   auto* message =
       google::protobuf::Arena::Create<fptn::protocol::Message>(&pb_arena);
@@ -97,10 +96,9 @@ ProtoPayloadOpt CreateProtoPayload(fptn::common::network::IPPacketPtr packet) {
 
   // Arena optimization
   static thread_local google::protobuf::Arena pb_arena;
-  static thread_local size_t pb_usage_count = 0;
-  if (++pb_usage_count >= 500) {
+  constexpr std::uint64_t kMaxArenaSizeBytes = 15 * 1024 * 1024;
+  if (pb_arena.SpaceUsed() > kMaxArenaSizeBytes) {
     pb_arena.Reset();
-    pb_usage_count = 0;
   }
   auto* message =
       google::protobuf::Arena::Create<fptn::protocol::Message>(&pb_arena);
