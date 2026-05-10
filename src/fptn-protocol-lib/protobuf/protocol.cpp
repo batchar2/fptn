@@ -8,6 +8,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include <algorithm>
 #include <ctime>
+#include <google/protobuf/arena.h>  // NOLINT(build/include_order)
 #include <random>
 #include <string>
 #include <utility>
@@ -43,22 +44,31 @@ ProtoPayloadOpt GetProtoPayload(const boost::beast::flat_buffer& buffer) {
 
   const void* data_ptr = static_cast<const char*>(buffer.cdata().data());
 
-  fptn::protocol::Message message;
-  if (!message.ParseFromArray(data_ptr, static_cast<int>(total_size))) {
+  // Arena optimization
+  static thread_local google::protobuf::Arena pb_arena;
+  static thread_local size_t pb_usage_count = 0;
+  if (++pb_usage_count >= 500) {
+    pb_arena.Reset();
+    pb_usage_count = 0;
+  }
+  auto* message =
+      google::protobuf::Arena::Create<fptn::protocol::Message>(&pb_arena);
+
+  if (!message->ParseFromArray(data_ptr, static_cast<int>(total_size))) {
     SPDLOG_ERROR("Failed to parse Protobuf message: parse error");
     return std::nullopt;
   }
 
-  if (message.protocol_version() != FPTN_PROTOBUF_PROTOCOL_VERSION) {
+  if (message->protocol_version() != FPTN_PROTOBUF_PROTOCOL_VERSION) {
     SPDLOG_ERROR(
-        "Unsupported protocol version: {}", message.protocol_version());
+        "Unsupported protocol version: {}", message->protocol_version());
     return std::nullopt;
   }
 
-  switch (message.msg_type()) {
+  switch (message->msg_type()) {
     case fptn::protocol::MSG_IP_PACKET:
-      if (message.has_packet()) {
-        const auto& payload = message.packet().payload();
+      if (message->has_packet()) {
+        const auto& payload = message->packet().payload();
         std::vector<std::uint8_t> result;
         result.reserve(payload.size());
         result.assign(payload.begin(), payload.end());
@@ -67,8 +77,8 @@ ProtoPayloadOpt GetProtoPayload(const boost::beast::flat_buffer& buffer) {
       SPDLOG_ERROR("Malformed IP packet: no packet field");
       break;
     case fptn::protocol::MSG_ERROR:
-      if (message.has_error()) {
-        SPDLOG_ERROR("Message error: {}", message.error().error_msg());
+      if (message->has_error()) {
+        SPDLOG_ERROR("Message error: {}", message->error().error_msg());
       } else {
         SPDLOG_ERROR("Malformed error message: no error field");
       }
@@ -85,9 +95,18 @@ ProtoPayloadOpt CreateProtoPayload(fptn::common::network::IPPacketPtr packet) {
     return std::nullopt;
   }
 
-  fptn::protocol::Message message;
-  message.set_protocol_version(FPTN_PROTOBUF_PROTOCOL_VERSION);
-  message.set_msg_type(fptn::protocol::MSG_IP_PACKET);
+  // Arena optimization
+  static thread_local google::protobuf::Arena pb_arena;
+  static thread_local size_t pb_usage_count = 0;
+  if (++pb_usage_count >= 500) {
+    pb_arena.Reset();
+    pb_usage_count = 0;
+  }
+  auto* message =
+      google::protobuf::Arena::Create<fptn::protocol::Message>(&pb_arena);
+
+  message->set_protocol_version(FPTN_PROTOBUF_PROTOCOL_VERSION);
+  message->set_msg_type(fptn::protocol::MSG_IP_PACKET);
 
   const auto* raw_packet = packet->GetRawPacket();
   if (!raw_packet) {
@@ -104,7 +123,7 @@ ProtoPayloadOpt CreateProtoPayload(fptn::common::network::IPPacketPtr packet) {
     return std::nullopt;
   }
 
-  message.mutable_packet()->set_payload(data, current_size);
+  message->mutable_packet()->set_payload(data, current_size);
 
   if (current_size < FPTN_IP_PACKET_MAX_SIZE) {
     /**
@@ -116,18 +135,18 @@ ProtoPayloadOpt CreateProtoPayload(fptn::common::network::IPPacketPtr packet) {
         std::min(kMaxPaddingBytes, available_space);
     if (padding_size > 0) {
       const auto& padding_data = RandomPaddingData();
-      message.mutable_packet()->set_padding_data(
+      message->mutable_packet()->set_padding_data(
           reinterpret_cast<const char*>(padding_data.data()), padding_size);
     }
   }
-  const std::size_t estimated_size = message.ByteSizeLong();
+  const std::size_t estimated_size = message->ByteSizeLong();
   if (estimated_size == 0) {
     SPDLOG_ERROR("Failed to serialize Message: estimated size is 0");
     return std::nullopt;
   }
 
   std::vector<std::uint8_t> serialized_data(estimated_size);
-  if (!message.SerializeToArray(
+  if (!message->SerializeToArray(
           serialized_data.data(), static_cast<int>(estimated_size))) {
     SPDLOG_ERROR("Failed to serialize Message.");
     return std::nullopt;
