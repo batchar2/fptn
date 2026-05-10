@@ -932,7 +932,7 @@ bool TrayApp::startVpn(QString& err_msg) {
           .include_networks = include_networks_std
 #if _WIN32
           ,
-          enable_advanced_dns_management =
+          .enable_advanced_dns_management =
               settings_->EnableAdvancedDnsManagement()
 #endif
       });
