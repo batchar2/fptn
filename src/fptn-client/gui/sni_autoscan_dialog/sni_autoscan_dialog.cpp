@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -18,6 +18,8 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <QMessageBox>    // NOLINT(build/include_order)
 #include <QScrollBar>     // NOLINT(build/include_order)
 #include <QVBoxLayout>    // NOLINT(build/include_order)
+
+#include "common/api/handle.h"
 
 #include "fptn-protocol-lib/https/api_client/api_client.h"
 
@@ -252,7 +254,7 @@ void SniAutoscanDialog::WorkerThread(int thread_id) {
       handshake_ok = client.TestHandshake(kHandshakeTimeout);
       if (handshake_ok) {
         constexpr int kHttpTimeout = 5;
-        const auto response = client.Get("/api/v1/dns", kHttpTimeout);
+        const auto response = client.Get(common::api::kApiDnsUrl, kHttpTimeout);
         http_ok = (response.code == 200);
 
         if (http_ok) {

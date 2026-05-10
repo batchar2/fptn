@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -21,7 +21,8 @@ namespace fptn::network {
 
 class VirtualInterface final {
  public:
-  VirtualInterface(fptn::common::network::TunInterface::Config config,
+  VirtualInterface(const std::string& name,
+      fptn::common::network::TunInterface::Config config,
       fptn::routing::RouteManagerPtr iptables);
   ~VirtualInterface();
 
@@ -40,11 +41,14 @@ class VirtualInterface final {
   std::thread thread_;
   std::atomic<bool> running_;
 
+  const std::string name_;
+  fptn::common::network::TunInterface::Config config_;
+
   const fptn::routing::RouteManagerPtr iptables_;
 
   fptn::common::data::Channel to_network_;
   fptn::common::data::Channel from_network_;
-  fptn::common::network::TunInterfacePtr virtual_network_interface_;
+  fptn::common::network::TunInterfaceSPtr virtual_network_interface_;
 };
 
 using VirtualInterfacePtr = std::unique_ptr<VirtualInterface>;

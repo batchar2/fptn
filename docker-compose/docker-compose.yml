@@ -51,7 +51,7 @@ services:
       - DNS_IPV6_PRIMARY=${DNS_IPV6_PRIMARY:-2001:4860:4860::8888}
       - DNS_IPV6_SECONDARY=${DNS_IPV6_SECONDARY:-2001:4860:4860::8844}
     healthcheck:
-      test: ["CMD", "sh", "-c", "pgrep dnsmasq && pgrep fptn-server"]
+      test: ["CMD", "sh", "-c", "pgrep fptn-server"]
       interval: 30s
       timeout: 10s
       retries: 3

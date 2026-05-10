@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -19,6 +19,8 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
+#include "common/api/handle.h"
+
 #include "fptn-protocol-lib/https/api_client/api_client.h"
 
 using fptn::protocol::https::ApiClient;
@@ -37,7 +39,7 @@ std::uint64_t GetDownloadTimeMs(const ServerInfo& server,
     auto const start = std::chrono::high_resolution_clock::now();
     ApiClient cli(
         server.host, server.port, sni, md5_fingerprint, censorship_strategy);
-    auto const resp = cli.Get("/api/v1/test/file.bin", timeout);
+    auto const resp = cli.Get(common::api::kApiTestFileBinUrl, timeout);
     if (resp.code == 200) {
       auto const end = std::chrono::high_resolution_clock::now();
       const std::uint64_t ms =

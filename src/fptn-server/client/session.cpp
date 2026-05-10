@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -9,9 +9,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <string>
 #include <utility>
 
-using fptn::client::Session;
-using fptn::common::network::IPv4Address;
-using fptn::common::network::IPv6Address;
+namespace fptn::client {
 
 Session::Session(ClientID client_id,
     std::string user_name,
@@ -28,7 +26,8 @@ Session::Session(ClientID client_id,
       client_ipv6_(std::move(client_ipv6)),
       fake_client_ipv6_(std::move(fake_client_ipv6)),
       to_client_(std::move(to_client)),
-      from_client_(std::move(from_client)) {}
+      from_client_(std::move(from_client))
+{}
 
 const fptn::ClientID& Session::ClientId() const noexcept { return client_id_; }
 
@@ -60,6 +59,10 @@ fptn::common::network::IPPacketPtr Session::ChangeIPAddressToClientIP(
     fptn::common::network::IPPacketPtr packet) noexcept {
   packet->SetClientId(client_id_);
 
+  if (disable_checksum_calculation_) {
+    return packet;
+  }
+
 #ifdef FPTN_IP_ADDRESS_WITHOUT_PCAP
   if (packet->IsIPv4()) {
     packet->SetDstIPv4Address(client_ipv4_.ToString());
@@ -80,6 +83,11 @@ fptn::common::network::IPPacketPtr Session::ChangeIPAddressToClientIP(
 fptn::common::network::IPPacketPtr Session::ChangeIPAddressToFakeIP(
     fptn::common::network::IPPacketPtr packet) noexcept {
   packet->SetClientId(client_id_);
+
+  if (disable_checksum_calculation_) {
+    return packet;
+  }
+
 #ifdef FPTN_IP_ADDRESS_WITHOUT_PCAP
   if (packet->IsIPv4()) {
     packet->SetSrcIPv4Address(fake_client_ipv4_.ToString());
@@ -96,3 +104,8 @@ fptn::common::network::IPPacketPtr Session::ChangeIPAddressToFakeIP(
   packet->ComputeCalculateFields();
   return packet;
 }
+
+void Session::DisableChecksumCalculation(const bool value) noexcept {
+  disable_checksum_calculation_ = value;
+}
+}  // namespace fptn::client

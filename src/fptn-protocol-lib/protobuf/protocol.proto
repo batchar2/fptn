@@ -7,6 +7,7 @@ option java_package = "org.fptn.protocol";
 enum MessageType {
     MSG_ERROR = 0;
     MSG_IP_PACKET = 1;
+    MSG_IP_ASSIGNMENT = 2;
 }
 
 enum ErrorType {
@@ -25,6 +26,11 @@ message IPPacket {
     bytes padding_data = 2;
 }
 
+message IPAssignment {
+    string address_ipv4 = 1;
+    string address_ipv6 = 2;
+}
+
 message Message {
     int32 protocol_version = 1;
     MessageType msg_type = 2;
@@ -32,5 +38,6 @@ message Message {
     oneof message_content {
         ErrorMessage error = 3;
         IPPacket packet = 4;
+        IPAssignment ip_addresses = 5;
     }
 }

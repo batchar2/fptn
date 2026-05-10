@@ -1,6 +1,6 @@
 
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -94,7 +94,13 @@ class Session : public std::enable_shared_from_this<Session> {
   boost::asio::awaitable<bool> HandleHttp(
       const boost::beast::http::request<boost::beast::http::string_body>&
           request);
+
+  // deprecated
   boost::asio::awaitable<bool> HandleWebSocket(
+      const boost::beast::http::request<boost::beast::http::string_body>&
+          request);
+
+  boost::asio::awaitable<bool> HandleWebSocket2(
       const boost::beast::http::request<boost::beast::http::string_body>&
           request);
 

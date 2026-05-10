@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -46,6 +46,8 @@ class Session final {
   fptn::traffic_shaper::LeakyBucketSPtr& TrafficShaperToClient() noexcept;
   fptn::traffic_shaper::LeakyBucketSPtr& TrafficShaperFromClient() noexcept;
 
+  void DisableChecksumCalculation(const bool value) noexcept;
+
   fptn::common::network::IPPacketPtr ChangeIPAddressToClientIP(
       fptn::common::network::IPPacketPtr packet) noexcept;
   fptn::common::network::IPPacketPtr ChangeIPAddressToFakeIP(
@@ -61,6 +63,8 @@ class Session final {
 
   fptn::traffic_shaper::LeakyBucketSPtr to_client_;
   fptn::traffic_shaper::LeakyBucketSPtr from_client_;
+
+  bool disable_checksum_calculation_;
 };
 
 using SessionSPtr = std::shared_ptr<Session>;

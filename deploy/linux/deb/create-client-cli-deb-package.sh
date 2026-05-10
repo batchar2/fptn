@@ -65,16 +65,17 @@ GATEWAY_IPv6=
 # Censorship Bypass Settings
 # Optional: Method to bypass censorship mechanisms
 # Available options:
-#   - obfuscation            - Masks traffic as regular HTTPS using TLS obfuscation
-#   - sni-reality-chrome147  - SNI reality with Chrome 147 browser fingerprint
-#   - sni-reality-chrome146  - SNI reality with Chrome 146 browser fingerprint
-#   - sni-reality-chrome145  - SNI reality with Chrome 145 browser fingerprint
-#   - sni-reality-firefox149 - SNI reality with Firefox 149 browser fingerprint
-#   - sni-reality-yandex26   - SNI reality with Yandex Browser 26 fingerprint
-#   - sni-reality-yandex25   - SNI reality with Yandex Browser 25 fingerprint
-#   - sni-reality-yandex24   - SNI reality with Yandex Browser 24 fingerprint
-#   - sni-reality-safari26   - SNI reality with Safari 26 browser fingerprint
-BYPASS_METHOD=sni-reality-yandex25
+#   - sni-spoofing            - SNI spoofing
+#   - obfuscation             - Masks traffic as regular HTTPS using TLS obfuscation
+#   - sni-spoofing-chrome147  - SNI spoofing with Chrome 147 browser fingerprint
+#   - sni-spoofing-chrome146  - SNI spoofing with Chrome 146 browser fingerprint
+#   - sni-spoofing-chrome145  - SNI spoofing with Chrome 145 browser fingerprint
+#   - sni-spoofing-firefox149 - SNI spoofing with Firefox 149 browser fingerprint
+#   - sni-spoofing-yandex26   - SNI spoofing with Yandex Browser 26 fingerprint
+#   - sni-spoofing-yandex25   - SNI spoofing with Yandex Browser 25 fingerprint
+#   - sni-spoofing-yandex24   - SNI spoofing with Yandex Browser 24 fingerprint
+#   - sni-spoofing-safari26   - SNI spoofing with Safari 26 browser fingerprint
+BYPASS_METHOD=sni-spoofing
 
 
 # Blacklist domains - always blocked regardless of other settings

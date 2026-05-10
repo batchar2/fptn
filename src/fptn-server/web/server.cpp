@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -15,6 +15,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
+#include "common/api/handle.h"
 #include "common/utils/utils.h"
 
 using fptn::web::Server;
@@ -74,19 +75,21 @@ Server::Server(std::uint16_t port,
       std::bind(&Server::HandleWsNewIPPacket, this, _1),
       // NOLINTNEXTLINE(modernize-avoid-bind)
       std::bind(&Server::HandleWsCloseConnection, this, _1));
-  listener_->AddApiHandle(
+  listener_->AddApiHandle(fptn::common::api::kApiDnsUrl, "GET",
       // NOLINTNEXTLINE(modernize-avoid-bind)
-      kUrlDns_, "GET", std::bind(&Server::HandleApiDns, this, _1, _2));
+      std::bind(&Server::HandleApiDns, this, _1, _2));
   listener_->AddApiHandle(
+      fptn::common::api::kApiLoginUrl, "POST",
       // NOLINTNEXTLINE(modernize-avoid-bind)
-      kUrlLogin_, "POST", std::bind(&Server::HandleApiLogin, this, _1, _2));
-  listener_->AddApiHandle(kUrlTestFileBin_, "GET",
+      std::bind(&Server::HandleApiLogin, this, _1, _2));
+  listener_->AddApiHandle(fptn::common::api::kApiTestFileBinUrl, "GET",
       // NOLINTNEXTLINE(modernize-avoid-bind)
       std::bind(&Server::HandleApiTestFile, this, _1, _2));
   if (!prometheus_access_key.empty()) {
     // Construct the URL for accessing Prometheus statistics by appending the
     // access key
-    const std::string metrics = kUrlMetrics_ + '/' + prometheus_access_key;
+    const std::string metrics =
+        std::string(common::api::kApiMetricsUrl) + '/' + prometheus_access_key;
     listener_->AddApiHandle(
         // NOLINTNEXTLINE(modernize-avoid-bind)
         metrics, "GET", std::bind(&Server::HandleApiMetrics, this, _1, _2));
@@ -250,7 +253,8 @@ int Server::HandleApiTestFile(const http::request& req, http::response& resp) {
   return 200;
 }
 
-bool Server::HandleWsOpenConnection(fptn::ClientID client_id,
+fptn::client::SessionSPtr Server::HandleWsOpenConnection(
+    fptn::ClientID client_id,
     const fptn::common::network::IPv4Address& client_ip,
     const fptn::common::network::IPv4Address& client_vpn_ipv4,
     const fptn::common::network::IPv6Address& client_vpn_ipv6,
@@ -259,60 +263,67 @@ bool Server::HandleWsOpenConnection(fptn::ClientID client_id,
     const std::string& access_token) {
   if (!running_) {
     SPDLOG_ERROR("Server is not running");
-    return false;
+    return nullptr;
   }
-  if (url != kUrlWebSocket_) {
+  if (url != fptn::common::api::kApiWebSocketUrlOld &&
+      url != fptn::common::api::kApiWebSocketUrl) {
     SPDLOG_ERROR("Wrong URL \"{}\"", url);
-    return false;
+    return nullptr;
   }
+
+  std::string username;
+  std::size_t bandwidth_bites_seconds = 0;
+  if (!token_manager_->Validate(
+          access_token, username, bandwidth_bites_seconds)) {
+    SPDLOG_WARN("WRONG TOKEN: {}", username);
+    return nullptr;
+  }
+
+  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+  const auto active_sessions =
+      nat_table_->GetNumberActiveSessionByUsername(username);
+
+  if (active_sessions > max_active_sessions_per_user_) {
+    SPDLOG_WARN("Session limit exceeded for user '{}': {} active (limit: {})",
+        username, active_sessions, max_active_sessions_per_user_);
+    return nullptr;
+  }
+
+  if (sessions_.contains(client_id)) {
+    SPDLOG_WARN("Client with same ID already exists!");
+    return nullptr;
+  }
+
+  const auto shaper_to_client =
+      std::make_shared<fptn::traffic_shaper::LeakyBucket>(
+          bandwidth_bites_seconds);
+  const auto shaper_from_client =
+      std::make_shared<fptn::traffic_shaper::LeakyBucket>(
+          bandwidth_bites_seconds);
+
+  fptn::client::SessionSPtr nat_session = nullptr;
   if (!client_vpn_ipv4.IsEmpty() && !client_vpn_ipv6.IsEmpty()) {
-    std::string username;
-    std::size_t bandwidth_bites_seconds = 0;
-    if (token_manager_->Validate(
-            access_token, username, bandwidth_bites_seconds)) {
-      const std::unique_lock<std::mutex> lock(mutex_);  // mutex
-
-      const auto active_sessions =
-          nat_table_->GetNumberActiveSessionByUsername(username);
-
-      if (active_sessions > max_active_sessions_per_user_) {
-        SPDLOG_WARN(
-            "Session limit exceeded for user '{}': {} active (limit: {})",
-            username, active_sessions, max_active_sessions_per_user_);
-        return false;
-      }
-
-      if (sessions_.contains(client_id)) {
-        SPDLOG_WARN("Client with same ID already exists!");
-      } else {
-        const auto shaper_to_client =
-            std::make_shared<fptn::traffic_shaper::LeakyBucket>(
-                bandwidth_bites_seconds);
-        const auto shaper_from_client =
-            std::make_shared<fptn::traffic_shaper::LeakyBucket>(
-                bandwidth_bites_seconds);
-        const auto nat_session = nat_table_->CreateClientSession(client_id,
-            username, client_vpn_ipv4, client_vpn_ipv6, shaper_to_client,
-            shaper_from_client);
-        SPDLOG_INFO(
-            "NEW SESSION! Username={} client_id={} Bandwidth={} ClientIP={} "
-            "VirtualIPv4={} VirtualIPv6={}",
-            username, client_id, bandwidth_bites_seconds, client_ip.ToString(),
-            nat_session->FakeClientIPv4().ToString(),
-            nat_session->FakeClientIPv6().ToString());
-        if (running_) {
-          sessions_.insert({client_id, session});
-          return true;
-        }
-        return false;
-      }
-    } else {
-      SPDLOG_WARN("WRONG TOKEN: {}", username);
-    }
+    // deprecated
+    nat_session = nat_table_->CreateClientSession(client_id, username,
+        client_vpn_ipv4, client_vpn_ipv6, shaper_to_client, shaper_from_client);
   } else {
-    SPDLOG_WARN("Wrong ClientIP or ClientIPv6");
+    nat_session = nat_table_->CreateClientSession2(
+        client_id, username, shaper_to_client, shaper_from_client);
   }
-  return false;
+
+  SPDLOG_INFO(
+      "NEW SESSION! Username={} client_id={} Bandwidth={} ClientIP={} "
+      "VirtualIPv4={} VirtualIPv6={}",
+      username, client_id, bandwidth_bites_seconds, client_ip.ToString(),
+      nat_session->FakeClientIPv4().ToString(),
+      nat_session->FakeClientIPv6().ToString());
+
+  if (running_) {
+    sessions_.insert({client_id, session});
+    return nat_session;
+  }
+  return nullptr;
 }
 
 void Server::HandleWsNewIPPacket(

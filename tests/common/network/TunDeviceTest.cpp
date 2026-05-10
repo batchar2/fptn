@@ -216,28 +216,27 @@ class GenericTunInterfaceTest : public ::testing::Test {
   }
 
   static MockTunInterface::Config MakeConfig() {
-    return MockTunInterface::Config{
-        .name = "mock0",
-        .ipv4_addr = fptn::common::network::IPv4Address("10.0.0.1"),
-        .ipv4_netmask = 24,
-        .ipv6_addr = fptn::common::network::IPv6Address("fc00:1::1"),
-        .ipv6_netmask = 112,
-    };
+    MockTunInterface::Config config;
+    config.ipv4_addr = fptn::common::network::IPv4Address("10.0.0.1");
+    config.ipv4_netmask = 24;
+    config.ipv6_addr = fptn::common::network::IPv6Address("fc00:1::1");
+    config.ipv6_netmask = 112;
+    return config;
   }
 };
 
 }  // namespace
 
 TEST_F(GenericTunInterfaceTest, StartAndStop) {
-  MockTunInterface iface(MakeConfig());
-  ASSERT_TRUE(iface.Start());
+  MockTunInterface iface("mock0");
+  ASSERT_TRUE(iface.Start(MakeConfig()));
   EXPECT_EQ(iface.Name(), "mock0");
   EXPECT_TRUE(iface.Stop());
 }
 
 TEST_F(GenericTunInterfaceTest, SendIPv4Packet) {
-  MockTunInterface iface(MakeConfig());
-  ASSERT_TRUE(iface.Start());
+  MockTunInterface iface("mock0");
+  ASSERT_TRUE(iface.Start(MakeConfig()));
 
   auto pkt_data = MakeMinimalIPv4Packet();
   auto packet = fptn::common::network::IPPacket::Parse(pkt_data);
@@ -256,8 +255,8 @@ TEST_F(GenericTunInterfaceTest, SendIPv4Packet) {
 }
 
 TEST_F(GenericTunInterfaceTest, SendIPv6Packet) {
-  MockTunInterface iface(MakeConfig());
-  ASSERT_TRUE(iface.Start());
+  MockTunInterface iface("mock0");
+  ASSERT_TRUE(iface.Start(MakeConfig()));
 
   auto pkt_data = MakeMinimalIPv6Packet();
   auto packet = fptn::common::network::IPPacket::Parse(pkt_data);
@@ -276,7 +275,7 @@ TEST_F(GenericTunInterfaceTest, SendIPv6Packet) {
 }
 
 TEST_F(GenericTunInterfaceTest, ReceiveIPv4Packet) {
-  MockTunInterface iface(MakeConfig());
+  MockTunInterface iface("mock0");
 
   std::mutex callback_mutex;
   std::vector<std::vector<std::uint8_t>> received;
@@ -290,7 +289,7 @@ TEST_F(GenericTunInterfaceTest, ReceiveIPv4Packet) {
     }
   });
 
-  ASSERT_TRUE(iface.Start());
+  ASSERT_TRUE(iface.Start(MakeConfig()));
 
   g_mock_state->InjectPacket(MakeMinimalIPv4Packet());
 
@@ -312,7 +311,7 @@ TEST_F(GenericTunInterfaceTest, ReceiveIPv4Packet) {
 }
 
 TEST_F(GenericTunInterfaceTest, ReceiveIPv6Packet) {
-  MockTunInterface iface(MakeConfig());
+  MockTunInterface iface("mock0");
 
   std::mutex callback_mutex;
   std::vector<std::vector<std::uint8_t>> received;
@@ -326,7 +325,7 @@ TEST_F(GenericTunInterfaceTest, ReceiveIPv6Packet) {
     }
   });
 
-  ASSERT_TRUE(iface.Start());
+  ASSERT_TRUE(iface.Start(MakeConfig()));
 
   g_mock_state->InjectPacket(MakeMinimalIPv6Packet());
 
@@ -348,8 +347,8 @@ TEST_F(GenericTunInterfaceTest, ReceiveIPv6Packet) {
 }
 
 TEST_F(GenericTunInterfaceTest, SendMultipleMixedPackets) {
-  MockTunInterface iface(MakeConfig());
-  ASSERT_TRUE(iface.Start());
+  MockTunInterface iface("mock0");
+  ASSERT_TRUE(iface.Start(MakeConfig()));
 
   auto ipv4_data = MakeMinimalIPv4Packet();
   auto ipv6_data = MakeMinimalIPv6Packet();
@@ -373,9 +372,9 @@ TEST_F(GenericTunInterfaceTest, SendMultipleMixedPackets) {
 }
 
 TEST_F(GenericTunInterfaceTest, DeviceNameUpdatedAfterStart) {
-  MockTunInterface iface(MakeConfig());
+  MockTunInterface iface("mock0");
   EXPECT_EQ(iface.Name(), "mock0");
-  ASSERT_TRUE(iface.Start());
+  ASSERT_TRUE(iface.Start(MakeConfig()));
   EXPECT_EQ(iface.Name(), "mock0");
   iface.Stop();
 }

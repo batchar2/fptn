@@ -504,10 +504,6 @@ void TrayApp::onDisconnectFromServer() {
   const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
   connection_state_ = ConnectionState::None;
-  if (route_manager_) {
-    route_manager_->Clean();
-    route_manager_.reset();
-  }
   if (vpn_client_) {
     vpn_client_->Stop();
     vpn_client_.reset();
@@ -533,10 +529,6 @@ void TrayApp::handleDefaultState() {
     settings_->StartPingMonitoring();
 
     connection_state_ = ConnectionState::None;
-    if (route_manager_) {
-      route_manager_->Clean();
-      route_manager_.reset();
-    }
     if (vpn_client_) {
       vpn_client_->Stop();
       vpn_client_.reset();
@@ -701,11 +693,6 @@ void TrayApp::RetranslateUi() {
 void TrayApp::stop() {
   SPDLOG_INFO("Stopping TrayApp");
   settings_->StopPingMonitoring();
-
-  if (route_manager_) {
-    route_manager_->Clean();
-    route_manager_.reset();
-  }
   if (vpn_client_) {
     vpn_client_->Stop();
     vpn_client_.reset();
@@ -767,10 +754,13 @@ bool TrayApp::startVpn(QString& err_msg) {
                               ? settings_->SNI().toStdString()
                               : FPTN_DEFAULT_SNI;
   fptn::protocol::https::CensorshipStrategy censorship_strategy =
-      fptn::protocol::https::CensorshipStrategy::kSniRealityModeYandex25;
+      fptn::protocol::https::CensorshipStrategy::kSni;
 
   const auto& bypass_method = settings_->BypassMethod();
-  if (bypass_method == SettingsModel::kBypassMethodObfuscation) {
+  if (bypass_method == SettingsModel::kBypassMethodSni) {
+    SPDLOG_INFO("Using default spoofing to bypass censorship");
+    censorship_strategy = fptn::protocol::https::CensorshipStrategy::kSni;
+  } else if (bypass_method == SettingsModel::kBypassMethodObfuscation) {
     SPDLOG_INFO("Using obfuscation to bypass censorship");
     censorship_strategy =
         fptn::protocol::https::CensorshipStrategy::kTlsObfuscator;
@@ -856,19 +846,6 @@ bool TrayApp::startVpn(QString& err_msg) {
       return false;
     }
   }
-  /*
-  else {
-    // check connection to selected server
-    const std::uint64_t time = config.GetDownloadTimeMs(
-        selected_server_, sni, 30, selected_server_.md5_fingerprint);
-    if (time == UINT64_MAX) {
-      err_msg = QObject::tr(
-          "The server is unavailable. Please select another server "
-          "or use Auto-connect to find the best available server.");
-      return false;
-    }
-  }
-  */
 
   const auto server_ip = fptn::routing::ResolveDomain(selected_server_.host);
   if (server_ip == fptn::common::network::IPv4Address()) {
@@ -882,10 +859,16 @@ bool TrayApp::startVpn(QString& err_msg) {
     return false;
   }
 
-  auto http_client = std::make_unique<fptn::vpn::http::Client>(server_ip,
-      selected_server_.port, tun_interface_address_ipv4,
-      tun_interface_address_ipv6, sni, selected_server_.md5_fingerprint,
-      censorship_strategy);
+  auto http_client = std::make_unique<fptn::vpn::http::Client>(
+      fptn::protocol::https::WebsocketClient::Config{.server_ip = server_ip,
+          .server_port = selected_server_.port,
+          .sni = sni,
+          .expected_md5_fingerprint = selected_server_.md5_fingerprint,
+          .censorship_strategy = censorship_strategy,
+          .on_connected_callback = nullptr,
+          .on_ip_assigned_callback = nullptr,
+          .new_ip_pkt_callback = nullptr});
+
   // login
   bool login_status =
       http_client->Login(selected_server_.username, selected_server_.password);
@@ -924,22 +907,41 @@ bool TrayApp::startVpn(QString& err_msg) {
   const QString split_tunnel_mode = settings_->SplitTunnelMode();
   const auto split_tunnel_domains = settings_->SplitTunnelDomains();
 
-  // route manager
-  route_manager_ = std::make_unique<fptn::routing::RouteManager>(
-      network_interface, tun_interface_name, server_ip, dns_server_ipv4,
-      dns_server_ipv6, gateway_ip, gateway_ipv6, tun_interface_address_ipv4,
-      tun_interface_address_ipv6
+  /* route manager */
+  std::vector<std::string> exclude_networks_std;
+  if (!exclude_networks.empty()) {
+    for (const auto& network : exclude_networks) {
+      exclude_networks_std.push_back(network.toStdString());
+    }
+  }
+  std::vector<std::string> include_networks_std;
+  if (!include_networks.empty()) {
+    for (const auto& network : include_networks) {
+      include_networks_std.push_back(network.toStdString());
+    }
+  }
+  auto route_manager = std::make_shared<fptn::routing::RouteManager>(
+      fptn::routing::RouteManager::Config{
+          .out_interface_name = network_interface,
+          .vpn_server_ip = server_ip,
+          .dns_server_ipv4 = dns_server_ipv4,
+          .dns_server_ipv6 = dns_server_ipv6,
+          .gateway_ipv4 = gateway_ip,
+          .gateway_ipv6 = gateway_ipv6,
+          .exclude_networks = exclude_networks_std,
+          .include_networks = include_networks_std
 #if _WIN32
-      ,
-      settings_->EnableAdvancedDnsManagement()
+          ,
+          enable_advanced_dns_management =
+              settings_->EnableAdvancedDnsManagement()
 #endif
-  );  // NOLINT
+      });
 
   if (cancel_connecting_) {
     return false;
   }
 
-  // setup plugins
+  /* plugins */
   std::vector<fptn::plugin::BasePluginPtr> client_plugins;
   if (!blacklist_domains.empty()) {
     std::vector<std::string> blacklist_domains_std;
@@ -947,7 +949,7 @@ bool TrayApp::startVpn(QString& err_msg) {
       blacklist_domains_std.push_back(domain.toStdString());
     }
     auto blacklist_plugin = std::make_unique<fptn::plugin::DomainBlacklist>(
-        blacklist_domains_std, route_manager_);
+        blacklist_domains_std, route_manager);
     client_plugins.push_back(std::move(blacklist_plugin));
   }
   if (enable_split_tunnel) {
@@ -961,7 +963,7 @@ bool TrayApp::startVpn(QString& err_msg) {
                             : fptn::routing::RoutingPolicy::kIncludeInVpn;
 
     auto split_tunnel_plugin = std::make_unique<fptn::plugin::Tunneling>(
-        split_domains_std, route_manager_, policy);
+        split_domains_std, route_manager, policy);
     client_plugins.push_back(std::move(split_tunnel_plugin));
   }
 
@@ -971,19 +973,14 @@ bool TrayApp::startVpn(QString& err_msg) {
 
   // setup tun interface
   auto virtual_network_interface =
-      std::make_unique<fptn::common::network::TunInterface>(
-          fptn::common::network::TunInterface::Config{
-              .name = tun_interface_name,
-              .ipv4_addr = tun_interface_address_ipv4,
-              .ipv4_netmask = 30,  // IPv4 netmask
-              .ipv6_addr = tun_interface_address_ipv6,
-              .ipv6_netmask = 126  // IPv6 netmask
-          });
+      std::make_shared<fptn::common::network::TunInterface>(tun_interface_name);
 
   // setup vpn client
-  vpn_client_ = std::make_unique<fptn::vpn::VpnClient>(std::move(http_client),
-      std::move(virtual_network_interface), dns_server_ipv4, dns_server_ipv6,
-      std::move(client_plugins));
+  vpn_client_ = std::make_unique<fptn::vpn::VpnManager>(
+      fptn::vpn::VpnManager::Config{.http_client = std::move(http_client),
+          .route_manager = route_manager,
+          .virtual_net_interface = virtual_network_interface,
+          .plugins = std::move(client_plugins)});
 
   if (cancel_connecting_) {
     return false;
@@ -996,9 +993,6 @@ bool TrayApp::startVpn(QString& err_msg) {
     return false;
   }
 
-  // Update tun name to actual device name (may differ on macOS)
-  route_manager_->UpdateTunInterfaceName(vpn_client_->GetInterfaceName());
-
   constexpr auto kTimeout = std::chrono::seconds(10);
   const auto start = std::chrono::steady_clock::now();
   while (!vpn_client_->IsStarted()) {
@@ -1009,40 +1003,11 @@ bool TrayApp::startVpn(QString& err_msg) {
     std::this_thread::sleep_for(std::chrono::microseconds(300));
   }
 
-  if (cancel_connecting_) {
-    return false;
-  }
-
-  route_manager_->Apply();
-
-  if (!exclude_networks.empty()) {
-    std::vector<std::string> exclude_networks_std;
-    for (const auto& network : exclude_networks) {
-      exclude_networks_std.push_back(network.toStdString());
-    }
-    route_manager_->AddExcludeNetworks(exclude_networks_std);
-  }
-
-  if (!include_networks.empty()) {
-    std::vector<std::string> include_networks_std;
-    for (const auto& network : include_networks) {
-      include_networks_std.push_back(network.toStdString());
-    }
-    route_manager_->AddIncludeNetworks(include_networks_std);
-  }
-  if (cancel_connecting_) {
-    return false;
-  }
-
-  return true;
+  return !cancel_connecting_;
 }
 
 bool TrayApp::stopVpn() {
   SPDLOG_INFO("Stopping vpn");
-  if (route_manager_) {
-    route_manager_->Clean();
-    route_manager_.reset();
-  }
   if (vpn_client_) {
     vpn_client_->Stop();
     vpn_client_.reset();

@@ -27,6 +27,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <pcapplusplus/SSLLayer.h>      // NOLINT(build/include_order)
 #include <spdlog/spdlog.h>              // NOLINT(build/include_order)
 
+#include "common/api/handle.h"
 #include "common/network/resolv.h"
 #include "common/network/utils.h"
 
@@ -839,10 +840,11 @@ boost::asio::awaitable<bool> Session::ProcessRequest() {
         boost::asio::redirect_error(boost::asio::use_awaitable, ec));
 
     if (boost::beast::websocket::is_upgrade(request)) {
-      status = co_await HandleWebSocket(request);
-      if (status) {
-        co_await ws_.async_accept(request,
-            boost::asio::redirect_error(boost::asio::use_awaitable, ec));
+      if (request.target() == common::api::kApiWebSocketUrlOld) {
+        // deprecated
+        status = co_await HandleWebSocket(request);
+      } else if (request.target() == common::api::kApiWebSocketUrl) {
+        status = co_await HandleWebSocket2(request);
       }
     } else {
       status = co_await HandleHttp(request);
@@ -870,11 +872,11 @@ boost::asio::awaitable<bool> Session::HandleHttp(
     co_return false;
   }
 
-  if (url.find("metrics") == std::string::npos) {  // NOLINT
+  if (url.find(common::api::kApiMetricsUrl) == std::string::npos) {  // NOLINT
     SPDLOG_INFO("HTTP request (client_id={}): {} {}", client_id_, method, url);
   } else {
     SPDLOG_INFO("HTTP request (client_id={}): {} {}", client_id_, method,
-        "/api/v1/metrics/<hidden>");
+        std::string(common::api::kApiMetricsUrl) + "/<hidden>");
   }
 
   const auto server_info = fmt::format("fptn/{}", FPTN_VERSION);
@@ -916,6 +918,7 @@ boost::asio::awaitable<bool> Session::HandleHttp(
   co_return false;
 }
 
+// deprecated
 boost::asio::awaitable<bool> Session::HandleWebSocket(
     const boost::beast::http::request<boost::beast::http::string_body>&
         request) {
@@ -947,11 +950,88 @@ boost::asio::awaitable<bool> Session::HandleWebSocket(
                                           : FPTN_CLIENT_DEFAULT_ADDRESS_IP6);
       const common::network::IPv6Address client_vpn_ipv6(client_vpn_ipv6_str);
 
-      const bool status =
+      const auto nat_session =
           ws_open_callback_(client_id_, client_ip, client_vpn_ipv4,
               client_vpn_ipv6, shared_from_this(), request.target(), token);
+      ws_session_was_opened_ = nat_session != nullptr;
+      if (ws_session_was_opened_) {
+        co_await ws_.async_accept(request,
+            boost::asio::redirect_error(boost::asio::use_awaitable, ec));
+        co_return !ec;
+      }
+    } catch (const std::exception& ex) {
+      SPDLOG_ERROR(
+          "Session::Open (client_id={}): Exception caught while creating IP "
+          "addresses or running callback: {}",
+          client_id_, ex.what());
+    } catch (...) {
+      SPDLOG_ERROR(
+          "Session::Open (client_id={}): Unknown fatal error caught while "
+          "creating IP addresses or running callback",
+          client_id_);
+    }
+  }
+  co_return false;
+}
+
+boost::asio::awaitable<bool> Session::HandleWebSocket2(
+    const boost::beast::http::request<boost::beast::http::string_body>&
+        request) {
+  boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::hours(12));
+
+  if (request.contains("Authorization")) {
+    std::string token = request["Authorization"];
+    boost::replace_first(token, "Bearer ", "");
+
+    boost::system::error_code ec;
+    const std::string client_ip_str = boost::beast::get_lowest_layer(ws_)
+                                          .socket()
+                                          .remote_endpoint(ec)
+                                          .address()
+                                          .to_string();
+    if (ec) {
+      SPDLOG_ERROR("Failed to get remote endpoint: {}", ec.message());
+      co_return false;
+    }
+    const common::network::IPv4Address client_ip(client_ip_str);
+    try {
+      const auto nat_session = ws_open_callback_(client_id_, client_ip,
+          fptn::common::network::IPv4Address(),
+          fptn::common::network::IPv6Address(), shared_from_this(),
+          request.target(), token);
+
+      if (nat_session == nullptr) {
+        co_return false;
+      }
+
+      nat_session->DisableChecksumCalculation(true);
       ws_session_was_opened_ = true;
-      co_return status;
+
+      if (nat_session) {
+        co_await ws_.async_accept(request,
+            boost::asio::redirect_error(boost::asio::use_awaitable, ec));
+        if (ec) {
+          SPDLOG_WARN("Failed to connect to client: {}", ec.message());
+          co_return false;
+        }
+      }
+      SPDLOG_INFO("Successfully connected to {}", client_ip.ToString());
+
+      // send IP address to client
+      const auto message = protocol::protobuf::GenerateIPAssignmentMessage(
+          nat_session->FakeClientIPv4().ToString(),
+          nat_session->FakeClientIPv6().ToString());
+
+      if (message.has_value()) {
+        co_await ws_.async_write(
+            boost::asio::buffer(std::move(message.value())),
+            boost::asio::redirect_error(boost::asio::use_awaitable, ec));
+        if (ec) {
+          SPDLOG_ERROR("Failed to send IP assignment: {}", ec.message());
+          co_return false;
+        }
+        co_return true;
+      }
     } catch (const std::exception& ex) {
       SPDLOG_ERROR(
           "Session::Open (client_id={}): Exception caught while creating IP "

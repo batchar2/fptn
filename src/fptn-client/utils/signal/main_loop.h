@@ -1,7 +1,7 @@
 #pragma once
 
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -9,11 +9,11 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <boost/asio.hpp>
 #include <boost/process.hpp>
 
-#include "vpn/vpn_client.h"
+#include "vpn/vpn_manager.h"
 
 namespace fptn::utils {
 
-void WaitForSignal(fptn::vpn::VpnClient& vpn_client) {
+void WaitForSignal(fptn::vpn::VpnManager& vpn_client) {
   boost::asio::io_context io_context;
   boost::asio::signal_set signals(io_context, SIGINT, SIGTERM);
 

@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -168,7 +168,7 @@ bool RouteManager::Clean() {
   const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
   if (!running_) {
-    return true;
+    return false;
   }
 #ifdef __linux__
   const std::vector<std::string> commands = {

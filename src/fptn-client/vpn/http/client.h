@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -28,16 +28,11 @@ class Client final {
  public:
   using NewIPPacketCallback =
       std::function<void(fptn::common::network::IPPacketPtr packet)>;
+  using OnIPAssignedCallback =
+      std::function<void(const IPv4Address& ip_v4, const IPv6Address& ip_v6)>;
 
  public:
-  Client(IPv4Address server_ip,
-      int server_port,
-      IPv4Address tun_interface_address_ipv4,
-      IPv6Address tun_interface_address_ipv6,
-      std::string sni,
-      std::string md5_fingerprint,
-      fptn::protocol::https::CensorshipStrategy censorship_strategy,
-      NewIPPacketCallback new_ip_pkt_callback = nullptr);
+  explicit Client(fptn::protocol::https::WebsocketClient::Config config);
   ~Client();
   bool Login(const std::string& username,
       const std::string& password,
@@ -47,6 +42,7 @@ class Client final {
   bool Stop();
   bool Send(fptn::common::network::IPPacketPtr packet) const;
   void SetRecvIPPacketCallback(const NewIPPacketCallback& callback) noexcept;
+  void SetIPAssignedCallback(const OnIPAssignedCallback& callback) noexcept;
   bool IsStarted() const;
 
   const std::string& LatestError() const;
@@ -61,24 +57,12 @@ class Client final {
   mutable std::mutex mutex_;
   std::atomic<bool> running_;
 
-  const IPv4Address server_ip_;
-  const int server_port_;
+  std::string latest_error_;
+  std::atomic<int> reconnection_attempts_;
 
-  const IPv4Address tun_interface_address_ipv4_;
-  const IPv6Address tun_interface_address_ipv6_;
-  const std::string sni_;
-  const std::string md5_fingerprint_;
-
-  fptn::protocol::https::CensorshipStrategy censorship_strategy_;
-
-  NewIPPacketCallback new_ip_pkt_callback_;
-
-  std::string access_token_;
   fptn::protocol::https::WebsocketClientSPtr ws_;
 
-  std::string latest_error_;
-
-  std::atomic<int> reconnection_attempts_;
+  fptn::protocol::https::WebsocketClient::Config config_;
 };
 
 using ClientPtr = std::unique_ptr<Client>;

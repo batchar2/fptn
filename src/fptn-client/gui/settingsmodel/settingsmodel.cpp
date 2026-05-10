@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -229,11 +229,11 @@ void SettingsModel::Load(bool dont_load_server) {
     bypass_method_ = service_obj["bypass_method"].toString();
   }
 
-  /* Replace DEPRECATED METHODS */
-  if (bypass_method_ == kBypassMethodSni ||
-      bypass_method_ == kBypassMethodSniReality) {
-    bypass_method_ = kBypassMethodSniRealityYandex25;
-  }
+  // /* Replace DEPRECATED METHODS */
+  // if (bypass_method_ == kBypassMethodSni ||
+  //     bypass_method_ == kBypassMethodSniReality) {
+  //   bypass_method_ = kBypassMethodSniRealityYandex25;
+  // }
 
   if (bypass_method_.isEmpty() ||
       (bypass_method_ != kBypassMethodSni &&

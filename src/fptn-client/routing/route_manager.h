@@ -27,7 +27,29 @@ enum class RoutingPolicy {
   kIncludeInVpn     // Traffic goes through VPN
 };
 
+using IPv4Address = fptn::common::network::IPv4Address;
+using IPv6Address = fptn::common::network::IPv6Address;
+
 class RouteManager final {
+ public:
+  struct Config {
+    std::string out_interface_name;
+
+    IPv4Address vpn_server_ip;
+
+    IPv4Address dns_server_ipv4;
+    IPv6Address dns_server_ipv6;
+
+    IPv4Address gateway_ipv4;
+    IPv6Address gateway_ipv6;
+
+    std::vector<std::string> exclude_networks;
+    std::vector<std::string> include_networks;
+#if _WIN32
+    bool enable_advanced_dns_management;
+#endif
+  };
+
  protected:
   struct RouteEntry {
     std::string destination;
@@ -46,27 +68,10 @@ class RouteManager final {
   };
 
  public:
-  RouteManager(std::string out_interface_name,
-      std::string tun_interface_name,
-      fptn::common::network::IPv4Address vpn_server_ip,
-      fptn::common::network::IPv4Address dns_server_ipv4,
-      fptn::common::network::IPv6Address dns_server_ipv6,
-      fptn::common::network::IPv4Address gateway_ipv4,
-      fptn::common::network::IPv6Address gateway_ipv6,
-      fptn::common::network::IPv4Address tun_interface_address_ipv4,
-      fptn::common::network::IPv6Address tun_interface_address_ipv6
-#if _WIN32
-      ,
-      bool enable_advanced_dns_management_
-#endif
-  );  // NOLINT
+  explicit RouteManager(Config config);
   ~RouteManager();
 
-  void UpdateTunInterfaceName(const std::string& name) {
-    tun_interface_name_ = name;
-  }
-
-  bool Apply();
+  bool Apply(std::string tun_name, IPv4Address tun_ipv4, IPv6Address tun_ipv6);
   bool Clean();
 
   bool AddDnsRoutesIPv4(
@@ -77,6 +82,7 @@ class RouteManager final {
       const std::vector<fptn::common::network::IPv6Address>& ips,
       RoutingPolicy policy);
 
+ protected:
   bool AddExcludeNetworks(const std::vector<std::string>& networks);
   bool AddIncludeNetworks(const std::vector<std::string>& networks);
 
@@ -84,19 +90,11 @@ class RouteManager final {
   mutable std::mutex mutex_;
   std::atomic<bool> running_;
 
-  const std::string out_interface_name_;
-  std::string tun_interface_name_;
-  const fptn::common::network::IPv4Address vpn_server_ip_;
-  const fptn::common::network::IPv4Address dns_server_ipv4_;
-  const fptn::common::network::IPv6Address dns_server_ipv6_;
-  const fptn::common::network::IPv4Address gateway_ipv4_;
-  const fptn::common::network::IPv6Address gateway_ipv6_;
-  const fptn::common::network::IPv4Address tun_interface_address_ipv4_;
-  const fptn::common::network::IPv6Address tun_interface_address_ipv6_;
+  const Config config_;
 
-#if _WIN32
-  const bool enable_advanced_dns_management_;
-#endif
+  std::string tun_interface_name_;
+  IPv4Address tun_interface_address_ipv4_;
+  IPv6Address tun_interface_address_ipv6_;
 
   std::unordered_set<RouteEntry, RouteEntry::Hash> dns_routes_ipv4_;
   std::unordered_set<RouteEntry, RouteEntry::Hash> dns_routes_ipv6_;

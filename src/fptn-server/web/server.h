@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -64,7 +64,7 @@ class Server final {
 
  protected:
   // websocket
-  bool HandleWsOpenConnection(fptn::ClientID client_id,
+  fptn::client::SessionSPtr HandleWsOpenConnection(fptn::ClientID client_id,
       const fptn::common::network::IPv4Address& client_ip,
       const fptn::common::network::IPv4Address& client_vpn_ipv4,
       const fptn::common::network::IPv6Address& client_vpn_ipv6,
@@ -75,12 +75,6 @@ class Server final {
   void HandleWsCloseConnection(fptn::ClientID client_id) noexcept;
 
  private:
-  const std::string kUrlDns_ = "/api/v1/dns";
-  const std::string kUrlLogin_ = "/api/v1/login";
-  const std::string kUrlMetrics_ = "/api/v1/metrics";
-  const std::string kUrlTestFileBin_ = "/api/v1/test/file.bin";
-  const std::string kUrlWebSocket_ = "/fptn";
-
   mutable std::mutex mutex_;
   std::atomic<bool> running_;
 

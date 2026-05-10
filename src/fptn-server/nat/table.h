@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -37,12 +37,20 @@ class Table final {
       fptn::common::network::IPv6Address tun_ipv6_network_address,
       std::uint32_t tun_network_ipv6_mask);
 
+  // deprecated
   fptn::client::SessionSPtr CreateClientSession(ClientID client_id,
       const std::string& user_name,
       const fptn::common::network::IPv4Address& client_ipv4,
       const fptn::common::network::IPv6Address& client_ipv6,
       const fptn::traffic_shaper::LeakyBucketSPtr& to_client,
       const fptn::traffic_shaper::LeakyBucketSPtr& from_client);
+
+  fptn::client::SessionSPtr CreateClientSession2(ClientID client_id,
+    const std::string& user_name,
+    const fptn::traffic_shaper::LeakyBucketSPtr& to_client,
+    const fptn::traffic_shaper::LeakyBucketSPtr& from_client);
+
+
   bool DelClientSession(ClientID client_id);
   void UpdateStatistic(const fptn::statistic::MetricsSPtr& prometheus);
 

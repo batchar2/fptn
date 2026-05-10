@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 Copyright (c) 2024-2026 Pavel Shpilev
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
@@ -19,47 +19,11 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
 #include "common/data/channel.h"
+#include "common/network/data_rate_calculator.h"
 #include "common/network/ip_address.h"
 #include "common/network/ip_packet.h"
 
 namespace fptn::common::network {
-class DataRateCalculator {
- public:
-  explicit DataRateCalculator(
-      std::chrono::milliseconds interval = std::chrono::milliseconds(1000))
-      : interval_(interval),
-        bytes_(0),
-        lastUpdateTime_(std::chrono::steady_clock::now()),
-        rate_(0) {}
-  void Update(std::size_t len) noexcept {
-    const std::scoped_lock lock(mutex_);  // mutex
-
-    auto now = std::chrono::steady_clock::now();
-    std::chrono::duration<double> elapsed = now - lastUpdateTime_;
-    bytes_ += len;
-    if (elapsed >= interval_) {
-      rate_ = static_cast<std::size_t>(bytes_ / elapsed.count());
-      lastUpdateTime_ = now;
-      bytes_ = 0;
-    }
-  }
-  std::size_t GetRateForSecond() const noexcept {
-    const std::scoped_lock lock(mutex_);  // mutex
-
-    const auto interval_count = interval_.count();
-    if (interval_count) {
-      return static_cast<std::size_t>(rate_ / (1000 / interval_.count()));
-    }
-    return 0;
-  }
-
- private:
-  mutable std::mutex mutex_;
-  std::chrono::milliseconds interval_;
-  std::atomic<std::size_t> bytes_;
-  std::chrono::steady_clock::time_point lastUpdateTime_;
-  std::atomic<std::size_t> rate_;
-};
 
 using NewIPPacketCallback = std::function<void(IPPacketPtr packet)>;
 
@@ -89,14 +53,16 @@ class BaseNetInterface {
 
   // Network configuration
   struct Config {
-    std::string name;
     fptn::common::network::IPv4Address ipv4_addr;
-    int ipv4_netmask;
+    int ipv4_netmask = 32;
     fptn::common::network::IPv6Address ipv6_addr;
-    int ipv6_netmask;
+    int ipv6_netmask = 126;
   };
 
-  bool Start() { return impl()->StartImpl(); }
+  bool Start(Config config) {
+    runtime_config_ = std::move(config);
+    return impl()->StartImpl();
+  }
 
   bool Stop() { return impl()->StopImpl(); }
 
@@ -106,32 +72,34 @@ class BaseNetInterface {
 
   std::size_t GetReceiveRate() { return impl()->GetReceiveRateImpl(); }
 
+  void SetName(const std::string& name) { name_ = name; }
+
  private:
-  explicit BaseNetInterface(Config config)
-      : config_(std::move(config)), recv_ip_packet_callback_(nullptr) {}
+  explicit BaseNetInterface(std::string name)
+      : name_(std::move(name)),
+        recv_ip_packet_callback_(nullptr),
+        runtime_config_() {}
 
   Implementation* impl() { return static_cast<Implementation*>(this); }
 
  public:
-  [[nodiscard]] const std::string& Name() const noexcept {
-    return config_.name;
-  }
+  [[nodiscard]] const std::string& Name() const noexcept { return name_; }
 
   [[nodiscard]] const fptn::common::network::IPv4Address& IPv4Addr()
       const noexcept {
-    return config_.ipv4_addr;
+    return runtime_config_.ipv4_addr;
   }
 
   [[nodiscard]] int IPv4Netmask() const noexcept {
-    return config_.ipv4_netmask;
+    return runtime_config_.ipv4_netmask;
   }
 
   [[nodiscard]] const fptn::common::network::IPv6Address& IPv6Addr()
       const noexcept {
-    return config_.ipv6_addr;
+    return runtime_config_.ipv6_addr;
   }
 
-  int IPv6Netmask() const noexcept { return config_.ipv6_netmask; }
+  int IPv6Netmask() const noexcept { return runtime_config_.ipv6_netmask; }
 
   void SetRecvIPPacketCallback(const NewIPPacketCallback& callback) noexcept {
     recv_ip_packet_callback_ = callback;
@@ -142,8 +110,10 @@ class BaseNetInterface {
   }
 
  private:
-  Config config_;
+  std::string name_;
   NewIPPacketCallback recv_ip_packet_callback_;
+
+  Config runtime_config_;
 };
 
 /**
@@ -173,8 +143,8 @@ class GenericTunInterface final
 
   using Config = typename Base::Config;
 
-  explicit GenericTunInterface(Config config)
-      : Base(std::move(config)), mtu_(FPTN_MTU_SIZE), running_(false) {}
+  explicit GenericTunInterface(std::string name)
+      : Base(std::move(name)), mtu_(FPTN_MTU_SIZE), running_(false) {}
 
   ~GenericTunInterface() { StopImpl(); }
 
@@ -189,7 +159,7 @@ class GenericTunInterface final
         return false;
       }
       // Update name to actual device name (may differ, e.g., utun on macOS)
-      this->config_.name = device_.GetName();
+      this->SetName(device_.GetName());
 
       /* set IPv6 */
       // cppcheck-suppress knownConditionTrueFalse
@@ -325,5 +295,5 @@ using TunInterface = GenericTunInterface<LinuxTunDevice>;
 using TunInterface = GenericTunInterface<WinTunDevice>;
 #endif
 
-using TunInterfacePtr = std::unique_ptr<TunInterface>;
+using TunInterfaceSPtr = std::shared_ptr<TunInterface>;
 }  // namespace fptn::common::network

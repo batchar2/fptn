@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -133,6 +133,59 @@ ProtoPayloadOpt CreateProtoPayload(fptn::common::network::IPPacketPtr packet) {
     return std::nullopt;
   }
   return serialized_data;
+}
+
+std::optional<std::string> GenerateIPAssignmentMessage(
+    const std::string& ip_v4, const std::string& ip_v6) {
+  fptn::protocol::Message message;
+  message.set_protocol_version(1);
+  message.set_msg_type(fptn::protocol::MessageType::MSG_IP_ASSIGNMENT);
+  auto* assignment = message.mutable_ip_addresses();
+  assignment->set_address_ipv4(ip_v4);
+  assignment->set_address_ipv6(ip_v6);
+  std::string serialized_message;
+  if (message.SerializeToString(&serialized_message)) {
+    return serialized_message;
+  }
+  return {};
+}
+
+std::optional<std::pair<std::string, std::string>> ParseIPAssignmentMessage(
+    const std::string& message) {
+  try {
+    fptn::protocol::Message proto_message;
+    if (!proto_message.ParseFromString(message)) {
+      SPDLOG_ERROR("Failed to parse protobuf message");
+      return std::nullopt;
+    }
+
+    if (proto_message.msg_type() !=
+        fptn::protocol::MessageType::MSG_IP_ASSIGNMENT) {
+      SPDLOG_ERROR("Expected MSG_IP_ASSIGNMENT");
+      return std::nullopt;
+    }
+
+    if (!proto_message.has_ip_addresses()) {
+      SPDLOG_ERROR("Message does not contain IP assignment data");
+      return std::nullopt;
+    }
+
+    const auto& assignment = proto_message.ip_addresses();
+    std::string ipv4 = assignment.address_ipv4();
+    std::string ipv6 = assignment.address_ipv6();
+
+    if (ipv4.empty() || ipv6.empty()) {
+      SPDLOG_ERROR("IPv4 or IPv6 address is empty");
+      return std::nullopt;
+    }
+    return std::make_pair(std::move(ipv4), std::move(ipv6));
+  } catch (const std::exception& e) {
+    SPDLOG_ERROR("Exception while parsing IP assignment: {}", e.what());
+    return std::nullopt;
+  } catch (...) {
+    SPDLOG_ERROR("Unknown exception while parsing IP assignment");
+    return std::nullopt;
+  }
 }
 
 }  // namespace fptn::protocol::protobuf

@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -73,8 +73,8 @@ int main(int argc, char* argv[]) {
 
     auto virtual_network_interface =
         std::make_unique<fptn::network::VirtualInterface>(
+            config.TunInterfaceName(),
             fptn::common::network::TunInterface::Config{
-                .name = config.TunInterfaceName(),
                 .ipv4_addr = config.TunInterfaceIPv4(),
                 .ipv4_netmask = config.TunInterfaceNetworkIPv4Mask(),
                 .ipv6_addr = config.TunInterfaceIPv6(),

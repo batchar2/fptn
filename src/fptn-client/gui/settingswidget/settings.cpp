@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -163,6 +163,8 @@ void SettingsWidget::SetupUi() {
       new QLabel(QObject::tr("Bypass blocking method"), this);
   bypass_method_combo_box_ = new QComboBox(this);
   bypass_method_combo_box_->addItem(
+      QObject::tr("SNI"), SettingsModel::kBypassMethodSni);
+  bypass_method_combo_box_->addItem(
       QObject::tr("OBFUSCATION"), SettingsModel::kBypassMethodObfuscation);
   /* Chrome */
   bypass_method_combo_box_->addItem(QObject::tr("SNI-REALITY (Chrome 147)"),
@@ -190,7 +192,11 @@ void SettingsWidget::SetupUi() {
   bypass_method_combo_box_->setMinimumWidth(200);
 
   const QString current_method = settings_->BypassMethod();
-  if (current_method == SettingsModel::kBypassMethodObfuscation) {
+  if (current_method == SettingsModel::kBypassMethodSni) {
+    bypass_method_combo_box_->setCurrentText(QObject::tr("SNI"));
+  }
+  /*Obfuscation */
+  else if (current_method == SettingsModel::kBypassMethodObfuscation) {
     bypass_method_combo_box_->setCurrentText(QObject::tr("OBFUSCATION"));
   }
   /* Chrome */
@@ -887,8 +893,13 @@ void SettingsWidget::onExit() {
 
   const QString current_method = bypass_method_combo_box_->currentText();
 
-  if (current_method == QObject::tr("OBFUSCATION") ||
-      current_method == SettingsModel::kBypassMethodObfuscation) {
+  if (current_method == QObject::tr("SNI") ||
+      current_method == SettingsModel::kBypassMethodSni) {
+    settings_->SetBypassMethod(SettingsModel::kBypassMethodSni);
+  }
+  /* Obfuscation */
+  else if (current_method == QObject::tr("OBFUSCATION") ||
+           current_method == SettingsModel::kBypassMethodObfuscation) {
     settings_->SetBypassMethod(SettingsModel::kBypassMethodObfuscation);
   }
   /* Chrome */
@@ -1097,8 +1108,8 @@ void SettingsWidget::onLanguageChanged(const QString&) {
   const auto current_method = settings_->BypassMethod();
   if (bypass_method_combo_box_) {
     bypass_method_combo_box_->clear();
-    // bypass_method_combo_box_->addItem(
-    //     QObject::tr("SNI"), SettingsModel::kBypassMethodSni);
+    bypass_method_combo_box_->addItem(
+        QObject::tr("SNI"), SettingsModel::kBypassMethodSni);
     bypass_method_combo_box_->addItem(
         QObject::tr("OBFUSCATION"), SettingsModel::kBypassMethodObfuscation);
     // bypass_method_combo_box_->addItem(QObject::tr("SNI-REALITY (Generic)"),
@@ -1124,8 +1135,16 @@ void SettingsWidget::onLanguageChanged(const QString&) {
     bypass_method_combo_box_->addItem(QObject::tr("SNI-REALITY (Safari 26)"),
         SettingsModel::kBypassMethodSniRealitySafari26);
 
+    if (current_method == SettingsModel::kBypassMethodSni) {
+      bypass_method_combo_box_->setCurrentText(QObject::tr("SNI"));
+    }
+    /* Obfuscation */
+    else if (current_method == SettingsModel::kBypassMethodObfuscation) {
+      bypass_method_combo_box_->setCurrentText(QObject::tr("OBFUSCATION"));
+    }
     /* Chrome */
-    if (current_method == SettingsModel::kBypassMethodSniRealityChrome147) {
+    else if (current_method ==
+             SettingsModel::kBypassMethodSniRealityChrome147) {
       bypass_method_combo_box_->setCurrentText(
           QObject::tr("SNI-REALITY (Chrome 147)"));
     } else if (current_method ==
@@ -1332,6 +1351,7 @@ void SettingsWidget::onAutoGatewayChanged(bool checked) {
 }
 void SettingsWidget::onBypassMethodChanged(const QString& method) {
   const bool is_reality_mode =
+      method == QObject::tr("SNI") ||
       /* Chrome */
       method == QObject::tr("SNI-REALITY (Chrome 147)") ||
       method == SettingsModel::kBypassMethodSniRealityChrome147 ||
@@ -1375,8 +1395,11 @@ void SettingsWidget::onBypassMethodChanged(const QString& method) {
   }
 
   // Set the bypass method
-  if (method == QObject::tr("OBFUSCATION") ||
-      method == SettingsModel::kBypassMethodObfuscation) {
+  if (method == QObject::tr("SNI") ||
+      method == SettingsModel::kBypassMethodSni) {
+    settings_->SetBypassMethod(SettingsModel::kBypassMethodSni);
+  } else if (method == QObject::tr("OBFUSCATION") ||
+             method == SettingsModel::kBypassMethodObfuscation) {
     settings_->SetBypassMethod(SettingsModel::kBypassMethodObfuscation);
   }
   /* Chrome */

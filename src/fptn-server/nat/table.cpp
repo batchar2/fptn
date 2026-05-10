@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -50,6 +50,43 @@ fptn::client::SessionSPtr Table::CreateClientSession(ClientID client_id,
       const auto fake_ipv6 = GetUniqueIPv6Address();
       auto session = std::make_shared<fptn::client::Session>(client_id,
           user_name, client_ipv4, fake_ipv4, client_ipv6, fake_ipv6, to_client,
+          from_client);
+      client_id_to_sessions_.insert({client_id, session});
+      ipv4_to_sessions_.insert(
+          {fake_ipv4.ToInt(), session});  // ipv4 -> session
+      ipv6_to_sessions_.insert(
+          {fake_ipv6.ToString(), session});  // ipv6 -> session
+      return session;
+    } catch (const std::runtime_error& err) {
+      SPDLOG_INFO("Client error: {}", err.what());
+    } catch (const std::exception& e) {
+      SPDLOG_ERROR(
+          "Standard exception while creating client session: {}", e.what());
+    } catch (...) {
+      SPDLOG_ERROR("An unknown error occurred while creating client session.");
+    }
+  }
+  return nullptr;
+}
+
+fptn::client::SessionSPtr Table::CreateClientSession2(ClientID client_id,
+    const std::string& user_name,
+    const fptn::traffic_shaper::LeakyBucketSPtr& to_client,
+    const fptn::traffic_shaper::LeakyBucketSPtr& from_client) {
+  const std::unique_lock<std::shared_mutex> lock(mutex_);  // mutex
+
+  if (!client_id_to_sessions_.contains(client_id)) {
+    if (client_number_ >= ipv4_generator_.NumAvailableAddresses()) {
+      /* ||  client_number_ >= client_ipv6.NumAvailableAddresses() */
+      SPDLOG_INFO("Client limit was exceeded");
+      return nullptr;
+    }
+    client_number_ += 1;
+    try {
+      const auto fake_ipv4 = GetUniqueIPv4Address();
+      const auto fake_ipv6 = GetUniqueIPv6Address();
+      auto session = std::make_shared<fptn::client::Session>(client_id,
+          user_name, fake_ipv4, fake_ipv4, fake_ipv6, fake_ipv6, to_client,
           from_client);
       client_id_to_sessions_.insert({client_id, session});
       ipv4_to_sessions_.insert(

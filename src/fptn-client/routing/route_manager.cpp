@@ -299,39 +299,9 @@ bool RemoveIPv6RouteFromSystem(const std::string& destination,
 
 }  // namespace
 
-using fptn::routing::RouteManager;
-
-RouteManager::RouteManager(std::string out_interface_name,
-    std::string tun_interface_name,
-    fptn::common::network::IPv4Address vpn_server_ip,
-    fptn::common::network::IPv4Address dns_server_ipv4,
-    fptn::common::network::IPv6Address dns_server_ipv6,
-    fptn::common::network::IPv4Address gateway_ipv4,
-    fptn::common::network::IPv6Address gateway_ipv6,
-    fptn::common::network::IPv4Address tun_interface_address_ipv4,
-    fptn::common::network::IPv6Address tun_interface_address_ipv6
-#if _WIN32
-    ,
-    bool enable_advanced_dns_management
-#endif
-
-    )
-    : running_(false),
-      out_interface_name_(std::move(out_interface_name)),
-      tun_interface_name_(std::move(tun_interface_name)),
-      vpn_server_ip_(std::move(vpn_server_ip)),
-      dns_server_ipv4_(std::move(dns_server_ipv4)),
-      dns_server_ipv6_(std::move(dns_server_ipv6)),
-      gateway_ipv4_(std::move(gateway_ipv4)),
-      gateway_ipv6_(std::move(gateway_ipv6)),
-      tun_interface_address_ipv4_(std::move(tun_interface_address_ipv4)),
-      tun_interface_address_ipv6_(std::move(tun_interface_address_ipv6))
-#if _WIN32
-      ,
-      enable_advanced_dns_management_(enable_advanced_dns_management)
-#endif
-{
-}
+namespace fptn::routing {
+RouteManager::RouteManager(Config config)
+    : running_(false), config_(std::move(config)) {}
 
 RouteManager::~RouteManager() {  // NOLINT(bugprone-exception-escape)
   if (running_) {
@@ -339,29 +309,40 @@ RouteManager::~RouteManager() {  // NOLINT(bugprone-exception-escape)
   }
 }
 
-bool RouteManager::Apply() {
+bool RouteManager::Apply(
+    std::string tun_name, IPv4Address tun_ipv4, IPv6Address tun_ipv6) {
   const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+  if (running_) {
+    return false;
+  }
+
+  tun_interface_name_ = std::move(tun_name);
+  tun_interface_address_ipv4_ = std::move(tun_ipv4);
+  tun_interface_address_ipv6_ = std::move(tun_ipv6);
 
   running_ = true;
 #if defined(__APPLE__) || defined(__linux__)
   detected_out_interface_name_ =
-      (out_interface_name_.empty() ? GetDefaultNetworkInterfaceName()
-                                   : out_interface_name_);
+      (config_.out_interface_name.empty() ? GetDefaultNetworkInterfaceName()
+                                          : config_.out_interface_name);
 #endif
   detected_out_interface_name_ =
-      (out_interface_name_.empty() ? GetDefaultNetworkInterfaceName()
-                                   : out_interface_name_);
-  detected_gateway_ipv4_ =
-      gateway_ipv4_.IsEmpty() ? GetDefaultGatewayIPAddress() : gateway_ipv4_;
+      (config_.out_interface_name.empty() ? GetDefaultNetworkInterfaceName()
+                                          : config_.out_interface_name);
+  detected_gateway_ipv4_ = config_.gateway_ipv4.IsEmpty()
+                               ? GetDefaultGatewayIPAddress()
+                               : config_.gateway_ipv4;
 
   SPDLOG_INFO("=== Setting up routing ===");
-  SPDLOG_INFO("IPTABLES VPN SERVER IP:         {}", vpn_server_ip_.ToString());
+  SPDLOG_INFO(
+      "IPTABLES VPN SERVER IP:         {}", config_.vpn_server_ip.ToString());
   SPDLOG_INFO(
       "IPTABLES OUT NETWORK INTERFACE: {}", detected_out_interface_name_);
   SPDLOG_INFO(
       "IPTABLES GATEWAY IP:            {}", detected_gateway_ipv4_.ToString());
   SPDLOG_INFO(
-      "IPTABLES DNS SERVER:            {}", dns_server_ipv4_.ToString());
+      "IPTABLES DNS SERVER:            {}", config_.dns_server_ipv4.ToString());
 #ifdef __linux__
   original_dns_servers_ = GetLinuxDnsServers(detected_out_interface_name_);
   for (const auto& dns : original_dns_servers_) {
@@ -383,21 +364,22 @@ bool RouteManager::Apply() {
       fmt::format("iptables -A FORWARD -i {} -o {} -j ACCEPT",
           tun_interface_name_, detected_out_interface_name_),
       fmt::format("iptables -A OUTPUT -o {} -d {} -j ACCEPT",
-          detected_out_interface_name_, vpn_server_ip_.ToString()),
+          detected_out_interface_name_, config_.vpn_server_ip.ToString()),
       fmt::format("iptables -A INPUT -i {} -s {} -j ACCEPT",
-          detected_out_interface_name_, vpn_server_ip_.ToString()),
+          detected_out_interface_name_, config_.vpn_server_ip.ToString()),
       // IPv4 default & DNS route
       fmt::format("ip route add default dev {}", tun_interface_name_),
-      fmt::format("ip route add {} dev {}", dns_server_ipv4_.ToString(),
+      fmt::format("ip route add {} dev {}", config_.dns_server_ipv4.ToString(),
           tun_interface_name_),  // via TUN
                                  // IPv6 default
-      fmt::format("ip -6 route add {} dev {}", dns_server_ipv6_.ToString(),
-          tun_interface_name_),
+      fmt::format("ip -6 route add {} dev {}",
+          config_.dns_server_ipv6.ToString(), tun_interface_name_),
       fmt::format("ip -6 route add default via {} dev {}",
-          dns_server_ipv6_.ToString(), tun_interface_name_),
+          config_.dns_server_ipv6.ToString(), tun_interface_name_),
       // exclude vpn server
-      fmt::format("ip route add {} via {} dev {}", vpn_server_ip_.ToString(),
-          detected_gateway_ipv4_.ToString(), detected_out_interface_name_),
+      fmt::format("ip route add {} via {} dev {}",
+          config_.vpn_server_ip.ToString(), detected_gateway_ipv4_.ToString(),
+          detected_out_interface_name_),
       // Allow DNS responses from TUN (sport 53, not dport 53)
       fmt::format("iptables -A OUTPUT -o {} -p udp --sport 53 -j ACCEPT",
           tun_interface_name_),
@@ -429,26 +411,28 @@ bool RouteManager::Apply() {
           detected_out_interface_name_),
       // Also allow DNS to specific DNS server IP
       fmt::format("iptables -A OUTPUT -d {} -p udp --dport 53 -j ACCEPT",
-          dns_server_ipv4_.ToString()),
+          config_.dns_server_ipv4.ToString()),
       fmt::format("iptables -A OUTPUT -d {} -p tcp --dport 53 -j ACCEPT",
-          dns_server_ipv4_.ToString()),
+          config_.dns_server_ipv4.ToString()),
       // DNS via resolvectl
       fmt::format("resolvectl resolv-conf false"),
       fmt::format("resolvectl dns {} {}", detected_out_interface_name_,
-          dns_server_ipv4_.ToString()),
+          config_.dns_server_ipv4.ToString()),
       fmt::format(
           "resolvectl default-route {} false", detected_out_interface_name_),
       fmt::format("resolvectl dns {} {}", tun_interface_name_,
-          dns_server_ipv4_.ToString()),
+          config_.dns_server_ipv4.ToString()),
       fmt::format("resolvectl default-route {} true", tun_interface_name_),
       fmt::format("resolvectl domain {} ~.", tun_interface_name_),
       fmt::format(R"(bash -c "chattr -i /etc/resolv.conf")"),
       fmt::format(
           R"(bash -c "grep -q '^nameserver {}$' /etc/resolv.conf || sed -i '1i nameserver {}' /etc/resolv.conf")",
-          dns_server_ipv6_.ToString(), dns_server_ipv6_.ToString()),
+          config_.dns_server_ipv6.ToString(),
+          config_.dns_server_ipv6.ToString()),
       fmt::format(
           R"(bash -c "grep -q '^nameserver {}$' /etc/resolv.conf || sed -i '1i nameserver {}' /etc/resolv.conf")",
-          dns_server_ipv4_.ToString(), dns_server_ipv4_.ToString()),
+          config_.dns_server_ipv4.ToString(),
+          config_.dns_server_ipv4.ToString()),
       fmt::format(R"(bash -c "chattr +i /etc/resolv.conf")"),
       fmt::format("resolvectl flush-caches")};
 
@@ -456,7 +440,7 @@ bool RouteManager::Apply() {
   const std::vector<std::string> commands = {
       fmt::format(
           R"(bash -c "networksetup -listallnetworkservices | grep -v '^An asterisk' | grep -v '^\* ' | xargs -I {{}} networksetup -setdnsservers '{{}}' empty")",
-          dns_server_ipv4_.ToString()),  // clean DNS
+          config_.dns_server_ipv4.ToString()),  // clean DNS
       fmt::format("sysctl -w net.inet.ip.forwarding=1"),
       fmt::format("sysctl -w net.inet6.ip6.forwarding=1"),
       fmt::format(
@@ -475,7 +459,7 @@ pass out on {tunInterfaceName} proto tcp from any to any port 53
 ' > /tmp/pf.conf")",
           fmt::arg("findOutInterfaceName", detected_out_interface_name_),
           fmt::arg("tunInterfaceName", tun_interface_name_),
-          fmt::arg("vpnServerIP", vpn_server_ip_.ToString())),
+          fmt::arg("vpnServerIP", config_.vpn_server_ip.ToString())),
       fmt::format("pfctl -ef /tmp/pf.conf"),
       // IPv4 default & DNS route
       fmt::format(
@@ -483,7 +467,7 @@ pass out on {tunInterfaceName} proto tcp from any to any port 53
       fmt::format(
           "route add -net 128.0.0.0/1 -interface {}", tun_interface_name_),
       fmt::format("route add -host {} -interface {}",
-          dns_server_ipv4_.ToString(), tun_interface_name_),  // via TUN
+          config_.dns_server_ipv4.ToString(), tun_interface_name_),  // via TUN
       // IPv6 routes
       fmt::format(
           "route add -inet6 -net ::0/1 -interface {}", tun_interface_name_),
@@ -492,18 +476,19 @@ pass out on {tunInterfaceName} proto tcp from any to any port 53
       fmt::format("route add -inet6 default -interface {} 2>/dev/null || true",
           tun_interface_name_),
       fmt::format("route add -inet6 -host {} -interface {}",
-          dns_server_ipv6_.ToString(), tun_interface_name_),
+          config_.dns_server_ipv6.ToString(), tun_interface_name_),
       // DNS IPv6 route
       fmt::format("route add -inet6 -host {} -interface {}",
-          dns_server_ipv6_.ToString(), tun_interface_name_),
+          config_.dns_server_ipv6.ToString(), tun_interface_name_),
       // exclude vpn server & networks
-      fmt::format("route add -host {} {}", vpn_server_ip_.ToString(),
+      fmt::format("route add -host {} {}", config_.vpn_server_ip.ToString(),
           detected_gateway_ipv4_.ToString()),
       // DNS
       fmt::format("dscacheutil -flushcache"),
       fmt::format(
           R"(bash -c "networksetup -listallnetworkservices | grep -v '^An asterisk' | grep -v '^\* ' | xargs -I {{}} networksetup -setdnsservers '{{}}' {} {}")",
-          dns_server_ipv6_.ToString(), dns_server_ipv4_.ToString())};
+          config_.dns_server_ipv6.ToString(),
+          config_.dns_server_ipv4.ToString())};
 
 #elif _WIN32
   const std::string win_interface_number =
@@ -543,9 +528,9 @@ pass out on {tunInterfaceName} proto tcp from any to any port 53
     }")PSHELL";
 
   const std::string configure_dns_cmd = R"PSHELL(powershell -Command "
-    $dns4 = ')PSHELL" + dns_server_ipv4_.ToString() +
+    $dns4 = ')PSHELL" + config_.dns_server_ipv4.ToString() +
                                         R"PSHELL(';
-    $dns6 = ')PSHELL" + dns_server_ipv6_.ToString() +
+    $dns6 = ')PSHELL" + config_.dns_server_ipv6.ToString() +
                                         R"PSHELL(';
     $interface = ')PSHELL" + detected_out_interface_name_ +
                                         R"PSHELL(';
@@ -561,12 +546,13 @@ pass out on {tunInterfaceName} proto tcp from any to any port 53
 
   const std::vector<std::string> commands = {
       fmt::format("route add {} mask 255.255.255.255 {} METRIC 2",
-          vpn_server_ip_.ToString(), detected_gateway_ipv4_.ToString()),
+          config_.vpn_server_ip.ToString(), detected_gateway_ipv4_.ToString()),
       // Default gateway & dns
       fmt::format("route add 0.0.0.0 mask 0.0.0.0 {} METRIC 1 {}",
           tun_interface_address_ipv4_.ToString(), interface_info),
       fmt::format("route add {} mask 255.255.255.255 {} METRIC 2 {}",
-          dns_server_ipv4_.ToString(), tun_interface_address_ipv4_.ToString(),
+          config_.dns_server_ipv4.ToString(),
+          tun_interface_address_ipv4_.ToString(),
           interface_info),  // via TUN
       // DNS
       enable_advanced_dns_management_ ? backup_dns_cmd
@@ -595,8 +581,13 @@ pass out on {tunInterfaceName} proto tcp from any to any port 53
   } catch (...) {
     SPDLOG_ERROR("Undefined error");
   }
-  SPDLOG_INFO("=== Routing setup completed successfully ===");
-  return true;
+
+  const bool status = AddExcludeNetworks(config_.exclude_networks) &&
+                      AddIncludeNetworks(config_.include_networks);
+  if (status) {
+    SPDLOG_INFO("=== Routing setup completed successfully ===");
+  }
+  return status;
 }
 
 bool RouteManager::Clean() {  // NOLINT(bugprone-exception-escape)
@@ -615,8 +606,8 @@ bool RouteManager::Clean() {  // NOLINT(bugprone-exception-escape)
     if (ip.policy == RoutingPolicy::kExcludeFromVpn) {
       if (!detected_out_interface_name_.empty()) {
         interface_name = detected_out_interface_name_;
-      } else if (!out_interface_name_.empty()) {
-        interface_name = out_interface_name_;
+      } else if (!config_.out_interface_name.empty()) {
+        interface_name = config_.out_interface_name;
       } else {
         interface_name = GetDefaultNetworkInterfaceName();
       }
@@ -624,7 +615,7 @@ bool RouteManager::Clean() {  // NOLINT(bugprone-exception-escape)
       interface_name = tun_interface_name_;
     }
     RemoveIPv4RouteFromSystem(
-        ip.destination, gateway_ipv4_.ToString(), interface_name);
+        ip.destination, config_.gateway_ipv4.ToString(), interface_name);
   }
   dns_routes_ipv4_.clear();
 
@@ -634,8 +625,8 @@ bool RouteManager::Clean() {  // NOLINT(bugprone-exception-escape)
     if (ip.policy == RoutingPolicy::kExcludeFromVpn) {
       if (!detected_out_interface_name_.empty()) {
         interface_name = detected_out_interface_name_;
-      } else if (!out_interface_name_.empty()) {
-        interface_name = out_interface_name_;
+      } else if (!config_.out_interface_name.empty()) {
+        interface_name = config_.out_interface_name;
       } else {
         interface_name = GetDefaultNetworkInterfaceName();
       }
@@ -643,15 +634,15 @@ bool RouteManager::Clean() {  // NOLINT(bugprone-exception-escape)
       interface_name = tun_interface_name_;
     }
     RemoveIPv6RouteFromSystem(
-        ip.destination, gateway_ipv6_.ToString(), interface_name);
+        ip.destination, config_.gateway_ipv6.ToString(), interface_name);
   }
   dns_routes_ipv6_.clear();
 
   // clean route ipv4
   for (const auto& route : additional_routes_ipv4_) {
     if (route.policy == RoutingPolicy::kExcludeFromVpn) {
-      RemoveIPv4RouteFromSystem(
-          route.destination, gateway_ipv4_.ToString(), out_interface_name_);
+      RemoveIPv4RouteFromSystem(route.destination,
+          config_.gateway_ipv4.ToString(), config_.out_interface_name);
     } else {
       // Include route - remove through VPN interface
       RemoveIPv4RouteFromSystem(route.destination,
@@ -663,8 +654,8 @@ bool RouteManager::Clean() {  // NOLINT(bugprone-exception-escape)
   // Remove additional IPv6 routes
   for (const auto& route : additional_routes_ipv6_) {
     if (route.policy == RoutingPolicy::kExcludeFromVpn) {
-      RemoveIPv6RouteFromSystem(
-          route.destination, gateway_ipv6_.ToString(), out_interface_name_);
+      RemoveIPv6RouteFromSystem(route.destination,
+          config_.gateway_ipv6.ToString(), config_.out_interface_name);
     } else {
       // Include route - remove through VPN interface
       RemoveIPv6RouteFromSystem(route.destination,
@@ -683,24 +674,26 @@ bool RouteManager::Clean() {  // NOLINT(bugprone-exception-escape)
       fmt::format("iptables -D FORWARD -i {} -o {} -j ACCEPT",
           tun_interface_name_, detected_out_interface_name_),
       fmt::format("iptables -D OUTPUT -o {} -d {} -j ACCEPT",
-          detected_out_interface_name_, vpn_server_ip_.ToString()),
+          detected_out_interface_name_, config_.vpn_server_ip.ToString()),
       fmt::format("iptables -D INPUT -i {} -s {} -j ACCEPT",
-          detected_out_interface_name_, vpn_server_ip_.ToString()),
+          detected_out_interface_name_, config_.vpn_server_ip.ToString()),
       // del routes
       fmt::format("ip route del default dev {}", tun_interface_name_),
-      fmt::format("ip route del {} via {} dev {}", vpn_server_ip_.ToString(),
-          detected_gateway_ipv4_.ToString(), detected_out_interface_name_),
+      fmt::format("ip route del {} via {} dev {}",
+          config_.vpn_server_ip.ToString(), detected_gateway_ipv4_.ToString(),
+          detected_out_interface_name_),
       // Delete DNS server route
-      fmt::format("ip route del {} dev {}", dns_server_ipv4_.ToString(),
+      fmt::format("ip route del {} dev {}", config_.dns_server_ipv4.ToString(),
           tun_interface_name_),
       fmt::format(
           R"(bash -c "chattr -i /etc/resolv.conf; sed -i '/^nameserver {}$/d' /etc/resolv.conf; sed -i '/^nameserver {}$/d' /etc/resolv.conf")",
-          dns_server_ipv4_.ToString(), dns_server_ipv6_.ToString()),
+          config_.dns_server_ipv4.ToString(),
+          config_.dns_server_ipv6.ToString()),
       // Delete DNS to specific DNS server IP rules
       fmt::format("iptables -D OUTPUT -d {} -p udp --dport 53 -j ACCEPT",
-          dns_server_ipv4_.ToString()),
+          config_.dns_server_ipv4.ToString()),
       fmt::format("iptables -D OUTPUT -d {} -p tcp --dport 53 -j ACCEPT",
-          dns_server_ipv4_.ToString()),
+          config_.dns_server_ipv4.ToString()),
       // Delete DNS block rules IPv4
       fmt::format("iptables -D OUTPUT -o {} -p udp --dport 53 -j DROP",
           detected_out_interface_name_),
@@ -761,7 +754,7 @@ bool RouteManager::Clean() {  // NOLINT(bugprone-exception-escape)
       fmt::format("pfctl -F all -f /etc/pf.conf"),
       // del routes
       fmt::format("route delete -host {} -interface {}",
-          dns_server_ipv4_.ToString(),
+          config_.dns_server_ipv4.ToString(),
           tun_interface_name_),  // via TUN
       fmt::format(
           "route delete -net 0.0.0.0/1 -interface {}", tun_interface_name_),
@@ -772,7 +765,7 @@ bool RouteManager::Clean() {  // NOLINT(bugprone-exception-escape)
           "route delete -inet6 -net ::0/1 -interface {}", tun_interface_name_),
       fmt::format("route delete -inet6 -net 8000::/1 -interface {}",
           tun_interface_name_),
-      fmt::format("route delete -host {} {}", vpn_server_ip_.ToString(),
+      fmt::format("route delete -host {} {}", config_.vpn_server_ip.ToString(),
           detected_gateway_ipv4_.ToString()),
       // DNS
       fmt::format(
@@ -827,11 +820,11 @@ bool RouteManager::Clean() {  // NOLINT(bugprone-exception-escape)
       enable_advanced_dns_management_ ? restore_dns_cmd
                                       : "echo \"No advanced DNS management\" ",
       // Remove routes
-      fmt::format(
-          "route delete {} mask 255.255.255.255", vpn_server_ip_.ToString()),
+      fmt::format("route delete {} mask 255.255.255.255",
+          config_.vpn_server_ip.ToString()),
       fmt::format("route delete 0.0.0.0 mask 0.0.0.0"),
-      fmt::format(
-          "route delete {} mask 255.255.255.255", dns_server_ipv4_.ToString()),
+      fmt::format("route delete {} mask 255.255.255.255",
+          config_.dns_server_ipv4.ToString()),
       fmt::format(
           "netsh interface ipv6 delete route ::/0 \"{}\"", tun_interface_name_),
 
@@ -867,12 +860,12 @@ bool RouteManager::AddDnsRoutesIPv4(
   if (policy == RoutingPolicy::kExcludeFromVpn) {
     if (!detected_out_interface_name_.empty()) {
       interface_name = detected_out_interface_name_;
-    } else if (!out_interface_name_.empty()) {
-      interface_name = out_interface_name_;
+    } else if (!config_.out_interface_name.empty()) {
+      interface_name = config_.out_interface_name;
     } else {
       interface_name = GetDefaultNetworkInterfaceName();
     }
-    gateway_ip = gateway_ipv4_.ToString();
+    gateway_ip = config_.gateway_ipv4.ToString();
   } else {
     interface_name = tun_interface_name_;
     gateway_ip = tun_interface_address_ipv4_.ToString();
@@ -947,12 +940,12 @@ bool RouteManager::AddDnsRoutesIPv6(
   if (policy == RoutingPolicy::kExcludeFromVpn) {
     if (!detected_out_interface_name_.empty()) {
       interface_name = detected_out_interface_name_;
-    } else if (!out_interface_name_.empty()) {
-      interface_name = out_interface_name_;
+    } else if (!config_.out_interface_name.empty()) {
+      interface_name = config_.out_interface_name;
     } else {
       interface_name = GetDefaultNetworkInterfaceName();
     }
-    gateway_ip = gateway_ipv6_.ToString();
+    gateway_ip = config_.gateway_ipv6.ToString();
   } else {
     interface_name = tun_interface_name_;
     gateway_ip = tun_interface_address_ipv6_.ToString();
@@ -1019,8 +1012,6 @@ bool RouteManager::AddExcludeNetworks(
     const std::vector<std::string>& networks) {
   std::vector<std::pair<std::string, bool>> networks_to_add;
   {
-    const std::unique_lock<std::mutex> lock(mutex_);
-
     for (const auto& network : networks) {
       if (network.empty()) {
         continue;
@@ -1049,7 +1040,7 @@ bool RouteManager::AddExcludeNetworks(
 
   const std::string interface_name = !detected_out_interface_name_.empty()
                                          ? detected_out_interface_name_
-                                         : out_interface_name_;
+                                         : config_.out_interface_name;
 
   bool all_success = true;
   for (const auto& [network, is_ipv6] : networks_to_add) {
@@ -1058,10 +1049,10 @@ bool RouteManager::AddExcludeNetworks(
 
       if (is_ipv6) {
         success = AddIPv6RouteToSystem(
-            network, gateway_ipv6_.ToString(), interface_name);
+            network, config_.gateway_ipv6.ToString(), interface_name);
       } else {
         success = AddIPv4RouteToSystem(
-            network, gateway_ipv4_.ToString(), interface_name);
+            network, config_.gateway_ipv4.ToString(), interface_name);
       }
 
       if (success) {
@@ -1073,8 +1064,6 @@ bool RouteManager::AddExcludeNetworks(
       }
     } catch (const std::exception& e) {
       SPDLOG_WARN("Failed to add exclude network '{}': {}", network, e.what());
-
-      const std::unique_lock<std::mutex> lock(mutex_);
       RouteEntry entry{
           .destination = network, .policy = RoutingPolicy::kExcludeFromVpn};
       if (is_ipv6) {
@@ -1092,8 +1081,6 @@ bool RouteManager::AddIncludeNetworks(
     const std::vector<std::string>& networks) {
   std::vector<std::pair<std::string, bool>> networks_to_add;
   {
-    const std::unique_lock<std::mutex> lock(mutex_);
-
     for (const auto& network : networks) {
       if (network.empty()) {
         continue;
@@ -1145,13 +1132,11 @@ bool RouteManager::AddIncludeNetworks(
       all_success = false;
     }
   }
-
   return all_success;
 }
 
 // NOLINT(bugprone-exception-escape)
-fptn::common::network::IPv4Address fptn::routing::ResolveDomain(
-    const std::string& domain) {
+fptn::common::network::IPv4Address ResolveDomain(const std::string& domain) {
   try {
     try {
       // error test
@@ -1174,7 +1159,7 @@ fptn::common::network::IPv4Address fptn::routing::ResolveDomain(
   return fptn::common::network::IPv4Address(domain);
 }
 
-fptn::common::network::IPv4Address fptn::routing::GetDefaultGatewayIPAddress() {
+fptn::common::network::IPv4Address GetDefaultGatewayIPAddress() {
   try {
 #ifdef __linux__
     const std::string command = "ip route get 8.8.8.8 | awk '{print $3; exit}'";
@@ -1210,8 +1195,7 @@ fptn::common::network::IPv4Address fptn::routing::GetDefaultGatewayIPAddress() {
   return {};
 }
 
-fptn::common::network::IPv6Address
-fptn::routing::GetDefaultGatewayIPv6Address() {
+fptn::common::network::IPv6Address GetDefaultGatewayIPv6Address() {
   try {
 #ifdef __linux__
     const std::string command =
@@ -1243,7 +1227,7 @@ fptn::routing::GetDefaultGatewayIPv6Address() {
   return {};
 }
 
-std::string fptn::routing::GetDefaultNetworkInterfaceName() {
+std::string GetDefaultNetworkInterfaceName() {
   std::string result;
   try {
 #ifdef __linux__
@@ -1273,3 +1257,4 @@ std::string fptn::routing::GetDefaultNetworkInterfaceName() {
   }
   return result;
 }
+}  // namespace fptn::routing
