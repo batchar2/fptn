@@ -408,8 +408,7 @@ int main(int argc, char* argv[]) {
             .include_networks = include_networks
 #if _WIN32
             ,
-            enable_advanced_dns_management =
-                settings_->EnableAdvancedDnsManagement()
+            .enable_advanced_dns_management = false
 #endif
         });
 

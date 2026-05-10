@@ -555,17 +555,17 @@ pass out on {tunInterfaceName} proto tcp from any to any port 53
           tun_interface_address_ipv4_.ToString(),
           interface_info),  // via TUN
       // DNS
-      enable_advanced_dns_management_ ? backup_dns_cmd
+      config_.enable_advanced_dns_management ? backup_dns_cmd
                                       : "echo \"No advanced DNS management\" ",
-      enable_advanced_dns_management_ ? configure_dns_cmd
+      config_.enable_advanced_dns_management ? configure_dns_cmd
                                       : "echo \"No advanced DNS management\" ",
       fmt::format("netsh interface ip set dns name=\"{}\" static {}",
-          tun_interface_name_, dns_server_ipv4_.ToString()),
+          tun_interface_name_, config_.dns_server_ipv4.ToString()),
       // IPv6
       fmt::format("netsh interface ipv6 add route ::/0 \"{}\" \"{}\" ",
           tun_interface_name_, tun_interface_address_ipv6_.ToString()),
       fmt::format("netsh interface ipv6 add dnsservers=\"{}\" \"{}\" index=1",
-          tun_interface_name_, dns_server_ipv6_.ToString()),
+          tun_interface_name_, config_.dns_server_ipv6.ToString()),
       // Flush DNS cache
       "ipconfig /flushdns"};
 
@@ -774,7 +774,7 @@ bool RouteManager::Clean() {  // NOLINT(bugprone-exception-escape)
 #elif _WIN32
   std::string current_interface_name = detected_out_interface_name_;
   if (current_interface_name.empty()) {
-    current_interface_name = out_interface_name_;
+    current_interface_name = config_.out_interface_name;
   }
   if (current_interface_name.empty()) {
     current_interface_name = GetDefaultNetworkInterfaceName();
@@ -817,7 +817,7 @@ bool RouteManager::Clean() {  // NOLINT(bugprone-exception-escape)
     }")PSHELL";
 
   const std::vector<std::string> commands = {
-      enable_advanced_dns_management_ ? restore_dns_cmd
+      config_.enable_advanced_dns_management ? restore_dns_cmd
                                       : "echo \"No advanced DNS management\" ",
       // Remove routes
       fmt::format("route delete {} mask 255.255.255.255",
