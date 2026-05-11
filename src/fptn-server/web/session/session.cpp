@@ -98,7 +98,7 @@ Session::Session(std::uint16_t port,
       ws_(ssl_stream_type(
           obfuscator_socket_type(tcp_stream_type(std::move(socket))), ctx)),
       strand_(boost::asio::make_strand(ws_.get_executor())),
-      write_channel_(strand_, 128),
+      write_channel_(strand_, 1024),
       api_handles_(api_handles),
       handshake_cache_manager_(std::move(handshake_cache_manager)),
       ws_open_callback_(std::move(ws_open_callback)),
@@ -116,14 +116,21 @@ Session::Session(std::uint16_t port,
 
     ws_.text(false);
     ws_.binary(true);
-    ws_.auto_fragment(true);
-    ws_.read_message_max(128 * 1024);
+    ws_.auto_fragment(false);
+    ws_.read_message_max(1 * 1024 * 1024);
     ws_.set_option(boost::beast::websocket::stream_base::timeout::suggested(
         boost::beast::role_type::server));
     ws_.set_option(boost::beast::websocket::stream_base::timeout{
         .handshake_timeout = std::chrono::seconds(60),
         .idle_timeout = std::chrono::seconds(60),
         .keep_alive_pings = true});
+    ws_.set_option(
+        boost::beast::websocket::permessage_deflate{.server_enable = false,
+            .client_enable = false,
+            .server_max_window_bits = 15,  // MAX
+            .client_max_window_bits = 15,  // MAX
+            .compLevel = 3,
+            .memLevel = 8});
 
     boost::beast::get_lowest_layer(ws_).expires_after(std::chrono::seconds(10));
     init_completed_ = true;
@@ -250,8 +257,16 @@ boost::asio::awaitable<void> Session::Run() {
   ws_.next_layer().next_layer().set_obfuscator(nullptr);
 
   // Process request (HTTP or WebSocket)
+  auto& tcp_socket = boost::beast::get_lowest_layer(ws_).socket();
   const bool status = co_await ProcessRequest();
-  if (status) {
+  if (status && tcp_socket.is_open()) {
+    tcp_socket.set_option(boost::asio::ip::tcp::no_delay(true), ec);
+    tcp_socket.set_option(
+        boost::asio::socket_base::send_buffer_size(1024 * 1024), ec);
+    tcp_socket.set_option(
+        boost::asio::socket_base::receive_buffer_size(1024 * 1024), ec);
+    tcp_socket.set_option(boost::asio::socket_base::keep_alive(true), ec);
+
     auto self = shared_from_this();
     boost::asio::co_spawn(
         strand_,
@@ -259,7 +274,6 @@ boost::asio::awaitable<void> Session::Run() {
           return self->RunReader();
         },
         boost::asio::detached);
-
     boost::asio::co_spawn(
         strand_,
         [self]() mutable -> boost::asio::awaitable<void> {
@@ -1132,25 +1146,22 @@ void Session::Close() {
   }
 }
 
-boost::asio::awaitable<bool> Session::Send(common::network::IPPacketPtr pkt) {
-  auto self = shared_from_this();
-  boost::asio::post(strand_, [self, pkt = std::move(pkt)]() mutable {
-    if (self->running_ && self->write_channel_.is_open()) {
-      const bool status = self->write_channel_.try_send(
-          boost::system::error_code(), std::move(pkt));
-      if (!status && !self->full_queue_) {
-        self->full_queue_ = true;
-        SPDLOG_WARN(
-            "Session::send queue is full (client_id={})", self->client_id_);
-      }
-    }
-  });
-  co_return true;
+void Session::Send(common::network::IPPacketPtr pkt) {
+  if (!running_.load(std::memory_order_acquire)) {
+    return;
+  }
+
+  boost::system::error_code ec;
+  const bool status = write_channel_.try_send(ec, std::move(pkt));
+  if (!status && !full_queue_) {
+    full_queue_ = true;
+    SPDLOG_WARN("Session::send queue is full (client_id={})", client_id_);
+  }
 }
 
 boost::asio::awaitable<IObfuscator> Session::DetectObfuscator() {
-  boost::system::error_code ec;
   try {
+    boost::system::error_code ec;
     auto& tcp_socket = boost::beast::get_lowest_layer(ws_).socket();
 
     // Peek data without consuming it from the socket buffer

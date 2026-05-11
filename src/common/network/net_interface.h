@@ -75,10 +75,11 @@ class BaseNetInterface {
   void SetName(const std::string& name) { name_ = name; }
 
  private:
-  explicit BaseNetInterface(std::string name)
+  explicit BaseNetInterface(std::string name, bool using_rate_calculator)
       : name_(std::move(name)),
         recv_ip_packet_callback_(nullptr),
-        runtime_config_() {}
+        runtime_config_(),
+        using_rate_calculator_(using_rate_calculator) {}
 
   Implementation* impl() { return static_cast<Implementation*>(this); }
 
@@ -99,6 +100,8 @@ class BaseNetInterface {
     return runtime_config_.ipv6_addr;
   }
 
+  bool UsingRateCalculator() const noexcept { return using_rate_calculator_; }
+
   int IPv6Netmask() const noexcept { return runtime_config_.ipv6_netmask; }
 
   void SetRecvIPPacketCallback(const NewIPPacketCallback& callback) noexcept {
@@ -114,6 +117,8 @@ class BaseNetInterface {
   NewIPPacketCallback recv_ip_packet_callback_;
 
   Config runtime_config_;
+
+  const bool using_rate_calculator_;
 };
 
 /**
@@ -143,8 +148,11 @@ class GenericTunInterface final
 
   using Config = typename Base::Config;
 
-  explicit GenericTunInterface(std::string name)
-      : Base(std::move(name)), mtu_(FPTN_MTU_SIZE), running_(false) {}
+  explicit GenericTunInterface(
+      std::string name, bool using_rate_calculator = true)
+      : Base(std::move(name), using_rate_calculator),
+        mtu_(FPTN_MTU_SIZE),
+        running_(false) {}
 
   ~GenericTunInterface() { StopImpl(); }
 
@@ -211,25 +219,24 @@ class GenericTunInterface final
   }
 
   bool SendImpl(IPPacketPtr packet) noexcept {
-    if (!running_ || !packet || !packet->Size()) {
-      return false;
-    }
-
     try {
-      if (running_) {
+      if (running_ && packet && packet->Size()) {
         const auto* raw_packet = packet->GetRawPacket();
-        if (!raw_packet) {
-          return false;
-        }
-        const auto* data = raw_packet->getRawData();
-        const auto len = raw_packet->getRawDataLen();
+        if (raw_packet) {
+          const auto* data = raw_packet->getRawData();
+          const auto len = raw_packet->getRawDataLen();
 
-        if (running_) {
-          const std::scoped_lock lock(mutex_);  // mutex
+          if (data && len > 0) {
+            const std::scoped_lock lock(mutex_);  // mutex
 
-          const int bytes_written = device_.Write(data, static_cast<int>(len));
-          send_rate_calculator_.Update(bytes_written);
-          return bytes_written == len;
+            const int bytes_written =
+                device_.Write(data, static_cast<int>(len));
+            if (this->UsingRateCalculator() && bytes_written > 0) {
+              send_rate_calculator_.Update(bytes_written);
+            }
+
+            return bytes_written == len;
+          }
         }
       }
     } catch (const std::exception& ex) {
@@ -255,7 +262,9 @@ class GenericTunInterface final
         buffer.resize(size);
         auto packet = IPPacket::Parse(buffer);
         if (running_ && packet != nullptr && callback) {
-          receive_rate_calculator_.Update(packet->Size());  // calculate rate
+          if (this->UsingRateCalculator()) {
+            receive_rate_calculator_.Update(packet->Size());  // calculate rate
+          }
           callback(std::move(packet));
         }
       }

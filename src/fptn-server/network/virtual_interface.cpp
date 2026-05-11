@@ -23,7 +23,7 @@ VirtualInterface::VirtualInterface(const std::string& name,
   // NOLINTNEXTLINE(modernize-avoid-bind)
   const auto callback = std::bind(
       &VirtualInterface::IPPacketFromNetwork, this, std::placeholders::_1);
-  virtual_network_interface_ = std::make_unique<TunInterface>(name);
+  virtual_network_interface_ = std::make_unique<TunInterface>(name, false);
   virtual_network_interface_->SetRecvIPPacketCallback(callback);
 }
 
@@ -34,48 +34,25 @@ bool VirtualInterface::Check() noexcept { return thread_.joinable(); }
 bool VirtualInterface::Start() noexcept {
   running_ = true;
   virtual_network_interface_->Start(config_);
-  thread_ = std::thread(&VirtualInterface::Run, this);
-  return thread_.joinable();
+  iptables_->Apply();  // activate route
+  return true;
 }
 
 bool VirtualInterface::Stop() noexcept {
   running_ = false;
   virtual_network_interface_->Stop();
-  if (thread_.joinable()) {
-    iptables_->Clean();
-    thread_.join();
-    return true;
-  }
-  return false;
+  iptables_->Clean();
+  return true;
 }
 
 void VirtualInterface::Send(
     fptn::common::network::IPPacketPtr packet) noexcept {
-  try {
-    to_network_.Push(std::move(packet));
-  } catch (const std::bad_alloc& err) {
-    SPDLOG_ERROR(
-        "Memory allocation failed while sending packet: {}", err.what());
-  } catch (...) {
-    SPDLOG_ERROR("Unknown exception occurred while sending packet.");
-  }
+  virtual_network_interface_->Send(std::move(packet));
 }
 
-fptn::common::network::IPPacketPtr VirtualInterface::WaitForPacket(
+fptn::common::network::BatchIPPacketPtr VirtualInterface::WaitForPackets(
     const std::chrono::milliseconds& duration) noexcept {
-  return from_network_.WaitForPacket(duration);
-}
-
-void VirtualInterface::Run() noexcept {
-  constexpr auto kTimeout = std::chrono::milliseconds(300);
-
-  iptables_->Apply();  // activate route
-  while (running_) {
-    auto packet = to_network_.WaitForPacket(kTimeout);
-    if (packet != nullptr) {
-      virtual_network_interface_->Send(std::move(packet));
-    }
-  }
+  return from_network_.WaitForPackets(duration);
 }
 
 void VirtualInterface::IPPacketFromNetwork(

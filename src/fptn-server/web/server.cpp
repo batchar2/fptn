@@ -50,8 +50,7 @@ Server::Server(std::uint16_t port,
       server_external_ips_(std::move(server_external_ips)),
       thread_number_(std::max<std::size_t>(1, thread_number)),
       ioc_(thread_number),
-      from_client_(std::make_unique<fptn::common::data::Channel>()),
-      to_client_(std::make_unique<fptn::common::data::ChannelAsync>(ioc_)) {
+      from_client_(std::make_unique<fptn::common::data::Channel>()) {
   using std::placeholders::_1;
   using std::placeholders::_2;
   using std::placeholders::_3;
@@ -78,8 +77,7 @@ Server::Server(std::uint16_t port,
   listener_->AddApiHandle(fptn::common::api::kApiDnsUrl, "GET",
       // NOLINTNEXTLINE(modernize-avoid-bind)
       std::bind(&Server::HandleApiDns, this, _1, _2));
-  listener_->AddApiHandle(
-      fptn::common::api::kApiLoginUrl, "POST",
+  listener_->AddApiHandle(fptn::common::api::kApiLoginUrl, "POST",
       // NOLINTNEXTLINE(modernize-avoid-bind)
       std::bind(&Server::HandleApiLogin, this, _1, _2));
   listener_->AddApiHandle(fptn::common::api::kApiTestFileBinUrl, "GET",
@@ -107,10 +105,10 @@ bool Server::Start() {
         [this]() -> boost::asio::awaitable<void> { co_await listener_->Run(); },
         boost::asio::detached);
     // run senders
-    boost::asio::co_spawn(
-        ioc_,
-        [this]() -> boost::asio::awaitable<void> { co_await RunSender(); },
-        boost::asio::detached);
+    // boost::asio::co_spawn(
+    //     ioc_,
+    //     [this]() -> boost::asio::awaitable<void> { co_await RunSender(); },
+    //     boost::asio::detached);
     // run threads
     ioc_threads_.reserve(thread_number_);
     for (std::size_t i = 0; i < thread_number_; ++i) {
@@ -124,39 +122,14 @@ bool Server::Start() {
   return true;
 }
 
-boost::asio::awaitable<void> Server::RunSender() {
-  constexpr std::chrono::milliseconds kTimeout{10};
-
-  while (running_) {
-    auto optpacket = co_await to_client_->WaitForPacketAsync(kTimeout);
-    if (optpacket && running_) {
-      SessionSPtr session;
-
-      {
-        const std::unique_lock<std::mutex> lock(mutex_);  // mutex
-
-        auto it = sessions_.find(optpacket->get()->ClientId());
-        if (it != sessions_.end()) {
-          session = it->second;
-        }
-      }
-      if (session) {
-        const bool status = co_await session->Send(std::move(*optpacket));
-        if (!status) {
-          session->Close();
-        }
-      }
-    }
-  }
-  co_return;
-}
-
 bool Server::Stop() {
   if (running_) {
     running_ = false;
     SPDLOG_INFO("Server stop");
 
     listener_->Stop();
+
+    const std::unique_lock<std::shared_mutex> lock(mutex_);  // mutex
 
     for (auto& session : sessions_) {
       if (session.second) {
@@ -177,13 +150,19 @@ bool Server::Stop() {
   return false;
 }
 
-void Server::Send(fptn::common::network::IPPacketPtr packet) {
-  to_client_->Push(std::move(packet));
+fptn::web::SessionSPtr Server::GetSessionById(fptn::ClientID client_id) {
+  const std::shared_lock<std::shared_mutex> lock(mutex_);  // mutex
+
+  auto it = sessions_.find(client_id);
+  if (it != sessions_.end()) {
+    return it->second;
+  }
+  return nullptr;
 }
 
-fptn::common::network::IPPacketPtr Server::WaitForPacket(
+fptn::common::network::BatchIPPacketPtr Server::WaitForPackets(
     const std::chrono::milliseconds& duration) {
-  return from_client_->WaitForPacket(duration);
+  return from_client_->WaitForPackets(duration);
 }
 
 // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
@@ -279,7 +258,7 @@ fptn::client::SessionSPtr Server::HandleWsOpenConnection(
     return nullptr;
   }
 
-  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+  const std::unique_lock<std::shared_mutex> lock(mutex_);  // mutex
 
   const auto active_sessions =
       nat_table_->GetNumberActiveSessionByUsername(username);
@@ -334,7 +313,7 @@ void Server::HandleWsNewIPPacket(
 void Server::HandleWsCloseConnection(fptn::ClientID client_id) noexcept {
   SessionSPtr session;
   if (running_) {
-    const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+    const std::unique_lock<std::shared_mutex> lock(mutex_);
 
     auto it = sessions_.find(client_id);
     if (it != sessions_.end()) {

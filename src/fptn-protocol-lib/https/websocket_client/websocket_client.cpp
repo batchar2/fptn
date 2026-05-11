@@ -62,8 +62,8 @@ WebsocketClient::WebsocketClient(Config config, int thread_number)
 
   ws_.text(false);
   ws_.binary(true);
-  ws_.auto_fragment(true);
-  ws_.read_message_max(256 * 1024);
+  ws_.auto_fragment(false);
+  ws_.read_message_max(1 * 1024 * 1024);
   ws_.set_option(boost::beast::websocket::stream_base::timeout::suggested(
       boost::beast::role_type::client));
 }

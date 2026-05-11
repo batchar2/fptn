@@ -30,11 +30,10 @@ class VirtualInterface final {
   bool Start() noexcept;
   bool Stop() noexcept;
   void Send(fptn::common::network::IPPacketPtr packet) noexcept;
-  fptn::common::network::IPPacketPtr WaitForPacket(
+  common::network::BatchIPPacketPtr WaitForPackets(
       const std::chrono::milliseconds& duration) noexcept;
 
  protected:
-  void Run() noexcept;
   void IPPacketFromNetwork(fptn::common::network::IPPacketPtr packet) noexcept;
 
  private:
@@ -46,7 +45,6 @@ class VirtualInterface final {
 
   const fptn::routing::RouteManagerPtr iptables_;
 
-  fptn::common::data::Channel to_network_;
   fptn::common::data::Channel from_network_;
   fptn::common::network::TunInterfaceSPtr virtual_network_interface_;
 };

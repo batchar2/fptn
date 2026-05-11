@@ -141,7 +141,7 @@ bool Table::DelClientSession(ClientID client_id) {
 
 fptn::client::SessionSPtr Table::GetSessionByFakeIPv4(
     const fptn::common::network::IPv4Address& ip) noexcept {
-  const std::unique_lock<std::shared_mutex> lock(mutex_);  // mutex
+  const std::shared_lock<std::shared_mutex> lock(mutex_);  // mutex
 
   const auto it = ipv4_to_sessions_.find(ip.ToInt());
   if (it != ipv4_to_sessions_.end()) {
@@ -152,7 +152,7 @@ fptn::client::SessionSPtr Table::GetSessionByFakeIPv4(
 
 fptn::client::SessionSPtr Table::GetSessionByFakeIPv6(
     const fptn::common::network::IPv6Address& ip) noexcept {
-  const std::unique_lock<std::shared_mutex> lock(mutex_);  // mutex
+  const std::shared_lock<std::shared_mutex> lock(mutex_);  // mutex
 
   auto it = ipv6_to_sessions_.find(ip.ToString());
   if (it != ipv6_to_sessions_.end()) {
@@ -163,7 +163,7 @@ fptn::client::SessionSPtr Table::GetSessionByFakeIPv6(
 
 fptn::client::SessionSPtr Table::GetSessionByClientId(
     ClientID clientId) noexcept {
-  const std::unique_lock<std::shared_mutex> lock(mutex_);  // mutex
+  const std::shared_lock<std::shared_mutex> lock(mutex_);  // mutex
 
   auto it = client_id_to_sessions_.find(clientId);
   if (it != client_id_to_sessions_.end()) {
@@ -174,7 +174,7 @@ fptn::client::SessionSPtr Table::GetSessionByClientId(
 
 std::size_t Table::GetNumberActiveSessionByUsername(
     const std::string& username) {
-  const std::unique_lock<std::shared_mutex> lock(mutex_);  // mutex
+  const std::shared_lock<std::shared_mutex> lock(mutex_);  // mutex
 
   return std::ranges::count_if(
       ipv4_to_sessions_, [&username](const auto& pair) {

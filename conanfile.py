@@ -16,6 +16,7 @@ class FPTN(ConanFile):
         "argparse/3.2",
         "boost/1.90.0",
         "brotli/1.2.0",
+        "concurrentqueue/1.0.5",
         "cpp-httplib/0.30.0",
         "fmt/12.1.0",
         "jwt-cpp/0.7.1",

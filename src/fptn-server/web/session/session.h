@@ -50,9 +50,11 @@ class Session : public std::enable_shared_from_this<Session> {
   virtual ~Session();
   void Close();
 
+  void Send(common::network::IPPacketPtr pkt);
+
   // async
   boost::asio::awaitable<void> Run();
-  boost::asio::awaitable<bool> Send(fptn::common::network::IPPacketPtr pkt);
+  // boost::asio::awaitable<bool> Send(fptn::common::network::IPPacketPtr pkt);
 
  protected:
   boost::asio::awaitable<void> RunReader();

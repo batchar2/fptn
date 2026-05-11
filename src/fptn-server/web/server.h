@@ -18,7 +18,6 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <boost/beast/ssl.hpp>
 
 #include "common/data/channel.h"
-#include "common/data/channel_async.h"
 #include "common/jwt_token/token_manager.h"
 #include "common/network/ip_packet.h"
 
@@ -48,12 +47,10 @@ class Server final {
   bool Start();
   bool Stop();
 
-  void Send(fptn::common::network::IPPacketPtr packet);
-  fptn::common::network::IPPacketPtr WaitForPacket(
-      const std::chrono::milliseconds& duration);
+  fptn::web::SessionSPtr GetSessionById(fptn::ClientID client_id);
 
- protected:
-  boost::asio::awaitable<void> RunSender();
+  fptn::common::network::BatchIPPacketPtr WaitForPackets(
+      const std::chrono::milliseconds& duration);
 
  protected:
   // http
@@ -75,7 +72,7 @@ class Server final {
   void HandleWsCloseConnection(fptn::ClientID client_id) noexcept;
 
  private:
-  mutable std::mutex mutex_;
+  mutable std::shared_mutex mutex_;
   std::atomic<bool> running_;
 
   const std::uint16_t port_;
@@ -96,7 +93,6 @@ class Server final {
 
   boost::asio::io_context ioc_;
   fptn::common::data::ChannelPtr from_client_;
-  fptn::common::data::ChannelAsyncPtr to_client_;
 
   ListenerSPtr listener_;
 

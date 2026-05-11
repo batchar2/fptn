@@ -399,6 +399,7 @@ class IPPacket {
 };
 
 using IPPacketPtr = std::unique_ptr<IPPacket>;
+using BatchIPPacketPtr = std::vector<std::unique_ptr<IPPacket>>;
 
 #else
 
