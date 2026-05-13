@@ -98,7 +98,7 @@ Session::Session(std::uint16_t port,
       ws_(ssl_stream_type(
           obfuscator_socket_type(tcp_stream_type(std::move(socket))), ctx)),
       strand_(boost::asio::make_strand(ws_.get_executor())),
-      write_channel_(strand_, 1024),
+      write_channel_(strand_, 256),
       api_handles_(api_handles),
       handshake_cache_manager_(std::move(handshake_cache_manager)),
       ws_open_callback_(std::move(ws_open_callback)),
@@ -107,7 +107,8 @@ Session::Session(std::uint16_t port,
       running_(false),
       init_completed_(false),
       ws_session_was_opened_(false),
-      full_queue_(false) {
+      full_queue_(false),
+      support_batch_sending_(false) {
   try {
     client_id_ = ++client_id_counter;
 
@@ -786,44 +787,94 @@ boost::asio::awaitable<bool> Session::HandleProxy(
 boost::asio::awaitable<void> Session::RunReader() {
   boost::system::error_code ec;
   boost::beast::flat_buffer buffer;
-  buffer.reserve(16384);
+  buffer.reserve(4 * 1024 * 1024);
   auto token = boost::asio::redirect_error(boost::asio::use_awaitable, ec);
   try {
     while (running_ && !ec) {
       co_await ws_.async_read(buffer, token);
       if (buffer.size() > 0 && running_) {
-        auto raw_ip = fptn::protocol::protobuf::GetProtoPayload(buffer);
-        if (raw_ip.has_value() && running_) {
-          auto packet = fptn::common::network::IPPacket::Parse(
-              std::move(raw_ip.value()), client_id_);
-          if (packet != nullptr) {
-            ws_new_ippacket_callback_(std::move(packet));
+        if (support_batch_sending_) {
+          // BATCH MODE
+          auto batch_packets =
+              fptn::protocol::protobuf::DeserializeBatchIPPacket(buffer);
+          for (auto& raw_ip_opt : batch_packets) {
+            if (raw_ip_opt.has_value()) {
+              auto packet = fptn::common::network::IPPacket::Parse(
+                  std::move(raw_ip_opt.value()), client_id_);
+              if (packet != nullptr) {
+                ws_new_ippacket_callback_(std::move(packet));
+              }
+            }
+          }
+        } else {
+          // DEPRECATED
+          // SINGLE PACKET MODE
+          auto raw_ip = fptn::protocol::protobuf::DeserializeIPPacket(buffer);
+          if (raw_ip.has_value() && running_) {
+            auto packet = fptn::common::network::IPPacket::Parse(
+                std::move(raw_ip.value()), client_id_);
+            if (packet != nullptr) {
+              ws_new_ippacket_callback_(std::move(packet));
+            }
           }
         }
         buffer.consume(buffer.size());
       }
     }
   } catch (const std::exception& e) {
-    SPDLOG_ERROR(
-        "RunReader exception (client_id={}): {}", client_id_, e.what());
+    SPDLOG_ERROR("RunReader exception: {}", e.what());
   }
-
   Close();
   co_return;
 }
 
 boost::asio::awaitable<void> Session::RunSender() {
+  constexpr std::size_t kMaxBatchSize = 32;
+  auto token = boost::asio::bind_cancellation_slot(
+      cancel_signal_.slot(), boost::asio::as_tuple(boost::asio::use_awaitable));
   try {
-    auto token = boost::asio::bind_cancellation_slot(cancel_signal_.slot(),
-        boost::asio::as_tuple(boost::asio::use_awaitable));
-    while (running_ && ws_.is_open()) {
-      auto [ec, packet] = co_await write_channel_.async_receive(token);
-      if (running_ && !ec && packet) {
-        auto msg =
-            fptn::protocol::protobuf::CreateProtoPayload(std::move(packet));
-        if (msg.has_value()) {
-          co_await ws_.async_write(boost::asio::buffer(std::move(msg.value())),
-              boost::asio::use_awaitable);
+    while (running_) {
+      std::vector<fptn::common::network::IPPacketPtr> packets;
+
+      if (support_batch_sending_) {
+        // BATCH MODE
+        auto [ec, packet] = co_await write_channel_.async_receive(token);
+        if (!ec && packet) {
+          packets.push_back(std::move(packet));
+          while (packets.size() < kMaxBatchSize) {
+            const bool has_packet = write_channel_.try_receive(
+                [&packets](const boost::system::error_code& ec2,
+                    fptn::common::network::IPPacketPtr p) {
+                  if (!ec2 && p) {
+                    packets.push_back(std::move(p));
+                  }
+                });
+            if (!has_packet) {
+              break;
+            }
+          }
+        }
+        if (!packets.empty()) {
+          auto batch_data = fptn::protocol::protobuf::SerializeBatchIPPacket(
+              std::move(packets));
+          if (batch_data.has_value()) {
+            co_await ws_.async_write(boost::asio::buffer(batch_data.value()),
+                boost::asio::use_awaitable);
+          }
+        } else {
+          co_await boost::asio::post(boost::asio::use_awaitable);
+        }
+      } else {
+        // DEPRECATED
+        // SINGLE PACKET MODE
+        auto [ec, packet] = co_await write_channel_.async_receive(token);
+        if (!ec && packet) {
+          auto msg =
+              fptn::protocol::protobuf::SerializeIPPacket(std::move(packet));
+          if (msg.has_value()) {
+            co_await ws_.async_write(
+                boost::asio::buffer(msg.value()), boost::asio::use_awaitable);
+          }
         }
       }
     }
@@ -968,6 +1019,7 @@ boost::asio::awaitable<bool> Session::HandleWebSocket(
           ws_open_callback_(client_id_, client_ip, client_vpn_ipv4,
               client_vpn_ipv6, shared_from_this(), request.target(), token);
       ws_session_was_opened_ = nat_session != nullptr;
+      support_batch_sending_ = false;
       if (ws_session_was_opened_) {
         co_await ws_.async_accept(request,
             boost::asio::redirect_error(boost::asio::use_awaitable, ec));
@@ -1020,6 +1072,7 @@ boost::asio::awaitable<bool> Session::HandleWebSocket2(
 
       nat_session->DisableChecksumCalculation(true);
       ws_session_was_opened_ = true;
+      support_batch_sending_ = true;
 
       if (nat_session) {
         co_await ws_.async_accept(request,
@@ -1147,7 +1200,7 @@ void Session::Close() {
 }
 
 void Session::Send(common::network::IPPacketPtr pkt) {
-  if (!running_.load(std::memory_order_acquire)) {
+  if (!running_.load(std::memory_order_acquire) && pkt != nullptr) {
     return;
   }
 

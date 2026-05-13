@@ -26,8 +26,8 @@ Session::Session(ClientID client_id,
       client_ipv6_(std::move(client_ipv6)),
       fake_client_ipv6_(std::move(fake_client_ipv6)),
       to_client_(std::move(to_client)),
-      from_client_(std::move(from_client))
-{}
+      from_client_(std::move(from_client)),
+      disable_checksum_calculation_(false) {}  // NOLINT
 
 const fptn::ClientID& Session::ClientId() const noexcept { return client_id_; }
 

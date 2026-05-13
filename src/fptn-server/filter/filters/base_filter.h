@@ -12,10 +12,12 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 namespace fptn::filter {
 
+using fptn::common::network::IPPacketPtr;
+
 class BaseFilter {
  public:
-  virtual fptn::common::network::IPPacketPtr apply(
-      fptn::common::network::IPPacketPtr packet) const = 0;
+  virtual IPPacketPtr apply(IPPacketPtr packet) const = 0;
+
   virtual ~BaseFilter() = default;
 };
 

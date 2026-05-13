@@ -293,10 +293,10 @@ fptn::client::SessionSPtr Server::HandleWsOpenConnection(
 
   SPDLOG_INFO(
       "NEW SESSION! Username={} client_id={} Bandwidth={} ClientIP={} "
-      "VirtualIPv4={} VirtualIPv6={}",
+      "VPN_IPv4={} VPN_IPv6={} URL={}",
       username, client_id, bandwidth_bites_seconds, client_ip.ToString(),
       nat_session->FakeClientIPv4().ToString(),
-      nat_session->FakeClientIPv6().ToString());
+      nat_session->FakeClientIPv6().ToString(), url);
 
   if (running_) {
     sessions_.insert({client_id, session});

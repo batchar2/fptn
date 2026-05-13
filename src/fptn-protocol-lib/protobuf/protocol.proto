@@ -8,6 +8,7 @@ enum MessageType {
     MSG_ERROR = 0;
     MSG_IP_PACKET = 1;
     MSG_IP_ASSIGNMENT = 2;
+    MSG_BATCH_IP_PACKET = 3;
 }
 
 enum ErrorType {
@@ -31,13 +32,18 @@ message IPAssignment {
     string address_ipv6 = 2;
 }
 
+message BatchIPPacket {
+    repeated bytes packets = 1;
+}
+
 message Message {
     int32 protocol_version = 1;
     MessageType msg_type = 2;
 
     oneof message_content {
         ErrorMessage error = 3;
-        IPPacket packet = 4;
+        IPPacket packet = 4;  // deprecated
         IPAssignment ip_addresses = 5;
+        BatchIPPacket batch = 6;
     }
 }

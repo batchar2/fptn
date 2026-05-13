@@ -24,7 +24,7 @@ class Manager final {
       fptn::nat::TableSPtr nat,
       fptn::filter::ManagerSPtr filter,
       fptn::statistic::MetricsSPtr prometheus,
-      std::size_t thread_pool_size = 4);
+      std::size_t thread_pool_size = 2);
   ~Manager();
   bool Stop();
   bool Start();

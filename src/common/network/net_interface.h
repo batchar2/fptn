@@ -43,6 +43,7 @@ using NewIPPacketCallback = std::function<void(IPPacketPtr packet)>;
  *  - StartImpl()     - Initialize the interface
  *  - StopImpl()      - Shutdown the interface
  *  - SendImpl()      - Packet transmission
+ *  - SendBatchImpl()      - Packet transmission
  *  - GetSendRateImpl()    - Outbound rate monitoring
  *  - GetReceiveRateImpl() - Inbound rate monitoring
  */
@@ -68,6 +69,10 @@ class BaseNetInterface {
 
   bool Send(IPPacketPtr packet) { return impl()->SendImpl(std::move(packet)); }
 
+  bool SendBatch(std::vector<IPPacketPtr> packets) {
+    return impl()->SendBatchImpl(std::move(packets));
+  }
+
   std::size_t GetSendRate() { return impl()->GetSendRateImpl(); }
 
   std::size_t GetReceiveRate() { return impl()->GetReceiveRateImpl(); }
@@ -75,8 +80,10 @@ class BaseNetInterface {
   void SetName(const std::string& name) { name_ = name; }
 
  private:
-  explicit BaseNetInterface(std::string name, bool using_rate_calculator)
+  explicit BaseNetInterface(
+      std::string name, int mtu_size, bool using_rate_calculator)
       : name_(std::move(name)),
+        mtu_size_(mtu_size),
         recv_ip_packet_callback_(nullptr),
         runtime_config_(),
         using_rate_calculator_(using_rate_calculator) {}
@@ -100,6 +107,8 @@ class BaseNetInterface {
     return runtime_config_.ipv6_addr;
   }
 
+  [[nodiscard]] int MtuSize() const noexcept { return mtu_size_; }
+
   bool UsingRateCalculator() const noexcept { return using_rate_calculator_; }
 
   int IPv6Netmask() const noexcept { return runtime_config_.ipv6_netmask; }
@@ -114,6 +123,8 @@ class BaseNetInterface {
 
  private:
   std::string name_;
+  int mtu_size_;
+
   NewIPPacketCallback recv_ip_packet_callback_;
 
   Config runtime_config_;
@@ -149,16 +160,15 @@ class GenericTunInterface final
   using Config = typename Base::Config;
 
   explicit GenericTunInterface(
-      std::string name, bool using_rate_calculator = true)
-      : Base(std::move(name), using_rate_calculator),
-        mtu_(FPTN_MTU_SIZE),
+      std::string name, int mtu_size, bool using_rate_calculator = true)
+      : Base(std::move(name), mtu_size, using_rate_calculator),
         running_(false) {}
 
   ~GenericTunInterface() { StopImpl(); }
 
  protected:
   bool StartImpl() noexcept {
-    const std::scoped_lock lock(mutex_);
+    const std::scoped_lock lock(mutex_);  // mutex
 
     try {
       // cppcheck-suppress knownConditionTrueFalse
@@ -183,8 +193,8 @@ class GenericTunInterface final
         device_.Close();
         return false;
       }
-      device_.SetNonBlocking(false);
-      device_.SetMTU(mtu_);
+      device_.SetNonBlocking(true);
+      device_.SetMTU(this->MtuSize());
       device_.BringUp();
 
       running_ = true;
@@ -201,26 +211,30 @@ class GenericTunInterface final
     if (!running_) {
       return false;
     }
+    {
+      const std::scoped_lock lock(mutex_);  // mutex
 
-    const std::scoped_lock lock(mutex_);
+      // cppcheck-suppress identicalConditionAfterEarlyExit
+      if (!running_) {  // Double-check after acquiring lock
+        return false;
+      }
+      running_ = false;
+    }
 
-    // cppcheck-suppress identicalConditionAfterEarlyExit
-    if (!running_) {  // Double-check after acquiring lock
-      return false;
+    if (thread_.joinable()) {
+      thread_.join();
     }
 
     device_.Close();
 
-    if (thread_.joinable()) {
-      running_ = false;
-      thread_.join();
-    }
     return true;
   }
 
   bool SendImpl(IPPacketPtr packet) noexcept {
     try {
-      if (running_ && packet && packet->Size()) {
+      static const bool kRateCalculator = this->UsingRateCalculator();
+
+      if (running_ && packet) {
         const auto* raw_packet = packet->GetRawPacket();
         if (raw_packet) {
           const auto* data = raw_packet->getRawData();
@@ -231,10 +245,9 @@ class GenericTunInterface final
 
             const int bytes_written =
                 device_.Write(data, static_cast<int>(len));
-            if (this->UsingRateCalculator() && bytes_written > 0) {
+            if (kRateCalculator && bytes_written > 0) {
               send_rate_calculator_.Update(bytes_written);
             }
-
             return bytes_written == len;
           }
         }
@@ -242,6 +255,57 @@ class GenericTunInterface final
     } catch (const std::exception& ex) {
       SPDLOG_ERROR("SendImpl error: {}", ex.what());
     }
+    return false;
+  }
+
+  bool SendBatchImpl(std::vector<IPPacketPtr> packets) noexcept {
+    try {
+      static const bool kRateCalculator = this->UsingRateCalculator();
+
+      if (!running_ || packets.empty()) {
+        return false;
+      }
+
+      // serialize
+      std::vector<IPPacketData> serialized_packets;
+      serialized_packets.reserve(packets.size());
+      std::size_t total_bytes = 0;
+      for (auto& packet : packets) {
+        if (packet && packet->Size()) {
+          const auto* raw_packet = packet->GetRawPacket();
+          if (raw_packet) {
+            const auto* data = raw_packet->getRawData();
+            const auto len = raw_packet->getRawDataLen();
+            if (data && len > 0) {
+              serialized_packets.emplace_back(data, data + len);
+              total_bytes += len;
+            }
+          }
+        }
+      }
+
+      // send
+      if (!serialized_packets.empty()) {
+        const std::scoped_lock lock(mutex_);  // mutex
+
+        for (const auto& packet_data : serialized_packets) {
+          const int bytes_written = device_.Write(
+              packet_data.data(), static_cast<int>(packet_data.size()));
+          if (bytes_written != static_cast<int>(packet_data.size())) {
+            return false;
+          }
+        }
+      }
+
+      if (kRateCalculator && total_bytes) {
+        send_rate_calculator_.Update(total_bytes);
+      }
+
+      return true;
+    } catch (const std::exception& ex) {
+      SPDLOG_ERROR("SendImpl error: {}", ex.what());
+    }
+
     return false;
   }
 
@@ -254,27 +318,50 @@ class GenericTunInterface final
   }
 
   void Run() {
+    const int mtu_size = this->MtuSize();
     const auto callback = this->GetRecvIPPacketCallback();
+    const bool rate_calc = this->UsingRateCalculator();
+
+    constexpr int kBatchIPPacketsSize = 16;
+    std::vector<IPPacketPtr> batch_ip_packets;
+    batch_ip_packets.reserve(kBatchIPPacketsSize);
+
     while (running_) {
-      std::vector<std::uint8_t> buffer(mtu_);
-      const int size = device_.Read(buffer.data(), mtu_);
-      if (size > 0 && running_) {
-        buffer.resize(size);
-        auto packet = IPPacket::Parse(buffer);
-        if (running_ && packet != nullptr && callback) {
-          if (this->UsingRateCalculator()) {
-            receive_rate_calculator_.Update(packet->Size());  // calculate rate
+      std::size_t total_bytes = 0;
+
+      // collect batch
+      for (int i = 0; i < kBatchIPPacketsSize && running_; ++i) {
+        std::vector<std::uint8_t> buffer(mtu_size);
+        const int size = device_.Read(buffer.data(), mtu_size);
+        if (size > 0) {
+          buffer.resize(size);
+          auto packet = IPPacket::Parse(std::move(buffer));
+          if (packet) {
+            total_bytes += packet->Size();
+            batch_ip_packets.emplace_back(std::move(packet));
           }
+        } else {
+          break;
+        }
+      }
+
+      // send batch
+      if (!batch_ip_packets.empty() && running_) {
+        if (rate_calc) {
+          receive_rate_calculator_.Update(total_bytes);
+        }
+        for (auto& packet : batch_ip_packets) {
           callback(std::move(packet));
         }
+        batch_ip_packets.clear();
+      } else {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
       }
     }
   }
 
  private:
   mutable std::mutex mutex_;
-
-  const std::uint16_t mtu_;
 
   std::atomic<bool> running_;
   std::thread thread_;

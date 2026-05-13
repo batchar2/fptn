@@ -23,7 +23,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
 
-#include "common/jwt_token/token_manager.h"
+#include "common/data/channel.h"
 
 #include "fptn-protocol-lib/https/obfuscator/tcp_stream/tcp_stream.h"
 #include "web/api/handle.h"
@@ -54,7 +54,6 @@ class Session : public std::enable_shared_from_this<Session> {
 
   // async
   boost::asio::awaitable<void> Run();
-  // boost::asio::awaitable<bool> Send(fptn::common::network::IPPacketPtr pkt);
 
  protected:
   boost::asio::awaitable<void> RunReader();
@@ -144,6 +143,8 @@ class Session : public std::enable_shared_from_this<Session> {
   std::atomic<bool> init_completed_;
   std::atomic<bool> ws_session_was_opened_;
   std::atomic<bool> full_queue_;
+
+  bool support_batch_sending_;
 
   boost::asio::cancellation_signal cancel_signal_;
 };

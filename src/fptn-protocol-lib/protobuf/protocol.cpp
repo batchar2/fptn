@@ -35,7 +35,7 @@ const std::vector<std::uint8_t>& RandomPaddingData() {
 
 namespace fptn::protocol::protobuf {
 
-ProtoPayloadOpt GetProtoPayload(const boost::beast::flat_buffer& buffer) {
+ProtoPayloadOpt DeserializeIPPacket(const boost::beast::flat_buffer& buffer) {
   const std::size_t total_size = buffer.size();
   if (total_size == 0) {
     SPDLOG_ERROR("Failed to parse Protobuf message: empty buffer");
@@ -88,7 +88,7 @@ ProtoPayloadOpt GetProtoPayload(const boost::beast::flat_buffer& buffer) {
   return std::nullopt;
 }
 
-ProtoPayloadOpt CreateProtoPayload(fptn::common::network::IPPacketPtr packet) {
+ProtoPayloadOpt SerializeIPPacket(fptn::common::network::IPPacketPtr packet) {
   if (!packet) {
     SPDLOG_ERROR("Cannot create proto payload: packet is null");
     return std::nullopt;
@@ -150,6 +150,113 @@ ProtoPayloadOpt CreateProtoPayload(fptn::common::network::IPPacketPtr packet) {
     return std::nullopt;
   }
   return serialized_data;
+}
+
+ProtoPayloadOpt SerializeBatchIPPacket(
+    std::vector<fptn::common::network::IPPacketPtr> packets) {
+  if (packets.empty()) {
+    return std::nullopt;
+  }
+
+  // Arena optimization
+  static thread_local google::protobuf::Arena pb_arena;
+  constexpr std::uint64_t kMaxArenaSizeBytes = 15 * 1024 * 1024;
+  if (pb_arena.SpaceUsed() > kMaxArenaSizeBytes) {
+    pb_arena.Reset();
+  }
+
+  auto* message =
+      google::protobuf::Arena::Create<fptn::protocol::Message>(&pb_arena);
+
+  message->set_protocol_version(FPTN_PROTOBUF_PROTOCOL_VERSION);
+  message->set_msg_type(fptn::protocol::MSG_BATCH_IP_PACKET);
+
+  auto* batch = message->mutable_batch();
+
+  for (auto& packet_ptr : packets) {
+    if (!packet_ptr) {
+      continue;
+    }
+    auto serialized = SerializeIPPacket(std::move(packet_ptr));
+    if (serialized.has_value() && !serialized.value().empty()) {
+      batch->add_packets(serialized.value().data(), serialized.value().size());
+    }
+  }
+
+  if (batch->packets_size() == 0) {
+    return std::nullopt;
+  }
+
+  const std::size_t estimated_size = message->ByteSizeLong();
+  if (estimated_size == 0) {
+    SPDLOG_ERROR("Failed to serialize BatchIPPacket: estimated size is 0");
+    return std::nullopt;
+  }
+
+  std::vector<uint8_t> result(estimated_size);
+  if (!message->SerializeToArray(
+          result.data(), static_cast<int>(estimated_size))) {
+    SPDLOG_ERROR("Failed to serialize BatchIPPacket");
+    return std::nullopt;
+  }
+
+  return result;
+}
+
+std::vector<ProtoPayloadOpt> DeserializeBatchIPPacket(
+    const boost::beast::flat_buffer& buffer) {
+  std::vector<ProtoPayloadOpt> result;
+  const std::size_t total_size = buffer.size();
+  if (total_size == 0) {
+    return result;
+  }
+
+  const auto* data = static_cast<const uint8_t*>(buffer.cdata().data());
+
+  // Arena optimization
+  static thread_local google::protobuf::Arena pb_arena;
+  constexpr std::uint64_t kMaxArenaSizeBytes = 15 * 1024 * 1024;
+  if (pb_arena.SpaceUsed() > kMaxArenaSizeBytes) {
+    pb_arena.Reset();
+  }
+
+  auto* message =
+      google::protobuf::Arena::Create<fptn::protocol::Message>(&pb_arena);
+
+  if (!message->ParseFromArray(data, static_cast<int>(total_size))) {
+    SPDLOG_ERROR("Failed to parse BatchIPPacket message");
+    return result;
+  }
+
+  if (message->msg_type() != fptn::protocol::MSG_BATCH_IP_PACKET) {
+    return result;
+  }
+
+  if (!message->has_batch()) {
+    SPDLOG_ERROR("BatchIPPacket message has no batch field");
+    return result;
+  }
+
+  const auto& batch = message->batch();
+  result.reserve(batch.packets_size());
+
+  for (int i = 0; i < batch.packets_size(); ++i) {
+    const auto& packet_data = batch.packets(i);
+
+    fptn::protocol::Message inner_msg;
+    if (!inner_msg.ParseFromString(packet_data)) {
+      continue;
+    }
+
+    if (inner_msg.msg_type() == fptn::protocol::MSG_IP_PACKET &&
+        inner_msg.has_packet()) {
+      const auto& payload = inner_msg.packet().payload();
+      std::vector<std::uint8_t> payload_data(payload.begin(), payload.end());
+      result.emplace_back(std::move(payload_data));
+    }
+  }
+
+  return result;
 }
 
 std::optional<std::string> GenerateIPAssignmentMessage(

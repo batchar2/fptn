@@ -22,6 +22,7 @@ namespace fptn::network {
 class VirtualInterface final {
  public:
   VirtualInterface(const std::string& name,
+      int mtu_size,
       fptn::common::network::TunInterface::Config config,
       fptn::routing::RouteManagerPtr iptables);
   ~VirtualInterface();
@@ -30,6 +31,8 @@ class VirtualInterface final {
   bool Start() noexcept;
   bool Stop() noexcept;
   void Send(fptn::common::network::IPPacketPtr packet) noexcept;
+  void SendBatch(fptn::common::network::BatchIPPacketPtr packets) noexcept;
+
   common::network::BatchIPPacketPtr WaitForPackets(
       const std::chrono::milliseconds& duration) noexcept;
 
@@ -41,6 +44,7 @@ class VirtualInterface final {
   std::atomic<bool> running_;
 
   const std::string name_;
+  const int mtu_size_;
   fptn::common::network::TunInterface::Config config_;
 
   const fptn::routing::RouteManagerPtr iptables_;

@@ -18,4 +18,5 @@ exec /usr/local/bin/fptn-server \
     --remote-server-auth-host="$REMOTE_SERVER_AUTH_HOST" \
     --remote-server-auth-port="$REMOTE_SERVER_AUTH_PORT" \
     --max-active-sessions-per-user="$MAX_ACTIVE_SESSIONS_PER_USER" \
-    --server-external-ips="${SERVER_EXTERNAL_IPS}"
+    --server-external-ips="${SERVER_EXTERNAL_IPS}" \
+    --mtu-size="${MTU_SIZE}"

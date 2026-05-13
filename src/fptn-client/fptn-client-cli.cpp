@@ -69,6 +69,10 @@ int main(int argc, char* argv[]) {
     args.add_argument("--gateway-ipv6")
         .default_value("")
         .help("Your default gateway IPv6 address");
+    args.add_argument("--mtu-size")
+        .default_value(FPTN_DEFAULT_MTU_SIZE)
+        .help("MTU size")
+        .scan<'i', int>();
     args.add_argument("--preferred-server")
         .default_value("")
         .help("Preferred server name (case-insensitive)");
@@ -206,6 +210,8 @@ int main(int argc, char* argv[]) {
     const auto param_gateway_ip = args.get<std::string>("--gateway-ip");
     const auto gateway_ip =
         fptn::common::network::IPv4Address::Create(param_gateway_ip);
+
+    const auto mtu_size = args.get<int>("--mtu-size");
 
     const auto param_gateway_ipv6 = args.get<std::string>("--gateway-ipv6");
     const auto gateway_ipv6 =
@@ -393,7 +399,7 @@ int main(int argc, char* argv[]) {
     /* tun interface */
     auto virtual_network_interface =
         std::make_shared<fptn::common::network::TunInterface>(
-            tun_interface_name);
+            tun_interface_name, mtu_size);
 
     // route manager
     auto route_manager = std::make_shared<fptn::routing::RouteManager>(

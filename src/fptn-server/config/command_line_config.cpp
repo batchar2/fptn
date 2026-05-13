@@ -47,6 +47,10 @@ CommandLineConfig::CommandLineConfig(int argc, char* argv[])
       .default_value(443)
       .help("Port number")
       .scan<'i', int>();
+  args_.add_argument("--mtu-size")
+      .default_value(FPTN_DEFAULT_MTU_SIZE)
+      .help("MTU size")
+      .scan<'i', int>();
   args_.add_argument("--tun-interface-name")
       .default_value("tun0")
       .help("Network interface name");
@@ -249,6 +253,11 @@ std::size_t CommandLineConfig::MaxActiveSessionsPerUser() const {
 [[nodiscard]]
 std::string CommandLineConfig::ServerExternalIPs() const {
   return args_.get<std::string>("--server-external-ips");
+}
+
+[[nodiscard]]
+int CommandLineConfig::MtuSize() const {
+  return args_.get<int>("--mtu-size");
 }
 
 }  // namespace fptn::config

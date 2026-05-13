@@ -973,7 +973,8 @@ bool TrayApp::startVpn(QString& err_msg) {
 
   // setup tun interface
   auto virtual_network_interface =
-      std::make_shared<fptn::common::network::TunInterface>(tun_interface_name);
+      std::make_shared<fptn::common::network::TunInterface>(
+          tun_interface_name, FPTN_DEFAULT_MTU_SIZE);
 
   // setup vpn client
   vpn_client_ = std::make_unique<fptn::vpn::VpnManager>(

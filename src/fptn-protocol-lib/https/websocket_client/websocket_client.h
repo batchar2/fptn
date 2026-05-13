@@ -84,7 +84,7 @@ class WebsocketClient : public std::enable_shared_from_this<WebsocketClient> {
   std::vector<std::uint8_t> GenerateHandshakePacket() const;
 
  private:
-  const std::size_t kMaxSizeOutQueue_ = 1024;
+  const std::size_t kMaxSizeOutQueue_ = 256;
 
   mutable std::mutex mutex_;
   std::atomic<bool> running_{false};

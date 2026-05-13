@@ -8,6 +8,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include <optional>
 #include <string>
+#include <vector>
 
 #include <boost/beast/core/flat_buffer.hpp>
 
@@ -17,9 +18,16 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 namespace fptn::protocol::protobuf {
 
 using ProtoPayloadOpt = std::optional<std::vector<std::uint8_t>>;
+using BatchIPPacket = std::vector<fptn::common::network::IPPacketPtr>;
 
-ProtoPayloadOpt GetProtoPayload(const boost::beast::flat_buffer& buffer);
-ProtoPayloadOpt CreateProtoPayload(fptn::common::network::IPPacketPtr packet);
+// DEPRECATED
+ProtoPayloadOpt DeserializeIPPacket(const boost::beast::flat_buffer& buffer);
+// DEPRECATED
+ProtoPayloadOpt SerializeIPPacket(fptn::common::network::IPPacketPtr packet);
+
+std::vector<ProtoPayloadOpt> DeserializeBatchIPPacket(
+    const boost::beast::flat_buffer& buffer);
+ProtoPayloadOpt SerializeBatchIPPacket(BatchIPPacket packets);
 
 std::optional<std::string> GenerateIPAssignmentMessage(
     const std::string& ip_v4, const std::string& ip_v6);

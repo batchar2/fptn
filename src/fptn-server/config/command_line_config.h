@@ -57,6 +57,8 @@ class CommandLineConfig {
 
   [[nodiscard]] std::string ServerExternalIPs() const;
 
+  [[nodiscard]] int MtuSize() const;
+
  private:
   int argc_;
   char** argv_;

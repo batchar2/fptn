@@ -33,13 +33,14 @@ class AntiScan : public BaseFilter {
       /* IPv4 */
       const fptn::common::network::IPv4Address& server_ipv4,
       const fptn::common::network::IPv4Address& server_ipv4_net,
-      const int serverIPv4Mask,
+      const int server_ip_v4_mask,
       /* IPv6 */
       const fptn::common::network::IPv6Address& server_ipv6,
       const fptn::common::network::IPv6Address& server_ipv6_net,
-      const int serverIPv6Mask);
-  fptn::common::network::IPPacketPtr apply(
-      fptn::common::network::IPPacketPtr packet) const override;
+      const int server_ip_v6_mask);
+
+  IPPacketPtr apply(IPPacketPtr packet) const override;
+
   ~AntiScan() override = default;
 
  private:

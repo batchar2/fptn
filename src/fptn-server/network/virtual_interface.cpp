@@ -14,16 +14,19 @@ using fptn::common::network::TunInterface;
 using fptn::network::VirtualInterface;
 
 VirtualInterface::VirtualInterface(const std::string& name,
+    int mtu_size,
     fptn::common::network::TunInterface::Config config,
     fptn::routing::RouteManagerPtr iptables)
     : running_(false),
       name_(name),
+      mtu_size_(mtu_size),
       config_(std::move(config)),
       iptables_(std::move(iptables)) {
   // NOLINTNEXTLINE(modernize-avoid-bind)
   const auto callback = std::bind(
       &VirtualInterface::IPPacketFromNetwork, this, std::placeholders::_1);
-  virtual_network_interface_ = std::make_unique<TunInterface>(name, false);
+  virtual_network_interface_ =
+      std::make_unique<TunInterface>(name, mtu_size_, false);
   virtual_network_interface_->SetRecvIPPacketCallback(callback);
 }
 
@@ -48,6 +51,11 @@ bool VirtualInterface::Stop() noexcept {
 void VirtualInterface::Send(
     fptn::common::network::IPPacketPtr packet) noexcept {
   virtual_network_interface_->Send(std::move(packet));
+}
+
+void VirtualInterface::SendBatch(
+    fptn::common::network::BatchIPPacketPtr packets) noexcept {
+  virtual_network_interface_->SendBatch(std::move(packets));
 }
 
 fptn::common::network::BatchIPPacketPtr VirtualInterface::WaitForPackets(

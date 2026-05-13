@@ -9,19 +9,20 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <cstdint>
 #include <cstring>
 
-using fptn::common::network::IPPacketPtr;
-using fptn::filter::BitTorrent;
-
-static constexpr std::uint8_t kClassic[] = {0x13, 'B', 'i', 't', 'T', 'o', 'r',
-    'r', 'e', 'n', 't', ' ', 'p', 'r', 'o', 't', 'o', 'c', 'o', 'l'};
-
-static constexpr std::uint8_t kExtensionProtocol[] = {
-    0x14, 'e', 'x', 't', 'e', 'n', 's', 'i', 'o', 'n'};
-
-static constexpr std::uint8_t kDht[] = {
-    'd', '1', ':', 'a', 'd', '2', ':', 'i', 'd', '2'};
-
 namespace {
+
+constexpr std::uint8_t kClassic[] = {
+  0x13, 'B', 'i', 't', 'T', 'o', 'r', 'r', 'e', 'n', 't', ' ',
+  'p', 'r', 'o', 't', 'o', 'c', 'o', 'l'
+};
+
+constexpr std::uint8_t kExtensionProtocol[] = {
+  0x14, 'e', 'x', 't', 'e', 'n', 's', 'i', 'o', 'n'
+};
+
+constexpr std::uint8_t kDht[] = {
+  'd', '1', ':', 'a', 'd', '2', ':', 'i', 'd', '2'
+};
 
 bool DetectBitTorrent(const std::uint8_t* payload, std::size_t payload_size) {
   if (!payload_size) {
@@ -53,6 +54,8 @@ bool DetectBitTorrent(const std::uint8_t* payload, std::size_t payload_size) {
 
 }  // namespace
 
+namespace fptn::filter {
+
 IPPacketPtr BitTorrent::apply(IPPacketPtr packet) const {
   if (const auto* tcp = packet->Pkt().getLayerOfType<pcpp::TcpLayer>()) {
     if (DetectBitTorrent(tcp->getLayerPayload(), tcp->getLayerPayloadSize())) {
@@ -65,3 +68,5 @@ IPPacketPtr BitTorrent::apply(IPPacketPtr packet) const {
   }
   return packet;
 }
+
+}  // namespace fptn::filter

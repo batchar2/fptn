@@ -228,14 +228,14 @@ class GenericTunInterfaceTest : public ::testing::Test {
 }  // namespace
 
 TEST_F(GenericTunInterfaceTest, StartAndStop) {
-  MockTunInterface iface("mock0");
+  MockTunInterface iface("mock0", FPTN_DEFAULT_MTU_SIZE);
   ASSERT_TRUE(iface.Start(MakeConfig()));
   EXPECT_EQ(iface.Name(), "mock0");
   EXPECT_TRUE(iface.Stop());
 }
 
 TEST_F(GenericTunInterfaceTest, SendIPv4Packet) {
-  MockTunInterface iface("mock0");
+  MockTunInterface iface("mock0", FPTN_DEFAULT_MTU_SIZE);
   ASSERT_TRUE(iface.Start(MakeConfig()));
 
   auto pkt_data = MakeMinimalIPv4Packet();
@@ -255,7 +255,7 @@ TEST_F(GenericTunInterfaceTest, SendIPv4Packet) {
 }
 
 TEST_F(GenericTunInterfaceTest, SendIPv6Packet) {
-  MockTunInterface iface("mock0");
+  MockTunInterface iface("mock0", FPTN_DEFAULT_MTU_SIZE);
   ASSERT_TRUE(iface.Start(MakeConfig()));
 
   auto pkt_data = MakeMinimalIPv6Packet();
@@ -275,7 +275,7 @@ TEST_F(GenericTunInterfaceTest, SendIPv6Packet) {
 }
 
 TEST_F(GenericTunInterfaceTest, ReceiveIPv4Packet) {
-  MockTunInterface iface("mock0");
+  MockTunInterface iface("mock0", FPTN_DEFAULT_MTU_SIZE);
 
   std::mutex callback_mutex;
   std::vector<std::vector<std::uint8_t>> received;
@@ -311,7 +311,7 @@ TEST_F(GenericTunInterfaceTest, ReceiveIPv4Packet) {
 }
 
 TEST_F(GenericTunInterfaceTest, ReceiveIPv6Packet) {
-  MockTunInterface iface("mock0");
+  MockTunInterface iface("mock0", FPTN_DEFAULT_MTU_SIZE);
 
   std::mutex callback_mutex;
   std::vector<std::vector<std::uint8_t>> received;
@@ -347,7 +347,7 @@ TEST_F(GenericTunInterfaceTest, ReceiveIPv6Packet) {
 }
 
 TEST_F(GenericTunInterfaceTest, SendMultipleMixedPackets) {
-  MockTunInterface iface("mock0");
+  MockTunInterface iface("mock0", FPTN_DEFAULT_MTU_SIZE);
   ASSERT_TRUE(iface.Start(MakeConfig()));
 
   auto ipv4_data = MakeMinimalIPv4Packet();
@@ -372,7 +372,7 @@ TEST_F(GenericTunInterfaceTest, SendMultipleMixedPackets) {
 }
 
 TEST_F(GenericTunInterfaceTest, DeviceNameUpdatedAfterStart) {
-  MockTunInterface iface("mock0");
+  MockTunInterface iface("mock0", FPTN_DEFAULT_MTU_SIZE);
   EXPECT_EQ(iface.Name(), "mock0");
   ASSERT_TRUE(iface.Start(MakeConfig()));
   EXPECT_EQ(iface.Name(), "mock0");

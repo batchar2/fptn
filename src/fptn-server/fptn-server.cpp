@@ -74,11 +74,12 @@ int main(int argc, char* argv[]) {
     auto virtual_network_interface =
         std::make_unique<fptn::network::VirtualInterface>(
             config.TunInterfaceName(),
+            config.MtuSize(),
             fptn::common::network::TunInterface::Config{
                 .ipv4_addr = config.TunInterfaceIPv4(),
                 .ipv4_netmask = config.TunInterfaceNetworkIPv4Mask(),
                 .ipv6_addr = config.TunInterfaceIPv6(),
-                .ipv6_netmask = config.TunInterfaceNetworkIPv6Mask(),
+                .ipv6_netmask = config.TunInterfaceNetworkIPv6Mask()
             },
             std::move(iptables));
 

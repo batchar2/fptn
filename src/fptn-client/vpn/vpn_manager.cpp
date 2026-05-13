@@ -229,9 +229,10 @@ void VpnManager::HandleOnIPAssignedCallback(
     return;
   }
 
+  config_.virtual_net_interface->Stop();
+
   // clean
   config_.route_manager->Clean();
-  config_.virtual_net_interface->Stop();
 
   config_.virtual_net_interface->Start(
       fptn::common::network::TunInterface::Config{.ipv4_addr = ip_v4,

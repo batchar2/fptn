@@ -16,28 +16,27 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include <common/network/ipv6_utils.h>
 
-using fptn::common::network::IPPacketPtr;
-using fptn::filter::AntiScan;
+namespace fptn::filter {
 
 AntiScan::AntiScan(
     /* IPv4 */
     const fptn::common::network::IPv4Address& server_ipv4,
     const fptn::common::network::IPv4Address& server_ipv4_net,
-    const int serverIPv4Mask,
+    const int server_ip_v4_mask,
     /* IPv6 */
     const fptn::common::network::IPv6Address& server_ipv6,
     const fptn::common::network::IPv6Address& server_ipv6_net,
-    const int serverIPv6Mask)
+    const int server_ip_v6_mask)
     : server_ipv4_(ntohl(server_ipv4.ToInt())),
       server_ipv4_net_(ntohl(server_ipv4_net.ToInt())),
-      server_ipv4_mask_((0xFFFFFFFF << (32 - serverIPv4Mask))),
+      server_ipv4_mask_((0xFFFFFFFF << (32 - server_ip_v4_mask))),
       server_ipv6_(
           fptn::common::network::ipv6::toUInt128(server_ipv6.ToString())),
       server_ipv6_net_(
           fptn::common::network::ipv6::toUInt128(server_ipv6_net.ToString())),
       server_ipv6_mask_(
-          (boost::multiprecision::uint128_t(1) << (128 - serverIPv6Mask)) - 1) {
-}
+          (boost::multiprecision::uint128_t(1) << (128 - server_ip_v6_mask)) -
+          1) {}
 
 IPPacketPtr AntiScan::apply(IPPacketPtr packet) const {
   // Prevent sending requests to the VPN virtual network from the client
@@ -63,3 +62,4 @@ IPPacketPtr AntiScan::apply(IPPacketPtr packet) const {
   }
   return nullptr;
 }
+}  // namespace fptn::filter

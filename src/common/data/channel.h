@@ -7,74 +7,90 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #pragma once
 
 #include <atomic>
-#include <blockingconcurrentqueue.h>
 #include <chrono>
 #include <memory>
 #include <utility>
+#include <vector>
+
+#include <blockingconcurrentqueue.h>  // NOLINT(build/include_order)
+#include <spdlog/spdlog.h>            // NOLINT(build/include_order)
 
 #include "common/network/ip_packet.h"
 
 namespace fptn::common::data {
+
 class Channel {
  public:
-  // Increase default capacity for high throughput
-  explicit Channel(std::size_t max_capacity = 8192)
-      : max_capacity_(max_capacity), buffer_(max_capacity) {}
+  explicit Channel(std::size_t max_capacity = 1024)
+      : max_capacity_(max_capacity), capacity_(0), buffer_(max_capacity) {}
 
-  void Push(network::IPPacketPtr pkt) noexcept {
-    if (buffer_.size_approx() < max_capacity_) {
+  bool Push(network::IPPacketPtr pkt) noexcept {
+    if (capacity_.load(std::memory_order_relaxed) < max_capacity_) {
       buffer_.enqueue(std::move(pkt));
-      ++capacity_;
+      capacity_.fetch_add(1, std::memory_order_relaxed);
+      return true;
     }
+    return false;
   }
 
   network::IPPacketPtr WaitForPacket(
       const std::chrono::milliseconds& duration) noexcept {
-    network::IPPacketPtr pkt;
+    network::IPPacketPtr packet;
 
-    if (buffer_.try_dequeue(pkt) && pkt != nullptr) {
-      --capacity_;
-      return pkt;
+    if (buffer_.try_dequeue(packet) && packet != nullptr) {
+      capacity_.fetch_sub(1, std::memory_order_relaxed);
+      return packet;
     }
-    if (buffer_.wait_dequeue_timed(pkt, duration) && pkt != nullptr) {
-      --capacity_;
-      return pkt;
+
+    if (buffer_.wait_dequeue_timed(packet, duration) && packet != nullptr) {
+      capacity_.fetch_sub(1, std::memory_order_relaxed);
     }
-    return nullptr;
+    return packet;
+  }
+
+  network::BatchIPPacketPtr TryGetPackets(
+      const std::size_t max_batch_size = 16) noexcept {
+    network::BatchIPPacketPtr batch;
+    batch.resize(max_batch_size);
+
+    const auto count = buffer_.try_dequeue_bulk(batch.data(), max_batch_size);
+    if (count > 0) {
+      batch.resize(count);
+      capacity_.fetch_sub(count, std::memory_order_relaxed);
+      return batch;
+    }
+    batch.clear();
+    return batch;
   }
 
   network::BatchIPPacketPtr WaitForPackets(
       const std::chrono::milliseconds& duration,
-      const std::size_t max_batch_size = 64) noexcept {
-    std::vector<network::IPPacketPtr> batch;
-    batch.reserve(max_batch_size);
+      const std::size_t max_batch_size = 16) noexcept {
+    network::BatchIPPacketPtr batch;
+    batch.resize(max_batch_size);
 
-    network::IPPacketPtr pkt;
-    if (buffer_.wait_dequeue_timed(pkt, duration) && pkt != nullptr) {
-      --capacity_;
-      batch.push_back(std::move(pkt));
-    } else {
+    const auto count = buffer_.try_dequeue_bulk(batch.data(), max_batch_size);
+    if (count > 0) {
+      batch.resize(count);
+      capacity_.fetch_sub(count, std::memory_order_relaxed);
       return batch;
     }
+    batch.clear();
 
-    for (std::size_t i = 1; i < max_batch_size; ++i) {
-      if (buffer_.try_dequeue(pkt) && pkt != nullptr) {
-        --capacity_;
-        batch.push_back(std::move(pkt));
-      } else {
-        break;
-      }
+    network::IPPacketPtr packet;
+    if (buffer_.wait_dequeue_timed(packet, duration) && packet != nullptr) {
+      capacity_.fetch_sub(1, std::memory_order_relaxed);
+      batch.push_back(std::move(packet));
     }
-
     return batch;
   }
 
  private:
   const std::size_t max_capacity_;
-
   std::atomic<std::size_t> capacity_;
   moodycamel::BlockingConcurrentQueue<network::IPPacketPtr> buffer_;
 };
 
 using ChannelPtr = std::unique_ptr<Channel>;
+
 }  // namespace fptn::common::data

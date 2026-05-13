@@ -73,7 +73,7 @@ bool Manager::Start() {
 }
 
 void Manager::RunToClient() const noexcept {
-  constexpr std::chrono::milliseconds kTimeout{1};
+  constexpr std::chrono::milliseconds kTimeout{10};
 
   fptn::client::SessionSPtr nat_session = nullptr;
   while (running_) {
@@ -119,10 +119,15 @@ void Manager::RunToClient() const noexcept {
 }
 
 void Manager::RunFromClient() const noexcept {
-  constexpr std::chrono::milliseconds kTimeout{1};
+  constexpr std::chrono::milliseconds kTimeout{5};
+  constexpr int kBatchSize = 16;
 
   while (running_) {
     auto packets = web_server_->WaitForPackets(kTimeout);
+
+    common::network::BatchIPPacketPtr prepared_batch;
+    prepared_batch.reserve(kBatchSize);
+
     for (auto& packet : packets) {
       if (!packet || (!packet->IsIPv4() && !packet->IsIPv6())) {
         continue;
@@ -130,7 +135,7 @@ void Manager::RunFromClient() const noexcept {
 
       // get session
       const auto session = nat_->GetSessionByClientId(packet->ClientId());
-      if (!session || !running_) {
+      if (!session) {
         continue;
       }
 
@@ -143,11 +148,16 @@ void Manager::RunFromClient() const noexcept {
       // filter
       packet = filter_->Apply(std::move(packet));
 
-      // send
-      if (packet && running_) {
-        network_interface_->Send(
+      // prepare for send
+      if (packet) {
+        prepared_batch.emplace_back(
             session->ChangeIPAddressToFakeIP(std::move(packet)));
       }
+    }
+
+    // send data
+    if (!prepared_batch.empty() && running_) {
+      network_interface_->SendBatch(std::move(prepared_batch));
     }
   }
 }

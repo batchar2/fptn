@@ -441,7 +441,7 @@ boost::asio::awaitable<bool> WebsocketClient::Connect() {
     try {
       boost::beast::websocket::stream_base::timeout timeout_option;
       timeout_option.handshake_timeout = std::chrono::seconds(10);
-      timeout_option.idle_timeout = std::chrono::seconds(4);
+      timeout_option.idle_timeout = std::chrono::seconds(5);
       timeout_option.keep_alive_pings = true;
       ws_.set_option(timeout_option);
     } catch (const std::exception& e) {
@@ -511,33 +511,35 @@ boost::asio::awaitable<bool> WebsocketClient::ReceiveIPAssignment() {
 
 boost::asio::awaitable<void> WebsocketClient::RunReader() {
   boost::beast::flat_buffer buffer;
-  buffer.reserve(16 * 1024);
+  buffer.reserve(4 * 1024 * 1024);
   try {
     boost::system::error_code ec;
     while (running_ && was_connected_ && ws_.is_open()) {
       co_await ws_.async_read(
           buffer, boost::asio::redirect_error(boost::asio::use_awaitable, ec));
-
       if (ec) {
         if (ec != boost::beast::websocket::error::closed) {
           SPDLOG_DEBUG("WebSocket read error: {}", ec.message());
         }
         break;
       }
-      if (!buffer.size()) {
+
+      if (buffer.size() == 0) {
         continue;
       }
-      try {
-        auto raw_ip = protobuf::GetProtoPayload(buffer);
-        if (raw_ip.has_value()) {
-          auto packet =
-              fptn::common::network::IPPacket::Parse(std::move(raw_ip.value()));
-          if (running_ && packet && config_.new_ip_pkt_callback) {
-            config_.new_ip_pkt_callback(std::move(packet));
+
+      auto batch_packets =
+          fptn::protocol::protobuf::DeserializeBatchIPPacket(buffer);
+      if (!batch_packets.empty()) {
+        for (auto& raw_ip_opt : batch_packets) {
+          if (raw_ip_opt.has_value()) {
+            auto packet = fptn::common::network::IPPacket::Parse(
+                std::move(raw_ip_opt.value()));
+            if (running_ && packet && config_.new_ip_pkt_callback) {
+              config_.new_ip_pkt_callback(std::move(packet));
+            }
           }
         }
-      } catch (const std::exception& e) {
-        SPDLOG_WARN("IP packet error: {}", e.what());
       }
       buffer.consume(buffer.size());
     }
@@ -551,22 +553,35 @@ boost::asio::awaitable<void> WebsocketClient::RunReader() {
 }
 
 boost::asio::awaitable<void> WebsocketClient::RunSender() {
+  constexpr std::size_t kMaxBatchSize = 32;
+  auto token = boost::asio::bind_cancellation_slot(
+      cancel_signal_.slot(), boost::asio::as_tuple(boost::asio::use_awaitable));
   try {
-    auto token = boost::asio::bind_cancellation_slot(cancel_signal_.slot(),
-        boost::asio::as_tuple(boost::asio::use_awaitable));
     while (running_ && was_connected_ && ws_.is_open()) {
+      std::vector<fptn::common::network::IPPacketPtr> packets;
       auto [ec, packet] = co_await write_channel_.async_receive(token);
-      if (packet != nullptr && running_ && ws_.is_open() && !ec) {
-        auto msg =
-            fptn::protocol::protobuf::CreateProtoPayload(std::move(packet));
-        if (msg.has_value()) {
-          co_await ws_.async_write(boost::asio::buffer(std::move(msg.value())),
-              boost::asio::redirect_error(boost::asio::use_awaitable, ec));
+      if (!ec && packet) {
+        packets.push_back(std::move(packet));
+        while (packets.size() < kMaxBatchSize) {
+          bool has_packet = write_channel_.try_receive(
+              [&packets](const boost::system::error_code& ec2,
+                  fptn::common::network::IPPacketPtr p) {
+                if (!ec2 && p) packets.push_back(std::move(p));
+              });
+          if (!has_packet) break;
         }
       }
-      if (ec) {
-        SPDLOG_ERROR("WebSocket error: {}", ec.message());
-        break;
+      if (!packets.empty()) {
+        auto batch_data = fptn::protocol::protobuf::SerializeBatchIPPacket(
+            std::move(packets));
+        if (batch_data.has_value()) {
+          co_await ws_.async_write(boost::asio::buffer(batch_data.value()),
+              boost::asio::redirect_error(boost::asio::use_awaitable, ec));
+          if (ec) {
+            SPDLOG_ERROR("WebSocket error: {}", ec.message());
+            break;
+          }
+        }
       }
     }
   } catch (const boost::system::system_error& err) {
