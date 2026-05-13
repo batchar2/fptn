@@ -72,7 +72,7 @@ bool Manager::Start() {
   return collect_statistic_status;
 }
 
-void Manager::RunToClient() const noexcept {
+void Manager::RunToClient() const {
   constexpr std::chrono::milliseconds kTimeout{10};
 
   fptn::client::SessionSPtr nat_session = nullptr;
@@ -118,7 +118,7 @@ void Manager::RunToClient() const noexcept {
   }
 }
 
-void Manager::RunFromClient() const noexcept {
+void Manager::RunFromClient() const {
   constexpr std::chrono::milliseconds kTimeout{5};
   constexpr int kBatchSize = 16;
 
@@ -162,7 +162,7 @@ void Manager::RunFromClient() const noexcept {
   }
 }
 
-void Manager::RunCollectStatistics() noexcept {
+void Manager::RunCollectStatistics() {
   constexpr std::chrono::milliseconds kTimeout{300};
   constexpr std::chrono::seconds kCollectInterval{2};
 

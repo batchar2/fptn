@@ -30,9 +30,9 @@ class Manager final {
   bool Start();
 
  protected:
-  void RunToClient() const noexcept;
-  void RunFromClient() const noexcept;
-  void RunCollectStatistics() noexcept;
+  void RunToClient() const;
+  void RunFromClient() const;
+  void RunCollectStatistics();
 
  private:
   std::atomic<bool> running_ = false;

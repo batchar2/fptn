@@ -7,8 +7,6 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "fptn-protocol-lib/protobuf/protocol.h"
 
 #include <algorithm>
-#include <ctime>
-#include <google/protobuf/arena.h>  // NOLINT(build/include_order)
 #include <random>
 #include <string>
 #include <utility>
@@ -44,30 +42,22 @@ ProtoPayloadOpt DeserializeIPPacket(const boost::beast::flat_buffer& buffer) {
 
   const void* data_ptr = static_cast<const char*>(buffer.cdata().data());
 
-  // Arena optimization
-  static thread_local google::protobuf::Arena pb_arena;
-  constexpr std::uint64_t kMaxArenaSizeBytes = 15 * 1024 * 1024;
-  if (pb_arena.SpaceUsed() > kMaxArenaSizeBytes) {
-    pb_arena.Reset();
-  }
-  auto* message =
-      google::protobuf::Arena::Create<fptn::protocol::Message>(&pb_arena);
-
-  if (!message->ParseFromArray(data_ptr, static_cast<int>(total_size))) {
+  fptn::protocol::Message message;
+  if (!message.ParseFromArray(data_ptr, static_cast<int>(total_size))) {
     SPDLOG_ERROR("Failed to parse Protobuf message: parse error");
     return std::nullopt;
   }
 
-  if (message->protocol_version() != FPTN_PROTOBUF_PROTOCOL_VERSION) {
+  if (message.protocol_version() != FPTN_PROTOBUF_PROTOCOL_VERSION) {
     SPDLOG_ERROR(
-        "Unsupported protocol version: {}", message->protocol_version());
+        "Unsupported protocol version: {}", message.protocol_version());
     return std::nullopt;
   }
 
-  switch (message->msg_type()) {
+  switch (message.msg_type()) {
     case fptn::protocol::MSG_IP_PACKET:
-      if (message->has_packet()) {
-        const auto& payload = message->packet().payload();
+      if (message.has_packet()) {
+        const auto& payload = message.packet().payload();
         std::vector<std::uint8_t> result;
         result.reserve(payload.size());
         result.assign(payload.begin(), payload.end());
@@ -76,8 +66,8 @@ ProtoPayloadOpt DeserializeIPPacket(const boost::beast::flat_buffer& buffer) {
       SPDLOG_ERROR("Malformed IP packet: no packet field");
       break;
     case fptn::protocol::MSG_ERROR:
-      if (message->has_error()) {
-        SPDLOG_ERROR("Message error: {}", message->error().error_msg());
+      if (message.has_error()) {
+        SPDLOG_ERROR("Message error: {}", message.error().error_msg());
       } else {
         SPDLOG_ERROR("Malformed error message: no error field");
       }
@@ -94,17 +84,9 @@ ProtoPayloadOpt SerializeIPPacket(fptn::common::network::IPPacketPtr packet) {
     return std::nullopt;
   }
 
-  // Arena optimization
-  static thread_local google::protobuf::Arena pb_arena;
-  constexpr std::uint64_t kMaxArenaSizeBytes = 15 * 1024 * 1024;
-  if (pb_arena.SpaceUsed() > kMaxArenaSizeBytes) {
-    pb_arena.Reset();
-  }
-  auto* message =
-      google::protobuf::Arena::Create<fptn::protocol::Message>(&pb_arena);
-
-  message->set_protocol_version(FPTN_PROTOBUF_PROTOCOL_VERSION);
-  message->set_msg_type(fptn::protocol::MSG_IP_PACKET);
+  fptn::protocol::Message message;
+  message.set_protocol_version(FPTN_PROTOBUF_PROTOCOL_VERSION);
+  message.set_msg_type(fptn::protocol::MSG_IP_PACKET);
 
   const auto* raw_packet = packet->GetRawPacket();
   if (!raw_packet) {
@@ -121,7 +103,7 @@ ProtoPayloadOpt SerializeIPPacket(fptn::common::network::IPPacketPtr packet) {
     return std::nullopt;
   }
 
-  message->mutable_packet()->set_payload(data, current_size);
+  message.mutable_packet()->set_payload(data, current_size);
 
   if (current_size < FPTN_IP_PACKET_MAX_SIZE) {
     /**
@@ -133,18 +115,18 @@ ProtoPayloadOpt SerializeIPPacket(fptn::common::network::IPPacketPtr packet) {
         std::min(kMaxPaddingBytes, available_space);
     if (padding_size > 0) {
       const auto& padding_data = RandomPaddingData();
-      message->mutable_packet()->set_padding_data(
+      message.mutable_packet()->set_padding_data(
           reinterpret_cast<const char*>(padding_data.data()), padding_size);
     }
   }
-  const std::size_t estimated_size = message->ByteSizeLong();
+  const std::size_t estimated_size = message.ByteSizeLong();
   if (estimated_size == 0) {
     SPDLOG_ERROR("Failed to serialize Message: estimated size is 0");
     return std::nullopt;
   }
 
   std::vector<std::uint8_t> serialized_data(estimated_size);
-  if (!message->SerializeToArray(
+  if (!message.SerializeToArray(
           serialized_data.data(), static_cast<int>(estimated_size))) {
     SPDLOG_ERROR("Failed to serialize Message.");
     return std::nullopt;
@@ -158,20 +140,11 @@ ProtoPayloadOpt SerializeBatchIPPacket(
     return std::nullopt;
   }
 
-  // Arena optimization
-  static thread_local google::protobuf::Arena pb_arena;
-  constexpr std::uint64_t kMaxArenaSizeBytes = 15 * 1024 * 1024;
-  if (pb_arena.SpaceUsed() > kMaxArenaSizeBytes) {
-    pb_arena.Reset();
-  }
+  fptn::protocol::Message message;
+  message.set_protocol_version(FPTN_PROTOBUF_PROTOCOL_VERSION);
+  message.set_msg_type(fptn::protocol::MSG_BATCH_IP_PACKET);
 
-  auto* message =
-      google::protobuf::Arena::Create<fptn::protocol::Message>(&pb_arena);
-
-  message->set_protocol_version(FPTN_PROTOBUF_PROTOCOL_VERSION);
-  message->set_msg_type(fptn::protocol::MSG_BATCH_IP_PACKET);
-
-  auto* batch = message->mutable_batch();
+  auto* batch = message.mutable_batch();
 
   for (auto& packet_ptr : packets) {
     if (!packet_ptr) {
@@ -187,14 +160,14 @@ ProtoPayloadOpt SerializeBatchIPPacket(
     return std::nullopt;
   }
 
-  const std::size_t estimated_size = message->ByteSizeLong();
+  const std::size_t estimated_size = message.ByteSizeLong();
   if (estimated_size == 0) {
     SPDLOG_ERROR("Failed to serialize BatchIPPacket: estimated size is 0");
     return std::nullopt;
   }
 
   std::vector<uint8_t> result(estimated_size);
-  if (!message->SerializeToArray(
+  if (!message.SerializeToArray(
           result.data(), static_cast<int>(estimated_size))) {
     SPDLOG_ERROR("Failed to serialize BatchIPPacket");
     return std::nullopt;
@@ -213,31 +186,22 @@ std::vector<ProtoPayloadOpt> DeserializeBatchIPPacket(
 
   const auto* data = static_cast<const uint8_t*>(buffer.cdata().data());
 
-  // Arena optimization
-  static thread_local google::protobuf::Arena pb_arena;
-  constexpr std::uint64_t kMaxArenaSizeBytes = 15 * 1024 * 1024;
-  if (pb_arena.SpaceUsed() > kMaxArenaSizeBytes) {
-    pb_arena.Reset();
-  }
-
-  auto* message =
-      google::protobuf::Arena::Create<fptn::protocol::Message>(&pb_arena);
-
-  if (!message->ParseFromArray(data, static_cast<int>(total_size))) {
+  fptn::protocol::Message message;
+  if (!message.ParseFromArray(data, static_cast<int>(total_size))) {
     SPDLOG_ERROR("Failed to parse BatchIPPacket message");
     return result;
   }
 
-  if (message->msg_type() != fptn::protocol::MSG_BATCH_IP_PACKET) {
+  if (message.msg_type() != fptn::protocol::MSG_BATCH_IP_PACKET) {
     return result;
   }
 
-  if (!message->has_batch()) {
+  if (!message.has_batch()) {
     SPDLOG_ERROR("BatchIPPacket message has no batch field");
     return result;
   }
 
-  const auto& batch = message->batch();
+  const auto& batch = message.batch();
   result.reserve(batch.packets_size());
 
   for (int i = 0; i < batch.packets_size(); ++i) {
