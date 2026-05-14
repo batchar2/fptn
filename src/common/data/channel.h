@@ -65,23 +65,34 @@ class Channel {
 
   network::BatchIPPacketPtr WaitForPackets(
       const std::chrono::milliseconds& duration,
-      const std::size_t max_batch_size = 16) noexcept {
-    network::BatchIPPacketPtr batch;
-    batch.resize(max_batch_size);
+      const std::size_t max_batch_size = 64) noexcept {
+    network::BatchIPPacketPtr batch(max_batch_size);
+    // batch.resize(max_batch_size);
 
+    std::cerr << "  READ +1" << std::endl;
     const auto count = buffer_.try_dequeue_bulk(batch.data(), max_batch_size);
+    std::cerr << "  READ +2" << std::endl;
     if (count > 0) {
+      std::cerr << "  READ +4" << std::endl;
       batch.resize(count);
+      std::cerr << "  READ +4" << std::endl;
       capacity_.fetch_sub(count, std::memory_order_relaxed);
+      std::cerr << "  READ +5" << std::endl;
       return batch;
     }
+    std::cerr << "  READ +6" << std::endl;
     batch.clear();
+    std::cerr << "  READ +7" << std::endl;
 
     network::IPPacketPtr packet;
+    std::cerr << "  READ +8" << std::endl;
     if (buffer_.wait_dequeue_timed(packet, duration) && packet != nullptr) {
+      std::cerr << "  READ +9" << std::endl;
       capacity_.fetch_sub(1, std::memory_order_relaxed);
+      std::cerr << "  READ +10" << std::endl;
       batch.push_back(std::move(packet));
     }
+    std::cerr << "  READ +11" << std::endl;
     return batch;
   }
 

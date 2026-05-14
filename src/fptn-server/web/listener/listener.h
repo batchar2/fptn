@@ -26,17 +26,22 @@ namespace fptn::web {
 
 class Listener final {
  public:
-  explicit Listener(std::uint16_t port,
-      bool enable_detect_probing,
-      std::string default_proxy_domain,
-      std::vector<std::string> allowed_sni_list,
-      boost::asio::io_context& ioc,
-      fptn::common::jwt_token::TokenManagerSPtr token_manager,
-      HandshakeCacheManagerSPtr handshake_cache_manager,
-      std::string server_external_ips,
-      WebSocketOpenConnectionCallback ws_open_callback,
-      WebSocketNewIPPacketCallback ws_new_ippacket_callback,
-      WebSocketCloseConnectionCallback ws_close_callback);
+  struct Config {
+    std::uint16_t port;
+    bool enable_detect_probing;
+    std::string default_proxy_domain;
+    std::vector<std::string> allowed_sni_list;
+    boost::asio::io_context& ioc;
+    fptn::common::jwt_token::TokenManagerSPtr token_manager;
+    HandshakeCacheManagerSPtr handshake_cache_manager;
+    std::string server_external_ips;
+    WebSocketOpenConnectionCallback on_ws_open_callback;
+    WebSocketNewIPPacketCallback on_ws_new_ip_packet_callback;
+    WebSocketCloseConnectionCallback on_ws_close_callback;
+  };
+
+ public:
+  explicit Listener(Config config);
 
   boost::asio::awaitable<void> Run();
   bool Stop();
@@ -45,28 +50,13 @@ class Listener final {
       const ApiHandle& handle);
 
  protected:
-  const std::uint16_t port_;
-  const bool enable_detect_probing_;
-  const std::string default_proxy_domain_;
-  const std::vector<std::string> allowed_sni_list_;
+  Config config_;
 
-  boost::asio::io_context& ioc_;
   boost::asio::ssl::context ctx_;
   boost::asio::ip::tcp::acceptor acceptor_;
-
-  const fptn::common::jwt_token::TokenManagerSPtr token_manager_;
-
-  HandshakeCacheManagerSPtr handshake_cache_manager_;
-
-  const std::string server_external_ips_;
-
-  const WebSocketOpenConnectionCallback ws_open_callback_;
-  const WebSocketNewIPPacketCallback ws_new_ippacket_callback_;
-  const WebSocketCloseConnectionCallback ws_close_callback_;
-
   boost::asio::ip::tcp::endpoint endpoint_;
-  std::atomic<bool> running_;
 
+  std::atomic<bool> running_;
   ApiHandleMap api_handles_;
 };
 

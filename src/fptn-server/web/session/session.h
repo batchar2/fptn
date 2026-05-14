@@ -35,18 +35,23 @@ using IObfuscator = std::optional<protocol::https::obfuscator::IObfuscatorSPtr>;
 
 class Session : public std::enable_shared_from_this<Session> {
  public:
-  explicit Session(std::uint16_t port,
-      bool enable_detect_probing,
-      std::string default_proxy_domain,
-      std::vector<std::string> allowed_sni_list,
-      std::string server_external_ips,
-      boost::asio::ip::tcp::socket&& socket,
-      boost::asio::ssl::context& ctx,
-      const ApiHandleMap& api_handles,
-      HandshakeCacheManagerSPtr handshake_cache_manager,
-      WebSocketOpenConnectionCallback ws_open_callback,
-      WebSocketNewIPPacketCallback ws_new_ippacket_callback,
-      WebSocketCloseConnectionCallback ws_close_callback);
+  struct Config {
+    std::uint16_t port;
+    bool enable_detect_probing;
+    std::string default_proxy_domain;
+    std::vector<std::string> allowed_sni_list;
+    std::string server_external_ips;
+    boost::asio::ip::tcp::socket&& socket;
+    boost::asio::ssl::context& ctx;
+    const ApiHandleMap& api_handles;
+    HandshakeCacheManagerSPtr handshake_cache_manager;
+    WebSocketOpenConnectionCallback on_ws_open_callback;
+    WebSocketNewIPPacketCallback on_ws_new_ip_packet_callback;
+    WebSocketCloseConnectionCallback on_ws_close_callback;
+  };
+
+ public:
+  explicit Session(Config config);
   virtual ~Session();
   void Close();
 
@@ -73,7 +78,7 @@ class Session : public std::enable_shared_from_this<Session> {
       const std::string& sni) const;
 
   struct RealityResult {
-    bool is_reality_mode;  // DEPRICATED
+    bool is_reality_mode;  // DEPRECATED
     bool is_reality_mode2;
     std::string sni;
     bool should_close;
@@ -108,14 +113,9 @@ class Session : public std::enable_shared_from_this<Session> {
  private:
   mutable std::mutex mutex_;
 
+  Config config_;
+
   fptn::ClientID client_id_ = MAX_CLIENT_ID;
-
-  const std::uint16_t port_;
-  const bool enable_detect_probing_;
-  const std::string default_proxy_domain_;
-  const std::vector<std::string> allowed_sni_list_;
-
-  const std::string server_external_ips_;
 
   // TCP -> obfuscator -> SSL -> WebSocket
   using tcp_stream_type = boost::beast::tcp_stream;
@@ -123,21 +123,12 @@ class Session : public std::enable_shared_from_this<Session> {
       fptn::protocol::https::obfuscator::TcpStream<tcp_stream_type>;
   using ssl_stream_type = boost::beast::ssl_stream<obfuscator_socket_type>;
   using websocket_type = boost::beast::websocket::stream<ssl_stream_type>;
-
   websocket_type ws_;
 
   boost::asio::strand<boost::asio::any_io_executor> strand_;
   boost::asio::experimental::concurrent_channel<void(
       boost::system::error_code, fptn::common::network::IPPacketPtr)>
       write_channel_;
-
-  const ApiHandleMap& api_handles_;
-
-  HandshakeCacheManagerSPtr handshake_cache_manager_;
-
-  const WebSocketOpenConnectionCallback ws_open_callback_;
-  const WebSocketNewIPPacketCallback ws_new_ippacket_callback_;
-  const WebSocketCloseConnectionCallback ws_close_callback_;
 
   std::atomic<bool> running_;
   std::atomic<bool> init_completed_;

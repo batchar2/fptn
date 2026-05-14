@@ -21,6 +21,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "common/jwt_token/token_manager.h"
 #include "common/network/ip_packet.h"
 
+#include "config/server_config.h"
 #include "handshake/handshake_cache_manager.h"
 #include "listener/listener.h"
 #include "nat/table.h"
@@ -29,20 +30,17 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 namespace fptn::web {
 class Server final {
  public:
-  Server(std::uint16_t port,
-      const fptn::nat::TableSPtr& nat_table,
-      const fptn::user::UserManagerSPtr& user_manager,
-      const fptn::common::jwt_token::TokenManagerSPtr& token_manager,
-      const fptn::statistic::MetricsSPtr& prometheus,
-      const std::string& prometheus_access_key,
-      fptn::common::network::IPv4Address dns_server_ipv4,
-      fptn::common::network::IPv6Address dns_server_ipv6,
-      bool enable_detect_probing,
-      std::string default_proxy_domain,
-      std::vector<std::string> allowed_sni_list,
-      std::size_t max_active_sessions_per_user,
-      std::string server_external_ips,
-      int thread_number = 8);
+  struct Config {
+    std::uint16_t port;
+    fptn::nat::TableSPtr nat_table;
+    fptn::user::UserManagerSPtr user_manager;
+    fptn::common::jwt_token::TokenManagerSPtr token_manager;
+    fptn::statistic::MetricsSPtr prometheus;
+    fptn::config::ServerConfigSPtr server_params;
+  };
+
+ public:
+  Server(Config config, int thread_number = 8);
   ~Server();
   bool Start();
   bool Stop();
@@ -54,10 +52,10 @@ class Server final {
 
  protected:
   // http
-  int HandleApiDns(const http::request& req, http::response& resp);
-  int HandleApiLogin(const http::request& req, http::response& resp);
-  int HandleApiMetrics(const http::request& req, http::response& resp);
-  int HandleApiTestFile(const http::request& req, http::response& resp);
+  int HandleApiDns(const http::request& req, http::response& resp) const;
+  int HandleApiLogin(const http::request& req, http::response& resp) const;
+  int HandleApiMetrics(const http::request& req, http::response& resp) const;
+  int HandleApiTestFile(const http::request& req, http::response& resp) const;
 
  protected:
   // websocket
@@ -75,20 +73,7 @@ class Server final {
   mutable std::shared_mutex mutex_;
   std::atomic<bool> running_;
 
-  const std::uint16_t port_;
-  const fptn::nat::TableSPtr& nat_table_;
-  const fptn::user::UserManagerSPtr& user_manager_;
-  const fptn::common::jwt_token::TokenManagerSPtr token_manager_;
-  const fptn::statistic::MetricsSPtr& prometheus_;
-  const std::string prometheus_access_key_;
-  const fptn::common::network::IPv4Address dns_server_ipv4_;
-  const fptn::common::network::IPv6Address dns_server_ipv6_;
-  const bool enable_detect_probing_;
-  const std::string default_proxy_domain_;
-  const std::vector<std::string> allowed_sni_list_;
-
-  const std::size_t max_active_sessions_per_user_;
-  const std::string server_external_ips_;
+  Config config_;
   const std::size_t thread_number_;
 
   boost::asio::io_context ioc_;

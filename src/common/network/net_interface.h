@@ -55,9 +55,9 @@ class BaseNetInterface {
   // Network configuration
   struct Config {
     fptn::common::network::IPv4Address ipv4_addr;
-    int ipv4_netmask = 32;
+    std::uint32_t ipv4_netmask = 32;
     fptn::common::network::IPv6Address ipv6_addr;
-    int ipv6_netmask = 126;
+    std::uint32_t ipv6_netmask = 126;
   };
 
   bool Start(Config config) {
@@ -322,7 +322,7 @@ class GenericTunInterface final
     const auto callback = this->GetRecvIPPacketCallback();
     const bool rate_calc = this->UsingRateCalculator();
 
-    constexpr int kBatchIPPacketsSize = 16;
+    constexpr int kBatchIPPacketsSize = 64;
     std::vector<IPPacketPtr> batch_ip_packets;
     batch_ip_packets.reserve(kBatchIPPacketsSize);
 

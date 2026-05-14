@@ -75,13 +75,18 @@ bool Manager::Start() {
 void Manager::RunToClient() const {
   constexpr std::chrono::milliseconds kTimeout{10};
 
+  std::cerr << "+1" << std::endl;
   fptn::client::SessionSPtr nat_session = nullptr;
   while (running_) {
+    std::cerr << "+2" << std::endl;
     auto packets = network_interface_->WaitForPackets(kTimeout);
+    std::cerr << "+3" << std::endl;
     for (auto& packet : packets) {
       if (!packet || (!packet->IsIPv4() && !packet->IsIPv6())) {
         continue;
       }
+
+
 
       // get session using "fake" client address
       if (packet->IsIPv4()) {
@@ -94,39 +99,42 @@ void Manager::RunToClient() const {
                 packet->IPv6Layer()->getDstIPv6Address()));
 
       } else {
-        nat_session = nullptr;
-      }
-      if (!nat_session) {
         continue;
       }
+
+      std::cerr << "+4" << std::endl;
 
       // check shaper
       auto& shaper = nat_session->TrafficShaperToClient();
       if (shaper && !shaper->CheckSpeedLimit(packet->Size())) {
         continue;
       }
+      std::cerr << "+5" << std::endl;
+
       packet = nat_session->ChangeIPAddressToClientIP(std::move(packet));
       if (!packet && running_) {
         continue;
       }
+      std::cerr << "+6" << std::endl;
+
       auto web_session = web_server_->GetSessionById(packet->ClientId());
       // send
       if (web_session && running_) {
+        std::cerr << "+7" << std::endl;
         web_session->Send(std::move(packet));
+        std::cerr << "+8" << std::endl;
       }
     }
   }
 }
 
 void Manager::RunFromClient() const {
-  constexpr std::chrono::milliseconds kTimeout{5};
-  constexpr int kBatchSize = 16;
-
+  constexpr std::chrono::milliseconds kTimeout{10};
   while (running_) {
     auto packets = web_server_->WaitForPackets(kTimeout);
 
     common::network::BatchIPPacketPtr prepared_batch;
-    prepared_batch.reserve(kBatchSize);
+    prepared_batch.reserve(packets.size());
 
     for (auto& packet : packets) {
       if (!packet || (!packet->IsIPv4() && !packet->IsIPv6())) {
@@ -163,7 +171,7 @@ void Manager::RunFromClient() const {
 }
 
 void Manager::RunCollectStatistics() {
-  constexpr std::chrono::milliseconds kTimeout{300};
+  constexpr std::chrono::milliseconds kTimeout{1000};
   constexpr std::chrono::seconds kCollectInterval{2};
 
   std::chrono::steady_clock::time_point last_collection_time;
