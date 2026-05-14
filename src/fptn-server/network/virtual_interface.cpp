@@ -15,16 +15,16 @@ using fptn::network::VirtualInterface;
 
 VirtualInterface::VirtualInterface(const std::string& name,
     int mtu_size,
-    fptn::common::network::TunInterface::Config config,
-    fptn::routing::RouteManagerPtr iptables)
+    fptn::routing::RouteManagerPtr route_manager,
+    fptn::common::network::TunInterface::Config config)
     : running_(false),
       name_(name),
       mtu_size_(mtu_size),
-      config_(std::move(config)),
-      iptables_(std::move(iptables)) {
-  // NOLINTNEXTLINE(modernize-avoid-bind)
-  const auto callback = std::bind(
-      &VirtualInterface::IPPacketFromNetwork, this, std::placeholders::_1);
+      route_manager_(std::move(route_manager)),
+      config_(std::move(config)) {
+  const auto callback = [this](auto&& pkt) {
+    VirtualInterface::IPPacketFromNetwork(std::forward<decltype(pkt)>(pkt));
+  };
   virtual_network_interface_ =
       std::make_unique<TunInterface>(name, mtu_size_, false);
   virtual_network_interface_->SetRecvIPPacketCallback(callback);
@@ -32,19 +32,19 @@ VirtualInterface::VirtualInterface(const std::string& name,
 
 VirtualInterface::~VirtualInterface() { Stop(); }
 
-bool VirtualInterface::Check() noexcept { return thread_.joinable(); }
+bool VirtualInterface::Check() const noexcept { return thread_.joinable(); }
 
 bool VirtualInterface::Start() noexcept {
   running_ = true;
   virtual_network_interface_->Start(config_);
-  iptables_->Apply();  // activate route
+  route_manager_->Apply();  // activate route
   return true;
 }
 
 bool VirtualInterface::Stop() noexcept {
   running_ = false;
   virtual_network_interface_->Stop();
-  iptables_->Clean();
+  route_manager_->Clean();
   return true;
 }
 

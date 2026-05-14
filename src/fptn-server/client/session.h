@@ -25,14 +25,19 @@ using fptn::common::network::IPv6Address;
 
 class Session final {
  public:
-  Session(ClientID client_id,
-      std::string user_name,
-      IPv4Address client_ipv4,
-      IPv4Address fake_client_ipv4,
-      IPv6Address client_ipv6,
-      IPv6Address fake_client_ipv6,
-      fptn::traffic_shaper::LeakyBucketSPtr to_client,
-      fptn::traffic_shaper::LeakyBucketSPtr from_client);
+  struct Config {
+    ClientID client_id;
+    std::string user_name;
+    IPv4Address client_ipv4;
+    IPv4Address fake_client_ipv4;
+    IPv6Address client_ipv6;
+    IPv6Address fake_client_ipv6;
+    fptn::traffic_shaper::LeakyBucketSPtr to_client;
+    fptn::traffic_shaper::LeakyBucketSPtr from_client;
+  };
+
+ public:
+  explicit Session(Config config);
   [[nodiscard]] const ClientID& ClientId() const noexcept;
 
   [[nodiscard]] const std::string& UserName() const noexcept;
@@ -54,16 +59,7 @@ class Session final {
       fptn::common::network::IPPacketPtr packet) noexcept;
 
  private:
-  const ClientID client_id_;
-  const std::string user_name_;
-  const IPv4Address client_ipv4_;
-  const IPv4Address fake_client_ipv4_;
-  const IPv6Address client_ipv6_;
-  const IPv6Address fake_client_ipv6_;
-
-  fptn::traffic_shaper::LeakyBucketSPtr to_client_;
-  fptn::traffic_shaper::LeakyBucketSPtr from_client_;
-
+  Config config_;
   bool disable_checksum_calculation_;
 };
 

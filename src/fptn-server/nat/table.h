@@ -30,12 +30,17 @@ class Table final {
   using IPv4INT = std::uint32_t;
 
  public:
-  Table(fptn::common::network::IPv4Address tun_ipv4,
-      fptn::common::network::IPv4Address tun_ipv4_network_address,
-      std::uint32_t tun_network_ipv4_mask,
-      fptn::common::network::IPv6Address tun_ipv6,
-      fptn::common::network::IPv6Address tun_ipv6_network_address,
-      std::uint32_t tun_network_ipv6_mask);
+  struct Config {
+    fptn::common::network::IPv4Address tun_ipv4;
+    fptn::common::network::IPv4Address tun_ipv4_network;
+    std::uint32_t tun_network_ipv4_mask;
+    fptn::common::network::IPv6Address tun_ipv6;
+    fptn::common::network::IPv6Address tun_ipv6_network;
+    std::uint32_t tun_network_ipv6_mask;
+  };
+
+ public:
+  Table(Config config);
 
   // deprecated
   fptn::client::SessionSPtr CreateClientSession(ClientID client_id,
@@ -46,10 +51,9 @@ class Table final {
       const fptn::traffic_shaper::LeakyBucketSPtr& from_client);
 
   fptn::client::SessionSPtr CreateClientSession2(ClientID client_id,
-    const std::string& user_name,
-    const fptn::traffic_shaper::LeakyBucketSPtr& to_client,
-    const fptn::traffic_shaper::LeakyBucketSPtr& from_client);
-
+      const std::string& user_name,
+      const fptn::traffic_shaper::LeakyBucketSPtr& to_client,
+      const fptn::traffic_shaper::LeakyBucketSPtr& from_client);
 
   bool DelClientSession(ClientID client_id);
   void UpdateStatistic(const fptn::statistic::MetricsSPtr& prometheus);
@@ -71,14 +75,7 @@ class Table final {
   mutable std::shared_mutex mutex_;
   std::uint32_t client_number_;
 
-  const fptn::common::network::IPv4Address tun_ipv4_;
-  const fptn::common::network::IPv4Address tun_ipv4_network_address_;
-  const std::uint32_t tun_network_ipv4_mask_;
-
-  const fptn::common::network::IPv6Address tun_ipv6_;
-  const fptn::common::network::IPv6Address tun_ipv6_network_address_;
-
-  const std::uint32_t tun_network_ipv6_mask_;
+  Config config_;
 
   fptn::common::network::IPv4AddressGenerator ipv4_generator_;
   fptn::common::network::IPv6AddressGenerator ipv6_generator_;
