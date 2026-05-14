@@ -16,13 +16,13 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "common/logger/logger.h"
 #include "common/network/ip_address.h"
 
-#include "config/command_line_config.h"
+#include "config/server_config.h"
 #include "filter/filters/antiscan/antiscan.h"
 #include "filter/filters/bittorrent/bittorrent.h"
 #include "filter/manager.h"
 #include "nat/table.h"
 #include "network/virtual_interface.h"
-#include "routing/iptables.h"
+#include "routing/route_manager.h"
 #include "statistic/metrics.h"
 #include "user/user_manager.h"
 #include "vpn/manager.h"
@@ -46,13 +46,13 @@ int main(int argc, char* argv[]) {
   }
 #endif
   try {
-    /* Check options */
-    fptn::config::CommandLineConfig config(argc, argv);
-    if (!config.Parse()) {
+    /* Init config */
+    auto config = std::make_shared<fptn::config::ServerConfig>(argc, argv);
+    if (!config->Parse()) {
       return EXIT_FAILURE;
     }
-    if (!std::filesystem::exists(config.ServerCrt()) ||
-        !std::filesystem::exists(config.ServerKey())) {
+    if (!std::filesystem::exists(config->ServerCrt()) ||
+        !std::filesystem::exists(config->ServerKey())) {
       SPDLOG_ERROR("SSL certificate or key file does not exist!");
       return EXIT_FAILURE;
     }
@@ -66,67 +66,65 @@ int main(int argc, char* argv[]) {
       return EXIT_FAILURE;
     }
 
-    /* Init iptables */
-    auto iptables = std::make_unique<fptn::routing::RouteManager>(
-        config.OutNetworkInterface(), config.TunInterfaceName());
+    /* Init route manager */
+    auto route_manager = std::make_unique<fptn::routing::RouteManager>(
+        config->OutNetworkInterface(), config->TunInterfaceName());
     /* Init virtual network interface */
 
     auto virtual_network_interface =
         std::make_unique<fptn::network::VirtualInterface>(
-            config.TunInterfaceName(),
-            config.MtuSize(),
+            config->TunInterfaceName(), config->MtuSize(),
+            std::move(route_manager),
             fptn::common::network::TunInterface::Config{
-                .ipv4_addr = config.TunInterfaceIPv4(),
-                .ipv4_netmask = config.TunInterfaceNetworkIPv4Mask(),
-                .ipv6_addr = config.TunInterfaceIPv6(),
-                .ipv6_netmask = config.TunInterfaceNetworkIPv6Mask()
-            },
-            std::move(iptables));
+                .ipv4_addr = config->TunInterfaceIPv4(),
+                .ipv4_netmask = config->TunInterfaceNetworkIPv4Mask(),
+                .ipv6_addr = config->TunInterfaceIPv6(),
+                .ipv6_netmask = config->TunInterfaceNetworkIPv6Mask()});
 
     /* Init web server */
     auto token_manager =
         std::make_shared<fptn::common::jwt_token::TokenManager>(
-            config.ServerCrt(), config.ServerKey());
+            config->ServerCrt(), config->ServerKey());
     /* Init user manager */
     auto user_manager = std::make_shared<fptn::user::UserManager>(
-        config.UserFile(), config.UseRemoteServerAuth(),
-        config.RemoteServerAuthHost(), config.RemoteServerAuthPort());
+        config->UserFile(), config->UseRemoteServerAuth(),
+        config->RemoteServerAuthHost(), config->RemoteServerAuthPort());
     /* Init NAT */
     auto nat_table = std::make_shared<fptn::nat::Table>(
-        /* IPv4 */
-        config.TunInterfaceIPv4(), config.TunInterfaceNetworkIPv4Address(),
-        config.TunInterfaceNetworkIPv4Mask(),
-        /* IPv6 */
-        config.TunInterfaceIPv6(), config.TunInterfaceNetworkIPv6Address(),
-        config.TunInterfaceNetworkIPv6Mask());
+        fptn::nat::Table::Config{.tun_ipv4 = config->TunInterfaceIPv4(),
+            .tun_ipv4_network = config->TunInterfaceNetworkIPv4Address(),
+            .tun_network_ipv4_mask = config->TunInterfaceNetworkIPv4Mask(),
+            .tun_ipv6 = config->TunInterfaceIPv6(),
+            .tun_ipv6_network = config->TunInterfaceNetworkIPv6Address(),
+            .tun_network_ipv6_mask = config->TunInterfaceNetworkIPv6Mask()});
     /* Init prometheus */
     auto prometheus = std::make_shared<fptn::statistic::Metrics>();
     /* Init webserver */
-    auto web_server = std::make_unique<fptn::web::Server>(config.ServerPort(),
+    auto web_server = std::make_unique<fptn::web::Server>(config->ServerPort(),
         nat_table, user_manager, token_manager, prometheus,
-        config.PrometheusAccessKey(), config.TunInterfaceIPv4(),
-        config.TunInterfaceIPv6(),
+        config->PrometheusAccessKey(), config->TunInterfaceIPv4(),
+        config->TunInterfaceIPv6(),
         /* probing */
-        config.EnableDetectProbing(), config.DefaultProxyDomain(),
-        config.AllowedSniList(),
+        config->EnableDetectProbing(), config->DefaultProxyDomain(),
+        config->AllowedSniList(),
         /* sessions */
-        config.MaxActiveSessionsPerUser(),
+        config->MaxActiveSessionsPerUser(),
         /* External IPs */
-        config.ServerExternalIPs());
+        config->ServerExternalIPs());
 
     /* init packet filter */
     auto filter_manager = std::make_shared<fptn::filter::Manager>();
-    if (config.DisableBittorrent()) {  // block bittorrent traffic
+    if (config->DisableBittorrent()) {  // block bittorrent traffic
       filter_manager->Add(std::make_shared<fptn::filter::BitTorrent>());
     }
     // Prevent sending requests to the VPN virtual network from the client
     filter_manager->Add(std::make_shared<fptn::filter::AntiScan>(
         /* IPv4 */
-        config.TunInterfaceIPv4(), config.TunInterfaceNetworkIPv4Address(),
-        config.TunInterfaceNetworkIPv4Mask(),
+        config->TunInterfaceIPv4(), config->TunInterfaceNetworkIPv4Address(),
+        config->TunInterfaceNetworkIPv4Mask(),
         /* IPv6 */
-        config.TunInterfaceIPv6(), config.TunInterfaceNetworkIPv6Address(),
-        config.TunInterfaceNetworkIPv6Mask()));
+        config->TunInterfaceIPv6(), config->TunInterfaceNetworkIPv6Address(),
+        config->TunInterfaceNetworkIPv6Mask()));
 
     SPDLOG_INFO(
         "\n--- Starting server---\n"
@@ -141,15 +139,16 @@ int main(int argc, char* argv[]) {
         "MAX_ACTIVE_SESSIONS_PER_USER: {}\n",
         FPTN_VERSION,
         // Network settings
-        config.OutNetworkInterface(),
-        config.TunInterfaceNetworkIPv4Address().ToString(),
-        config.TunInterfaceNetworkIPv6Address().ToString(), config.ServerPort(),
+        config->OutNetworkInterface(),
+        config->TunInterfaceNetworkIPv4Address().ToString(),
+        config->TunInterfaceNetworkIPv6Address().ToString(),
+        config->ServerPort(),
         // Probing settings
-        config.EnableDetectProbing() ? "YES" : "NO",
-        config.DefaultProxyDomain(),
-        fmt::format("[{}]", fmt::join(config.AllowedSniList(), ", ")),
+        config->EnableDetectProbing() ? "YES" : "NO",
+        config->DefaultProxyDomain(),
+        fmt::format("[{}]", fmt::join(config->AllowedSniList(), ", ")),
         // max session
-        config.MaxActiveSessionsPerUser());
+        config->MaxActiveSessionsPerUser());
 
     // Init vpn manager
     fptn::vpn::Manager manager(std::move(web_server),

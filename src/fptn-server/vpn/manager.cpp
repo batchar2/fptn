@@ -119,14 +119,16 @@ void Manager::RunToClient() const {
 }
 
 void Manager::RunFromClient() const {
-  constexpr std::chrono::milliseconds kTimeout{5};
-  constexpr int kBatchSize = 16;
-
+  constexpr std::chrono::milliseconds kTimeout{10};
   while (running_) {
     auto packets = web_server_->WaitForPackets(kTimeout);
 
+    if (packets.empty()) {
+      continue;
+    }
+
     common::network::BatchIPPacketPtr prepared_batch;
-    prepared_batch.reserve(kBatchSize);
+    prepared_batch.reserve(packets.size());
 
     for (auto& packet : packets) {
       if (!packet || (!packet->IsIPv4() && !packet->IsIPv6())) {

@@ -65,7 +65,7 @@ class Channel {
 
   network::BatchIPPacketPtr WaitForPackets(
       const std::chrono::milliseconds& duration,
-      const std::size_t max_batch_size = 16) noexcept {
+      const std::size_t max_batch_size = 32) noexcept {
     network::BatchIPPacketPtr batch;
     batch.resize(max_batch_size);
 

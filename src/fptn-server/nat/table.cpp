@@ -12,23 +12,13 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
-using fptn::nat::Table;
-
-Table::Table(fptn::common::network::IPv4Address tun_ipv4,
-    fptn::common::network::IPv4Address tun_ipv4_network_address,
-    std::uint32_t tun_network_ipv4_mask,
-    fptn::common::network::IPv6Address tun_ipv6,
-    fptn::common::network::IPv6Address tun_ipv6_network_address,
-    std::uint32_t tun_network_ipv6_mask)
+namespace fptn::nat {
+Table::Table(Config config)
     : client_number_(0),
-      tun_ipv4_(std::move(tun_ipv4)),
-      tun_ipv4_network_address_(std::move(tun_ipv4_network_address)),
-      tun_network_ipv4_mask_(tun_network_ipv4_mask),
-      tun_ipv6_(std::move(tun_ipv6)),
-      tun_ipv6_network_address_(std::move(tun_ipv6_network_address)),
-      tun_network_ipv6_mask_(tun_network_ipv6_mask),
-      ipv4_generator_(tun_ipv4_network_address_, tun_network_ipv4_mask_),
-      ipv6_generator_(tun_ipv6_network_address_, tun_network_ipv6_mask_) {}
+      config_(std::move(config)),
+      ipv4_generator_(config_.tun_ipv4_network, config_.tun_network_ipv4_mask),
+      ipv6_generator_(config_.tun_ipv6_network, config_.tun_network_ipv6_mask) {
+}
 
 fptn::client::SessionSPtr Table::CreateClientSession(ClientID client_id,
     const std::string& user_name,
@@ -48,9 +38,16 @@ fptn::client::SessionSPtr Table::CreateClientSession(ClientID client_id,
     try {
       const auto fake_ipv4 = GetUniqueIPv4Address();
       const auto fake_ipv6 = GetUniqueIPv6Address();
-      auto session = std::make_shared<fptn::client::Session>(client_id,
-          user_name, client_ipv4, fake_ipv4, client_ipv6, fake_ipv6, to_client,
-          from_client);
+
+      auto session = std::make_shared<fptn::client::Session>(
+          fptn::client::Session::Config{.client_id = client_id,
+              .user_name = user_name,
+              .client_ipv4 = client_ipv4,
+              .fake_client_ipv4 = fake_ipv4,
+              .client_ipv6 = client_ipv6,
+              .fake_client_ipv6 = fake_ipv6,
+              .to_client = to_client,
+              .from_client = from_client});
       client_id_to_sessions_.insert({client_id, session});
       ipv4_to_sessions_.insert(
           {fake_ipv4.ToInt(), session});  // ipv4 -> session
@@ -85,9 +82,16 @@ fptn::client::SessionSPtr Table::CreateClientSession2(ClientID client_id,
     try {
       const auto fake_ipv4 = GetUniqueIPv4Address();
       const auto fake_ipv6 = GetUniqueIPv6Address();
-      auto session = std::make_shared<fptn::client::Session>(client_id,
-          user_name, fake_ipv4, fake_ipv4, fake_ipv6, fake_ipv6, to_client,
-          from_client);
+      auto session = std::make_shared<fptn::client::Session>(
+          fptn::client::Session::Config{.client_id = client_id,
+              .user_name = user_name,
+              .client_ipv4 = fake_ipv4,
+              .fake_client_ipv4 = fake_ipv4,
+              .client_ipv6 = fake_ipv6,
+              .fake_client_ipv6 = fake_ipv6,
+              .to_client = to_client,
+              .from_client = from_client});
+
       client_id_to_sessions_.insert({client_id, session});
       ipv4_to_sessions_.insert(
           {fake_ipv4.ToInt(), session});  // ipv4 -> session
@@ -185,7 +189,7 @@ std::size_t Table::GetNumberActiveSessionByUsername(
 fptn::common::network::IPv4Address Table::GetUniqueIPv4Address() {
   for (std::uint32_t i = 0; i < ipv4_generator_.NumAvailableAddresses(); i++) {
     const auto ip = ipv4_generator_.GetNextAddress();
-    if (ip != tun_ipv4_ && !ipv4_to_sessions_.contains(ip.ToInt())) {
+    if (ip != config_.tun_ipv4 && !ipv4_to_sessions_.contains(ip.ToInt())) {
       return ip;
     }
   }
@@ -195,7 +199,7 @@ fptn::common::network::IPv4Address Table::GetUniqueIPv4Address() {
 fptn::common::network::IPv6Address Table::GetUniqueIPv6Address() {
   for (int i = 0; i < ipv6_generator_.NumAvailableAddresses(); i++) {
     const auto ip = ipv6_generator_.GetNextAddress();
-    if (ip != tun_ipv6_ && !ipv6_to_sessions_.contains(ip.ToString())) {
+    if (ip != config_.tun_ipv6 && !ipv6_to_sessions_.contains(ip.ToString())) {
       return ip;
     }
   }
@@ -214,3 +218,4 @@ void Table::UpdateStatistic(const fptn::statistic::MetricsSPtr& prometheus) {
         session->TrafficShaperFromClient()->FullDataAmount());
   }
 }
+}  // namespace fptn::nat

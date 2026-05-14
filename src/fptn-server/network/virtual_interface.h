@@ -15,7 +15,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "common/network/ip_packet.h"
 #include "common/network/net_interface.h"
 
-#include "routing/iptables.h"
+#include "routing/route_manager.h"
 
 namespace fptn::network {
 
@@ -23,11 +23,11 @@ class VirtualInterface final {
  public:
   VirtualInterface(const std::string& name,
       int mtu_size,
-      fptn::common::network::TunInterface::Config config,
-      fptn::routing::RouteManagerPtr iptables);
+      fptn::routing::RouteManagerPtr route_manager,
+      fptn::common::network::TunInterface::Config config);
   ~VirtualInterface();
 
-  bool Check() noexcept;
+  bool Check() const noexcept;
   bool Start() noexcept;
   bool Stop() noexcept;
   void Send(fptn::common::network::IPPacketPtr packet) noexcept;
@@ -45,9 +45,9 @@ class VirtualInterface final {
 
   const std::string name_;
   const int mtu_size_;
-  fptn::common::network::TunInterface::Config config_;
+  const fptn::routing::RouteManagerPtr route_manager_;
 
-  const fptn::routing::RouteManagerPtr iptables_;
+  fptn::common::network::TunInterface::Config config_;
 
   fptn::common::data::Channel from_network_;
   fptn::common::network::TunInterfaceSPtr virtual_network_interface_;

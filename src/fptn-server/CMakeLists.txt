@@ -43,8 +43,8 @@ add_executable(
   network/virtual_interface.cpp
   traffic_shaper/leaky_bucket.h
   traffic_shaper/leaky_bucket.cpp
-  routing/iptables.h
-  routing/iptables.cpp
+        routing/route_manager.h
+        routing/route_manager.cpp
   web/listener/listener.h
   web/listener/listener.cpp
   web/session/session.h
@@ -64,8 +64,8 @@ add_executable(
   vpn/manager.cpp
   statistic/metrics.h
   statistic/metrics.cpp
-  config/command_line_config.cpp
-  config/command_line_config.h
+        config/server_config.cpp
+        config/server_config.h
   user/user_manager.cpp
   user/user_manager.h)
 
