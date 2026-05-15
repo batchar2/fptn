@@ -73,6 +73,9 @@ add_definitions(-DWIN32_LEAN_AND_MEAN)
 add_definitions(-DNOMINMAX)
 add_definitions(-DWIN32_LEAN_AND_MEAN)
 
+# Optimization
+add_definitions(-DUSING_MIMALLOC)
+
 set(FPTN_SERVER_PATH "${CMAKE_CURRENT_SOURCE_DIR}/src/fptn-server")
 
 # --- depends ---

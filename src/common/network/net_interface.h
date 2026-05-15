@@ -69,8 +69,8 @@ class BaseNetInterface {
 
   bool Send(IPPacketPtr packet) { return impl()->SendImpl(std::move(packet)); }
 
-  bool SendBatch(std::vector<IPPacketPtr> packets) {
-    return impl()->SendBatchImpl(std::move(packets));
+  bool SendBatch(const BatchIPPacketPtr& packets) {
+    return impl()->SendBatchImpl(packets);
   }
 
   std::size_t GetSendRate() { return impl()->GetSendRateImpl(); }
@@ -258,7 +258,7 @@ class GenericTunInterface final
     return false;
   }
 
-  bool SendBatchImpl(std::vector<IPPacketPtr> packets) noexcept {
+  bool SendBatchImpl(const BatchIPPacketPtr& packets) noexcept {
     try {
       static const bool kRateCalculator = this->UsingRateCalculator();
 
@@ -331,7 +331,7 @@ class GenericTunInterface final
 
       // collect batch
       for (int i = 0; i < kBatchIPPacketsSize && running_; ++i) {
-        std::vector<std::uint8_t> buffer(mtu_size);
+        IPPacketData buffer(mtu_size);
         const int size = device_.Read(buffer.data(), mtu_size);
         if (size > 0) {
           buffer.resize(size);

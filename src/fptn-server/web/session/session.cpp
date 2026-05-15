@@ -797,13 +797,11 @@ boost::asio::awaitable<void> Session::RunReader() {
           // BATCH MODE
           auto batch_packets =
               fptn::protocol::protobuf::DeserializeBatchIPPacket(buffer);
-          for (auto& raw_ip_opt : batch_packets) {
-            if (raw_ip_opt.has_value()) {
-              auto packet = fptn::common::network::IPPacket::Parse(
-                  std::move(raw_ip_opt.value()), client_id_);
-              if (packet != nullptr) {
-                ws_new_ippacket_callback_(std::move(packet));
-              }
+          for (auto& raw_ip : batch_packets) {
+            auto packet = fptn::common::network::IPPacket::Parse(
+                std::move(raw_ip), client_id_);
+            if (packet != nullptr) {
+              ws_new_ippacket_callback_(std::move(packet));
             }
           }
         } else {
@@ -834,7 +832,7 @@ boost::asio::awaitable<void> Session::RunSender() {
       cancel_signal_.slot(), boost::asio::as_tuple(boost::asio::use_awaitable));
   try {
     while (running_) {
-      std::vector<fptn::common::network::IPPacketPtr> packets;
+      common::network::BatchIPPacketPtr packets;
 
       if (support_batch_sending_) {
         // BATCH MODE
@@ -1085,7 +1083,7 @@ boost::asio::awaitable<bool> Session::HandleWebSocket2(
       SPDLOG_INFO("Successfully connected to {}", client_ip.ToString());
 
       // send IP address to client
-      const auto message = protocol::protobuf::GenerateIPAssignmentMessage(
+      const auto message = protocol::protobuf::SerializeIPAssignmentMessage(
           nat_session->FakeClientIPv4().ToString(),
           nat_session->FakeClientIPv6().ToString());
 

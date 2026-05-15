@@ -28,7 +28,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 namespace {
 
 // Minimal valid IPv4 header (20 bytes): src=10.0.0.1, dst=10.0.0.2
-std::vector<std::uint8_t> MakeMinimalIPv4Packet() {
+fptn::common::network::IPPacketData MakeMinimalIPv4Packet() {
   return {
       0x45,
       0x00,
@@ -54,7 +54,7 @@ std::vector<std::uint8_t> MakeMinimalIPv4Packet() {
 }
 
 // Minimal valid IPv6 header (40 bytes): src=fc00:1::1, dst=fc00:1::2
-std::vector<std::uint8_t> MakeMinimalIPv6Packet() {
+fptn::common::network::IPPacketData MakeMinimalIPv6Packet() {
   return {
       0x60,
       0x00,
@@ -109,8 +109,8 @@ namespace {
 
 struct SharedMockState {
   std::mutex mutex;
-  std::vector<std::vector<std::uint8_t>> written_packets;
-  std::queue<std::vector<std::uint8_t>> read_queue;
+  std::vector<fptn::common::network::IPPacketData> written_packets;
+  std::queue<fptn::common::network::IPPacketData> read_queue;
 
   void RecordWrite(const void* data, int size) {
     std::scoped_lock lock(mutex);
@@ -130,7 +130,7 @@ struct SharedMockState {
     return sz;
   }
 
-  void InjectPacket(std::vector<std::uint8_t> data) {
+  void InjectPacket(fptn::common::network::IPPacketData data) {
     std::scoped_lock lock(mutex);
     read_queue.push(std::move(data));
   }
@@ -278,7 +278,7 @@ TEST_F(GenericTunInterfaceTest, ReceiveIPv4Packet) {
   MockTunInterface iface("mock0", FPTN_DEFAULT_MTU_SIZE);
 
   std::mutex callback_mutex;
-  std::vector<std::vector<std::uint8_t>> received;
+  std::vector<fptn::common::network::IPPacketData> received;
 
   iface.SetRecvIPPacketCallback([&](fptn::common::network::IPPacketPtr packet) {
     if (packet) {
@@ -314,7 +314,7 @@ TEST_F(GenericTunInterfaceTest, ReceiveIPv6Packet) {
   MockTunInterface iface("mock0", FPTN_DEFAULT_MTU_SIZE);
 
   std::mutex callback_mutex;
-  std::vector<std::vector<std::uint8_t>> received;
+  std::vector<fptn::common::network::IPPacketData> received;
 
   iface.SetRecvIPPacketCallback([&](fptn::common::network::IPPacketPtr packet) {
     if (packet) {
@@ -506,7 +506,7 @@ TEST_F(DarwinAfHeaderTest, RoundTripIPv6Preserved) {
   const int bytes_read = reader.Read(read_buf, sizeof(read_buf));
   ASSERT_EQ(bytes_read, static_cast<int>(original.size()));
 
-  std::vector<std::uint8_t> result(read_buf, read_buf + bytes_read);
+  fptn::common::network::IPPacketData result(read_buf, read_buf + bytes_read);
   EXPECT_EQ(result, original);
 
   writer.OpenWithFd(-1, "");

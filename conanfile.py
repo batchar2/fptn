@@ -20,6 +20,7 @@ class FPTN(ConanFile):
         "cpp-httplib/0.30.0",
         "fmt/12.1.0",
         "jwt-cpp/0.7.1",
+        "mimalloc/3.3.2",
         "nlohmann_json/3.12.0",
         "protobuf/5.29.3",
         "re2/20251105",

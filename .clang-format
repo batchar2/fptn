@@ -63,6 +63,8 @@ IncludeCategories:
     Priority:        2
   - Regex:           '^<re2/.*>'
     Priority:        2
+  - Regex:           '^<mimalloc-new-delete.h>'
+    Priority:        2
   - Regex:           '^"(common/.*)"'
     Priority:        5
   - Regex:           '^<.*>'

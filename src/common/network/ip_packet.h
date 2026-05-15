@@ -69,6 +69,10 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <idn2.h>
 #endif
 
+#ifdef USING_MIMALLOC
+#include <mimalloc.h>  // NOLINT(build/include_order)
+#endif
+
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
 #include "common/client_id.h"
@@ -76,7 +80,11 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 namespace fptn::common::network {
 
+#ifdef USING_MIMALLOC
+using IPPacketData = std::vector<std::uint8_t, mi_stl_allocator<std::uint8_t>>;
+#else
 using IPPacketData = std::vector<std::uint8_t>;
+#endif
 
 #define FPTN_PACKET_UNDEFINED_CLIENT_ID MAX_CLIENT_ID
 
@@ -142,7 +150,7 @@ class IPPacket {
 
   static std::unique_ptr<IPPacket> Parse(
       const std::uint8_t* buffer, const std::size_t size) {
-    std::vector<std::uint8_t> packet(buffer, buffer + size);
+    IPPacketData packet(buffer, buffer + size);
     return Parse(std::move(packet));
   }
 
@@ -389,7 +397,7 @@ class IPPacket {
   IPPacket() : client_id_(FPTN_PACKET_UNDEFINED_CLIENT_ID) {}
 
  private:
-  std::vector<std::uint8_t> packet_data_;
+  IPPacketData packet_data_;
   fptn::ClientID client_id_;
   pcpp::RawPacket raw_packet_;
   pcpp::Packet parsed_packet_;
@@ -399,7 +407,12 @@ class IPPacket {
 };
 
 using IPPacketPtr = std::unique_ptr<IPPacket>;
-using BatchIPPacketPtr = std::vector<std::unique_ptr<IPPacket>>;
+#ifdef USING_MIMALLOC
+using BatchIPPacketPtr =
+    std::vector<IPPacketPtr, mi_stl_allocator<IPPacketPtr>>;
+#else
+using BatchIPPacketPtr = std::vector<IPPacketPtr>;
+#endif
 
 #else
 

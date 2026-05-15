@@ -31,7 +31,8 @@ class VirtualInterface final {
   bool Start() noexcept;
   bool Stop() noexcept;
   void Send(fptn::common::network::IPPacketPtr packet) noexcept;
-  void SendBatch(fptn::common::network::BatchIPPacketPtr packets) noexcept;
+  void SendBatch(
+      const fptn::common::network::BatchIPPacketPtr& packets) noexcept;
 
   common::network::BatchIPPacketPtr WaitForPackets(
       const std::chrono::milliseconds& duration) noexcept;

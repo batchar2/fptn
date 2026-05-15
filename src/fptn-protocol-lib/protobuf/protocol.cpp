@@ -16,6 +16,10 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <protocol.pb.h>    // NOLINT(build/include_order)
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
+#ifdef DUSING_MIMALLOC
+#include <mimalloc-new-delete.h>  // NOLINT(build/include_order)
+#endif
+
 #include "common/network/ip_packet.h"
 #include "common/utils/utils.h"
 
@@ -58,7 +62,7 @@ ProtoPayloadOpt DeserializeIPPacket(const boost::beast::flat_buffer& buffer) {
     case fptn::protocol::MSG_IP_PACKET:
       if (message.has_packet()) {
         const auto& payload = message.packet().payload();
-        std::vector<std::uint8_t> result;
+        ProtoPayload result;
         result.reserve(payload.size());
         result.assign(payload.begin(), payload.end());
         return result;
@@ -125,7 +129,7 @@ ProtoPayloadOpt SerializeIPPacket(fptn::common::network::IPPacketPtr packet) {
     return std::nullopt;
   }
 
-  std::vector<std::uint8_t> serialized_data(estimated_size);
+  ProtoPayload serialized_data(estimated_size);
   if (!message.SerializeToArray(
           serialized_data.data(), static_cast<int>(estimated_size))) {
     SPDLOG_ERROR("Failed to serialize Message.");
@@ -135,7 +139,7 @@ ProtoPayloadOpt SerializeIPPacket(fptn::common::network::IPPacketPtr packet) {
 }
 
 ProtoPayloadOpt SerializeBatchIPPacket(
-    std::vector<fptn::common::network::IPPacketPtr> packets) {
+    common::network::BatchIPPacketPtr packets) {
   if (packets.empty()) {
     return std::nullopt;
   }
@@ -166,7 +170,7 @@ ProtoPayloadOpt SerializeBatchIPPacket(
     return std::nullopt;
   }
 
-  std::vector<uint8_t> result(estimated_size);
+  ProtoPayload result(estimated_size);
   if (!message.SerializeToArray(
           result.data(), static_cast<int>(estimated_size))) {
     SPDLOG_ERROR("Failed to serialize BatchIPPacket");
@@ -176,9 +180,9 @@ ProtoPayloadOpt SerializeBatchIPPacket(
   return result;
 }
 
-std::vector<ProtoPayloadOpt> DeserializeBatchIPPacket(
+BatchProtoPayload DeserializeBatchIPPacket(
     const boost::beast::flat_buffer& buffer) {
-  std::vector<ProtoPayloadOpt> result;
+  BatchProtoPayload result;
   const std::size_t total_size = buffer.size();
   if (total_size == 0) {
     return result;
@@ -215,15 +219,14 @@ std::vector<ProtoPayloadOpt> DeserializeBatchIPPacket(
     if (inner_msg.msg_type() == fptn::protocol::MSG_IP_PACKET &&
         inner_msg.has_packet()) {
       const auto& payload = inner_msg.packet().payload();
-      std::vector<std::uint8_t> payload_data(payload.begin(), payload.end());
+      ProtoPayload payload_data(payload.begin(), payload.end());
       result.emplace_back(std::move(payload_data));
     }
   }
-
   return result;
 }
 
-std::optional<std::string> GenerateIPAssignmentMessage(
+std::optional<std::string> SerializeIPAssignmentMessage(
     const std::string& ip_v4, const std::string& ip_v6) {
   fptn::protocol::Message message;
   message.set_protocol_version(1);
@@ -238,8 +241,8 @@ std::optional<std::string> GenerateIPAssignmentMessage(
   return {};
 }
 
-std::optional<std::pair<std::string, std::string>> ParseIPAssignmentMessage(
-    const std::string& message) {
+std::optional<std::pair<std::string, std::string>>
+DeserializeIPAssignmentMessage(const std::string& message) {
   try {
     fptn::protocol::Message proto_message;
     if (!proto_message.ParseFromString(message)) {
@@ -269,11 +272,10 @@ std::optional<std::pair<std::string, std::string>> ParseIPAssignmentMessage(
     return std::make_pair(std::move(ipv4), std::move(ipv6));
   } catch (const std::exception& e) {
     SPDLOG_ERROR("Exception while parsing IP assignment: {}", e.what());
-    return std::nullopt;
   } catch (...) {
     SPDLOG_ERROR("Unknown exception while parsing IP assignment");
-    return std::nullopt;
   }
+  return std::nullopt;
 }
 
 }  // namespace fptn::protocol::protobuf

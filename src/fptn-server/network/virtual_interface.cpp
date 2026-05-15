@@ -54,8 +54,8 @@ void VirtualInterface::Send(
 }
 
 void VirtualInterface::SendBatch(
-    fptn::common::network::BatchIPPacketPtr packets) noexcept {
-  virtual_network_interface_->SendBatch(std::move(packets));
+    const fptn::common::network::BatchIPPacketPtr& packets) noexcept {
+  virtual_network_interface_->SendBatch(packets);
 }
 
 fptn::common::network::BatchIPPacketPtr VirtualInterface::WaitForPackets(

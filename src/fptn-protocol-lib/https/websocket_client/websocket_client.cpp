@@ -475,7 +475,7 @@ boost::asio::awaitable<bool> WebsocketClient::ReceiveIPAssignment() {
       co_return false;
     }
 
-    const auto ip_pair = protobuf::ParseIPAssignmentMessage(
+    const auto ip_pair = protobuf::DeserializeIPAssignmentMessage(
         boost::beast::buffers_to_string(buffer.data()));
 
     if (!ip_pair.has_value()) {
@@ -532,12 +532,10 @@ boost::asio::awaitable<void> WebsocketClient::RunReader() {
           fptn::protocol::protobuf::DeserializeBatchIPPacket(buffer);
       if (!batch_packets.empty()) {
         for (auto& raw_ip_opt : batch_packets) {
-          if (raw_ip_opt.has_value()) {
-            auto packet = fptn::common::network::IPPacket::Parse(
-                std::move(raw_ip_opt.value()));
-            if (running_ && packet && config_.new_ip_pkt_callback) {
-              config_.new_ip_pkt_callback(std::move(packet));
-            }
+          auto packet =
+              fptn::common::network::IPPacket::Parse(std::move(raw_ip_opt));
+          if (running_ && packet && config_.new_ip_pkt_callback) {
+            config_.new_ip_pkt_callback(std::move(packet));
           }
         }
       }
@@ -558,17 +556,21 @@ boost::asio::awaitable<void> WebsocketClient::RunSender() {
       cancel_signal_.slot(), boost::asio::as_tuple(boost::asio::use_awaitable));
   try {
     while (running_ && was_connected_ && ws_.is_open()) {
-      std::vector<fptn::common::network::IPPacketPtr> packets;
+      fptn::common::network::BatchIPPacketPtr packets;
       auto [ec, packet] = co_await write_channel_.async_receive(token);
       if (!ec && packet) {
         packets.push_back(std::move(packet));
         while (packets.size() < kMaxBatchSize) {
-          bool has_packet = write_channel_.try_receive(
+          const bool has_packet = write_channel_.try_receive(
               [&packets](const boost::system::error_code& ec2,
                   fptn::common::network::IPPacketPtr p) {
-                if (!ec2 && p) packets.push_back(std::move(p));
+                if (!ec2 && p) {
+                  packets.push_back(std::move(p));
+                }
               });
-          if (!has_packet) break;
+          if (!has_packet) {
+            break;
+          }
         }
       }
       if (!packets.empty()) {
