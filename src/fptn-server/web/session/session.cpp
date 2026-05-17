@@ -98,7 +98,7 @@ Session::Session(std::uint16_t port,
       ws_(ssl_stream_type(
           obfuscator_socket_type(tcp_stream_type(std::move(socket))), ctx)),
       strand_(boost::asio::make_strand(ws_.get_executor())),
-      write_channel_(strand_, 256),
+      write_channel_(strand_, 512),
       api_handles_(api_handles),
       handshake_cache_manager_(std::move(handshake_cache_manager)),
       ws_open_callback_(std::move(ws_open_callback)),
@@ -118,7 +118,7 @@ Session::Session(std::uint16_t port,
     ws_.text(false);
     ws_.binary(true);
     ws_.auto_fragment(false);
-    ws_.read_message_max(1 * 1024 * 1024);
+    ws_.read_message_max(256 * 1024);
     ws_.set_option(boost::beast::websocket::stream_base::timeout::suggested(
         boost::beast::role_type::server));
     ws_.set_option(boost::beast::websocket::stream_base::timeout{
@@ -827,7 +827,7 @@ boost::asio::awaitable<void> Session::RunReader() {
 }
 
 boost::asio::awaitable<void> Session::RunSender() {
-  constexpr std::size_t kMaxBatchSize = 32;
+  constexpr std::size_t kMaxBatchSize = 8;
   auto token = boost::asio::bind_cancellation_slot(
       cancel_signal_.slot(), boost::asio::as_tuple(boost::asio::use_awaitable));
   try {

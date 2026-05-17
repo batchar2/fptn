@@ -7,13 +7,16 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #pragma once
 
 #include <atomic>
+#include <algorithm>
 #include <chrono>
+#include <condition_variable>
+#include <queue>
 #include <memory>
+#include <mutex>
+#include <string>
 #include <utility>
-#include <vector>
 
-#include <blockingconcurrentqueue.h>  // NOLINT(build/include_order)
-#include <spdlog/spdlog.h>            // NOLINT(build/include_order)
+#include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
 #include "common/network/ip_packet.h"
 
@@ -21,74 +24,82 @@ namespace fptn::common::data {
 
 class Channel {
  public:
-  explicit Channel(std::size_t max_capacity = 1024)
-      : max_capacity_(max_capacity), capacity_(0), buffer_(max_capacity) {}
+  explicit Channel(std::string name, std::size_t max_capacity = 1024)
+      : name_(std::move(name)), max_capacity_(max_capacity) {}
 
   bool Push(network::IPPacketPtr pkt) noexcept {
-    if (capacity_.load(std::memory_order_relaxed) < max_capacity_) {
-      buffer_.enqueue(std::move(pkt));
-      capacity_.fetch_add(1, std::memory_order_relaxed);
-      return true;
+    {
+      std::lock_guard<std::mutex> lock(mutex_);  // mutex
+      if (queue_.size() >= max_capacity_) {
+        SPDLOG_WARN("Channel '{}' is full", name_);
+        return false;
+      }
+      queue_.push(std::move(pkt));
     }
-    return false;
+    cv_.notify_one();
+    return true;
+  }
+
+  bool PushBatch(network::BatchIPPacketPtr packets) {
+    {
+      std::lock_guard<std::mutex> lock(mutex_);  // mutex
+      for (auto& packet : packets) {
+        if (queue_.size() >= max_capacity_) {
+          SPDLOG_WARN("Channel '{}' batch push failed", name_);
+          return false;
+        }
+        queue_.push(std::move(packet));
+      }
+    }
+    cv_.notify_one();
+    return true;
   }
 
   network::IPPacketPtr WaitForPacket(
       const std::chrono::milliseconds& duration) noexcept {
-    network::IPPacketPtr packet;
+    std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
-    if (buffer_.try_dequeue(packet) && packet != nullptr) {
-      capacity_.fetch_sub(1, std::memory_order_relaxed);
-      return packet;
+    if (queue_.empty()) {
+      cv_.wait_for(lock, duration, [this] { return !queue_.empty(); });
     }
 
-    if (buffer_.wait_dequeue_timed(packet, duration) && packet != nullptr) {
-      capacity_.fetch_sub(1, std::memory_order_relaxed);
+    if (queue_.empty()) {
+      return nullptr;
     }
+
+    auto packet = std::move(queue_.front());
+    queue_.pop();
     return packet;
-  }
-
-  network::BatchIPPacketPtr TryGetPackets(
-      const std::size_t max_batch_size = 16) noexcept {
-    network::BatchIPPacketPtr batch;
-    batch.resize(max_batch_size);
-
-    const auto count = buffer_.try_dequeue_bulk(batch.data(), max_batch_size);
-    if (count > 0) {
-      batch.resize(count);
-      capacity_.fetch_sub(count, std::memory_order_relaxed);
-      return batch;
-    }
-    batch.clear();
-    return batch;
   }
 
   network::BatchIPPacketPtr WaitForPackets(
       const std::chrono::milliseconds& duration,
       const std::size_t max_batch_size = 32) noexcept {
     network::BatchIPPacketPtr batch;
-    batch.resize(max_batch_size);
 
-    const auto count = buffer_.try_dequeue_bulk(batch.data(), max_batch_size);
-    if (count > 0) {
-      batch.resize(count);
-      capacity_.fetch_sub(count, std::memory_order_relaxed);
-      return batch;
+    std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+    if (queue_.empty()) {
+      cv_.wait_for(lock, duration, [this] { return !queue_.empty(); });
     }
-    batch.clear();
 
-    network::IPPacketPtr packet;
-    if (buffer_.wait_dequeue_timed(packet, duration) && packet != nullptr) {
-      capacity_.fetch_sub(1, std::memory_order_relaxed);
-      batch.push_back(std::move(packet));
+    if (!queue_.empty()) {
+      batch.reserve(std::min(max_batch_size, queue_.size()));
+      while (!queue_.empty() && batch.size() < max_batch_size) {
+        batch.push_back(std::move(queue_.front()));
+        queue_.pop();
+      }
     }
     return batch;
   }
 
  private:
+  const std::string name_;
   const std::size_t max_capacity_;
-  std::atomic<std::size_t> capacity_;
-  moodycamel::BlockingConcurrentQueue<network::IPPacketPtr> buffer_;
+
+  std::queue<network::IPPacketPtr> queue_;
+  std::mutex mutex_;
+  std::condition_variable cv_;
 };
 
 using ChannelPtr = std::unique_ptr<Channel>;

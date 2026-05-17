@@ -50,7 +50,7 @@ Server::Server(std::uint16_t port,
       server_external_ips_(std::move(server_external_ips)),
       thread_number_(std::max<std::size_t>(1, thread_number)),
       ioc_(thread_number),
-      from_client_(std::make_unique<fptn::common::data::Channel>()) {
+      from_client_("packets_from_websockets", 1024 * 16) {
   using std::placeholders::_1;
   using std::placeholders::_2;
   using std::placeholders::_3;
@@ -162,7 +162,12 @@ fptn::web::SessionSPtr Server::GetSessionById(fptn::ClientID client_id) {
 
 fptn::common::network::BatchIPPacketPtr Server::WaitForPackets(
     const std::chrono::milliseconds& duration) {
-  return from_client_->WaitForPackets(duration);
+  return from_client_.WaitForPackets(duration);
+}
+
+fptn::common::network::IPPacketPtr Server::WaitForPacket(
+    const std::chrono::milliseconds& duration) {
+  return from_client_.WaitForPacket(duration);
 }
 
 // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
@@ -307,7 +312,7 @@ fptn::client::SessionSPtr Server::HandleWsOpenConnection(
 
 void Server::HandleWsNewIPPacket(
     fptn::common::network::IPPacketPtr packet) noexcept {
-  from_client_->Push(std::move(packet));
+  from_client_.Push(std::move(packet));
 }
 
 void Server::HandleWsCloseConnection(fptn::ClientID client_id) noexcept {

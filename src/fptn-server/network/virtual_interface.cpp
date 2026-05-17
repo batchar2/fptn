@@ -21,7 +21,8 @@ VirtualInterface::VirtualInterface(const std::string& name,
       name_(name),
       mtu_size_(mtu_size),
       route_manager_(std::move(route_manager)),
-      config_(std::move(config)) {
+      config_(std::move(config)),
+      from_network_("packets_from_network_interface") {
   const auto callback = [this](auto&& pkt) {
     VirtualInterface::IPPacketFromNetwork(std::forward<decltype(pkt)>(pkt));
   };
@@ -54,13 +55,18 @@ void VirtualInterface::Send(
 }
 
 void VirtualInterface::SendBatch(
-    const fptn::common::network::BatchIPPacketPtr& packets) noexcept {
-  virtual_network_interface_->SendBatch(packets);
+    fptn::common::network::BatchIPPacketPtr packets) noexcept {
+  virtual_network_interface_->SendBatch(std::move(packets));
 }
 
 fptn::common::network::BatchIPPacketPtr VirtualInterface::WaitForPackets(
     const std::chrono::milliseconds& duration) noexcept {
   return from_network_.WaitForPackets(duration);
+}
+
+fptn::common::network::IPPacketPtr VirtualInterface::WaitForPacket(
+    const std::chrono::milliseconds& duration) noexcept {
+  return from_network_.WaitForPacket(duration);
 }
 
 void VirtualInterface::IPPacketFromNetwork(

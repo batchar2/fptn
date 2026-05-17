@@ -59,6 +59,9 @@ bool Manager::Start() {
   web_server_->Start();
   network_interface_->Start();
 
+  // for (std::size_t i = 0; i < 1; ++i) {
+  //   read_to_client_threads_.emplace_back(&Manager::RunToClient, this);
+  // }
   for (std::size_t i = 0; i < thread_pool_size_; ++i) {
     read_to_client_threads_.emplace_back(&Manager::RunToClient, this);
   }
@@ -73,9 +76,8 @@ bool Manager::Start() {
 }
 
 void Manager::RunToClient() const {
-  constexpr std::chrono::milliseconds kTimeout{10};
+  constexpr std::chrono::milliseconds kTimeout{100};
 
-  fptn::client::SessionSPtr nat_session = nullptr;
   while (running_) {
     auto packets = network_interface_->WaitForPackets(kTimeout);
     for (auto& packet : packets) {
@@ -84,6 +86,7 @@ void Manager::RunToClient() const {
       }
 
       // get session using "fake" client address
+      fptn::client::SessionSPtr nat_session = nullptr;
       if (packet->IsIPv4()) {
         nat_session =
             nat_->GetSessionByFakeIPv4(fptn::common::network::IPv4Address(
@@ -92,10 +95,8 @@ void Manager::RunToClient() const {
         nat_session =
             nat_->GetSessionByFakeIPv6(fptn::common::network::IPv6Address(
                 packet->IPv6Layer()->getDstIPv6Address()));
-
-      } else {
-        nat_session = nullptr;
       }
+
       if (!nat_session) {
         continue;
       }
@@ -119,7 +120,7 @@ void Manager::RunToClient() const {
 }
 
 void Manager::RunFromClient() const {
-  constexpr std::chrono::milliseconds kTimeout{10};
+  constexpr std::chrono::milliseconds kTimeout{100};
   while (running_) {
     auto packets = web_server_->WaitForPackets(kTimeout);
 
@@ -152,15 +153,16 @@ void Manager::RunFromClient() const {
 
       // prepare for send
       if (packet) {
-        prepared_batch.emplace_back(
-            session->ChangeIPAddressToFakeIP(std::move(packet)));
+        packet = session->ChangeIPAddressToFakeIP(std::move(packet));
+        network_interface_->Send(std::move(packet));
+        // prepared_batch.emplace_back(std::move(packet));
       }
     }
 
-    // send data
-    if (!prepared_batch.empty() && running_) {
-      network_interface_->SendBatch(std::move(prepared_batch));
-    }
+    // // send data
+    // if (!prepared_batch.empty() && running_) {
+    //   network_interface_->SendBatch(std::move(prepared_batch));
+    // }
   }
 }
 

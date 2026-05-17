@@ -13,7 +13,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "common/network/ip_packet.h"
 
 TEST(ChannelTest, PushAndWaitForPacket) {
-  fptn::common::data::Channel channel(10);
+  fptn::common::data::Channel channel("test_name", 10);
 
   fptn::common::network::IPPacketData packet_data;
   const char* test_data = "packet-data";
@@ -30,6 +30,6 @@ TEST(ChannelTest, PushAndWaitForPacket) {
 }
 
 TEST(ChannelTest, WaitForPacketTimeout) {
-  fptn::common::data::Channel channel(10);
+  fptn::common::data::Channel channel("test_name", 10);
   EXPECT_EQ(channel.WaitForPacket(std::chrono::milliseconds(100)), nullptr);
 }

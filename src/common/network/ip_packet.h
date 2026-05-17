@@ -407,9 +407,10 @@ class IPPacket {
 };
 
 using IPPacketPtr = std::unique_ptr<IPPacket>;
+
 #ifdef USING_MIMALLOC
-using BatchIPPacketPtr =
-    std::vector<IPPacketPtr, mi_stl_allocator<IPPacketPtr>>;
+using mimcalloc = mi_stl_allocator<IPPacketPtr>;
+using BatchIPPacketPtr = std::vector<IPPacketPtr, mimcalloc>;
 #else
 using BatchIPPacketPtr = std::vector<IPPacketPtr>;
 #endif

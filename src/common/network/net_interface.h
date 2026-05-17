@@ -69,8 +69,8 @@ class BaseNetInterface {
 
   bool Send(IPPacketPtr packet) { return impl()->SendImpl(std::move(packet)); }
 
-  bool SendBatch(const BatchIPPacketPtr& packets) {
-    return impl()->SendBatchImpl(packets);
+  bool SendBatch(BatchIPPacketPtr packets) {
+    return impl()->SendBatchImpl(std::move(packets));
   }
 
   std::size_t GetSendRate() { return impl()->GetSendRateImpl(); }
@@ -162,7 +162,8 @@ class GenericTunInterface final
   explicit GenericTunInterface(
       std::string name, int mtu_size, bool using_rate_calculator = true)
       : Base(std::move(name), mtu_size, using_rate_calculator),
-        running_(false) {}
+        running_(false),
+        to_network_("tun_interface") {}
 
   ~GenericTunInterface() { StopImpl(); }
 
@@ -199,8 +200,9 @@ class GenericTunInterface final
 
       running_ = true;
       device_.SetStopFlag(&running_);
-      thread_ = std::thread(&GenericTunInterface::Run, this);
-      return thread_.joinable();
+      thread_reader_ = std::thread(&GenericTunInterface::RunReader, this);
+      thread_sender_ = std::thread(&GenericTunInterface::RunSender, this);
+      return thread_reader_.joinable() && thread_sender_.joinable();
     } catch (const std::exception& ex) {
       SPDLOG_ERROR("Error start: {}", ex.what());
     }
@@ -221,8 +223,12 @@ class GenericTunInterface final
       running_ = false;
     }
 
-    if (thread_.joinable()) {
-      thread_.join();
+    if (thread_reader_.joinable()) {
+      thread_reader_.join();
+    }
+
+    if (thread_sender_.joinable()) {
+      thread_sender_.join();
     }
 
     device_.Close();
@@ -231,82 +237,11 @@ class GenericTunInterface final
   }
 
   bool SendImpl(IPPacketPtr packet) noexcept {
-    try {
-      static const bool kRateCalculator = this->UsingRateCalculator();
-
-      if (running_ && packet) {
-        const auto* raw_packet = packet->GetRawPacket();
-        if (raw_packet) {
-          const auto* data = raw_packet->getRawData();
-          const auto len = raw_packet->getRawDataLen();
-
-          if (data && len > 0) {
-            const std::scoped_lock lock(mutex_);  // mutex
-
-            const int bytes_written =
-                device_.Write(data, static_cast<int>(len));
-            if (kRateCalculator && bytes_written > 0) {
-              send_rate_calculator_.Update(bytes_written);
-            }
-            return bytes_written == len;
-          }
-        }
-      }
-    } catch (const std::exception& ex) {
-      SPDLOG_ERROR("SendImpl error: {}", ex.what());
-    }
-    return false;
+    return to_network_.Push(std::move(packet));
   }
 
-  bool SendBatchImpl(const BatchIPPacketPtr& packets) noexcept {
-    try {
-      static const bool kRateCalculator = this->UsingRateCalculator();
-
-      if (!running_ || packets.empty()) {
-        return false;
-      }
-
-      // serialize
-      std::vector<IPPacketData> serialized_packets;
-      serialized_packets.reserve(packets.size());
-      std::size_t total_bytes = 0;
-      for (auto& packet : packets) {
-        if (packet && packet->Size()) {
-          const auto* raw_packet = packet->GetRawPacket();
-          if (raw_packet) {
-            const auto* data = raw_packet->getRawData();
-            const auto len = raw_packet->getRawDataLen();
-            if (data && len > 0) {
-              serialized_packets.emplace_back(data, data + len);
-              total_bytes += len;
-            }
-          }
-        }
-      }
-
-      // send
-      if (!serialized_packets.empty()) {
-        const std::scoped_lock lock(mutex_);  // mutex
-
-        for (const auto& packet_data : serialized_packets) {
-          const int bytes_written = device_.Write(
-              packet_data.data(), static_cast<int>(packet_data.size()));
-          if (bytes_written != static_cast<int>(packet_data.size())) {
-            return false;
-          }
-        }
-      }
-
-      if (kRateCalculator && total_bytes) {
-        send_rate_calculator_.Update(total_bytes);
-      }
-
-      return true;
-    } catch (const std::exception& ex) {
-      SPDLOG_ERROR("SendImpl error: {}", ex.what());
-    }
-
-    return false;
+  bool SendBatchImpl(BatchIPPacketPtr packets) noexcept {
+    return to_network_.PushBatch(std::move(packets));
   }
 
   std::size_t GetSendRateImpl() const noexcept {
@@ -317,46 +252,63 @@ class GenericTunInterface final
     return receive_rate_calculator_.GetRateForSecond();
   }
 
-  void Run() {
+  void RunReader() {
     const int mtu_size = this->MtuSize();
     const auto callback = this->GetRecvIPPacketCallback();
     const bool rate_calc = this->UsingRateCalculator();
 
-    constexpr int kBatchIPPacketsSize = 16;
-    std::vector<IPPacketPtr> batch_ip_packets;
-    batch_ip_packets.reserve(kBatchIPPacketsSize);
-
+    IPPacketData buffer(mtu_size);
     while (running_) {
-      std::size_t total_bytes = 0;
-
-      // collect batch
-      for (int i = 0; i < kBatchIPPacketsSize && running_; ++i) {
-        IPPacketData buffer(mtu_size);
-        const int size = device_.Read(buffer.data(), mtu_size);
-        if (size > 0) {
-          buffer.resize(size);
-          auto packet = IPPacket::Parse(std::move(buffer));
-          if (packet) {
-            total_bytes += packet->Size();
-            batch_ip_packets.emplace_back(std::move(packet));
+      const int size = device_.Read(buffer.data(), mtu_size);
+      if (size > 0) {
+        auto packet = IPPacket::Parse(buffer.data(), size);
+        if (packet != nullptr && running_) {
+          if (callback) {
+            callback(std::move(packet));
           }
-        } else {
-          break;
+          if (rate_calc) {
+            receive_rate_calculator_.Update(size);  // calculate rate
+          }
         }
-      }
-
-      // send batch
-      if (!batch_ip_packets.empty() && running_) {
-        if (rate_calc) {
-          receive_rate_calculator_.Update(total_bytes);
-        }
-        for (auto& packet : batch_ip_packets) {
-          callback(std::move(packet));
-        }
-        batch_ip_packets.clear();
       } else {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
       }
+    }
+  }
+
+  void RunSender() {
+    try {
+      constexpr std::chrono::milliseconds kTimeout{100};
+      static const bool kRateCalculator = this->UsingRateCalculator();
+      while (running_) {
+        auto packets = to_network_.WaitForPackets(kTimeout);
+        // cppcheck-suppress constVariableReference
+        for (auto& packet : packets) {
+          if (packet) {
+            const auto* raw_packet = packet->GetRawPacket();
+            const void* data =
+                static_cast<const void*>(raw_packet->getRawData());
+            const auto len = raw_packet->getRawDataLen();
+
+            // send data
+            if (len && data && running_) {
+              const auto bytes_written =
+                  device_.Write(const_cast<void*>(data), len);
+              if (bytes_written == len && kRateCalculator) {
+                send_rate_calculator_.Update(bytes_written);
+              }
+              if (bytes_written != len && running_) {
+                SPDLOG_WARN(
+                    "Send data error: attempted to write {} bytes but only {} "
+                    "bytes were written",
+                    len, bytes_written);
+              }
+            }
+          }
+        }
+      }
+    } catch (const std::exception& ex) {
+      SPDLOG_ERROR("SendImpl error: {}", ex.what());
     }
   }
 
@@ -364,17 +316,21 @@ class GenericTunInterface final
   mutable std::mutex mutex_;
 
   std::atomic<bool> running_;
-  std::thread thread_;
+  std::thread thread_reader_;
+  std::thread thread_sender_;
+
   Device device_;
   DataRateCalculator send_rate_calculator_;
   DataRateCalculator receive_rate_calculator_;
+
+  fptn::common::data::Channel to_network_;
 };
 
 }  // namespace fptn::common::network
-
 // Platform-specific TUN device includes (outside namespace to avoid nesting)
 #if defined(__APPLE__)
 #include "common/network/tun/darwin_tun_device.h"
+
 #elif defined(__linux__)
 #include "common/network/tun/linux_tun_device.h"
 #elif defined(_WIN32)

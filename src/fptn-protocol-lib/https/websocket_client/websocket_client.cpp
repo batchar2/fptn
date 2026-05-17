@@ -63,7 +63,7 @@ WebsocketClient::WebsocketClient(Config config, int thread_number)
   ws_.text(false);
   ws_.binary(true);
   ws_.auto_fragment(false);
-  ws_.read_message_max(1 * 1024 * 1024);
+  ws_.read_message_max(256 * 1024);
   ws_.set_option(boost::beast::websocket::stream_base::timeout::suggested(
       boost::beast::role_type::client));
 }
@@ -110,10 +110,23 @@ void WebsocketClient::Run() {
         }
       },
       boost::asio::detached);
+  // try {
+  //   ioc_.restart();
+  //   while (running_) {
+  //     ioc_.run_one();
+  //   }
+  // } catch (...) {
+  //   SPDLOG_WARN("Exception while running");
+  // }
   try {
-    ioc_.restart();
-    while (running_) {
-      ioc_.run_one();
+    while (running_ || !was_stopped_) {
+      const std::size_t processed = ioc_.poll_one();
+      if (processed == 0) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      }
+    }
+    if (!ioc_.stopped()) {
+      ioc_.stop();
     }
   } catch (...) {
     SPDLOG_WARN("Exception while running");
@@ -551,7 +564,7 @@ boost::asio::awaitable<void> WebsocketClient::RunReader() {
 }
 
 boost::asio::awaitable<void> WebsocketClient::RunSender() {
-  constexpr std::size_t kMaxBatchSize = 32;
+  constexpr std::size_t kMaxBatchSize = 8;
   auto token = boost::asio::bind_cancellation_slot(
       cancel_signal_.slot(), boost::asio::as_tuple(boost::asio::use_awaitable));
   try {

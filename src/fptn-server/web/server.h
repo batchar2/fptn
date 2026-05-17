@@ -42,7 +42,7 @@ class Server final {
       std::vector<std::string> allowed_sni_list,
       std::size_t max_active_sessions_per_user,
       std::string server_external_ips,
-      int thread_number = 8);
+      int thread_number = 12);
   ~Server();
   bool Start();
   bool Stop();
@@ -51,6 +51,10 @@ class Server final {
 
   fptn::common::network::BatchIPPacketPtr WaitForPackets(
       const std::chrono::milliseconds& duration);
+
+  fptn::common::network::IPPacketPtr WaitForPacket(
+    const std::chrono::milliseconds& duration);
+
 
  protected:
   // http
@@ -92,7 +96,7 @@ class Server final {
   const std::size_t thread_number_;
 
   boost::asio::io_context ioc_;
-  fptn::common::data::ChannelPtr from_client_;
+  fptn::common::data::Channel from_client_;
 
   ListenerSPtr listener_;
 

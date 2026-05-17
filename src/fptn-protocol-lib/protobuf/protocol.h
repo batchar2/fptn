@@ -24,8 +24,8 @@ namespace fptn::protocol::protobuf {
 #ifdef USING_MIMALLOC
 using ProtoPayload = std::vector<std::uint8_t, mi_stl_allocator<std::uint8_t>>;
 using ProtoPayloadOpt = std::optional<ProtoPayload>;
-using BatchProtoPayload =
-    std::vector<ProtoPayload, mi_stl_allocator<ProtoPayload>>;
+using BatchProtoPayload = std::vector<ProtoPayload,
+  mi_stl_allocator<ProtoPayload>>;  // NOLINT
 #else
 using ProtoPayload = std::vector<std::uint8_t>;
 using ProtoPayloadOpt = std::optional<ProtoPayload>;

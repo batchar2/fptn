@@ -36,7 +36,7 @@ class Table final {
   };
 
  public:
-  Table(Config config);
+  explicit Table(Config config);
 
   // deprecated
   fptn::client::SessionSPtr CreateClientSession(ClientID client_id,
