@@ -37,6 +37,7 @@ if (FPTN_BUILD_ONLY_FPTN_LIB)
   set(FPTN_IP_ADDRESS_WITHOUT_PCAP ON)
   add_compile_definitions(FPTN_IP_ADDRESS_WITHOUT_PCAP)
 else()
+  add_definitions(-DUSING_MIMALLOC)
   set(FPTN_WITH_LIBIDN2 ON)
   add_compile_definitions(FPTN_WITH_LIBIDN2)
 endif()
@@ -72,9 +73,6 @@ add_definitions(-DWIN32_LEAN_AND_MEAN)
 # Minimize Windows headers and avoid NOMINMAX conflict (needed for BoringSSL)
 add_definitions(-DNOMINMAX)
 add_definitions(-DWIN32_LEAN_AND_MEAN)
-
-# Optimization
-add_definitions(-DUSING_MIMALLOC)
 
 set(FPTN_SERVER_PATH "${CMAKE_CURRENT_SOURCE_DIR}/src/fptn-server")
 

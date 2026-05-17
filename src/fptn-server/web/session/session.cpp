@@ -827,7 +827,7 @@ boost::asio::awaitable<void> Session::RunReader() {
 }
 
 boost::asio::awaitable<void> Session::RunSender() {
-  constexpr std::size_t kMaxBatchSize = 8;
+  constexpr std::size_t kMaxBatchSize = 32;
   auto token = boost::asio::bind_cancellation_slot(
       cancel_signal_.slot(), boost::asio::as_tuple(boost::asio::use_awaitable));
   try {

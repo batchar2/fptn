@@ -431,10 +431,21 @@ class LightIPv4Packet {
     return std::make_unique<LightIPv4Packet>(std::move(buffer), client_id);
   }
 
+  static std::unique_ptr<LightIPv4Packet> Parse(
+      const std::uint8_t* buffer, const std::size_t size) {
+    if (buffer == nullptr || size == 0) {
+      return nullptr;
+    }
+    IPPacketData packet(buffer, buffer + size);
+    return Parse(std::move(packet));
+  }
+
   LightIPv4Packet(IPPacketData buffer, const fptn::ClientID client_id)
       : ip_packet_(std::move(buffer)) {
     (void)client_id;
   }
+
+  ~LightIPv4Packet() = default;
 
   std::size_t Size() const { return ip_packet_.size(); }
 
@@ -444,11 +455,12 @@ class LightIPv4Packet {
   const void* getRawData() const { return ip_packet_.data(); }
 
  private:
-  const IPPacketData ip_packet_;
+  IPPacketData ip_packet_;
 };
 
 using IPPacket = LightIPv4Packet;
 using IPPacketPtr = std::unique_ptr<LightIPv4Packet>;
+using BatchIPPacketPtr = std::vector<IPPacketPtr>;
 
 #endif
 

@@ -303,6 +303,12 @@ boost::asio::awaitable<bool> WebsocketClient::RunInternal() {
         strand_, [self]() { return self->RunReader(); }, boost::asio::detached);
     boost::asio::co_spawn(
         strand_, [self]() { return self->RunSender(); }, boost::asio::detached);
+
+    SPDLOG_INFO("WebSocket connection established successfully");
+    if (config_.on_connected_callback) {
+      config_.on_connected_callback();
+    }
+
     co_return true;
   } catch (const std::exception& e) {
     SPDLOG_ERROR("RunInternal exception: {}", e.what());
@@ -444,12 +450,6 @@ boost::asio::awaitable<bool> WebsocketClient::Connect() {
     }
 
     was_connected_ = true;
-    SPDLOG_INFO("WebSocket connection established successfully");
-
-    if (config_.on_connected_callback) {
-      config_.on_connected_callback();
-    }
-
     // WebSocket options
     try {
       boost::beast::websocket::stream_base::timeout timeout_option;
@@ -564,7 +564,7 @@ boost::asio::awaitable<void> WebsocketClient::RunReader() {
 }
 
 boost::asio::awaitable<void> WebsocketClient::RunSender() {
-  constexpr std::size_t kMaxBatchSize = 8;
+  constexpr std::size_t kMaxBatchSize = 32;
   auto token = boost::asio::bind_cancellation_slot(
       cancel_signal_.slot(), boost::asio::as_tuple(boost::asio::use_awaitable));
   try {

@@ -28,7 +28,6 @@ find_package(OpenSSL REQUIRED)
 find_package(spdlog REQUIRED)
 find_package(fmt REQUIRED)
 find_package(re2 REQUIRED)
-find_package(concurrentqueue REQUIRED)
 find_package(mimalloc REQUIRED)
 
 find_package(Boost REQUIRED COMPONENTS random filesystem nowide locale)
@@ -164,7 +163,6 @@ foreach(target "${PROJECT_NAME}_static")
     spdlog::spdlog
     fmt::fmt
     re2::re2
-    concurrentqueue::concurrentqueue
     mimalloc-static
     ntp_client
     camouflage-tls

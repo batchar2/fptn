@@ -343,7 +343,7 @@ TEST_F(GenericTunInterfaceTest, ReceiveIPv6Packet) {
   ASSERT_FALSE(received.empty());
   ASSERT_EQ(received.size(), 1U);
   // cppcheck-suppress containerOutOfBounds
-  EXPECT_EQ(received[0].size(), MakeMinimalIPv6Packet().size()); 
+  EXPECT_EQ(received[0].size(), MakeMinimalIPv6Packet().size());
   EXPECT_EQ(received[0], MakeMinimalIPv6Packet());
 }
 
