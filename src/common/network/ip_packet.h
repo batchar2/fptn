@@ -362,6 +362,9 @@ class IPPacket {
 
   std::size_t Size() const noexcept { return packet_data_.size(); }
 
+  const IPPacketData& Data() const {
+    return packet_data_;
+  }
   const pcpp::RawPacket* GetRawPacket() const noexcept {
     return parsed_packet_.getRawPacket();
   }

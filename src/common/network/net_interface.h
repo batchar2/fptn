@@ -292,17 +292,14 @@ class GenericTunInterface final
 
             // send data
             if (len && data && running_) {
-              const auto bytes_written =
-                  device_.Write(const_cast<void*>(data), len);
-              if (bytes_written == len && kRateCalculator) {
-                send_rate_calculator_.Update(bytes_written);
-              }
-              if (bytes_written != len && running_) {
-                SPDLOG_WARN(
-                    "Send data error: attempted to write {} bytes but only {} "
-                    "bytes were written",
-                    len, bytes_written);
-              }
+              int bytes_written = 0;
+              do {
+                // resend if error
+                bytes_written = device_.Write(const_cast<void*>(data), len);
+                if (bytes_written == len && kRateCalculator) {
+                  send_rate_calculator_.Update(bytes_written);
+                }
+              } while ( bytes_written != len && running_);
             }
           }
         }

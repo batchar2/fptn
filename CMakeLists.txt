@@ -43,7 +43,7 @@ else()
 endif()
 
 add_compile_definitions(FPTN_VERSION=\"${FPTN_VERSION}\")
-add_compile_definitions(FPTN_DEFAULT_MTU_SIZE=1500)
+add_compile_definitions(FPTN_DEFAULT_MTU_SIZE=1420)
 add_compile_definitions(FPTN_DEFAULT_SNI=\"rutube.ru\")
 add_compile_definitions(FPTN_IP_PACKET_MAX_SIZE=1400)
 add_compile_definitions(FPTN_ENABLE_PACKET_PADDING=1)

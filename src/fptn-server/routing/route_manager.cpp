@@ -119,7 +119,8 @@ bool RouteManager::Apply() {  // NOLINT(bugprone-exception-escape)
       "sysctl -w net.core.somaxconn=65535",
       "sysctl -w net.core.rmem_max=134217728",
       "sysctl -w net.core.wmem_max=134217728",
-      "sysctl -w net.core.netdev_max_backlog=5000", "sysctl -p",
+      "sysctl -w net.core.netdev_max_backlog=5000",
+      "sysctl -w net.ipv4:tcp_max_syn_backlog=4096", "sysctl -p",
       /* IPv4 */
       "iptables -P INPUT ACCEPT", "iptables -P FORWARD ACCEPT",
       "iptables -P OUTPUT ACCEPT",
@@ -137,9 +138,18 @@ bool RouteManager::Apply() {  // NOLINT(bugprone-exception-escape)
       fmt::format("ip6tables -A FORWARD -i {} -o {} -j ACCEPT",
           out_net_interface_name_, tun_net_interface_name_),
       fmt::format("ip6tables -t nat -A POSTROUTING -o {} -j MASQUERADE",
-          out_net_interface_name_)};
+          out_net_interface_name_),
+      // Optimization
+      fmt::format(
+          "ip link set dev {} txqueuelen 10000", tun_net_interface_name_),
+      fmt::format("ip link set dev {} txqlen 10000", tun_net_interface_name_),
+      fmt::format("iptables -t mangle -A FORWARD -o {} -p tcp --tcp-flags "
+                  "SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu",
+          tun_net_interface_name_),
+      fmt::format("iptables -t mangle -A FORWARD -i {} -p tcp --tcp-flags "
+                  "SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu",
+          tun_net_interface_name_)};
 #elif __APPLE__
-  // NEED CHECK
   const std::vector<std::string> commands = {
       fmt::format("echo 'set skip on lo0' > /tmp/pf.conf"),
       fmt::format("echo 'block in all' >> /tmp/pf.conf"),
