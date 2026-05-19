@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -7,59 +7,101 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #pragma once
 
 #include <atomic>
+#include <algorithm>
 #include <chrono>
 #include <condition_variable>
+#include <queue>
 #include <memory>
 #include <mutex>
-#include <optional>
-#include <thread>
+#include <string>
 #include <utility>
 
-#include <boost/circular_buffer.hpp>
-#include <boost/circular_buffer/space_optimized.hpp>
+#include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
 #include "common/network/ip_packet.h"
 
 namespace fptn::common::data {
+
 class Channel {
  public:
-  explicit Channel(std::size_t maxCapacity = 512) {
-    buffer_.set_capacity(maxCapacity);
-  }
-  void Push(network::IPPacketPtr pkt) noexcept {
-    {
-      const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+  explicit Channel(std::string name, std::size_t max_capacity = 1024)
+      : name_(std::move(name)), max_capacity_(max_capacity) {}
 
-      buffer_.push_back(std::move(pkt));
+  bool Push(network::IPPacketPtr pkt) noexcept {
+    {
+      std::lock_guard<std::mutex> lock(mutex_);  // mutex
+      if (queue_.size() >= max_capacity_) {
+        SPDLOG_WARN("Channel '{}' is full", name_);
+        return false;
+      }
+      queue_.push(std::move(pkt));
     }
-    condvar_.notify_one();
+    cv_.notify_one();
+    return true;
+  }
+
+  bool PushBatch(network::BatchIPPacketPtr packets) {
+    {
+      std::lock_guard<std::mutex> lock(mutex_);  // mutex
+      for (auto& packet : packets) {
+        if (queue_.size() >= max_capacity_) {
+          SPDLOG_WARN("Channel '{}' batch push failed", name_);
+          return false;
+        }
+        queue_.push(std::move(packet));
+      }
+    }
+    cv_.notify_one();
+    return true;
   }
 
   network::IPPacketPtr WaitForPacket(
       const std::chrono::milliseconds& duration) noexcept {
     std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
-    // exists
-    if (!buffer_.empty()) {
-      auto pkt = std::move(buffer_.front());
-      buffer_.pop_front();
-      return pkt;
+    if (queue_.empty()) {
+      cv_.wait_for(lock, duration, [this] { return !queue_.empty(); });
     }
-    // wait for data or timeout
-    if (condvar_.wait_for(
-            lock, duration, [this] { return !buffer_.empty(); })) {
-      auto pkt = std::move(buffer_.front());
-      buffer_.pop_front();
-      return pkt;
+
+    if (queue_.empty()) {
+      return nullptr;
     }
-    return nullptr;
+
+    auto packet = std::move(queue_.front());
+    queue_.pop();
+    return packet;
   }
 
- protected:
-  mutable std::mutex mutex_;
-  std::condition_variable condvar_;
-  boost::circular_buffer_space_optimized<network::IPPacketPtr> buffer_;
+  network::BatchIPPacketPtr WaitForPackets(
+      const std::chrono::milliseconds& duration,
+      const std::size_t max_batch_size = 32) noexcept {
+    network::BatchIPPacketPtr batch;
+
+    std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+    if (queue_.empty()) {
+      cv_.wait_for(lock, duration, [this] { return !queue_.empty(); });
+    }
+
+    if (!queue_.empty()) {
+      batch.reserve(std::min(max_batch_size, queue_.size()));
+      while (!queue_.empty() && batch.size() < max_batch_size) {
+        batch.push_back(std::move(queue_.front()));
+        queue_.pop();
+      }
+    }
+    return batch;
+  }
+
+ private:
+  const std::string name_;
+  const std::size_t max_capacity_;
+
+  std::queue<network::IPPacketPtr> queue_;
+  std::mutex mutex_;
+  std::condition_variable cv_;
 };
 
 using ChannelPtr = std::unique_ptr<Channel>;
+
 }  // namespace fptn::common::data

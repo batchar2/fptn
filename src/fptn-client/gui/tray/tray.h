@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -33,7 +33,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "routing/route_manager.h"
 #include "utils/speed_estimator/server_info.h"
 #include "vpn/http/client.h"
-#include "vpn/vpn_client.h"
+#include "vpn/vpn_manager.h"
 
 namespace fptn::gui {
 class TrayApp : public QWidget {
@@ -73,6 +73,7 @@ class TrayApp : public QWidget {
 
  protected:
   void UpdateTrayMenu();
+  void UpdatePings();
   void OpenWebBrowser(const std::string& url);
 
  protected:
@@ -115,10 +116,12 @@ class TrayApp : public QWidget {
   QString inactive_icon_path_;
 
   fptn::vpn::VpnClientPtr vpn_client_;
-  fptn::routing::RouteManagerSPtr route_manager_;
 
   // connecting
   std::atomic<bool> connecting_in_progress_{false};
-  // std::future<bool> connecting_;
+
+  QTimer* ping_update_timer_{nullptr};
+
+  std::atomic<bool> cancel_connecting_{false};
 };
 }  // namespace fptn::gui

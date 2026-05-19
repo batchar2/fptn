@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -14,11 +14,15 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "common/logger/logger.h"
 
 namespace {
-QTranslator translator;
+QTranslator& getTranslator() {
+  static QTranslator translator;
+  return translator;
 }
+}  // namespace
 
 bool fptn::gui::SetTranslation(const QString& language_code) {
   const QString translation_file = QString("fptn_%1.qm").arg(language_code);
+  QTranslator& translator = getTranslator();
   qApp->removeTranslator(&translator);
   if (translator.load(translation_file, ":/translations")) {
     if (!qApp->installTranslator(&translator)) {

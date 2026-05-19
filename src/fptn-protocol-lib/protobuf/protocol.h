@@ -1,38 +1,50 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
 
 #pragma once
 
-#include <ctime>
-#include <random>
-#include <stdexcept>
+#include <optional>
 #include <string>
+#include <vector>
+
+#include <boost/beast/core/flat_buffer.hpp>
+
+#ifdef USING_MIMALLOC
+#include <mimalloc.h>  // NOLINT(build/include_order)
+#endif
 
 #include "common/network/ip_packet.h"
 #include "common/utils/utils.h"
 
 namespace fptn::protocol::protobuf {
-class ProcessingError : public std::runtime_error {
- public:
-  explicit ProcessingError(const std::string& message)
-      : std::runtime_error(message) {}
-};
 
-class MessageError : public std::runtime_error {
- public:
-  explicit MessageError(const std::string& message)
-      : std::runtime_error(message) {}
-};
+#ifdef USING_MIMALLOC
+using ProtoPayload = std::vector<std::uint8_t, mi_stl_allocator<std::uint8_t>>;
+using ProtoPayloadOpt = std::optional<ProtoPayload>;
+using BatchProtoPayload = std::vector<ProtoPayload,
+  mi_stl_allocator<ProtoPayload>>;  // NOLINT
+#else
+using ProtoPayload = std::vector<std::uint8_t>;
+using ProtoPayloadOpt = std::optional<ProtoPayload>;
+using BatchProtoPayload = std::vector<ProtoPayload>;
+#endif
 
-class UnsupportedProtocolVersion : public std::runtime_error {
- public:
-  explicit UnsupportedProtocolVersion(const std::string& message)
-      : std::runtime_error(message) {}
-};
+// DEPRECATED
+ProtoPayloadOpt DeserializeIPPacket(const boost::beast::flat_buffer& buffer);
+// DEPRECATED
+ProtoPayloadOpt SerializeIPPacket(fptn::common::network::IPPacketPtr packet);
 
-std::string GetProtoPayload(const std::string& raw);
-std::string CreateProtoPayload(fptn::common::network::IPPacketPtr packet);
+BatchProtoPayload DeserializeBatchIPPacket(
+    const boost::beast::flat_buffer& buffer);
+ProtoPayloadOpt SerializeBatchIPPacket(
+    common::network::BatchIPPacketPtr packets);
+
+std::optional<std::string> SerializeIPAssignmentMessage(
+    const std::string& ip_v4, const std::string& ip_v6);
+std::optional<std::pair<std::string, std::string>>
+DeserializeIPAssignmentMessage(const std::string& message);
+
 }  // namespace fptn::protocol::protobuf

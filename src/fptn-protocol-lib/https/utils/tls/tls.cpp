@@ -1,11 +1,12 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
 
 #include "fptn-protocol-lib/https/utils/tls/tls.h"
 
+#include <algorithm>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -31,6 +32,7 @@ namespace fptn::protocol::https::utils {
 constexpr int kSessionLen = 32;
 constexpr std::size_t kFptnKeyLength = 4;
 constexpr int kDecoyHandshakeSessionIDShift = 10;
+constexpr int kDecoyHandshakeSessionIDShift2 = 14;
 
 std::string GetSHA1Hash(std::uint32_t number) {
   EVP_MD_CTX* mdctx = EVP_MD_CTX_new();
@@ -96,6 +98,29 @@ bool IsDecoyHandshakeSessionID(
   (void)session_len;
   char data[kFptnKeyLength] = {0};
   std::memcpy(&data, &session[kDecoyHandshakeSessionIDShift], sizeof(data));
+  const std::string recv_key(data, sizeof(data));
+
+  const auto now_timestamp =
+      fptn::time::TimeProvider::Instance()->NowTimestamp();
+
+  constexpr std::uint32_t kTimeShiftSeconds = 10;  // ten seconds
+
+  const std::uint32_t timestamp = now_timestamp + (kTimeShiftSeconds / 2);
+
+  for (std::uint32_t shift = 0; shift <= kTimeShiftSeconds; shift++) {
+    const std::string key = GenerateFptnKey(timestamp - shift);
+    if (recv_key == key) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool IsDecoyHandshakeSessionID2(
+    const std::uint8_t* session, std::size_t session_len) {
+  (void)session_len;
+  char data[kFptnKeyLength] = {0};
+  std::memcpy(&data, &session[kDecoyHandshakeSessionIDShift2], sizeof(data));
   const std::string recv_key(data, sizeof(data));
 
   const auto now_timestamp =
@@ -322,6 +347,38 @@ std::vector<std::uint8_t> GenerateDecoyTlsHandshake(const std::string& sni) {
         "GenerateTlsHandshake exception for SNI {}: {}", sni, e.what());
   }
   return handshake_data;
+}
+
+std::optional<std::array<std::uint8_t, 32>> GenerateDecoyTlsSessionId() {
+  std::array<std::uint8_t, kSessionLen> session_id{};
+  if (::RAND_bytes(session_id.data(), session_id.size()) != 1) {
+    return std::nullopt;
+  }
+
+  // Get timestamp and generate key
+  const auto timestamp = fptn::time::TimeProvider::Instance()->NowTimestamp();
+  const std::string key = GenerateFptnKey(timestamp);
+  const std::size_t copy_size =
+      std::min(key.size(), session_id.size() - kDecoyHandshakeSessionIDShift);
+  std::memcpy(session_id.data() + kDecoyHandshakeSessionIDShift, key.c_str(),
+      copy_size);
+  return session_id;
+}
+
+std::optional<std::array<std::uint8_t, 32>> GenerateDecoyTlsSessionId2() {
+  std::array<std::uint8_t, kSessionLen> session_id{};
+  if (::RAND_bytes(session_id.data(), session_id.size()) != 1) {
+    return std::nullopt;
+  }
+
+  // Get timestamp and generate key
+  const auto timestamp = fptn::time::TimeProvider::Instance()->NowTimestamp();
+  const std::string key = GenerateFptnKey(timestamp);
+  const std::size_t copy_size =
+      std::min(key.size(), session_id.size() - kDecoyHandshakeSessionIDShift2);
+  std::memcpy(session_id.data() + kDecoyHandshakeSessionIDShift2, key.c_str(),
+      copy_size);
+  return session_id;
 }
 
 // MAYBE IT WILL REFACTOR

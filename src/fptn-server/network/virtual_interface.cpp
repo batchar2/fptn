@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -13,67 +13,60 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 using fptn::common::network::TunInterface;
 using fptn::network::VirtualInterface;
 
-VirtualInterface::VirtualInterface(
-    fptn::common::network::TunInterface::Config config,
-    fptn::routing::RouteManagerPtr iptables)
-    : running_(false), iptables_(std::move(iptables)) {
-  // NOLINTNEXTLINE(modernize-avoid-bind)
-  auto callback = std::bind(
-      &VirtualInterface::IPPacketFromNetwork, this, std::placeholders::_1);
+VirtualInterface::VirtualInterface(const std::string& name,
+    int mtu_size,
+    fptn::routing::RouteManagerPtr route_manager,
+    fptn::common::network::TunInterface::Config config)
+    : running_(false),
+      name_(name),
+      mtu_size_(mtu_size),
+      route_manager_(std::move(route_manager)),
+      config_(std::move(config)),
+      from_network_("packets_from_network_interface") {
+  const auto callback = [this](auto&& pkt) {
+    VirtualInterface::IPPacketFromNetwork(std::forward<decltype(pkt)>(pkt));
+  };
   virtual_network_interface_ =
-      std::make_unique<TunInterface>(std::move(config));
+      std::make_unique<TunInterface>(name, mtu_size_, false);
   virtual_network_interface_->SetRecvIPPacketCallback(callback);
 }
 
 VirtualInterface::~VirtualInterface() { Stop(); }
 
-bool VirtualInterface::Check() noexcept { return thread_.joinable(); }
+bool VirtualInterface::Check() const noexcept { return thread_.joinable(); }
 
 bool VirtualInterface::Start() noexcept {
   running_ = true;
-  virtual_network_interface_->Start();
-  thread_ = std::thread(&VirtualInterface::Run, this);
-  return thread_.joinable();
+  virtual_network_interface_->Start(config_);
+  route_manager_->Apply();  // activate route
+  return true;
 }
 
 bool VirtualInterface::Stop() noexcept {
   running_ = false;
   virtual_network_interface_->Stop();
-  if (thread_.joinable()) {
-    iptables_->Clean();
-    thread_.join();
-    return true;
-  }
-  return false;
+  route_manager_->Clean();
+  return true;
 }
 
 void VirtualInterface::Send(
     fptn::common::network::IPPacketPtr packet) noexcept {
-  try {
-    to_network_.Push(std::move(packet));
-  } catch (const std::bad_alloc& err) {
-    SPDLOG_ERROR(
-        "Memory allocation failed while sending packet: {}", err.what());
-  } catch (...) {
-    SPDLOG_ERROR("Unknown exception occurred while sending packet.");
-  }
+  virtual_network_interface_->Send(std::move(packet));
+}
+
+void VirtualInterface::SendBatch(
+    fptn::common::network::BatchIPPacketPtr packets) noexcept {
+  virtual_network_interface_->SendBatch(std::move(packets));
+}
+
+fptn::common::network::BatchIPPacketPtr VirtualInterface::WaitForPackets(
+    const std::chrono::milliseconds& duration) noexcept {
+  return from_network_.WaitForPackets(duration);
 }
 
 fptn::common::network::IPPacketPtr VirtualInterface::WaitForPacket(
     const std::chrono::milliseconds& duration) noexcept {
   return from_network_.WaitForPacket(duration);
-}
-
-void VirtualInterface::Run() noexcept {
-  const auto timeout = std::chrono::milliseconds(300);
-
-  iptables_->Apply();  // activate route
-  while (running_) {
-    auto packet = to_network_.WaitForPacket(timeout);
-    if (packet != nullptr) {
-      virtual_network_interface_->Send(std::move(packet));
-    }
-  }
 }
 
 void VirtualInterface::IPPacketFromNetwork(

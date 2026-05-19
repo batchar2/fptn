@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -30,7 +30,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "plugins/blacklist/domain_blacklist.h"
 #include "routing/route_manager.h"
 #include "utils/signal/main_loop.h"
-#include "vpn/vpn_client.h"
+#include "vpn/vpn_manager.h"
 
 int main(int argc, char* argv[]) {
 #if defined(__linux__) || defined(__APPLE__)
@@ -40,8 +40,17 @@ int main(int argc, char* argv[]) {
   }
 #endif
   try {
-    const std::set<std::string> bypass_methods = {
-        "sni", "obfuscation", "sni-reality"};
+    const std::set<std::string> bypass_methods = {"sni-spoofing", "obfuscation",
+        /* chrome */
+        "sni-spoofing-chrome147", "sni-spoofing-chrome146",
+        "sni-spoofing-chrome145",
+        /* Firefox */
+        "sni-spoofing-firefox149",
+        /* Yandex */
+        "sni-spoofing-yandex26", "sni-spoofing-yandex25",
+        "sni-spoofing-yandex24",
+        /* Safari */
+        "sni-spoofing-safari26"};
     const std::set<std::string> tunnel_modes = {"exclude", "include"};
 
     using fptn::protocol::https::obfuscator::GetObfuscatorByName;
@@ -60,18 +69,16 @@ int main(int argc, char* argv[]) {
     args.add_argument("--gateway-ipv6")
         .default_value("")
         .help("Your default gateway IPv6 address");
+    args.add_argument("--mtu-size")
+        .default_value(FPTN_DEFAULT_MTU_SIZE)
+        .help("MTU size")
+        .scan<'i', int>();
     args.add_argument("--preferred-server")
         .default_value("")
         .help("Preferred server name (case-insensitive)");
     args.add_argument("--tun-interface-name")
         .default_value("tun0")
         .help("Network interface name");
-    args.add_argument("--tun-interface-ip")
-        .default_value(FPTN_CLIENT_DEFAULT_ADDRESS_IP4)
-        .help("Network interface IPv4 address");
-    args.add_argument("--tun-interface-ipv6")
-        .default_value(FPTN_CLIENT_DEFAULT_ADDRESS_IP6)
-        .help("Network interface IPv6 address");
     args.add_argument("--sni")
         .default_value(FPTN_DEFAULT_SNI)
         .help(
@@ -86,9 +93,27 @@ int main(int argc, char* argv[]) {
             "Example: domain:ria.ru blocks ria.ru and all *.ria.ru sites");
     // Method to bypass censorship
     args.add_argument("--bypass-method")
-        .default_value("sni")
-        .help(fmt::format(
-            "Method to bypass censorship: {}", fmt::join(bypass_methods, ", ")))
+        .default_value("sni-spoofing")
+        .help(
+            "Method to bypass censorship:\n"
+            "  sni-spoofing            - SNI spoofing\n"
+            "  obfuscation             - TLS obfuscation\n"
+            "  sni-spoofing-chrome147  - SNI spoofing with Chrome 146 "
+            "handshake\n"
+            "  sni-spoofing-chrome146  - SNI spoofing with Chrome 146 "
+            "handshake\n"
+            "  sni-spoofing-chrome145  - SNI spoofing with Chrome 145 "
+            "handshake\n"
+            "  sni-spoofing-firefox149 - SNI spoofing with Firefox 149 "
+            "handshake\n"
+            "  sni-spoofing-yandex26   - SNI spoofing with Yandex 26 "
+            "handshake\n"
+            "  sni-spoofing-yandex25   - SNI spoofing with Yandex 25 "
+            "handshake\n"
+            "  sni-spoofing-yandex24   - SNI spoofing with Yandex 24 "
+            "handshake\n"
+            "  sni-spoofing-safari26   - SNI spoofing with Safari 26 "
+            "handshake\n")
         .action([&bypass_methods](const std::string& v) {
           if (!bypass_methods.contains(v)) {
             throw std::runtime_error(
@@ -186,6 +211,8 @@ int main(int argc, char* argv[]) {
     const auto gateway_ip =
         fptn::common::network::IPv4Address::Create(param_gateway_ip);
 
+    const auto mtu_size = args.get<int>("--mtu-size");
+
     const auto param_gateway_ipv6 = args.get<std::string>("--gateway-ipv6");
     const auto gateway_ipv6 =
         fptn::common::network::IPv6Address::Create(param_gateway_ipv6);
@@ -194,12 +221,6 @@ int main(int argc, char* argv[]) {
 
     const auto tun_interface_name =
         args.get<std::string>("--tun-interface-name");
-    const auto tun_interface_address_ipv4 =
-        fptn::common::network::IPv4Address::Create(
-            args.get<std::string>("--tun-interface-ip"));
-    const auto tun_interface_address_ipv6 =
-        fptn::common::network::IPv6Address::Create(
-            args.get<std::string>("--tun-interface-ipv6"));
     const auto sni = args.get<std::string>("--sni");
 
     /* check gateway address */
@@ -229,9 +250,46 @@ int main(int argc, char* argv[]) {
     if (bypass_method == "obfuscation") {
       censorship_strategy =
           fptn::protocol::https::CensorshipStrategy::kTlsObfuscator;
-    } else if (bypass_method == "sni-reality") {
+    }
+    /* Chrome */
+    else if (bypass_method == "sni-reality-chrome147") {
+      SPDLOG_INFO("Using Chrome 147 handshake for censorship bypass");
       censorship_strategy =
-          fptn::protocol::https::CensorshipStrategy::kSniRealityMode;
+          fptn::protocol::https::CensorshipStrategy::kSniRealityModeChrome147;
+    } else if (bypass_method == "sni-reality-chrome146") {
+      SPDLOG_INFO("Using Chrome 146 handshake for censorship bypass");
+      censorship_strategy =
+          fptn::protocol::https::CensorshipStrategy::kSniRealityModeChrome146;
+    } else if (bypass_method == "sni-reality-chrome145") {
+      SPDLOG_INFO("Using Chrome 144 handshake for censorship bypass");
+      censorship_strategy =
+          fptn::protocol::https::CensorshipStrategy::kSniRealityModeChrome145;
+    }
+    /* Firefox */
+    else if (bypass_method == "sni-reality-firefox149") {
+      SPDLOG_INFO("Using Firefox 149 handshake for censorship bypass");
+      censorship_strategy =
+          fptn::protocol::https::CensorshipStrategy::kSniRealityModeFirefox149;
+    }
+    /* Yandex */
+    else if (bypass_method == "sni-reality-yandex26") {
+      SPDLOG_INFO("Using Yandex 26 handshake for censorship bypass");
+      censorship_strategy =
+          fptn::protocol::https::CensorshipStrategy::kSniRealityModeYandex26;
+    } else if (bypass_method == "sni-reality-yandex25") {
+      SPDLOG_INFO("Using Yandex 25 handshake for censorship bypass");
+      censorship_strategy =
+          fptn::protocol::https::CensorshipStrategy::kSniRealityModeYandex25;
+    } else if (bypass_method == "sni-reality-yandex24") {
+      SPDLOG_INFO("Using Yandex 25 handshake for censorship bypass");
+      censorship_strategy =
+          fptn::protocol::https::CensorshipStrategy::kSniRealityModeYandex25;
+    }
+    /* Safari */
+    else if (bypass_method == "sni-reality-safari26") {
+      SPDLOG_INFO("Using Safari 26 handshake for censorship bypass");
+      censorship_strategy =
+          fptn::protocol::https::CensorshipStrategy::kSniRealityModeSafari26;
     }
 
     /* parse network lists */
@@ -291,65 +349,74 @@ int main(int argc, char* argv[]) {
         "VERSION:            {}\n"
         "SELECTED SERVER:    {}\n"
         "SNI:                {}\n"
-        "GATEWAY IP:         {}\n"
-        "NETWORK INTERFACE:  {}\n"
         "VPN SERVER NAME:    {}\n"
         "VPN SERVER IP:      {}\n"
         "VPN SERVER PORT:    {}\n"
-        "TUN INTERFACE IPv4: {}\n"
-        "TUN INTERFACE IPv6: {}\n"
         "BYPASS-METHOD:      {}\n"
+        "GATEWAY IP:         {}\n"
+        "NETWORK INTERFACE:  {}\n"
         "EXCLUDE NETWORKS:   {}\n"
         "INCLUDE NETWORKS:   {}\n"
         "SPLIT TUNNEL:       {}\n"
         "TUNNEL MODE:        {}\n"
         "TUNNEL DOMAINS:     {}\n"
         "BLACKLIST DOMAINS:  {}\n",
-        FPTN_VERSION, selected_server.name, sni, using_gateway_ip.ToString(),
-        out_network_interface_name, selected_server.name, selected_server.host,
-        selected_server.port, tun_interface_address_ipv4.ToString(),
-        tun_interface_address_ipv6.ToString(), bypass_method,
+        // version
+        FPTN_VERSION,
+        // server
+        selected_server.name, sni, selected_server.name, selected_server.host,
+        selected_server.port, bypass_method,
+        // network
+        using_gateway_ip.ToString(), out_network_interface_name,
+        // additional settings
         exclude_networks_str, include_networks_str,
         enable_split_tunnel ? "enabled" : "disabled", tunnel_mode,
         split_domains_str, blacklist_domains_str);
 
     /* auth & dns */
-    auto http_client = std::make_unique<fptn::vpn::http::Client>(server_ip,
-        selected_server.port, tun_interface_address_ipv4,
-        tun_interface_address_ipv6, sni, selected_server.md5_fingerprint,
-        censorship_strategy);
+    auto http_client = std::make_unique<fptn::vpn::http::Client>(
+        fptn::protocol::https::WebsocketClient::Config{.server_ip = server_ip,
+            .server_port = selected_server.port,
+            .sni = sni,
+            .expected_md5_fingerprint = selected_server.md5_fingerprint,
+            .censorship_strategy = censorship_strategy,
+            .on_connected_callback = nullptr,
+            .on_ip_assigned_callback = nullptr,
+            .new_ip_pkt_callback = nullptr});
+
     const bool status =
         http_client->Login(config.GetUsername(), config.GetPassword());
     if (!status) {
       SPDLOG_ERROR("The username or password you entered is incorrect");
       return EXIT_FAILURE;
     }
-    const auto [dnsServerIPv4, dnsServerIPv6] = http_client->GetDns();
-    if (dnsServerIPv4.IsEmpty() || dnsServerIPv6.IsEmpty()) {
+    const auto [dns_server_ipv4, dns_server_ipv6] = http_client->GetDns();
+    if (dns_server_ipv4.IsEmpty() || dns_server_ipv6.IsEmpty()) {
       SPDLOG_ERROR("DNS server error! Check your connection!");
       return EXIT_FAILURE;
     }
 
     /* tun interface */
     auto virtual_network_interface =
-        std::make_unique<fptn::common::network::TunInterface>(
-            fptn::common::network::TunInterface::Config{
-                tun_interface_name, tun_interface_address_ipv4,
-                30,  // IPv4 netmask
-                tun_interface_address_ipv6,
-                126  // IPv6 netmask
-            });
+        std::make_shared<fptn::common::network::TunInterface>(
+            tun_interface_name, mtu_size);
 
-    /* route manager */
+    // route manager
     auto route_manager = std::make_shared<fptn::routing::RouteManager>(
-        out_network_interface_name, tun_interface_name, server_ip,
-        dnsServerIPv4, dnsServerIPv6, using_gateway_ip, using_gateway_ipv6,
-        tun_interface_address_ipv4, tun_interface_address_ipv6
+        fptn::routing::RouteManager::Config{
+            .out_interface_name = out_network_interface_name,
+            .vpn_server_ip = server_ip,
+            .dns_server_ipv4 = dns_server_ipv4,
+            .dns_server_ipv6 = dns_server_ipv6,
+            .gateway_ipv4 = gateway_ip,
+            .gateway_ipv6 = gateway_ipv6,
+            .exclude_networks = exclude_networks,
+            .include_networks = include_networks
 #if _WIN32
-        ,
-        false
+            ,
+            .enable_advanced_dns_management = false
 #endif
-    );  // NOLINT
+        });
 
     /* plugins */
     std::vector<fptn::plugin::BasePluginPtr> client_plugins;
@@ -369,30 +436,13 @@ int main(int argc, char* argv[]) {
     }
 
     /* vpn client */
-    fptn::vpn::VpnClient vpn_client(std::move(http_client),
-        std::move(virtual_network_interface), dnsServerIPv4, dnsServerIPv6,
-        std::move(client_plugins));
+    fptn::vpn::VpnManager vpn_client(
+        fptn::vpn::VpnManager::Config{.http_client = std::move(http_client),
+            .route_manager = route_manager,
+            .virtual_net_interface = virtual_network_interface,
+            .plugins = std::move(client_plugins)});
+
     vpn_client.Start();
-
-    // Wait for the WebSocket tunnel to establish
-    constexpr std::chrono::seconds kTimeout(10);
-    const auto start = std::chrono::steady_clock::now();
-    while (!vpn_client.IsStarted()) {
-      if (std::chrono::steady_clock::now() - start > kTimeout) {
-        SPDLOG_ERROR("Couldn't open websocket tunnel!");
-        return EXIT_FAILURE;
-      }
-      std::this_thread::sleep_for(std::chrono::microseconds(200));
-    }
-
-    /* apply mandatory network routes */
-    route_manager->Apply();
-    if (!exclude_networks.empty()) {
-      route_manager->AddExcludeNetworks(exclude_networks);
-    }
-    if (!include_networks.empty()) {
-      route_manager->AddIncludeNetworks(include_networks);
-    }
 
     /* start event loop */
     fptn::utils::WaitForSignal(vpn_client);

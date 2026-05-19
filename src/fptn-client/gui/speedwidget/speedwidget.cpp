@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -29,7 +29,7 @@ QString FormatSpeed(std::size_t bytes_per_sec) {
 }
 
 QString FormatSpeedLabel(const QString& text, std::size_t speed) {
-  return "    " + text + ": " + FormatSpeed(speed);
+  return "       " + text + ": " + FormatSpeed(speed);
 }
 
 }  // namespace

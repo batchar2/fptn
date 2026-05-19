@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -15,36 +15,45 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "common/network/ip_packet.h"
 #include "common/network/net_interface.h"
 
-#include "routing/iptables.h"
+#include "routing/route_manager.h"
 
 namespace fptn::network {
 
 class VirtualInterface final {
  public:
-  VirtualInterface(fptn::common::network::TunInterface::Config config,
-      fptn::routing::RouteManagerPtr iptables);
+  VirtualInterface(const std::string& name,
+      int mtu_size,
+      fptn::routing::RouteManagerPtr route_manager,
+      fptn::common::network::TunInterface::Config config);
   ~VirtualInterface();
 
-  bool Check() noexcept;
+  bool Check() const noexcept;
   bool Start() noexcept;
   bool Stop() noexcept;
   void Send(fptn::common::network::IPPacketPtr packet) noexcept;
-  fptn::common::network::IPPacketPtr WaitForPacket(
+  void SendBatch(fptn::common::network::BatchIPPacketPtr packets) noexcept;
+
+  common::network::BatchIPPacketPtr WaitForPackets(
       const std::chrono::milliseconds& duration) noexcept;
+  common::network::IPPacketPtr WaitForPacket(
+    const std::chrono::milliseconds& duration) noexcept;
+
 
  protected:
-  void Run() noexcept;
   void IPPacketFromNetwork(fptn::common::network::IPPacketPtr packet) noexcept;
 
  private:
   std::thread thread_;
   std::atomic<bool> running_;
 
-  const fptn::routing::RouteManagerPtr iptables_;
+  const std::string name_;
+  const int mtu_size_;
+  const fptn::routing::RouteManagerPtr route_manager_;
 
-  fptn::common::data::Channel to_network_;
+  fptn::common::network::TunInterface::Config config_;
+
   fptn::common::data::Channel from_network_;
-  fptn::common::network::TunInterfacePtr virtual_network_interface_;
+  fptn::common::network::TunInterfaceSPtr virtual_network_interface_;
 };
 
 using VirtualInterfacePtr = std::unique_ptr<VirtualInterface>;

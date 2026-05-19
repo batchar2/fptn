@@ -33,8 +33,8 @@ find_library(BROTLI_ENC_LIB NAMES brotlienc REQUIRED)
 add_executable(
   "${PROJECT_NAME}-cli"
   fptn-client-cli.cpp
-  vpn/vpn_client.h
-  vpn/vpn_client.cpp
+        vpn/vpn_manager.h
+        vpn/vpn_manager.cpp
   vpn/http/client.h
   vpn/http/client.cpp
   routing/route_manager.h
@@ -122,8 +122,8 @@ WarningsAsErrors: ''
     "${PROJECT_NAME}-gui"
     ${QT_ADDITIONAL_PARAMS}
     fptn-client-gui.cpp
-    vpn/vpn_client.h
-    vpn/vpn_client.cpp
+          vpn/vpn_manager.h
+          vpn/vpn_manager.cpp
     vpn/http/client.h
     vpn/http/client.cpp
     routing/route_manager.h
@@ -146,6 +146,8 @@ WarningsAsErrors: ''
     gui/sni_manager/sni_manager.cpp
     gui/sni_autoscan_dialog/sni_autoscan_dialog.h
     gui/sni_autoscan_dialog/sni_autoscan_dialog.cpp
+    gui/server_menu_item_widget/server_menu_item_widget.h
+    gui/server_menu_item_widget/server_menu_item_widget.cpp
     gui/style/style.h
     gui/style/style.cpp
     gui/autostart/autostart.h

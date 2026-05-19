@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -9,7 +9,9 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <QString>
 
 namespace fptn::gui {
-extern QString macStyleSheet;
-extern QString ubuntuStyleSheet;
-extern QString windowsStyleSheet;
+
+QString GetMacStyleSheet();
+QString GetUbuntuStyleSheet();
+QString GetWindowsStyleSheet();
+
 }  // namespace fptn::gui

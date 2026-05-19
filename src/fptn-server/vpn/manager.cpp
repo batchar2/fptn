@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -59,11 +59,14 @@ bool Manager::Start() {
   web_server_->Start();
   network_interface_->Start();
 
-  for (size_t i = 0; i < thread_pool_size_; ++i) {
+  // for (std::size_t i = 0; i < 1; ++i) {
+  //   read_to_client_threads_.emplace_back(&Manager::RunToClient, this);
+  // }
+  for (std::size_t i = 0; i < thread_pool_size_; ++i) {
     read_to_client_threads_.emplace_back(&Manager::RunToClient, this);
   }
 
-  for (size_t i = 0; i < thread_pool_size_; ++i) {
+  for (std::size_t i = 0; i < thread_pool_size_; ++i) {
     read_from_client_threads_.emplace_back(&Manager::RunFromClient, this);
   }
 
@@ -72,86 +75,108 @@ bool Manager::Start() {
   return collect_statistic_status;
 }
 
-void Manager::RunToClient() const noexcept {
+void Manager::RunToClient() const {
   constexpr std::chrono::milliseconds kTimeout{100};
 
   while (running_) {
-    auto packet = network_interface_->WaitForPacket(kTimeout);
-    if (!packet || !running_) {
-      continue;
-    }
-    if (!packet->IsIPv4() && !packet->IsIPv6()) {
-      continue;
-    }
-    // get session using "fake" client address
-    fptn::client::SessionSPtr session = nullptr;
-    if (packet->IsIPv4()) {
-      session = nat_->GetSessionByFakeIPv4(fptn::common::network::IPv4Address(
-          packet->IPv4Layer()->getDstIPv4Address()));
-    } else if (packet->IsIPv6()) {
-      session = nat_->GetSessionByFakeIPv6(fptn::common::network::IPv6Address(
-          packet->IPv6Layer()->getDstIPv6Address()));
-    }
-    if (!session || !running_) {
-      continue;
-    }
-    // check shaper
-    auto& shaper = session->TrafficShaperToClient();
-    if (shaper && !shaper->CheckSpeedLimit(packet->Size())) {
-      continue;
-    }
-    // send
-    if (running_) {
-      web_server_->Send(session->ChangeIPAddressToClientIP(std::move(packet)));
+    auto packets = network_interface_->WaitForPackets(kTimeout);
+    for (auto& packet : packets) {
+      if (!packet || (!packet->IsIPv4() && !packet->IsIPv6())) {
+        continue;
+      }
+
+      // get session using "fake" client address
+      fptn::client::SessionSPtr nat_session = nullptr;
+      if (packet->IsIPv4()) {
+        nat_session =
+            nat_->GetSessionByFakeIPv4(fptn::common::network::IPv4Address(
+                packet->IPv4Layer()->getDstIPv4Address()));
+      } else if (packet->IsIPv6()) {
+        nat_session =
+            nat_->GetSessionByFakeIPv6(fptn::common::network::IPv6Address(
+                packet->IPv6Layer()->getDstIPv6Address()));
+      }
+
+      if (!nat_session) {
+        continue;
+      }
+
+      // check shaper
+      auto& shaper = nat_session->TrafficShaperToClient();
+      if (shaper && !shaper->CheckSpeedLimit(packet->Size())) {
+        continue;
+      }
+      packet = nat_session->ChangeIPAddressToClientIP(std::move(packet));
+      if (!packet && running_) {
+        continue;
+      }
+      auto web_session = web_server_->GetSessionById(packet->ClientId());
+      // send
+      if (web_session && running_) {
+        web_session->Send(std::move(packet));
+      }
     }
   }
 }
 
-void Manager::RunFromClient() const noexcept {
+void Manager::RunFromClient() const {
   constexpr std::chrono::milliseconds kTimeout{100};
-
   while (running_) {
-    auto packet = web_server_->WaitForPacket(kTimeout);
-    if (!packet || !running_) {
+    auto packets = web_server_->WaitForPackets(kTimeout);
+
+    if (packets.empty()) {
       continue;
     }
-    if (!packet->IsIPv4() && !packet->IsIPv6()) {
-      continue;
+
+    common::network::BatchIPPacketPtr prepared_batch;
+    prepared_batch.reserve(packets.size());
+
+    for (auto& packet : packets) {
+      if (!packet || (!packet->IsIPv4() && !packet->IsIPv6())) {
+        continue;
+      }
+
+      // get session
+      const auto session = nat_->GetSessionByClientId(packet->ClientId());
+      if (!session) {
+        continue;
+      }
+
+      // shaper
+      auto shaper = session->TrafficShaperFromClient();
+      if (shaper && !shaper->CheckSpeedLimit(packet->Size())) {
+        continue;
+      }
+
+      // filter
+      packet = filter_->Apply(std::move(packet));
+
+      // prepare for send
+      if (packet) {
+        packet = session->ChangeIPAddressToFakeIP(std::move(packet));
+        network_interface_->Send(std::move(packet));
+        // prepared_batch.emplace_back(std::move(packet));
+      }
     }
-    // get session
-    const auto session = nat_->GetSessionByClientId(packet->ClientId());
-    if (!session || !running_) {
-      continue;
-    }
-    // check shaper
-    auto shaper = session->TrafficShaperFromClient();
-    if (shaper && !shaper->CheckSpeedLimit(packet->Size())) {
-      continue;
-    }
-    // filter
-    packet = filter_->Apply(std::move(packet));
-    if (!packet || !running_) {
-      continue;
-    }
-    // send
-    if (running_) {
-      network_interface_->Send(
-          session->ChangeIPAddressToFakeIP(std::move(packet)));
-    }
+
+    // // send data
+    // if (!prepared_batch.empty() && running_) {
+    //   network_interface_->SendBatch(std::move(prepared_batch));
+    // }
   }
 }
 
-void Manager::RunCollectStatistics() noexcept {
-  const std::chrono::milliseconds timeout{300};
-  const std::chrono::seconds collect_interval{2};
+void Manager::RunCollectStatistics() {
+  constexpr std::chrono::milliseconds kTimeout{300};
+  constexpr std::chrono::seconds kCollectInterval{2};
 
   std::chrono::steady_clock::time_point last_collection_time;
   while (running_) {
-    auto now = std::chrono::steady_clock::now();
-    if (now - last_collection_time > collect_interval) {
+    const auto now = std::chrono::steady_clock::now();
+    if (now - last_collection_time > kCollectInterval) {
       nat_->UpdateStatistic(prometheus_);
       last_collection_time = now;
     }
-    std::this_thread::sleep_for(timeout);
+    std::this_thread::sleep_for(kTimeout);
   }
 }

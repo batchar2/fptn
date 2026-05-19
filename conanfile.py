@@ -5,6 +5,7 @@ from conan import ConanFile
 from conan.tools.cmake import CMakeToolchain, CMake
 from conan.tools.files import copy
 
+
 # CI will replace this automatically
 FPTN_VERSION = "0.0.0"
 
@@ -19,6 +20,7 @@ class FPTN(ConanFile):
         "cpp-httplib/0.30.0",
         "fmt/12.1.0",
         "jwt-cpp/0.7.1",
+        "mimalloc/3.3.2",
         "nlohmann_json/3.12.0",
         "protobuf/5.29.3",
         "re2/20251105",
@@ -212,6 +214,29 @@ class FPTN(ConanFile):
                     src=ntp_client_lib_src,
                     dst=os.path.join(self.package_folder, "lib"),
                 )
+            # copy camouflage-tls depends
+            camouflage_tls_build_include = os.path.join(self.build_folder, "_deps", "camouflagetls-src", "include")
+            if os.path.exists(camouflage_tls_build_include):
+                copy(
+                    self,
+                    "*.h",
+                    src=camouflage_tls_build_include,
+                    dst=os.path.join(self.package_folder, "include", "camouflage"),
+                )
+            camouflage_tls_lib_src = os.path.join(self.build_folder, "_deps", "camouflagetls-build")
+            if os.path.exists(camouflage_tls_lib_src):
+                copy(
+                    self,
+                    "*.a",
+                    src=camouflage_tls_lib_src,
+                    dst=os.path.join(self.package_folder, "lib"),
+                )
+                copy(
+                    self,
+                    "*.lib",
+                    src=camouflage_tls_lib_src,
+                    dst=os.path.join(self.package_folder, "lib"),
+                )
 
     def package_info(self):
         if self.options.build_only_fptn_lib:
@@ -239,6 +264,7 @@ class FPTN(ConanFile):
                 "zlib::zlib",
                 "re2::re2",
                 "brotli::brotli",
+                "mimalloc::mimalloc",
             ]
             if self.settings.os == "iOS":
                 self.cpp_info.frameworks = ["Security", "CFNetwork", "SystemConfiguration"]

@@ -2,8 +2,8 @@ project(fptn-protocol-lib LANGUAGES CXX)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
-# include(${CMAKE_SOURCE_DIR}/depends/cmake/NtpClient.cmake)
 include(../../depends/cmake/NtpClient.cmake)
+include(../../depends/cmake/CamouflageTLS.cmake)
 if (IOS)
   find_library(SECURITY Security)
   find_library(CFNETWORK CFNetwork)
@@ -28,6 +28,7 @@ find_package(OpenSSL REQUIRED)
 find_package(spdlog REQUIRED)
 find_package(fmt REQUIRED)
 find_package(re2 REQUIRED)
+find_package(mimalloc REQUIRED)
 
 find_package(Boost REQUIRED COMPONENTS random filesystem nowide locale)
 find_package(ZLIB REQUIRED)
@@ -94,6 +95,8 @@ set(FPTN_CLIENT_PROTOCOL_SOURCES
     https/api_client/api_client.cpp
     https/obfuscator/methods/tls/tls_obfuscator.cpp
     https/obfuscator/methods/tls/tls_obfuscator.h
+    https/obfuscator/methods/tls2/tls_obfuscator2.cpp
+    https/obfuscator/methods/tls2/tls_obfuscator2.h
     https/obfuscator/methods/obfuscator_interface.h
     https/obfuscator/tcp_stream/tcp_stream.h
     https/utils/tls/tls.h
@@ -159,8 +162,10 @@ foreach(target "${PROJECT_NAME}_static")
     nlohmann_json::nlohmann_json
     spdlog::spdlog
     fmt::fmt
-    ntp_client
     re2::re2
+    mimalloc-static
+    ntp_client
+    camouflage-tls
     ${PCAP_LIB}
     ${LIBIDN2_LIB}
     ${IOS_LIBS}

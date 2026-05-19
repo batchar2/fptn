@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -15,6 +15,8 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 namespace fptn::protocol::https::obfuscator {
 
+
+// DEPRECATED
 class TlsObfuscator : public IObfuscator {
  public:
   TlsObfuscator() = default;
@@ -33,6 +35,8 @@ class TlsObfuscator : public IObfuscator {
   std::shared_ptr<IObfuscator> Clone() const override;
 
  private:
+  mutable std::mutex mutex_;
+
   std::vector<uint8_t> input_buffer_;
 };
 

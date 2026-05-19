@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -24,15 +24,15 @@ class Manager final {
       fptn::nat::TableSPtr nat,
       fptn::filter::ManagerSPtr filter,
       fptn::statistic::MetricsSPtr prometheus,
-      std::size_t thread_pool_size = 4);
+      std::size_t thread_pool_size = 1);
   ~Manager();
   bool Stop();
   bool Start();
 
  protected:
-  void RunToClient() const noexcept;
-  void RunFromClient() const noexcept;
-  void RunCollectStatistics() noexcept;
+  void RunToClient() const;
+  void RunFromClient() const;
+  void RunCollectStatistics();
 
  private:
   std::atomic<bool> running_ = false;

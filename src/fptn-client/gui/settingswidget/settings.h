@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -35,6 +35,7 @@ class SettingsWidget : public QDialog {
  protected:
   void SetupUi();
   void UpdateSniFilesList();
+  void UpdateServerTableVisibility();
 
   // cppcheck-suppress unknownMacro
  private slots:

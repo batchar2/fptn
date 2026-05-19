@@ -1,6 +1,6 @@
 
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -23,7 +23,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
 
-#include "common/jwt_token/token_manager.h"
+#include "common/data/channel.h"
 
 #include "fptn-protocol-lib/https/obfuscator/tcp_stream/tcp_stream.h"
 #include "web/api/handle.h"
@@ -50,9 +50,10 @@ class Session : public std::enable_shared_from_this<Session> {
   virtual ~Session();
   void Close();
 
+  void Send(common::network::IPPacketPtr pkt);
+
   // async
   boost::asio::awaitable<void> Run();
-  boost::asio::awaitable<bool> Send(fptn::common::network::IPPacketPtr pkt);
 
  protected:
   boost::asio::awaitable<void> RunReader();
@@ -72,13 +73,18 @@ class Session : public std::enable_shared_from_this<Session> {
       const std::string& sni) const;
 
   struct RealityResult {
-    bool is_reality_mode;
+    bool is_reality_mode;  // DEPRICATED
+    bool is_reality_mode2;
     std::string sni;
     bool should_close;
   };
 
   boost::asio::awaitable<RealityResult> IsRealityHandshake();
-  boost::asio::awaitable<bool> HandleRealityMode(const std::string& sni);
+
+  // DEPRECATED
+  boost::asio::awaitable<bool> PerformFakeHandshake(const std::string& sni);
+
+  boost::asio::awaitable<bool> PerformFakeHandshake2(const std::string& sni);
 
   boost::asio::awaitable<bool> HandleProxy(const std::string& sni, int port);
 
@@ -89,7 +95,13 @@ class Session : public std::enable_shared_from_this<Session> {
   boost::asio::awaitable<bool> HandleHttp(
       const boost::beast::http::request<boost::beast::http::string_body>&
           request);
+
+  // deprecated
   boost::asio::awaitable<bool> HandleWebSocket(
+      const boost::beast::http::request<boost::beast::http::string_body>&
+          request);
+
+  boost::asio::awaitable<bool> HandleWebSocket2(
       const boost::beast::http::request<boost::beast::http::string_body>&
           request);
 
@@ -131,6 +143,8 @@ class Session : public std::enable_shared_from_this<Session> {
   std::atomic<bool> init_completed_;
   std::atomic<bool> ws_session_was_opened_;
   std::atomic<bool> full_queue_;
+
+  bool support_batch_sending_;
 
   boost::asio::cancellation_signal cancel_signal_;
 };

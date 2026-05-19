@@ -1,0 +1,247 @@
+/*=============================================================================
+Copyright (c) 2024-2026 Stas Skokov
+
+Distributed under the MIT License (https://opensource.org/licenses/MIT)
+=============================================================================*/
+
+#include "vpn/vpn_manager.h"
+
+#include <functional>
+#include <memory>
+#include <string>
+#include <utility>
+
+#include <spdlog/spdlog.h>  // NOLINT(build/include_order)
+
+namespace fptn::vpn {
+
+VpnManager::VpnManager(Config config)
+    : running_(false), config_(std::move(config)) {}  // NOLINT
+
+VpnManager::~VpnManager() { Stop(); }
+
+bool VpnManager::IsStarted() {
+  if (!running_) {
+    return false;
+  }
+
+  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+  return running_ && config_.http_client && config_.http_client->IsStarted();
+}
+
+bool VpnManager::Start() {
+  if (running_) {
+    return false;
+  }
+
+  {
+    const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+    // cppcheck-suppress identicalConditionAfterEarlyExit
+    if (running_) {
+      return false;
+    }
+  }
+  running_ = true;
+
+  // NOLINTNEXTLINE(modernize-avoid-bind)
+  config_.http_client->SetRecvIPPacketCallback(std::bind(
+      &VpnManager::HandleOnPacketFromWebSocket, this, std::placeholders::_1));
+
+  config_.http_client->SetIPAssignedCallback(
+      // NOLINTNEXTLINE(modernize-avoid-bind)
+      std::bind(&VpnManager::HandleOnIPAssignedCallback, this,
+          std::placeholders::_1, std::placeholders::_2));
+
+  config_.virtual_net_interface->SetRecvIPPacketCallback(
+      // NOLINTNEXTLINE(modernize-avoid-bind)
+      std::bind(&VpnManager::HandleOnPacketFromVirtualNetworkInterface, this,
+          std::placeholders::_1));
+
+  config_.http_client->Start();
+
+  // Start worker
+  thread_ = std::thread(&VpnManager::ProcessWebSocketPackets, this);
+
+  return true;
+}
+
+bool VpnManager::Stop() {
+  if (!running_) {
+    return false;
+  }
+  {
+    const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+    // cppcheck-suppress identicalConditionAfterEarlyExit
+    if (!running_) {
+      return false;
+    }
+
+    running_ = false;
+  }
+
+  ws_queue_cv_.notify_all();
+
+  SPDLOG_INFO("Stopping VPN Websocket-workers...");
+
+  if (thread_.joinable()) {
+    thread_.join();
+  }
+
+  SPDLOG_INFO("Stopping VPN client...");
+
+  if (config_.virtual_net_interface) {
+    SPDLOG_INFO("Stopping virtual network interface");
+    config_.virtual_net_interface->Stop();
+    config_.virtual_net_interface.reset();
+    SPDLOG_DEBUG("Virtual network interface stopped successfully");
+  }
+
+  if (config_.http_client) {
+    SPDLOG_INFO("Stopping HTTP client");
+    config_.http_client->Stop();
+    config_.http_client.reset();
+    SPDLOG_DEBUG("HTTP client stopped successfully");
+  }
+  return true;
+}
+
+std::size_t VpnManager::GetSendRate() {
+  if (!running_) {
+    return 0;
+  }
+
+  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+  if (running_ && config_.virtual_net_interface) {
+    return config_.virtual_net_interface->GetSendRate();
+  }
+  return 0;
+}
+
+std::size_t VpnManager::GetReceiveRate() {
+  if (!running_) {
+    return 0;
+  }
+
+  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+  if (running_ && config_.virtual_net_interface) {
+    return config_.virtual_net_interface->GetReceiveRate();
+  }
+  return 0;
+}
+
+std::string VpnManager::GetInterfaceName() const {
+  if (config_.virtual_net_interface) {
+    return config_.virtual_net_interface->Name();
+  }
+  return {};
+}
+
+void VpnManager::HandleOnPacketFromVirtualNetworkInterface(
+    fptn::common::network::IPPacketPtr packet) {
+  if (!running_) {
+    return;
+  }
+
+  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+  if (running_ && config_.http_client) {
+    config_.http_client->Send(std::move(packet));
+  }
+}
+
+void VpnManager::HandleOnPacketFromWebSocket(
+    fptn::common::network::IPPacketPtr packet) {
+  if (!running_ || !packet) {
+    return;
+  }
+
+  constexpr std::size_t kMaxQueueSize = 128;
+
+  std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+  if (ws_packet_queue_.size() >= kMaxQueueSize) {
+    SPDLOG_WARN("WebSocket packet queue is full, dropping packet");
+    return;
+  }
+
+  ws_packet_queue_.push(std::move(packet));
+  lock.unlock();
+  ws_queue_cv_.notify_one();
+}
+
+void VpnManager::ProcessWebSocketPackets() {
+  fptn::common::network::IPPacketPtr packet;
+  while (running_) {
+    {
+      std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+      ws_queue_cv_.wait(
+          lock, [this]() { return !ws_packet_queue_.empty() || !running_; });
+      if (!running_ && ws_packet_queue_.empty()) {
+        break;
+      }
+      if (!ws_packet_queue_.empty()) {
+        packet = std::move(ws_packet_queue_.front());
+        ws_packet_queue_.pop();
+      }
+    }
+
+    if (!packet) {
+      continue;
+    }
+
+    for (const auto& plugin : config_.plugins) {
+      if (packet) {
+        auto [processed_packet, triggered] =
+            plugin->HandlePacket(std::move(packet));
+        packet = std::move(processed_packet);
+        if (triggered) {
+          break;
+        }
+      }
+    }
+
+    if (packet) {
+      const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+      // cppcheck-suppress knownConditionTrueFalse
+      if (running_ && config_.virtual_net_interface) {
+        config_.virtual_net_interface->Send(std::move(packet));
+      }
+    }
+  }
+}
+
+void VpnManager::HandleOnIPAssignedCallback(
+    const IPv4Address& ip_v4, const IPv6Address& ip_v6) {
+  if (!running_) {
+    return;
+  }
+
+  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+  // cppcheck-suppress identicalConditionAfterEarlyExit
+  if (!running_ || config_.http_client == nullptr) {
+    return;
+  }
+
+  config_.virtual_net_interface->Stop();
+
+  // clean
+  config_.route_manager->Clean();
+
+  config_.virtual_net_interface->Start(
+      fptn::common::network::TunInterface::Config{.ipv4_addr = ip_v4,
+          .ipv4_netmask = 32,
+          .ipv6_addr = ip_v6,
+          .ipv6_netmask = 126});
+
+  config_.route_manager->Apply(
+      config_.virtual_net_interface->Name(), ip_v4, ip_v6);
+}
+
+}  // namespace fptn::vpn

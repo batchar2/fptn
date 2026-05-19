@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -18,6 +18,8 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "common/client_id.h"
 #include "common/network/ip_address.h"
 #include "common/network/ip_packet.h"
+
+#include "nat/table.h"
 
 namespace fptn::web {
 namespace http {
@@ -55,18 +57,19 @@ inline ApiHandle GetApiHandle(const ApiHandleMap& m,
 
 class Session;
 
-using WebSocketOpenConnectionCallback = std::function<bool(
-    fptn::ClientID client_id,
-    const fptn::common::network::IPv4Address& client_ip,
-    const fptn::common::network::IPv4Address& client_vpn_ipv4,
-    const fptn::common::network::IPv6Address& client_vpn_ipv6,
-    const std::shared_ptr<Session>& session,
-    const std::string& url,
-    const std::string& access_token)>;
+using WebSocketOpenConnectionCallback = std::function<fptn::client::SessionSPtr(
+  fptn::ClientID client_id,
+  const fptn::common::network::IPv4Address& client_ip,
+  const fptn::common::network::IPv4Address& client_vpn_ipv4,
+  const fptn::common::network::IPv6Address& client_vpn_ipv6,
+  const std::shared_ptr<Session>& session,
+  const std::string& url,
+  const std::string& access_token)>;
 
 using WebSocketNewIPPacketCallback = std::function<void(
   fptn::common::network::IPPacketPtr packet)>;
 
 using WebSocketCloseConnectionCallback = std::function<void(
   fptn::ClientID client_id)>;
+
 }  // namespace fptn::web

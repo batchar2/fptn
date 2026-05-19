@@ -1,0 +1,6 @@
+libs/
+cmake-build-debug/
+.env
+docker-compose-data/
+CMakeUserPresets.json
+build/

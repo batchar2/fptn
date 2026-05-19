@@ -19,7 +19,7 @@ class BoringSSLConan(ConanFile):
         cmake_layout(self)
 
     def source(self):
-        url = "https://github.com/batchar2/boringssl/archive/refs/heads/main.tar.gz"
+        url = "https://github.com/batchar2/boringssl/archive/refs/heads/working-russia-tls-handshake.tar.gz"
         get(self, url, strip_root=True)
 
     def generate(self):

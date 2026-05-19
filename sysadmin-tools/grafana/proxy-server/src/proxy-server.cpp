@@ -1,82 +1,71 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
 
+#define CPPHTTPLIB_OPENSSL_SUPPORT
+#define CPPHTTPLIB_OPENSSL_SUPPORT
+
+#include <fptn-protocol-lib/https/api_client/api_client.h>  // NOLINT(build/include_order)
 #include <iostream>
-#include <memory>
 #include <string>
 
-#define CPPHTTPLIB_OPENSSL_SUPPORT
 #include <argparse/argparse.hpp>  // NOLINT(build/include_order)
 #include <httplib/httplib.h>      // NOLINT(build/include_order)
 
-#include "fptn-protocol-lib/https/https_client.h"
+void run_server(const int port) {
+  httplib::Server server;
+  server.Get("/metrics", [](const httplib::Request& req, httplib::Response& res) {
+    const std::string host = req.get_param_value("host");
+    const std::string port_str = req.get_param_value("port");
+    const std::string key = req.get_param_value("key");
 
-class ProxyServer {
- public:
-  ProxyServer(const std::string& target_host, int target_port)
-      : target_host_(target_host), target_port_(target_port) {}
-
-  void Run(int listen_port) {
-    httplib::Server server;
-
-    server.Get(
-        "/.*", [this](const httplib::Request& req, httplib::Response& res) {
-          this->handleRequest(req, res);
-        });
-
-    std::cerr << "Proxy server running on port " << listen_port
-              << ", forwarding to " << target_host_ << ":" << target_port_
-              << std::endl;
-    server.listen("0.0.0.0", listen_port);
-  }
-
- protected:
-  void handleRequest(const httplib::Request& req, httplib::Response& res) {
-    fptn::protocol::https::HttpsClient client(
-        target_host_, target_port_, "fptn.org");
-
-    const auto response = client.Get(req.path);
-    if (res.status != 200) {
-      std::cerr << "Proxy returned error! " << " Status=" << res.status
-                << " Msg=" << response.errmsg << std::endl;
+    if (host.empty() || port_str.empty() || key.empty()) {
+      res.status = 400;
+      res.body = "Missing required parameters: host, port, key";
+      return;
     }
-    res.status = response.code;
-    res.body = response.body;
-  }
+    int port = 443;
+    try {
+      port = std::stoi(port_str);
+    } catch (...) {
+      res.status = 400;
+      res.body = "Invalid port number";
+      return;
+    }
 
- private:
-  std::string target_host_;
-  int target_port_;
-};
+    try {
+      const std::string target_url = "/api/v1/metrics/" + key;
+      std::cout << "Proxying to: " << "https://" << host + ":" << port_str
+                << target_url << std::endl;
+
+      fptn::protocol::https::ApiClient client(
+          host, port, fptn::protocol::https::CensorshipStrategy::kSni);
+      auto response = client.Get(target_url);
+      res.status = response.code;
+      res.body = response.body;
+    } catch (const std::exception& e) {
+      res.status = 500;
+      res.body = std::string("Proxy error: ") + e.what();
+    }
+  });
+  server.listen("0.0.0.0", port);
+}
 
 int main(int argc, char* argv[]) {
-  argparse::ArgumentParser args("http-proxy", "1.0.0");
-  // Required arguments
-  args.add_argument("--target-host")
-      .required()
-      .help("Target host to proxy requests to (e.g., example.com)");
-  // Optional arguments
-  args.add_argument("--target-port")
-      .help("Target port (default: 443)")
-      .default_value(443)
-      .scan<'i', int>();
+  // Proxy server for forwarding requests to external hosts
+  // Request format: http://localhost:8080/?host=<host>&port=<port>&key=<key>
+  // Example: http://localhost:8080/?host=192.168.1.100&port=443&key=abc123
+  argparse::ArgumentParser args("http-proxy", "1.0.1");
   args.add_argument("--listen-port")
       .help("Port to listen on (default: 8080)")
       .default_value(8080)
       .scan<'i', int>();
   try {
     args.parse_args(argc, argv);
-
-    // Get argument values
-    const auto target_host = args.get<std::string>("--target-host");
-    const auto target_port = args.get<int>("--target-port");
     const auto listen_port = args.get<int>("--listen-port");
-
-    ProxyServer proxy(target_host, target_port);
-    proxy.Run(listen_port);
+    run_server(listen_port);
   } catch (const std::exception& err) {
     std::cerr << "Error: " << err.what() << std::endl;
     std::cerr << args;

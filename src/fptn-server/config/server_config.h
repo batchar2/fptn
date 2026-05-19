@@ -1,11 +1,12 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
 
 #pragma once
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -18,9 +19,9 @@ namespace fptn::config {
 using fptn::common::network::IPv4Address;
 using fptn::common::network::IPv6Address;
 
-class CommandLineConfig {
+class ServerConfig {
  public:
-  explicit CommandLineConfig(int argc, char* argv[]);
+  explicit ServerConfig(int argc, char* argv[]);
   bool Parse() noexcept;
 
  public:
@@ -34,11 +35,11 @@ class CommandLineConfig {
   /* IPv4 */
   [[nodiscard]] IPv4Address TunInterfaceIPv4() const;
   [[nodiscard]] IPv4Address TunInterfaceNetworkIPv4Address() const;
-  [[nodiscard]] int TunInterfaceNetworkIPv4Mask() const;
+  [[nodiscard]] std::uint32_t TunInterfaceNetworkIPv4Mask() const;
   /* IPv6 */
   [[nodiscard]] IPv6Address TunInterfaceIPv6() const;
   [[nodiscard]] IPv6Address TunInterfaceNetworkIPv6Address() const;
-  [[nodiscard]] int TunInterfaceNetworkIPv6Mask() const;
+  [[nodiscard]] std::uint32_t TunInterfaceNetworkIPv6Mask() const;
 
   [[nodiscard]] std::string UserFile() const;
   [[nodiscard]] bool DisableBittorrent() const;
@@ -57,10 +58,14 @@ class CommandLineConfig {
 
   [[nodiscard]] std::string ServerExternalIPs() const;
 
+  [[nodiscard]] int MtuSize() const;
+
  private:
   int argc_;
   char** argv_;
   argparse::ArgumentParser args_;
 };
+
+using ServerConfigSPtr = std::shared_ptr<ServerConfig>;
 
 }  // namespace fptn::config

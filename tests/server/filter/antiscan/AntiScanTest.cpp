@@ -17,6 +17,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include "fptn-server/filter/filters/antiscan/antiscan.h"
 
+namespace {
 class MockIPv4Packet : public fptn::common::network::IPPacket {
  public:
   explicit MockIPv4Packet(const pcpp::IPv4Address& addr) {
@@ -50,6 +51,7 @@ class MockIPv6Packet : public fptn::common::network::IPPacket {
 };
 
 /* IPv4 */
+// cppcheck-suppress syntaxError
 TEST(AntiScanTest, BlockScan) {
   /* IPv4 */
   const fptn::common::network::IPv4Address server_ipv4("192.168.1.1");
@@ -190,3 +192,4 @@ TEST(AntiScanTest, AllowNonScanPacketIPv6) {
                 pcpp::IPv6Address("2001:0db8:85a3:0000:0000:8a2e:0370:FFFF"))),
       nullptr);
 }
+}  // namespace

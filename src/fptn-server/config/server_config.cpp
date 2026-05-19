@@ -1,10 +1,10 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
 
-#include "config/command_line_config.h"
+#include "config/server_config.h"
 
 #include <algorithm>
 #include <memory>
@@ -34,7 +34,7 @@ namespace fptn::config {
 using fptn::common::network::IPv4Address;
 using fptn::common::network::IPv6Address;
 
-CommandLineConfig::CommandLineConfig(int argc, char* argv[])
+ServerConfig::ServerConfig(int argc, char* argv[])
     : argc_(argc), argv_(argv), args_("fptn-server", FPTN_VERSION) {
   // Required arguments
   args_.add_argument("--server-crt").required().help("Path to server.crt file");
@@ -46,6 +46,10 @@ CommandLineConfig::CommandLineConfig(int argc, char* argv[])
   args_.add_argument("--server-port")
       .default_value(443)
       .help("Port number")
+      .scan<'i', int>();
+  args_.add_argument("--mtu-size")
+      .default_value(FPTN_DEFAULT_MTU_SIZE)
+      .help("MTU size")
       .scan<'i', int>();
   args_.add_argument("--tun-interface-name")
       .default_value("tun0")
@@ -136,7 +140,7 @@ CommandLineConfig::CommandLineConfig(int argc, char* argv[])
       .default_value("");
 }
 
-bool CommandLineConfig::Parse() noexcept {  // NOLINT(bugprone-exception-escape)
+bool ServerConfig::Parse() noexcept {  // NOLINT(bugprone-exception-escape)
   try {
     args_.parse_args(argc_, argv_);
     return true;
@@ -149,81 +153,81 @@ bool CommandLineConfig::Parse() noexcept {  // NOLINT(bugprone-exception-escape)
   return false;
 }
 
-std::string CommandLineConfig::ServerCrt() const {
+std::string ServerConfig::ServerCrt() const {
   return args_.get<std::string>("--server-crt");
 }
 
-std::string CommandLineConfig::ServerKey() const {
+std::string ServerConfig::ServerKey() const {
   return args_.get<std::string>("--server-key");
 }
 
-std::string CommandLineConfig::OutNetworkInterface() const {
+std::string ServerConfig::OutNetworkInterface() const {
   return args_.get<std::string>("--out-network-interface");
 }
 
-int CommandLineConfig::ServerPort() const {
-  return args_.get<int>("--server-port");
-}
+int ServerConfig::ServerPort() const { return args_.get<int>("--server-port"); }
 
-std::string CommandLineConfig::TunInterfaceName() const {
+std::string ServerConfig::TunInterfaceName() const {
   return args_.get<std::string>("--tun-interface-name");
 }
 
-IPv4Address CommandLineConfig::TunInterfaceIPv4() const {
+IPv4Address ServerConfig::TunInterfaceIPv4() const {
   return IPv4Address(args_.get<std::string>("--tun-interface-ip"));
 }
 
-IPv4Address CommandLineConfig::TunInterfaceNetworkIPv4Address() const {
+IPv4Address ServerConfig::TunInterfaceNetworkIPv4Address() const {
   return IPv4Address(args_.get<std::string>("--tun-interface-network-address"));
 }
 
-int CommandLineConfig::TunInterfaceNetworkIPv4Mask() const {
-  return args_.get<int>("--tun-interface-network-mask");
+std::uint32_t ServerConfig::TunInterfaceNetworkIPv4Mask() const {
+  const int value = args_.get<int>("--tun-interface-network-mask");
+  return static_cast<std::uint32_t>(value);
 }
 
-IPv6Address CommandLineConfig::TunInterfaceIPv6() const {
+IPv6Address ServerConfig::TunInterfaceIPv6() const {
   return IPv6Address(args_.get<std::string>("--tun-interface-ipv6"));
 }
 
-IPv6Address CommandLineConfig::TunInterfaceNetworkIPv6Address() const {
+IPv6Address ServerConfig::TunInterfaceNetworkIPv6Address() const {
   return IPv6Address(
       args_.get<std::string>("--tun-interface-network-ipv6-address"));
 }
 
-int CommandLineConfig::TunInterfaceNetworkIPv6Mask() const {
-  return args_.get<int>("--tun-interface-network-ipv6-mask");
+std::uint32_t ServerConfig::TunInterfaceNetworkIPv6Mask() const {
+  const int value = args_.get<int>("--tun-interface-network-ipv6-mask");
+  return static_cast<std::uint32_t>(value);
 }
 
-std::string CommandLineConfig::UserFile() const {
+std::string ServerConfig::UserFile() const {
   return args_.get<std::string>("--userfile");
 }
 
-bool CommandLineConfig::DisableBittorrent() const {
+bool ServerConfig::DisableBittorrent() const {
   return ParseBoolean(args_.get<std::string>("--disable-bittorrent"));
 }
 
-std::string CommandLineConfig::PrometheusAccessKey() const {
+std::string ServerConfig::PrometheusAccessKey() const {
   return args_.get<std::string>("--prometheus-access-key");
 }
 
-bool CommandLineConfig::UseRemoteServerAuth() const {
+bool ServerConfig::UseRemoteServerAuth() const {
   return ParseBoolean(args_.get<std::string>("--use-remote-server-auth"));
 }
 
-std::string CommandLineConfig::RemoteServerAuthHost() const {
+std::string ServerConfig::RemoteServerAuthHost() const {
   return args_.get<std::string>("--remote-server-auth-host");
 }
 
-int CommandLineConfig::RemoteServerAuthPort() const {
+int ServerConfig::RemoteServerAuthPort() const {
   return args_.get<int>("--remote-server-auth-port");
 }
 
-bool CommandLineConfig::EnableDetectProbing() const {
+bool ServerConfig::EnableDetectProbing() const {
   return ParseBoolean(args_.get<std::string>("--enable-detect-probing"));
 }
 
 [[nodiscard]]
-std::string CommandLineConfig::DefaultProxyDomain() const {
+std::string ServerConfig::DefaultProxyDomain() const {
   auto default_domain = args_.get<std::string>("--default-proxy-domain");
   if (default_domain.empty()) {
     return FPTN_DEFAULT_SNI;
@@ -232,7 +236,7 @@ std::string CommandLineConfig::DefaultProxyDomain() const {
 }
 
 [[nodiscard]]
-std::vector<std::string> CommandLineConfig::AllowedSniList() const {
+std::vector<std::string> ServerConfig::AllowedSniList() const {
   const auto allowed_sni = args_.get<std::string>("--allowed-sni-list");
   if (!allowed_sni.empty()) {
     return common::utils::SplitCommaSeparated(
@@ -241,14 +245,19 @@ std::vector<std::string> CommandLineConfig::AllowedSniList() const {
   return {};
 }
 
-std::size_t CommandLineConfig::MaxActiveSessionsPerUser() const {
+std::size_t ServerConfig::MaxActiveSessionsPerUser() const {
   return static_cast<std::size_t>(
       args_.get<int>("--max-active-sessions-per-user"));
 }
 
 [[nodiscard]]
-std::string CommandLineConfig::ServerExternalIPs() const {
+std::string ServerConfig::ServerExternalIPs() const {
   return args_.get<std::string>("--server-external-ips");
+}
+
+[[nodiscard]]
+int ServerConfig::MtuSize() const {
+  return args_.get<int>("--mtu-size");
 }
 
 }  // namespace fptn::config

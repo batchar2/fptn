@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -18,7 +18,6 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <boost/beast/ssl.hpp>
 
 #include "common/data/channel.h"
-#include "common/data/channel_async.h"
 #include "common/jwt_token/token_manager.h"
 #include "common/network/ip_packet.h"
 
@@ -43,17 +42,19 @@ class Server final {
       std::vector<std::string> allowed_sni_list,
       std::size_t max_active_sessions_per_user,
       std::string server_external_ips,
-      int thread_number = 4);
+      int thread_number = 12);
   ~Server();
   bool Start();
   bool Stop();
 
-  void Send(fptn::common::network::IPPacketPtr packet);
-  fptn::common::network::IPPacketPtr WaitForPacket(
+  fptn::web::SessionSPtr GetSessionById(fptn::ClientID client_id);
+
+  fptn::common::network::BatchIPPacketPtr WaitForPackets(
       const std::chrono::milliseconds& duration);
 
- protected:
-  boost::asio::awaitable<void> RunSender();
+  fptn::common::network::IPPacketPtr WaitForPacket(
+    const std::chrono::milliseconds& duration);
+
 
  protected:
   // http
@@ -64,7 +65,7 @@ class Server final {
 
  protected:
   // websocket
-  bool HandleWsOpenConnection(fptn::ClientID client_id,
+  fptn::client::SessionSPtr HandleWsOpenConnection(fptn::ClientID client_id,
       const fptn::common::network::IPv4Address& client_ip,
       const fptn::common::network::IPv4Address& client_vpn_ipv4,
       const fptn::common::network::IPv6Address& client_vpn_ipv6,
@@ -75,13 +76,7 @@ class Server final {
   void HandleWsCloseConnection(fptn::ClientID client_id) noexcept;
 
  private:
-  const std::string kUrlDns_ = "/api/v1/dns";
-  const std::string kUrlLogin_ = "/api/v1/login";
-  const std::string kUrlMetrics_ = "/api/v1/metrics";
-  const std::string kUrlTestFileBin_ = "/api/v1/test/file.bin";
-  const std::string kUrlWebSocket_ = "/fptn";
-
-  mutable std::mutex mutex_;
+  mutable std::shared_mutex mutex_;
   std::atomic<bool> running_;
 
   const std::uint16_t port_;
@@ -101,8 +96,7 @@ class Server final {
   const std::size_t thread_number_;
 
   boost::asio::io_context ioc_;
-  fptn::common::data::ChannelPtr from_client_;
-  fptn::common::data::ChannelAsyncPtr to_client_;
+  fptn::common::data::Channel from_client_;
 
   ListenerSPtr listener_;
 

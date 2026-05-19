@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -9,11 +9,13 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "filter/filters/base_filter.h"
 
 namespace fptn::filter {
+
 class BitTorrent : public BaseFilter {
  public:
   BitTorrent() = default;
+
   ~BitTorrent() override = default;
-  fptn::common::network::IPPacketPtr apply(
-      fptn::common::network::IPPacketPtr packet) const override;
+
+  IPPacketPtr apply(IPPacketPtr packet) const override;
 };
 }  // namespace fptn::filter

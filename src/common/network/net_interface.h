@@ -1,5 +1,6 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
+Copyright (c) 2024-2026 Pavel Shpilev
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -18,63 +19,11 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
 #include "common/data/channel.h"
+#include "common/network/data_rate_calculator.h"
 #include "common/network/ip_address.h"
-
-#if defined(__APPLE__) || defined(__linux__)
-#include <tuntap++.hh>  // NOLINT(build/include_order)
-#elif _WIN32
-// clang-format off
-#include <Ws2tcpip.h>  // NOLINT(build/include_order)
-#include <windows.h>   // NOLINT(build/include_order)
-#include <objbase.h>   // NOLINT(build/include_order)
-#include <winsock2.h>  // NOLINT(build/include_order)
-#include <Iprtrmib.h>  // NOLINT(build/include_order)
-#include <iphlpapi.h>  // NOLINT(build/include_order)
-#include <WinError.h>  // NOLINT(build/include_order)
-#include <wintun.h>    // NOLINT(build/include_order)
-// clang-format on
-#endif
-
 #include "common/network/ip_packet.h"
 
 namespace fptn::common::network {
-class DataRateCalculator {
- public:
-  explicit DataRateCalculator(
-      std::chrono::milliseconds interval = std::chrono::milliseconds(1000))
-      : interval_(interval),
-        bytes_(0),
-        lastUpdateTime_(std::chrono::steady_clock::now()),
-        rate_(0) {}
-  void Update(std::size_t len) noexcept {
-    const std::scoped_lock lock(mutex_);  // mutex
-
-    auto now = std::chrono::steady_clock::now();
-    std::chrono::duration<double> elapsed = now - lastUpdateTime_;
-    bytes_ += len;
-    if (elapsed >= interval_) {
-      rate_ = static_cast<std::size_t>(bytes_ / elapsed.count());
-      lastUpdateTime_ = now;
-      bytes_ = 0;
-    }
-  }
-  std::size_t GetRateForSecond() const noexcept {
-    const std::scoped_lock lock(mutex_);  // mutex
-
-    const auto interval_count = interval_.count();
-    if (interval_count) {
-      return static_cast<std::size_t>(rate_ / (1000 / interval_.count()));
-    }
-    return 0;
-  }
-
- private:
-  mutable std::mutex mutex_;
-  std::chrono::milliseconds interval_;
-  std::atomic<std::size_t> bytes_;
-  std::chrono::steady_clock::time_point lastUpdateTime_;
-  std::atomic<std::size_t> rate_;
-};
 
 using NewIPPacketCallback = std::function<void(IPPacketPtr packet)>;
 
@@ -94,6 +43,7 @@ using NewIPPacketCallback = std::function<void(IPPacketPtr packet)>;
  *  - StartImpl()     - Initialize the interface
  *  - StopImpl()      - Shutdown the interface
  *  - SendImpl()      - Packet transmission
+ *  - SendBatchImpl()      - Packet transmission
  *  - GetSendRateImpl()    - Outbound rate monitoring
  *  - GetReceiveRateImpl() - Inbound rate monitoring
  */
@@ -104,49 +54,64 @@ class BaseNetInterface {
 
   // Network configuration
   struct Config {
-    std::string name;
     fptn::common::network::IPv4Address ipv4_addr;
-    int ipv4_netmask;
+    std::uint32_t ipv4_netmask = 32;
     fptn::common::network::IPv6Address ipv6_addr;
-    int ipv6_netmask;
+    std::uint32_t ipv6_netmask = 126;
   };
 
-  bool Start() { return impl()->StartImpl(); }
+  bool Start(Config config) {
+    runtime_config_ = std::move(config);
+    return impl()->StartImpl();
+  }
 
   bool Stop() { return impl()->StopImpl(); }
 
   bool Send(IPPacketPtr packet) { return impl()->SendImpl(std::move(packet)); }
 
+  bool SendBatch(BatchIPPacketPtr packets) {
+    return impl()->SendBatchImpl(std::move(packets));
+  }
+
   std::size_t GetSendRate() { return impl()->GetSendRateImpl(); }
 
   std::size_t GetReceiveRate() { return impl()->GetReceiveRateImpl(); }
 
+  void SetName(const std::string& name) { name_ = name; }
+
  private:
-  explicit BaseNetInterface(Config config)
-      : config_(std::move(config)), recv_ip_packet_callback_(nullptr) {}
+  explicit BaseNetInterface(
+      std::string name, int mtu_size, bool using_rate_calculator)
+      : name_(std::move(name)),
+        mtu_size_(mtu_size),
+        recv_ip_packet_callback_(nullptr),
+        runtime_config_(),
+        using_rate_calculator_(using_rate_calculator) {}
 
   Implementation* impl() { return static_cast<Implementation*>(this); }
 
  public:
-  [[nodiscard]] const std::string& Name() const noexcept {
-    return config_.name;
-  }
+  [[nodiscard]] const std::string& Name() const noexcept { return name_; }
 
   [[nodiscard]] const fptn::common::network::IPv4Address& IPv4Addr()
       const noexcept {
-    return config_.ipv4_addr;
+    return runtime_config_.ipv4_addr;
   }
 
   [[nodiscard]] int IPv4Netmask() const noexcept {
-    return config_.ipv4_netmask;
+    return runtime_config_.ipv4_netmask;
   }
 
   [[nodiscard]] const fptn::common::network::IPv6Address& IPv6Addr()
       const noexcept {
-    return config_.ipv6_addr;
+    return runtime_config_.ipv6_addr;
   }
 
-  int IPv6Netmask() const noexcept { return config_.ipv6_netmask; }
+  [[nodiscard]] int MtuSize() const noexcept { return mtu_size_; }
+
+  bool UsingRateCalculator() const noexcept { return using_rate_calculator_; }
+
+  int IPv6Netmask() const noexcept { return runtime_config_.ipv6_netmask; }
 
   void SetRecvIPPacketCallback(const NewIPPacketCallback& callback) noexcept {
     recv_ip_packet_callback_ = callback;
@@ -157,42 +122,87 @@ class BaseNetInterface {
   }
 
  private:
-  Config config_;
+  std::string name_;
+  int mtu_size_;
+
   NewIPPacketCallback recv_ip_packet_callback_;
+
+  Config runtime_config_;
+
+  const bool using_rate_calculator_;
 };
 
-#if defined(__APPLE__) || defined(__linux__)
-
-class PosixTunInterface final : public BaseNetInterface<PosixTunInterface> {
+/**
+ * @brief Generic TUN interface parameterized by a platform-specific Device.
+ *
+ * The Device type must satisfy the following concept (duck-typed):
+ *   bool Open(const std::string& name);
+ *   void Close();
+ *   std::string GetName() const;
+ *   bool ConfigureIPv4(const std::string& addr, int mask);
+ *   bool ConfigureIPv6(const std::string& addr, int mask);
+ *   void SetNonBlocking(bool enabled);
+ *   void SetMTU(int mtu);
+ *   void BringUp();
+ *   int  Read(void* buffer, int size);
+ *   int  Write(const void* data, int size);
+ *   void SetStopFlag(const std::atomic<bool>* running);
+ *
+ * Platform-specific devices: LinuxTunDevice, DarwinTunDevice, WinTunDevice
+ */
+template <typename Device>
+class GenericTunInterface final
+    : public BaseNetInterface<GenericTunInterface<Device>> {
  public:
-  friend BaseNetInterface;
+  using Base = BaseNetInterface<GenericTunInterface<Device>>;
+  friend Base;
 
-  using Config = BaseNetInterface::Config;
+  using Config = typename Base::Config;
 
-  explicit PosixTunInterface(Config config)
-      : BaseNetInterface(std::move(config)),
-        mtu_(FPTN_MTU_SIZE),
-        running_(false) {}
+  explicit GenericTunInterface(
+      std::string name, int mtu_size, bool using_rate_calculator = true)
+      : Base(std::move(name), mtu_size, using_rate_calculator),
+        running_(false),
+        to_network_("tun_interface") {}
 
-  ~PosixTunInterface() { StopImpl(); }
+  ~GenericTunInterface() { StopImpl(); }
 
  protected:
   bool StartImpl() noexcept {
     const std::scoped_lock lock(mutex_);  // mutex
 
     try {
-      tun_ = std::make_unique<tuntap::tun>();
-      tun_->name(Name());
+      // cppcheck-suppress knownConditionTrueFalse
+      if (!device_.Open(this->Name())) {
+        SPDLOG_ERROR("Failed to open TUN device");
+        return false;
+      }
+      // Update name to actual device name (may differ, e.g., utun on macOS)
+      this->SetName(device_.GetName());
+
       /* set IPv6 */
-      tun_->ip(IPv6Addr().ToString(), IPv6Netmask());
+      // cppcheck-suppress knownConditionTrueFalse
+      if (!device_.ConfigureIPv6(
+              this->IPv6Addr().ToString(), this->IPv6Netmask())) {
+        SPDLOG_WARN("IPv6 configuration failed, continuing with IPv4 only");
+      }
       /* set IPv4 */
-      tun_->ip(IPv4Addr().ToString(), IPv4Netmask());
-      tun_->nonblocking(true);
-      tun_->mtu(FPTN_MTU_SIZE);
-      tun_->up();
+      // cppcheck-suppress knownConditionTrueFalse
+      if (!device_.ConfigureIPv4(
+              this->IPv4Addr().ToString(), this->IPv4Netmask())) {
+        SPDLOG_ERROR("IPv4 configuration failed");
+        device_.Close();
+        return false;
+      }
+      device_.SetNonBlocking(true);
+      device_.SetMTU(this->MtuSize());
+      device_.BringUp();
+
       running_ = true;
-      thread_ = std::thread(&PosixTunInterface::run, this);
-      return thread_.joinable();
+      device_.SetStopFlag(&running_);
+      thread_reader_ = std::thread(&GenericTunInterface::RunReader, this);
+      thread_sender_ = std::thread(&GenericTunInterface::RunSender, this);
+      return thread_reader_.joinable() && thread_sender_.joinable();
     } catch (const std::exception& ex) {
       SPDLOG_ERROR("Error start: {}", ex.what());
     }
@@ -203,43 +213,35 @@ class PosixTunInterface final : public BaseNetInterface<PosixTunInterface> {
     if (!running_) {
       return false;
     }
+    {
+      const std::scoped_lock lock(mutex_);  // mutex
 
-    const std::scoped_lock lock(mutex_);  // mutex
-
-    // cppcheck-suppress identicalConditionAfterEarlyExit
-    if (!running_) {  // Double-check after acquiring lock
-      return false;
-    }
-
-    if (thread_.joinable() && tun_) {
+      // cppcheck-suppress identicalConditionAfterEarlyExit
+      if (!running_) {  // Double-check after acquiring lock
+        return false;
+      }
       running_ = false;
-      thread_.join();
-      tun_.reset();
     }
+
+    if (thread_reader_.joinable()) {
+      thread_reader_.join();
+    }
+
+    if (thread_sender_.joinable()) {
+      thread_sender_.join();
+    }
+
+    device_.Close();
+
     return true;
   }
 
   bool SendImpl(IPPacketPtr packet) noexcept {
-    if (!running_ || !packet || !packet->Size() || !tun_) {
-      return false;
-    }
+    return to_network_.Push(std::move(packet));
+  }
 
-    const std::scoped_lock lock(mutex_);  // mutex
-
-    if (running_) {
-      const auto* raw_packet = packet->GetRawPacket();
-      const void* data = static_cast<const void*>(raw_packet->getRawData());
-      const auto len = raw_packet->getRawDataLen();
-
-      // send data
-      const auto bytes_written = tun_->write(const_cast<void*>(data), len);
-
-      // calculate rate
-      send_rate_calculator_.Update(bytes_written);
-
-      return bytes_written == len;
-    }
-    return false;
+  bool SendBatchImpl(BatchIPPacketPtr packets) noexcept {
+    return to_network_.PushBatch(std::move(packets));
   }
 
   std::size_t GetSendRateImpl() const noexcept {
@@ -250,18 +252,23 @@ class PosixTunInterface final : public BaseNetInterface<PosixTunInterface> {
     return receive_rate_calculator_.GetRateForSecond();
   }
 
-  void run() {
-    auto data = std::make_unique<std::uint8_t[]>(mtu_);
-    std::uint8_t* buffer = data.get();
+  void RunReader() {
+    const int mtu_size = this->MtuSize();
+    const auto callback = this->GetRecvIPPacketCallback();
+    const bool rate_calc = this->UsingRateCalculator();
 
-    const auto callback = GetRecvIPPacketCallback();
+    IPPacketData buffer(mtu_size);
     while (running_) {
-      const int size = tun_->read(static_cast<void*>(buffer), mtu_);
-      if (size > 0 && running_) {
-        auto packet = IPPacket::Parse(buffer, size);
-        if (running_ && packet != nullptr && callback) {
-          receive_rate_calculator_.Update(packet->Size());  // calculate rate
-          callback(std::move(packet));
+      const int size = device_.Read(buffer.data(), mtu_size);
+      if (size > 0) {
+        auto packet = IPPacket::Parse(buffer.data(), size);
+        if (packet != nullptr && running_) {
+          if (callback) {
+            callback(std::move(packet));
+          }
+          if (rate_calc) {
+            receive_rate_calculator_.Update(size);  // calculate rate
+          }
         }
       } else {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -269,313 +276,73 @@ class PosixTunInterface final : public BaseNetInterface<PosixTunInterface> {
     }
   }
 
- private:
-  mutable std::mutex mutex_;
+  void RunSender() {
+    try {
+      constexpr std::chrono::milliseconds kTimeout{100};
+      static const bool kRateCalculator = this->UsingRateCalculator();
+      while (running_) {
+        auto packets = to_network_.WaitForPackets(kTimeout);
+        // cppcheck-suppress constVariableReference
+        for (auto& packet : packets) {
+          if (packet) {
+            const auto* raw_packet = packet->GetRawPacket();
+            const void* data =
+                static_cast<const void*>(raw_packet->getRawData());
+            const auto len = raw_packet->getRawDataLen();
 
-  const std::uint16_t mtu_;
-
-  std::atomic<bool> running_;
-  std::thread thread_;
-  std::unique_ptr<tuntap::tun> tun_;
-  DataRateCalculator send_rate_calculator_;
-  DataRateCalculator receive_rate_calculator_;
-};
-
-using TunInterface = PosixTunInterface;
-
-#elif _WIN32
-
-class WindowsTunInterface final : public BaseNetInterface<WindowsTunInterface> {
- public:
-  friend BaseNetInterface;
-  using Config = BaseNetInterface::Config;
-
-  explicit WindowsTunInterface(Config config)
-      : BaseNetInterface(std::move(config)),
-        running_(false),
-        wintun_(nullptr),
-        adapter_(0),
-        session_(0),
-        ip_context_(0),
-        ip_instance_(0) {
-    wintun_ = InitializeWintun();
-    UuidCreate(&guid_);
-  }
-
-  ~WindowsTunInterface() { StopImpl(); }
-
- protected:
-  bool StartImpl() {
-    const std::scoped_lock lock(mutex_);  // mutex
-
-    if (!wintun_) {
-      return false;
-    }
-    SPDLOG_INFO("WINTUN: {} version loaded",
-        ParseWinTunVersion(WintunGetRunningDriverVersion()));
-
-    // --- open adapter ---
-    const std::wstring interface_name = ToWString(Name());
-    adapter_ = WintunCreateAdapter(
-        interface_name.c_str(), interface_name.c_str(), &guid_);
-    if (!adapter_) {
-      SPDLOG_ERROR("Network adapter wasn't created!");
-      return false;
-    }
-    if (!SetIPv4AndNetmask(IPv4Addr(), IPv4Netmask())) {
-      return false;
-    }
-
-    if (!SetIPv6AndNetmask(IPv6Addr(), IPv6Netmask())) {
-      // pass IPv6
-      // return false;
-    }
-    // --- start session ---
-    const int capacity = 0x20000;
-    session_ = WintunStartSession(adapter_, capacity);
-    if (!session_) {
-      SPDLOG_ERROR("Open sessoion error");
-      return false;
-    }
-    // --- start thread ---
-    running_ = true;
-    thread_ = std::thread(&WindowsTunInterface::run, this);
-    return thread_.joinable();
-  }
-
-  bool StopImpl() {
-    if (!running_) {
-      return false;
-    }
-
-    const std::scoped_lock lock(mutex_);  // mutex
-
-    // cppcheck-suppress identicalConditionAfterEarlyExit
-    if (!running_) {  // Double-check after acquiring lock
-      return false;
-    }
-
-    if (thread_.joinable()) {
-      running_ = false;
-      thread_.join();
-
-      if (adapter_) {
-        WintunCloseAdapter(adapter_);
-        adapter_ = nullptr;
-      }
-      WintunDeleteDriver();
-      return true;
-    }
-    return false;
-  }
-
-  bool SendImpl(IPPacketPtr packet) {
-    if (!running_ || !session_ || !packet || !packet->Size()) {
-      return false;
-    }
-
-    const std::scoped_lock lock(mutex_);  // mutex
-
-    // Double-check after acquiring lock
-    if (!running_) {  // NOLINT
-      return false;
-    }
-
-    const auto* raw_packet = packet->GetRawPacket();
-    if (!raw_packet) {
-      return false;
-    }
-
-    const auto len = raw_packet->getRawDataLen();
-    const BYTE* packet_data =
-        static_cast<const BYTE*>(raw_packet->getRawData());
-
-    BYTE* send_buffer =
-        WintunAllocateSendPacket(session_, static_cast<DWORD>(len));
-    if (!send_buffer || !packet_data || len == 0) {
-      return false;
-    }
-
-    std::memcpy(send_buffer, packet_data, len);
-    WintunSendPacket(session_, send_buffer);
-
-    send_rate_calculator_.Update(len);
-    return true;
-  }
-
-  std::size_t GetSendRateImpl() const {
-    return send_rate_calculator_.GetRateForSecond();
-  }
-
-  std::size_t GetReceiveRateImpl() const {
-    return receive_rate_calculator_.GetRateForSecond();
-  }
-
-  bool SetIPv4AndNetmask(
-      const fptn::common::network::IPv4Address& addr, const int mask) {
-    const std::string ipaddr = addr.ToString();
-
-    MIB_UNICASTIPADDRESS_ROW address_row;
-
-    InitializeUnicastIpAddressEntry(&address_row);
-    WintunGetAdapterLUID(adapter_, &address_row.InterfaceLuid);
-
-    address_row.Address.Ipv4.sin_family = AF_INET;
-    address_row.OnLinkPrefixLength = static_cast<BYTE>(mask);
-    address_row.DadState = IpDadStatePreferred;
-
-    if (1 != inet_pton(AF_INET, ipaddr.c_str(),
-                 &(address_row.Address.Ipv4.sin_addr))) {
-      SPDLOG_ERROR("Wrong IPv4 address");
-      return false;
-    }
-    const auto res = CreateUnicastIpAddressEntry(&address_row);
-    if (res != ERROR_SUCCESS && res != ERROR_OBJECT_ALREADY_EXISTS) {
-      SPDLOG_ERROR("Failed to set {} IPv4 address", ipaddr);
-      return false;
-    }
-    return true;
-  }
-
-  bool SetIPv6AndNetmask(
-      const fptn::common::network::IPv6Address& addr, const int mask) {
-    const std::string ipaddr = addr.ToString();
-
-    MIB_UNICASTIPADDRESS_ROW address_row;
-
-    InitializeUnicastIpAddressEntry(&address_row);
-    WintunGetAdapterLUID(adapter_, &address_row.InterfaceLuid);
-
-    address_row.Address.Ipv6.sin6_family = AF_INET6;
-    address_row.OnLinkPrefixLength = static_cast<BYTE>(mask);
-    address_row.DadState = IpDadStatePreferred;
-
-    if (1 != inet_pton(AF_INET6, ipaddr.c_str(),
-                 &(address_row.Address.Ipv6.sin6_addr))) {
-      SPDLOG_ERROR("Wrong IPv6 address");
-      return false;
-    }
-    const auto res = CreateUnicastIpAddressEntry(&address_row);
-    if (res != ERROR_SUCCESS && res != ERROR_OBJECT_ALREADY_EXISTS) {
-      SPDLOG_ERROR("Failed to set {} IPv6 address", ipaddr);
-      return false;
-    }
-    return true;
-  }
-
-  void run() {
-    std::uint8_t buffer[65536] = {0};
-    DWORD size = sizeof(buffer);
-    const auto callback = GetRecvIPPacketCallback();
-    while (running_) {
-      if (ERROR_SUCCESS == ReadPacketNonblock(session_, buffer, &size)) {
-        auto packet = IPPacket::Parse(buffer, size);
-        if (running_ && packet != nullptr && callback) {
-          receive_rate_calculator_.Update(packet->Size());  // calculate rate
-          callback(std::move(packet));
+            // send data
+            if (len && data && running_) {
+              int bytes_written = 0;
+              do {
+                // resend if error
+                bytes_written = device_.Write(const_cast<void*>(data), len);
+                if (bytes_written == len && kRateCalculator) {
+                  send_rate_calculator_.Update(bytes_written);
+                }
+              } while ( bytes_written != len && running_);
+            }
+          }
         }
       }
+    } catch (const std::exception& ex) {
+      SPDLOG_ERROR("SendImpl error: {}", ex.what());
     }
   }
-
-  std::wstring ToWString(const std::string& s) {
-    return std::wstring(s.begin(), s.end());
-  }
-
-  std::string ParseWinTunVersion(DWORD version_number) {
-    return std::to_string((version_number >> 16) & 0xff) + "." +
-           std::to_string((version_number >> 0) & 0xff);
-  }
-
-  int ReadPacketNonblock(
-      WINTUN_SESSION_HANDLE session, BYTE* buff, DWORD* size) {
-    static constexpr size_t retry_amount = 20;
-    while (running_) {
-      for (size_t i = 0; i < retry_amount; i++) {
-        DWORD packet_size;
-        BYTE* packet = WintunReceivePacket(session, &packet_size);
-        if (packet && running_) {
-          memcpy(buff, packet, packet_size);
-          *size = packet_size;
-          WintunReleaseReceivePacket(session, packet);
-          return ERROR_SUCCESS;
-        } else if (GetLastError() == ERROR_NO_MORE_ITEMS) {
-          // We retry before blocking
-          continue;
-        } else {
-          return ERROR_INVALID_FUNCTION;
-        }
-      }
-      WaitForSingleObject(WintunGetReadWaitEvent(session),
-          10);  // Wait for a maximum of 10 milliseconds
-    }
-    return ERROR_INVALID_FUNCTION;
-  }
-
-  HMODULE InitializeWintun() {
-    HMODULE wintun = LoadLibraryExW(L"wintun.dll", nullptr,
-        LOAD_LIBRARY_SEARCH_APPLICATION_DIR | LOAD_LIBRARY_SEARCH_SYSTEM32);
-    if (!wintun) {
-      SPDLOG_ERROR("WINTUN NOT FOUND!");
-      return nullptr;
-    }
-#define X(Name)                                                              \
-  ((*(reinterpret_cast<FARPROC*>(&Name)) = GetProcAddress(wintun, #Name)) == \
-      nullptr)
-    if (X(WintunCreateAdapter) || X(WintunCloseAdapter) ||
-        X(WintunOpenAdapter) || X(WintunGetAdapterLUID) ||
-        X(WintunGetRunningDriverVersion) || X(WintunDeleteDriver) ||
-        X(WintunSetLogger) || X(WintunStartSession) || X(WintunEndSession) ||
-        X(WintunGetReadWaitEvent) || X(WintunReceivePacket) ||
-        X(WintunReleaseReceivePacket) || X(WintunAllocateSendPacket) ||
-        X(WintunSendPacket)) {
-      DWORD last_error = GetLastError();
-      FreeLibrary(wintun);
-      SetLastError(last_error);
-      SPDLOG_ERROR("Error whilst loading the lib: {}", last_error);
-      return nullptr;
-    }
-#undef X
-    SPDLOG_INFO("Wintun initialization successful");
-    return wintun;
-  }
-
- private:
-  WINTUN_CREATE_ADAPTER_FUNC* WintunCreateAdapter = nullptr;
-  WINTUN_CLOSE_ADAPTER_FUNC* WintunCloseAdapter = nullptr;
-  WINTUN_OPEN_ADAPTER_FUNC* WintunOpenAdapter = nullptr;
-  WINTUN_GET_ADAPTER_LUID_FUNC* WintunGetAdapterLUID = nullptr;
-  WINTUN_GET_RUNNING_DRIVER_VERSION_FUNC* WintunGetRunningDriverVersion =
-      nullptr;
-  WINTUN_DELETE_DRIVER_FUNC* WintunDeleteDriver = nullptr;
-  WINTUN_SET_LOGGER_FUNC* WintunSetLogger = nullptr;
-  WINTUN_START_SESSION_FUNC* WintunStartSession = nullptr;
-  WINTUN_END_SESSION_FUNC* WintunEndSession = nullptr;
-  WINTUN_GET_READ_WAIT_EVENT_FUNC* WintunGetReadWaitEvent = nullptr;
-  WINTUN_RECEIVE_PACKET_FUNC* WintunReceivePacket = nullptr;
-  WINTUN_RELEASE_RECEIVE_PACKET_FUNC* WintunReleaseReceivePacket = nullptr;
-  WINTUN_ALLOCATE_SEND_PACKET_FUNC* WintunAllocateSendPacket = nullptr;
-  WINTUN_SEND_PACKET_FUNC* WintunSendPacket = nullptr;
 
  private:
   mutable std::mutex mutex_;
 
   std::atomic<bool> running_;
-  std::thread thread_;
+  std::thread thread_reader_;
+  std::thread thread_sender_;
 
-  GUID guid_;
-  HMODULE wintun_;
-  WINTUN_ADAPTER_HANDLE adapter_;
-  WINTUN_SESSION_HANDLE session_;
-  ULONG ip_context_;
-  ULONG ip_instance_;
-
+  Device device_;
   DataRateCalculator send_rate_calculator_;
   DataRateCalculator receive_rate_calculator_;
+
+  fptn::common::data::Channel to_network_;
 };
 
-using TunInterface = WindowsTunInterface;
+}  // namespace fptn::common::network
+// Platform-specific TUN device includes (outside namespace to avoid nesting)
+#if defined(__APPLE__)
+#include "common/network/tun/darwin_tun_device.h"
+
+#elif defined(__linux__)
+#include "common/network/tun/linux_tun_device.h"
+#elif defined(_WIN32)
+#include "common/network/tun/win_tun_device.h"
 #endif
 
-using TunInterfacePtr = std::unique_ptr<TunInterface>;
+namespace fptn::common::network {
+// Platform-specific TUN interface aliases
+#if defined(__APPLE__)
+using TunInterface = GenericTunInterface<DarwinTunDevice>;
+#elif defined(__linux__)
+using TunInterface = GenericTunInterface<LinuxTunDevice>;
+#elif defined(_WIN32)
+using TunInterface = GenericTunInterface<WinTunDevice>;
+#endif
+
+using TunInterfaceSPtr = std::shared_ptr<TunInterface>;
 }  // namespace fptn::common::network

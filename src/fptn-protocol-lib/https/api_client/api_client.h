@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -9,8 +9,8 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
-#include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <nlohmann/json.hpp>
 
@@ -81,10 +81,12 @@ class ApiClient {
 
   bool TestHandshakeImpl(int timeout) const;
 
-  bool PerformFakeHandshake(boost::asio::ip::tcp::socket& socket) const;
+  bool PerformFakeHandshake2(boost::asio::ip::tcp::socket& socket) const;
 
   bool onVerifyCertificate(
       const std::string& md5_fingerprint, std::string& error) const;
+
+  std::vector<std::uint8_t> GenerateHandshakePacket() const;
 
  private:
   const std::string host_;

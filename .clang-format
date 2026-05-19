@@ -31,9 +31,13 @@ IncludeCategories:
     Priority:        2
   - Regex:           '^<ntp_client.hpp>'
     Priority:        2
+  - Regex:           '^<blockingconcurrentqueue.h>'
+    Priority:        2
   - Regex:          '^<zlib.*>'
     Priority:        2
   - Regex:           '^<argparse/.*>'
+    Priority:        2
+  - Regex:           '^<camouflage/.*>'
     Priority:        2
   - Regex:           '^<boost/.*>'
     Priority:        2
@@ -58,6 +62,8 @@ IncludeCategories:
   - Regex:           '^<brotli/.*>'
     Priority:        2
   - Regex:           '^<re2/.*>'
+    Priority:        2
+  - Regex:           '^<mimalloc-new-delete.h>'
     Priority:        2
   - Regex:           '^"(common/.*)"'
     Priority:        5

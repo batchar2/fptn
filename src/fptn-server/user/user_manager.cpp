@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -12,6 +12,8 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 
 #include <fmt/format.h>     // NOLINT(build/include_order)
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
+
+#include "common/api/handle.h"
 
 using fptn::user::UserManager;
 
@@ -44,8 +46,8 @@ bool UserManager::Login(const std::string& username,
 
     const std::string request = fmt::format(
         R"({{ "username": "{}", "password": "{}" }})", username, password);
-    const auto resp =
-        http_api_client_->Post("/api/v1/login", request, "application/json");
+    const auto resp = http_api_client_->Post(
+        common::api::kApiLoginUrl, request, "application/json");
 
     if (resp.code == 200) {
       try {

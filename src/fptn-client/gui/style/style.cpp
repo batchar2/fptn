@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -7,7 +7,9 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "gui/style/style.h"
 
 namespace fptn::gui {
-QString macStyleSheet = R"(
+
+QString GetMacStyleSheet() {
+  static const QString kStyleSheet = R"(
 QMenu {
     background-color: #333;
     color: #fff;
@@ -23,46 +25,53 @@ QMenu::item:selected {
     color: #fff;
 }
 QMenu::icon {
-    margin-right: 10px;
+    margin-right: 4px;
 }
 QAction {
+    padding: 2px 2px;
     color: #fff;
 }
 QWidgetAction {
     padding: 5px;
 }
 )";
+  return kStyleSheet;
+}
 
-QString ubuntuStyleSheet = R"(
+QString GetUbuntuStyleSheet() {
+  static const QString kStyleSheet = R"(
 QMenu {
     background-color: #ffffff;
     color: #333333;
     border: 1px solid #d0d0d0;
     border-radius: 8px;
-    padding: 0;
+    padding: 5px;
 }
 QMenu::item {
     background-color: #ffffff;
     color: #333333;
-    padding: 8px 12px;
+    padding: 2px 3px;
     border-radius: 4px;
 }
 QMenu::item:selected {
     background-color: #e0e0e0;
     color: #333333;
 }
+QMenu::item:hover {
+    background-color: #e0e0e0;
+}
 QMenu::icon {
-    margin-right: 8px;
+    margin-right: 4px;
 }
 QAction {
     color: #333333;
 }
 QWidgetAction {
-    padding: 8px 12px;
+    padding: 2px 4px;
 }
 QWidget {
     font-family: 'Ubuntu', 'Segoe UI', Tahoma, Verdana, Arial, sans-serif;
-    font-size: 11pt;
+    font-size: 10pt;
     color: #333333;
     background-color: #f0f0f0;
 }
@@ -127,7 +136,6 @@ QTabBar::tab:selected {
     border-radius: 4px 4px 0 0;
     font-weight: bold;
 }
-
 QTabBar::tab:!selected {
     background: #f0f0f0;
 }
@@ -144,14 +152,17 @@ QAction:disabled {
     color: #a0a0a0;
 }
 )";
+  return kStyleSheet;
+}
 
-QString windowsStyleSheet = R"(
+QString GetWindowsStyleSheet() {
+  static const QString kStyleSheet = R"(
 QMenu {
     background-color: #ffffff;
     color: #000000;
     border: 1px solid #bfbfbf;
     border-radius: 4px;
-    padding: 4px 8px;
+    padding: 5px;
 }
 QPushButton {
     padding: 6px 12px;
@@ -159,32 +170,38 @@ QPushButton {
 QMenu::item {
     background-color: #ffffff;
     color: #000000;
-    padding: 2px 8px;
+    padding: 2px 1px;
     border-radius: 3px;
 }
 QMenu::item:selected {
     background-color: #e0e0e0;
     color: #000000;
 }
+QMenu::item:hover {
+    background-color: #e0e0e0;
+}
 QMenu::icon {
-    margin-right: 8px;
+    margin-right: 4px;
 }
 QAction {
     color: #000000;
 }
 QMenu QWidget {
     background-color: #ffffff;
-    color: #000000; 
+    color: #000000;
     border: none;
     padding: 1px 4px;
 }
 QMenu::item:disabled {
-    background-color: #ffffff; 
+    background-color: #ffffff;
     color: #a0a0a0;
 }
 QAction:disabled {
     color: #a0a0a0;
 }
+
 )";
+  return kStyleSheet;
+}
 
 }  // namespace fptn::gui

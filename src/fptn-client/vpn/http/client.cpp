@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -15,6 +15,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 
+#include "common/api/handle.h"
 #include "common/network/ip_address.h"
 
 #include "fptn-protocol-lib/https/api_client/api_client.h"
@@ -26,24 +27,10 @@ using fptn::common::network::IPv6Address;
 using fptn::protocol::https::ApiClient;
 using fptn::vpn::http::Client;
 
-Client::Client(IPv4Address server_ip,
-    int server_port,
-    IPv4Address tun_interface_address_ipv4,
-    IPv6Address tun_interface_address_ipv6,
-    std::string sni,
-    std::string md5_fingerprint,
-    fptn::protocol::https::CensorshipStrategy censorship_strategy,
-    NewIPPacketCallback new_ip_pkt_callback)
+Client::Client(fptn::protocol::https::WebsocketClient::Config config)
     : running_(false),
-      server_ip_(std::move(server_ip)),
-      server_port_(server_port),
-      tun_interface_address_ipv4_(std::move(tun_interface_address_ipv4)),
-      tun_interface_address_ipv6_(std::move(tun_interface_address_ipv6)),
-      sni_(std::move(sni)),
-      md5_fingerprint_(std::move(md5_fingerprint)),
-      censorship_strategy_(censorship_strategy),
-      new_ip_pkt_callback_(std::move(new_ip_pkt_callback)),
-      reconnection_attempts_(kMaxReconnectionAttempts_) {}
+      reconnection_attempts_(kMaxReconnectionAttempts_),
+      config_(std::move(config)) {}
 
 Client::~Client() { Stop(); }
 
@@ -52,11 +39,12 @@ bool Client::Login(
   const std::string request = fmt::format(
       R"({{ "username": "{}", "password": "{}" }})", username, password);
 
-  const std::string ip = server_ip_.ToString();
-  ApiClient cli(ip, server_port_, sni_, md5_fingerprint_, censorship_strategy_);
+  const std::string ip = config_.server_ip.ToString();
+  ApiClient cli(ip, config_.server_port, config_.sni,
+      config_.expected_md5_fingerprint, config_.censorship_strategy);
 
-  const auto resp =
-      cli.Post("/api/v1/login", request, "application/json", timeout_sec);
+  const auto resp = cli.Post(
+      common::api::kApiLoginUrl, request, "application/json", timeout_sec);
   if (resp.code == 200) {
     try {
       const auto msg = resp.Json();
@@ -65,7 +53,7 @@ bool Client::Login(
             "Error: Access token not found in the response. Check your "
             "conection");
       } else {
-        access_token_ = msg["access_token"];
+        config_.access_token = msg["access_token"];
         SPDLOG_INFO("Login successful");
         return true;
       }
@@ -86,12 +74,13 @@ bool Client::Login(
 
 std::pair<IPv4Address, IPv6Address> Client::GetDns() {
   SPDLOG_INFO("Obtained DNS server address. Connecting to {}:{}",
-      server_ip_.ToString(), server_port_);
+      config_.server_ip.ToString(), config_.server_port);
 
-  const std::string ip = server_ip_.ToString();
-  ApiClient cli(ip, server_port_, sni_, md5_fingerprint_, censorship_strategy_);
+  const std::string ip = config_.server_ip.ToString();
+  ApiClient cli(ip, config_.server_port, config_.sni,
+      config_.expected_md5_fingerprint, config_.censorship_strategy);
 
-  const auto resp = cli.Get("/api/v1/dns");
+  const auto resp = cli.Get(common::api::kApiDnsUrl);
   if (resp.code == 200) {
     try {
       const auto msg = resp.Json();
@@ -122,7 +111,12 @@ std::pair<IPv4Address, IPv6Address> Client::GetDns() {
 
 void Client::SetRecvIPPacketCallback(
     const NewIPPacketCallback& callback) noexcept {
-  new_ip_pkt_callback_ = callback;
+  config_.new_ip_pkt_callback = callback;
+}
+
+void Client::SetIPAssignedCallback(
+    const Client::OnIPAssignedCallback& callback) noexcept {
+  config_.on_ip_assigned_callback = callback;
 }
 
 bool Client::Send(fptn::common::network::IPPacketPtr packet) const {
@@ -143,7 +137,7 @@ bool Client::Send(fptn::common::network::IPPacketPtr packet) const {
 
 void Client::Run() {
   // Time window for counting attempts (1 minute)
-  constexpr auto kReconnectionWindow = std::chrono::seconds(60);
+  constexpr auto kReconnectionWindow = std::chrono::seconds(120);
   // Delay between reconnection attempts
   constexpr auto kReconnectionDelay = std::chrono::milliseconds(300);
 
@@ -157,10 +151,7 @@ void Client::Run() {
 
       // cppcheck-suppress identicalInnerCondition
       if (running_) {  // Double-check after acquiring lock
-        ws_ = std::make_shared<fptn::protocol::https::WebsocketClient>(
-            server_ip_, server_port_, tun_interface_address_ipv4_,
-            tun_interface_address_ipv6_, new_ip_pkt_callback_, sni_,
-            access_token_, md5_fingerprint_, censorship_strategy_, nullptr, 32);
+        ws_ = std::make_shared<fptn::protocol::https::WebsocketClient>(config_);
       }
     }
 
@@ -235,7 +226,6 @@ bool Client::Stop() {
 
   if (ws_) {
     ws_->Stop();
-    ws_.reset();
   }
 
   if (th_.joinable()) {
@@ -245,6 +235,8 @@ bool Client::Stop() {
       SPDLOG_WARN("Unexpected exception during thread join");
     }
   }
+
+  ws_.reset();
   return true;
 }
 

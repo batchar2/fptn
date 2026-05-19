@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -9,6 +9,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <iostream>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -20,6 +21,8 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <fmt/format.h>     // NOLINT(build/include_order)
 #include <spdlog/spdlog.h>  // NOLINT(build/include_order)
 #include <zlib.h>           // NOLINT(build/include_order)
+
+#include "common/network/utils.h"
 
 #ifdef _WIN32
 #pragma warning(push)
@@ -40,11 +43,13 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include <boost/beast/http.hpp>
 #include <boost/beast/ssl.hpp>
 #include <boost/nowide/convert.hpp>
+#include <camouflage/tls/builder.hpp>
 
 #include "common/network/resolv.h"
 
-#include "fptn-protocol-lib/https/obfuscator/methods/tls/tls_obfuscator.h"
+#include "fptn-protocol-lib/https/obfuscator/methods/tls2/tls_obfuscator2.h"
 #include "fptn-protocol-lib/https/obfuscator/tcp_stream/tcp_stream.h"
+#include "fptn-protocol-lib/https/utils/change_cipher_spec.h"
 #include "fptn-protocol-lib/https/utils/tls/tls.h"
 
 #ifdef _WIN32
@@ -312,50 +317,55 @@ ApiClient ApiClient::Clone() const {
   return temp_client;
 }
 
-bool ApiClient::PerformFakeHandshake(
+bool ApiClient::PerformFakeHandshake2(
     boost::asio::ip::tcp::socket& socket) const {
-  boost::system::error_code ec;
   try {
-    SPDLOG_INFO("Generating and sending fake TLS handshake to {}", sni_);
+    SPDLOG_INFO("Fake TLS handshake started for SNI: {}", sni_);
 
-    const auto handshake_data = utils::GenerateDecoyTlsHandshake(sni_);
-    if (handshake_data.empty()) {
-      SPDLOG_WARN("Failed to generate handshake data for SNI: {}", sni_);
+    /* Send client hello */
+    const auto client_hello = GenerateHandshakePacket();
+    if (client_hello.empty()) {
+      SPDLOG_WARN("Failed to generate ClientHello for SNI: {}", sni_);
+      return false;
+    }
+    const std::size_t client_hello_bytes_size =
+        boost::asio::write(socket, boost::asio::buffer(client_hello));
+    if (client_hello_bytes_size != client_hello.size()) {
+      SPDLOG_ERROR("Error ClientHello sent: {} of {} bytes",
+          client_hello_bytes_size, client_hello.size());
       return false;
     }
 
-    SPDLOG_INFO(
-        "Sending {} bytes of handshake data over TCP", handshake_data.size());
-
-    const std::size_t bytes_sent =
-        boost::asio::write(socket, boost::asio::buffer(handshake_data));
-
-    SPDLOG_INFO("Successfully sent {} bytes of handshake data", bytes_sent);
-
-    std::vector<std::uint8_t> server_response(16384);
-    do {
-      const std::size_t bytes_read =
-          socket.read_some(boost::asio::buffer(server_response), ec);
-      if (bytes_read != 0) {
-        SPDLOG_INFO("Received {}", bytes_read);
-        break;
-      }
-      if (ec) {
-        SPDLOG_INFO("Received error: {}", ec.what());
-        break;
-      }
-    } while (true);
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
-
-    if (!ec) {
-      SPDLOG_INFO("Received {} bytes server response (ignored)",
-          server_response.size());
+    /* Wait for server answer */
+    const auto server_hello = common::network::WaitForServerTlsHello(socket);
+    if (!server_hello.has_value()) {
+      SPDLOG_ERROR("Failed to receive ServerHello from {}", sni_);
+      return false;
     }
-    SPDLOG_INFO("Fake handshake completed successfully");
+
+    // clean
+    common::network::CleanSocket(socket);
+
+    /* Send change cipher spec */
+    const auto change_cipher_spec =
+        fptn::protocol::https::utils::MakeClientChangeCipherSpec();
+    const std::size_t change_cipher_spec_size =
+        boost::asio::write(socket, boost::asio::buffer(change_cipher_spec));
+    if (change_cipher_spec_size != change_cipher_spec.size()) {
+      SPDLOG_ERROR("Failed to send ClientHello to {}: {}",
+          change_cipher_spec_size, change_cipher_spec.size());
+      return false;
+    }
+
+    // timeout
+    std::this_thread::sleep_for(std::chrono::milliseconds(150));
+
+    SPDLOG_INFO(
+        "Fake TLS handshake completed for {}, received {} bytes from server",
+        sni_, server_hello.value().size());
     return true;
   } catch (const std::exception& e) {
-    SPDLOG_ERROR("PerformFakeHandshake exception: {}", e.what());
+    SPDLOG_ERROR("Fake TLS handshake exception for {}: {}", sni_, e.what());
   }
   return false;
 }
@@ -378,7 +388,7 @@ Response ApiClient::GetImpl(const std::string& handle, int timeout) const {
     fptn::protocol::https::obfuscator::IObfuscatorSPtr obfuscator = nullptr;
     if (censorship_strategy_ == CensorshipStrategy::kTlsObfuscator) {
       obfuscator =
-          std::make_shared<fptn::protocol::https::obfuscator::TlsObfuscator>();
+          std::make_shared<fptn::protocol::https::obfuscator::TlsObfuscator2>();
     }
 
     tcp_stream_type tcp_stream(ioc);
@@ -413,8 +423,8 @@ Response ApiClient::GetImpl(const std::string& handle, int timeout) const {
       SetSocketTimeouts(socket, timeout);
 
       // Perform fake handshake if enabled
-      if (censorship_strategy_ == CensorshipStrategy::kSniRealityMode) {
-        const bool perform_status = PerformFakeHandshake(socket);
+      if (IsRealityModeWithFakeHandshake(censorship_strategy_)) {
+        const bool perform_status = PerformFakeHandshake2(socket);
         if (!perform_status) {
           SPDLOG_WARN(
               "GET [{}] - Fake handshake failed, continuing with real "
@@ -424,7 +434,7 @@ Response ApiClient::GetImpl(const std::string& handle, int timeout) const {
         // For Reality Mode we use TLS obfuscator after fake handshake
         // This provides additional encryption layer for the real connection
         stream.next_layer().set_obfuscator(
-            std::make_shared<protocol::https::obfuscator::TlsObfuscator>());
+            std::make_shared<protocol::https::obfuscator::TlsObfuscator2>());
       }
 
       utils::SetHandshakeSessionID(stream.native_handle());
@@ -441,24 +451,14 @@ Response ApiClient::GetImpl(const std::string& handle, int timeout) const {
 
       stream.handshake(boost::asio::ssl::stream_base::client);
 
-      if (obfuscator != nullptr) {
-        constexpr int kMaxRetries = 5;
-        int retry_count = 0;
-        do {
-          std::this_thread::sleep_for(std::chrono::milliseconds(200));
-          retry_count += 1;
-        } while (obfuscator->HasPendingData() && retry_count < kMaxRetries);
-        if (retry_count >= kMaxRetries) {
-          SPDLOG_WARN(
-              "GET [{}] - Failed to clear obfuscator pending data within {} "
-              "attempts for server: {}",
-              handle, retry_count, host_);
-        }
-      }
+      // Reset obfuscator after TLS-handshake
       stream.next_layer().set_obfuscator(nullptr);
 
+      // Clean
+      common::network::CleanSocket(socket);
+      common::network::CleanSsl(ssl);
       // timeout
-      std::this_thread::sleep_for(std::chrono::milliseconds(50));
+      std::this_thread::sleep_for(std::chrono::milliseconds(150));
 
       boost::beast::http::request<boost::beast::http::string_body> req{
           boost::beast::http::verb::get, handle, 11};
@@ -557,7 +557,7 @@ Response ApiClient::PostImpl(const std::string& handle,
     fptn::protocol::https::obfuscator::IObfuscatorSPtr obfuscator = nullptr;
     if (censorship_strategy_ == CensorshipStrategy::kTlsObfuscator) {
       obfuscator =
-          std::make_shared<fptn::protocol::https::obfuscator::TlsObfuscator>();
+          std::make_shared<fptn::protocol::https::obfuscator::TlsObfuscator2>();
     }
 
     tcp_stream_type tcp_stream(ioc);
@@ -592,8 +592,8 @@ Response ApiClient::PostImpl(const std::string& handle,
       SetSocketTimeouts(socket, timeout);
 
       // Perform fake handshake if enabled
-      if (censorship_strategy_ == CensorshipStrategy::kSniRealityMode) {
-        const bool perform_status = PerformFakeHandshake(socket);
+      if (IsRealityModeWithFakeHandshake(censorship_strategy_)) {
+        const bool perform_status = PerformFakeHandshake2(socket);
         if (!perform_status) {
           SPDLOG_WARN(
               "GET [{}] - Fake handshake failed, continuing with real "
@@ -603,7 +603,7 @@ Response ApiClient::PostImpl(const std::string& handle,
         // For Reality Mode we use TLS obfuscator after fake handshake
         // This provides additional encryption layer for the real connection
         stream.next_layer().set_obfuscator(
-            std::make_shared<protocol::https::obfuscator::TlsObfuscator>());
+            std::make_shared<protocol::https::obfuscator::TlsObfuscator2>());
       }
 
       utils::SetHandshakeSessionID(stream.native_handle());
@@ -620,24 +620,14 @@ Response ApiClient::PostImpl(const std::string& handle,
 
       stream.handshake(boost::asio::ssl::stream_base::client);
 
-      if (obfuscator != nullptr) {
-        constexpr int kMaxRetries = 5;
-        int retry_count = 0;
-        do {
-          std::this_thread::sleep_for(std::chrono::milliseconds(200));
-          retry_count += 1;
-        } while (obfuscator->HasPendingData() && retry_count < kMaxRetries);
-        if (retry_count >= kMaxRetries) {
-          SPDLOG_WARN(
-              "POST [{}] - Failed to clear obfuscator pending data within {} "
-              "attempts for server: {}",
-              handle, retry_count, host_);
-        }
-      }
+      // Reset obfuscator after TLS-handshake
       stream.next_layer().set_obfuscator(nullptr);
 
+      // Clean
+      common::network::CleanSocket(socket);
+      common::network::CleanSsl(ssl);
       // timeout
-      std::this_thread::sleep_for(std::chrono::milliseconds(50));
+      std::this_thread::sleep_for(std::chrono::milliseconds(150));
 
       boost::beast::http::request<boost::beast::http::string_body> req{
           boost::beast::http::verb::post, handle, 11};
@@ -736,7 +726,7 @@ bool ApiClient::TestHandshakeImpl(int timeout) const {
     fptn::protocol::https::obfuscator::IObfuscatorSPtr obfuscator = nullptr;
     if (censorship_strategy_ == CensorshipStrategy::kTlsObfuscator) {
       obfuscator =
-          std::make_shared<fptn::protocol::https::obfuscator::TlsObfuscator>();
+          std::make_shared<fptn::protocol::https::obfuscator::TlsObfuscator2>();
     }
 
     tcp_stream_type tcp_stream(ioc);
@@ -780,15 +770,14 @@ bool ApiClient::TestHandshakeImpl(int timeout) const {
     SetSocketTimeouts(socket, timeout);
 
     // Perform fake handshake if enabled
-    if (censorship_strategy_ == CensorshipStrategy::kSniRealityMode) {
+    if (IsRealityModeWithFakeHandshake(censorship_strategy_)) {
       SPDLOG_INFO("TestHandshake - Performing fake handshake");
-      if (!PerformFakeHandshake(socket)) {
+      if (!PerformFakeHandshake2(socket)) {
         SPDLOG_WARN(
             "TestHandshake - Fake handshake failed, continuing with real "
             "handshake");
       }
     }
-
     utils::SetHandshakeSessionID(stream.native_handle());
     utils::SetHandshakeSni(stream.native_handle(), sni_);
 
@@ -891,4 +880,71 @@ bool ApiClient::onVerifyCertificate(
   return false;
 }
 
+std::vector<std::uint8_t> ApiClient::GenerateHandshakePacket() const {
+  auto builder = camouflage::tls::Builder::Create();
+
+  switch (censorship_strategy_) {
+    case CensorshipStrategy::kSniRealityModeChrome147:
+      builder.GoogleChrome(
+          camouflage::tls::google_chrome::Version::kV_147_0_7727_56);
+      break;
+
+    case CensorshipStrategy::kSniRealityModeChrome146:
+      builder.GoogleChrome(
+          camouflage::tls::google_chrome::Version::kV_146_0_7680_178);
+      break;
+    case CensorshipStrategy::kSniRealityModeChrome145:
+      builder.GoogleChrome(
+          camouflage::tls::google_chrome::Version::kV_145_0_7632_46);
+      break;
+
+    case CensorshipStrategy::kSniRealityModeFirefox149:
+      builder.Firefox(camouflage::tls::firefox::Version::kV_149_0);
+      break;
+
+    case CensorshipStrategy::kSniRealityModeSafari26:
+      builder.Safari(camouflage::tls::safari::Version::kV_26_4);
+      break;
+
+    case CensorshipStrategy::kSniRealityModeYandex26:
+      builder.YandexBrowser(
+          camouflage::tls::yandex_browser::Version::kV_26_3_3_881);
+      break;
+
+    case CensorshipStrategy::kSniRealityModeYandex25:
+      builder.YandexBrowser(
+          camouflage::tls::yandex_browser::Version::kV_25_8_3_828);
+      break;
+
+    case CensorshipStrategy::kSniRealityModeYandex24:
+      builder.YandexBrowser(
+          camouflage::tls::yandex_browser::Version::kV_24_12_0_1772);
+      break;
+
+    default:
+      SPDLOG_DEBUG("Using fallback handshake generator for SNI: {}", sni_);
+      return utils::GenerateDecoyTlsHandshake(sni_);
+  }
+
+  SPDLOG_INFO("Generating handshake for SNI: {}", sni_);
+
+  const auto session_id = utils::GenerateDecoyTlsSessionId2();
+  if (!session_id.has_value()) {
+    SPDLOG_WARN("Session ID generation failed for handshake, using fallback");
+    return utils::GenerateDecoyTlsHandshake(sni_);
+  }
+
+  const auto handshake =
+      builder.SetSNI(sni_).SetSessionId(session_id.value()).Generate();
+  if (!handshake.has_value()) {
+    SPDLOG_WARN(
+        "Handshake generation failed for SNI: {}, using fallback", sni_);
+    return utils::GenerateDecoyTlsHandshake(sni_);
+  }
+
+  SPDLOG_INFO("Handshake generated: SNI={}, size={} bytes", sni_,
+      handshake->handshake_packet_size);
+  return std::vector<std::uint8_t>(handshake->handshake_packet,
+      handshake->handshake_packet + handshake->handshake_packet_size);
+}
 }  // namespace fptn::protocol::https

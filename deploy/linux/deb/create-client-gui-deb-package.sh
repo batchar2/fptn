@@ -107,6 +107,7 @@ else
     echo "No TUN interface found."
 fi
 
+chattr -i /etc/resolv.conf
 trap cleanup_dns EXIT
 exec pkexec env -u PKEXEC_UID "SUDO_USER=\$USER" "SUDO_UID=\$(id -u)" "SUDO_GID=\$(id -g)" "\${VARS[@]}" "/bin/sh" -c "exec /opt/fptn/fptn-client-gui \"\$@\"" "\$@"
 

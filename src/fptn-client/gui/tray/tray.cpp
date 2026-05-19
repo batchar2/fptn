@@ -1,5 +1,5 @@
 /*=============================================================================
-Copyright (c) 2024-2025 Stas Skokov
+Copyright (c) 2024-2026 Stas Skokov
 
 Distributed under the MIT License (https://opensource.org/licenses/MIT)
 =============================================================================*/
@@ -30,6 +30,7 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 #include "fptn-protocol-lib/https/obfuscator/methods/tls/tls_obfuscator.h"
 #include "fptn-protocol-lib/time/time_provider.h"
 #include "gui/autoupdate/autoupdate.h"
+#include "gui/server_menu_item_widget/server_menu_item_widget.h"
 #include "gui/style/style.h"
 #include "gui/translations/translations.h"
 #include "plugins/blacklist/domain_blacklist.h"
@@ -41,6 +42,15 @@ Distributed under the MIT License (https://opensource.org/licenses/MIT)
 using fptn::gui::TrayApp;
 
 namespace {
+
+QPixmap LoadIcon(const QString& icon_path, int size = 12) {
+  QPixmap pixmap(icon_path);
+  if (pixmap.isNull()) {
+    return QPixmap();
+  }
+  return pixmap.scaled(
+      size, size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+}
 
 void ShowError(const QString& title, const QString& msg) {
   QMessageBox msg_box;
@@ -79,11 +89,11 @@ TrayApp::TrayApp(const SettingsModelPtr& settings, QObject* parent)
       inactive_icon_path_(":/icons/inactive.ico") {
   (void)parent;
 #ifdef __linux__
-  qApp->setStyleSheet(fptn::gui::ubuntuStyleSheet);
+  qApp->setStyleSheet(fptn::gui::GetUbuntuStyleSheet());
 #elif __APPLE__
-  qApp->setStyleSheet(fptn::gui::macStyleSheet);
+  qApp->setStyleSheet(fptn::gui::GetMacStyleSheet());
 #elif _WIN32
-  qApp->setStyleSheet(fptn::gui::windowsStyleSheet);
+  qApp->setStyleSheet(fptn::gui::GetWindowsStyleSheet());
 #else
 #error "Unsupported system!"
 #endif
@@ -129,12 +139,17 @@ TrayApp::TrayApp(const SettingsModelPtr& settings, QObject* parent)
 
   // Show connection... label
   connecting_label_action_ = new QAction(QObject::tr("Connecting..."), this);
+  connecting_label_action_->setIcon(LoadIcon(":/icons/menu_connection.png"));
+  connect(connecting_label_action_, &QAction::triggered, this,
+      &TrayApp::handleDefaultState);
+
   // Show Disconnecting... label
   disconnecting_label_action_ =
       new QAction(QObject::tr("Disconnecting..."), this);
 
   // Disconect
   disconnect_action_ = new QAction(QObject::tr("Disconnect"), this);
+  disconnect_action_->setIcon(LoadIcon(":/icons/menu_disconnect.png"));
   connect(disconnect_action_, &QAction::triggered, this,
       &TrayApp::onDisconnectFromServer);
 
@@ -149,6 +164,7 @@ TrayApp::TrayApp(const SettingsModelPtr& settings, QObject* parent)
 
   // Settings
   settings_action_ = new QAction(QObject::tr("Settings"), this);
+  settings_action_->setIcon(LoadIcon(":/icons/menu_settings.png"));
   connect(
       settings_action_, &QAction::triggered, this, &TrayApp::onShowSettings);
 
@@ -156,12 +172,15 @@ TrayApp::TrayApp(const SettingsModelPtr& settings, QObject* parent)
   auto_update_action_ = new QAction(
       QObject::tr("New version available") + " " + auto_available_version_,
       this);
+  auto_update_action_->setIcon(
+      LoadIcon(":/icons/menu_new_version_download.png"));
   connect(auto_update_action_, &QAction::triggered, this,
       [this] { OpenWebBrowser(FPTN_GITHUB_PAGE_LINK); });
   auto_update_action_->setVisible(false);
 
   // Quit
   quit_action_ = new QAction(QObject::tr("Quit"), this);
+  quit_action_->setIcon(LoadIcon(":/icons/menu_exit.png"));
   connect(quit_action_, &QAction::triggered, this, &QCoreApplication::quit);
 
   // Show menu
@@ -206,6 +225,13 @@ TrayApp::TrayApp(const SettingsModelPtr& settings, QObject* parent)
     ShowWarning(QObject::tr("VPN Conflict Detected"), message);
   }
 #endif
+  // start pinging
+  settings_->StartPingMonitoring();
+
+  // Show pings
+  ping_update_timer_ = new QTimer(this);
+  connect(ping_update_timer_, &QTimer::timeout, [this]() { UpdatePings(); });
+  ping_update_timer_->start(1000);
 }
 
 void TrayApp::CheckForUpdatesAsync() {
@@ -277,45 +303,49 @@ void TrayApp::UpdateTrayMenu() {
       if (0 != servers_number) {
         smart_connect_action_ =
             new QAction(QObject::tr("Smart Connect"), connect_menu_);
+        smart_connect_action_->setIcon(QIcon(":/icons/ping_green_circle.png"));
         connect(smart_connect_action_, &QAction::triggered, [this]() {
           smart_connect_ = true;
           onConnectToServer();
         });
+
         connect_menu_->addAction(smart_connect_action_);
         connect_menu_->addSeparator();
         // servers
         for (const auto& service : services) {
           // usual servers
           for (const auto& server : service.servers) {
-            auto* server_connect = new QAction(server.name, connect_menu_);
+            auto* action = new ServerMenuItemWidget(
+                server.name, server.ping_ms, connect_menu_);
+            // auto* widget_action = new QWidgetAction(connect_menu_);
+            // widget_action->setDefaultWidget(widget);
+            connect_menu_->addAction(action);
 
             // FIXME
-            connect(
-                server_connect, &QAction::triggered, [this, server, service]() {
-                  smart_connect_ = false;
-                  fptn::utils::speed_estimator::ServerInfo cfg_server;
-                  {
-                    cfg_server.name = server.name.toStdString();
-                    cfg_server.host = server.host.toStdString();
-                    cfg_server.port = server.port;
-                    cfg_server.is_using = server.is_using;
-                    cfg_server.service_name =
-                        service.service_name.toStdString();
-                    cfg_server.username = service.username.toStdString();
-                    cfg_server.password = service.password.toStdString();
-                    cfg_server.md5_fingerprint =
-                        server.md5_fingerprint.toStdString();
-                  }
-                  selected_server_ = cfg_server;
-                  onConnectToServer();
-                });
-            connect_menu_->addAction(server_connect);
+            connect(action, &QAction::triggered, [this, server, service]() {
+              smart_connect_ = false;
+              fptn::utils::speed_estimator::ServerInfo cfg_server;
+              {
+                cfg_server.name = server.name.toStdString();
+                cfg_server.host = server.host.toStdString();
+                cfg_server.port = server.port;
+                cfg_server.is_using = server.is_using;
+                cfg_server.service_name = service.service_name.toStdString();
+                cfg_server.username = service.username.toStdString();
+                cfg_server.password = service.password.toStdString();
+                cfg_server.md5_fingerprint =
+                    server.md5_fingerprint.toStdString();
+              }
+              selected_server_ = cfg_server;
+              onConnectToServer();
+            });
           }
           // Censored zone servers
           for (const auto& server : service.censored_zone_servers) {
             if (!limited_zone_connect_menu_) {
               limited_zone_connect_menu_ = new QMenu(
                   QObject::tr("Limited access servers") + "  ", connect_menu_);
+              connect_menu_->setIcon(LoadIcon(":/icons/menu_server_list.png"));
               connect_menu_->addMenu(limited_zone_connect_menu_);
             }
             auto* server_connect =
@@ -402,10 +432,8 @@ void TrayApp::UpdateTrayMenu() {
     case ConnectionState::Connected: {
       tray_icon_->setIcon(QIcon(active_icon_path_));
       if (disconnect_action_) {
-        disconnect_action_->setText(
-            QString(QObject::tr("Disconnect") + ": %1 (%2)")
-                .arg(QString::fromStdString(selected_server_.name))
-                .arg(QString::fromStdString(selected_server_.service_name)));
+        disconnect_action_->setText(QString(QObject::tr("Disconnect") + ": %1")
+                .arg(QString::fromStdString(selected_server_.name)));
         disconnect_action_->setVisible(true);
       }
       if (speed_widget_) {
@@ -480,10 +508,9 @@ void TrayApp::onDisconnectFromServer() {
     vpn_client_->Stop();
     vpn_client_.reset();
   }
-  if (route_manager_) {
-    route_manager_->Clean();
-    route_manager_.reset();
-  }
+
+  settings_->StartPingMonitoring();
+
   UpdateTrayMenu();
 }
 
@@ -498,14 +525,13 @@ void TrayApp::handleDefaultState() {
   {
     const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
+    cancel_connecting_ = true;
+    settings_->StartPingMonitoring();
+
     connection_state_ = ConnectionState::None;
     if (vpn_client_) {
       vpn_client_->Stop();
       vpn_client_.reset();
-    }
-    if (route_manager_) {
-      route_manager_->Clean();
-      route_manager_.reset();
     }
   }
   UpdateTrayMenu();
@@ -513,17 +539,21 @@ void TrayApp::handleDefaultState() {
 
 void TrayApp::handleConnecting() {
   SPDLOG_INFO("Signal: connecting to server");
+
   const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+  settings_->StopPingMonitoring();
 
   connection_state_ = ConnectionState::Connecting;
   UpdateTrayMenu();
 
   if (!connecting_in_progress_) {  // only once!
+    cancel_connecting_ = false;
     connecting_in_progress_ = true;
 
     QFuture<std::tuple<bool, QString>> future = QtConcurrent::run([this]() {
       QString err_msg;
-      auto status = startVpn(err_msg);
+      const auto status = startVpn(err_msg);
       return std::make_tuple(status, std::move(err_msg));
     });
 
@@ -533,10 +563,11 @@ void TrayApp::handleConnecting() {
           const std::tuple<bool, QString> result = watcher->result();
           watcher->deleteLater();
 
-          bool status = std::get<0>(result);
-          const QString err_msg = std::get<1>(result);
-          emit this->vpnStarted(status, err_msg);
-
+          if (!cancel_connecting_) {
+            const bool status = std::get<0>(result);
+            const QString err_msg = std::get<1>(result);
+            emit this->vpnStarted(status, err_msg);
+          }
           connecting_in_progress_ = false;
         });
     watcher->setFuture(future);
@@ -556,6 +587,8 @@ void TrayApp::handleConnected() {
 void TrayApp::handleDisconnecting() {
   {
     const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+    settings_->StartPingMonitoring();
 
     connection_state_ = ConnectionState::None;
     UpdateTrayMenu();
@@ -647,9 +680,8 @@ void TrayApp::RetranslateUi() {
 
   if (disconnect_action_) {
     const QString disconnect_text =
-        QString(QObject::tr("Disconnect") + ": %1 (%2)")
-            .arg(QString::fromStdString(selected_server_.name))
-            .arg(QString::fromStdString(selected_server_.service_name));
+        QString(QObject::tr("Disconnect") + ": %1")
+            .arg(QString::fromStdString(selected_server_.name));
     disconnect_action_->setText(disconnect_text);
   }
   if (auto_update_action_) {
@@ -660,13 +692,10 @@ void TrayApp::RetranslateUi() {
 
 void TrayApp::stop() {
   SPDLOG_INFO("Stopping TrayApp");
+  settings_->StopPingMonitoring();
   if (vpn_client_) {
     vpn_client_->Stop();
     vpn_client_.reset();
-  }
-  if (route_manager_) {
-    route_manager_->Clean();
-    route_manager_.reset();
   }
 }
 
@@ -687,8 +716,6 @@ void TrayApp::OpenWebBrowser(const std::string& url) {
 
 bool TrayApp::startVpn(QString& err_msg) {
   SPDLOG_DEBUG("Handling connecting state");
-
-  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
 
   const fptn::common::network::IPv4Address tun_interface_address_ipv4(
       FPTN_CLIENT_DEFAULT_ADDRESS_IP4);
@@ -728,17 +755,72 @@ bool TrayApp::startVpn(QString& err_msg) {
                               : FPTN_DEFAULT_SNI;
   fptn::protocol::https::CensorshipStrategy censorship_strategy =
       fptn::protocol::https::CensorshipStrategy::kSni;
-  if (settings_->BypassMethod() == "OBFUSCATION") {
+
+  const auto& bypass_method = settings_->BypassMethod();
+  if (bypass_method == SettingsModel::kBypassMethodSni) {
+    SPDLOG_INFO("Using default spoofing to bypass censorship");
+    censorship_strategy = fptn::protocol::https::CensorshipStrategy::kSni;
+  } else if (bypass_method == SettingsModel::kBypassMethodObfuscation) {
     SPDLOG_INFO("Using obfuscation to bypass censorship");
     censorship_strategy =
         fptn::protocol::https::CensorshipStrategy::kTlsObfuscator;
-  } else if (settings_->BypassMethod() == "SNI-REALITY") {
-    SPDLOG_INFO("Using reality mode to bypass censorship");
+  } else if (bypass_method == SettingsModel::kBypassMethodSniReality) {
+    // DEPRECATED
+    SPDLOG_INFO("Using generic reality mode to bypass censorship");
     censorship_strategy =
         fptn::protocol::https::CensorshipStrategy::kSniRealityMode;
-  } else {
-    SPDLOG_INFO("Using SNI spoofing to bypass censorship");
   }
+  /* chrome */
+  else if (bypass_method == SettingsModel::kBypassMethodSniRealityChrome147) {
+    SPDLOG_INFO("Using Chrome 147 reality mode to bypass censorship");
+    censorship_strategy =
+        fptn::protocol::https::CensorshipStrategy::kSniRealityModeChrome147;
+  } else if (bypass_method == SettingsModel::kBypassMethodSniRealityChrome146) {
+    SPDLOG_INFO("Using Chrome 146 reality mode to bypass censorship");
+    censorship_strategy =
+        fptn::protocol::https::CensorshipStrategy::kSniRealityModeChrome146;
+  } else if (bypass_method == SettingsModel::kBypassMethodSniRealityChrome145) {
+    SPDLOG_INFO("Using Chrome 145 reality mode to bypass censorship");
+    censorship_strategy =
+        fptn::protocol::https::CensorshipStrategy::kSniRealityModeChrome145;
+  }
+  /* firefox */
+  else if (bypass_method == SettingsModel::kBypassMethodSniRealityFirefox149) {
+    SPDLOG_INFO("Using Firefox 149 reality mode to bypass censorship");
+    censorship_strategy =
+        fptn::protocol::https::CensorshipStrategy::kSniRealityModeFirefox149;
+  }
+  /* Yandex */
+  else if (bypass_method == SettingsModel::kBypassMethodSniRealityYandex26) {
+    SPDLOG_INFO("Using Yandex 26 reality mode to bypass censorship");
+    censorship_strategy =
+        fptn::protocol::https::CensorshipStrategy::kSniRealityModeYandex26;
+  } else if (bypass_method == SettingsModel::kBypassMethodSniRealityYandex25) {
+    SPDLOG_INFO("Using Yandex 25 reality mode to bypass censorship");
+    censorship_strategy =
+        fptn::protocol::https::CensorshipStrategy::kSniRealityModeYandex25;
+  } else if (bypass_method == SettingsModel::kBypassMethodSniRealityYandex24) {
+    SPDLOG_INFO("Using Yandex 24 reality mode to bypass censorship");
+    censorship_strategy =
+        fptn::protocol::https::CensorshipStrategy::kSniRealityModeYandex24;
+  }
+  /* Safari */
+  else if (bypass_method == SettingsModel::kBypassMethodSniRealitySafari26) {
+    SPDLOG_INFO("Using Safari 26 reality mode to bypass censorship");
+    censorship_strategy =
+        fptn::protocol::https::CensorshipStrategy::kSniRealityModeSafari26;
+  }
+  /* Default */
+  else {
+    SPDLOG_INFO("Using default SNI spoofing to bypass censorship");
+    censorship_strategy =
+        fptn::protocol::https::CensorshipStrategy::kSniRealityModeYandex25;
+  }
+
+  if (cancel_connecting_) {
+    return false;
+  }
+
   fptn::config::ConfigFile config(sni, censorship_strategy);  // SET SNI
   if (smart_connect_) {  // find the best server
     for (const auto& service : settings_->Services()) {
@@ -763,30 +845,30 @@ bool TrayApp::startVpn(QString& err_msg) {
       err_msg = QObject::tr("Config error: ") + err.what();
       return false;
     }
-  } else {
-    // check connection to selected server
-    const std::uint64_t time = config.GetDownloadTimeMs(
-        selected_server_, sni, 30, selected_server_.md5_fingerprint);
-    if (time == UINT64_MAX) {
-      err_msg = QString(
-          QObject::tr("The server is unavailable. Please select another server "
-                      "or use Auto-connect to find the best available server."))
-                    .arg(QString::fromStdString(selected_server_.host));
-      return false;
-    }
   }
 
   const auto server_ip = fptn::routing::ResolveDomain(selected_server_.host);
   if (server_ip == fptn::common::network::IPv4Address()) {
-    err_msg = QString(QObject::tr("DNS resolution error") + ": %1")
-                  .arg(QString::fromStdString(selected_server_.host));
+    err_msg = QObject::tr(
+        "The server is unavailable. Please select another server "
+        "or use Auto-connect to find the best available server.");
     return false;
   }
 
-  auto http_client = std::make_unique<fptn::vpn::http::Client>(server_ip,
-      selected_server_.port, tun_interface_address_ipv4,
-      tun_interface_address_ipv6, sni, selected_server_.md5_fingerprint,
-      censorship_strategy);
+  if (cancel_connecting_) {
+    return false;
+  }
+
+  auto http_client = std::make_unique<fptn::vpn::http::Client>(
+      fptn::protocol::https::WebsocketClient::Config{.server_ip = server_ip,
+          .server_port = selected_server_.port,
+          .sni = sni,
+          .expected_md5_fingerprint = selected_server_.md5_fingerprint,
+          .censorship_strategy = censorship_strategy,
+          .on_connected_callback = nullptr,
+          .on_ip_assigned_callback = nullptr,
+          .new_ip_pkt_callback = nullptr});
+
   // login
   bool login_status =
       http_client->Login(selected_server_.username, selected_server_.password);
@@ -801,12 +883,20 @@ bool TrayApp::startVpn(QString& err_msg) {
     return false;
   }
 
+  if (cancel_connecting_) {
+    return false;
+  }
+
   // get dns
   const auto [dns_server_ipv4, dns_server_ipv6] = http_client->GetDns();
   if (dns_server_ipv4.IsEmpty() || dns_server_ipv6.IsEmpty()) {
     const std::string error = http_client->LatestError();
     err_msg = QObject::tr("DNS server error! Check your connection!") + "\n\n" +
               QObject::tr("Error message: ") + QString::fromStdString(error);
+    return false;
+  }
+
+  if (cancel_connecting_) {
     return false;
   }
 
@@ -817,18 +907,41 @@ bool TrayApp::startVpn(QString& err_msg) {
   const QString split_tunnel_mode = settings_->SplitTunnelMode();
   const auto split_tunnel_domains = settings_->SplitTunnelDomains();
 
-  // route manager
-  route_manager_ = std::make_unique<fptn::routing::RouteManager>(
-      network_interface, tun_interface_name, server_ip, dns_server_ipv4,
-      dns_server_ipv6, gateway_ip, gateway_ipv6, tun_interface_address_ipv4,
-      tun_interface_address_ipv6
+  /* route manager */
+  std::vector<std::string> exclude_networks_std;
+  if (!exclude_networks.empty()) {
+    for (const auto& network : exclude_networks) {
+      exclude_networks_std.push_back(network.toStdString());
+    }
+  }
+  std::vector<std::string> include_networks_std;
+  if (!include_networks.empty()) {
+    for (const auto& network : include_networks) {
+      include_networks_std.push_back(network.toStdString());
+    }
+  }
+  auto route_manager = std::make_shared<fptn::routing::RouteManager>(
+      fptn::routing::RouteManager::Config{
+          .out_interface_name = network_interface,
+          .vpn_server_ip = server_ip,
+          .dns_server_ipv4 = dns_server_ipv4,
+          .dns_server_ipv6 = dns_server_ipv6,
+          .gateway_ipv4 = gateway_ip,
+          .gateway_ipv6 = gateway_ipv6,
+          .exclude_networks = exclude_networks_std,
+          .include_networks = include_networks_std
 #if _WIN32
-      ,
-      settings_->EnableAdvancedDnsManagement()
+          ,
+          .enable_advanced_dns_management =
+              settings_->EnableAdvancedDnsManagement()
 #endif
-  );  // NOLINT
+      });
 
-  // setup plugins
+  if (cancel_connecting_) {
+    return false;
+  }
+
+  /* plugins */
   std::vector<fptn::plugin::BasePluginPtr> client_plugins;
   if (!blacklist_domains.empty()) {
     std::vector<std::string> blacklist_domains_std;
@@ -836,7 +949,7 @@ bool TrayApp::startVpn(QString& err_msg) {
       blacklist_domains_std.push_back(domain.toStdString());
     }
     auto blacklist_plugin = std::make_unique<fptn::plugin::DomainBlacklist>(
-        blacklist_domains_std, route_manager_);
+        blacklist_domains_std, route_manager);
     client_plugins.push_back(std::move(blacklist_plugin));
   }
   if (enable_split_tunnel) {
@@ -850,27 +963,37 @@ bool TrayApp::startVpn(QString& err_msg) {
                             : fptn::routing::RoutingPolicy::kIncludeInVpn;
 
     auto split_tunnel_plugin = std::make_unique<fptn::plugin::Tunneling>(
-        split_domains_std, route_manager_, policy);
+        split_domains_std, route_manager, policy);
     client_plugins.push_back(std::move(split_tunnel_plugin));
+  }
+
+  if (cancel_connecting_) {
+    return false;
   }
 
   // setup tun interface
   auto virtual_network_interface =
-      std::make_unique<fptn::common::network::TunInterface>(
-          fptn::common::network::TunInterface::Config{
-              tun_interface_name, tun_interface_address_ipv4,
-              30,  // IPv4 netmask
-              tun_interface_address_ipv6,
-              126  // IPv6 netmask
-          });
+      std::make_shared<fptn::common::network::TunInterface>(
+          tun_interface_name, FPTN_DEFAULT_MTU_SIZE);
 
-  // setup vpn client с плагинами
-  vpn_client_ = std::make_unique<fptn::vpn::VpnClient>(std::move(http_client),
-      std::move(virtual_network_interface), dns_server_ipv4, dns_server_ipv6,
-      std::move(client_plugins));
+  // setup vpn client
+  vpn_client_ = std::make_unique<fptn::vpn::VpnManager>(
+      fptn::vpn::VpnManager::Config{.http_client = std::move(http_client),
+          .route_manager = route_manager,
+          .virtual_net_interface = virtual_network_interface,
+          .plugins = std::move(client_plugins)});
+
+  if (cancel_connecting_) {
+    return false;
+  }
 
   // Wait for the WebSocket tunnel to establish
   vpn_client_->Start();
+
+  if (cancel_connecting_) {
+    return false;
+  }
+
   constexpr auto kTimeout = std::chrono::seconds(10);
   const auto start = std::chrono::steady_clock::now();
   while (!vpn_client_->IsStarted()) {
@@ -881,25 +1004,7 @@ bool TrayApp::startVpn(QString& err_msg) {
     std::this_thread::sleep_for(std::chrono::microseconds(300));
   }
 
-  route_manager_->Apply();
-
-  if (!exclude_networks.empty()) {
-    std::vector<std::string> exclude_networks_std;
-    for (const auto& network : exclude_networks) {
-      exclude_networks_std.push_back(network.toStdString());
-    }
-    route_manager_->AddExcludeNetworks(exclude_networks_std);
-  }
-
-  if (!include_networks.empty()) {
-    std::vector<std::string> include_networks_std;
-    for (const auto& network : include_networks) {
-      include_networks_std.push_back(network.toStdString());
-    }
-    route_manager_->AddIncludeNetworks(include_networks_std);
-  }
-
-  return true;
+  return !cancel_connecting_;
 }
 
 bool TrayApp::stopVpn() {
@@ -908,19 +1013,40 @@ bool TrayApp::stopVpn() {
     vpn_client_->Stop();
     vpn_client_.reset();
   }
-  if (route_manager_) {
-    route_manager_->Clean();
-    route_manager_.reset();
-  }
   return true;
 }
 
 void TrayApp::handleVpnStarted(bool success, const QString& err_msg) {
+  cancel_connecting_ = false;
   if (success) {
     emit connected();
   } else {
     ShowError(QObject::tr("FPTN Connection Error"), err_msg);
-
     emit disconnecting();
+
+    settings_->StartPingMonitoring();
+  }
+}
+
+void TrayApp::UpdatePings() {
+  const std::unique_lock<std::mutex> lock(mutex_);  // mutex
+
+  if (connection_state_ == ConnectionState::Connected ||
+      connection_state_ == ConnectionState::Connecting ||
+      connection_state_ == ConnectionState::Disconnecting) {
+    return;
+  }
+
+  for (auto* action : connect_menu_->actions()) {
+    if (auto* server_action = qobject_cast<ServerMenuItemWidget*>(action)) {
+      for (const auto& service : settings_->Services()) {
+        for (const auto& server : service.servers) {
+          if (server.name == server_action->ServerName()) {
+            server_action->UpdatePing(server.ping_ms);
+            break;
+          }
+        }
+      }
+    }
   }
 }
